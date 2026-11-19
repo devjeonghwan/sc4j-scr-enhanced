@@ -159,8 +159,8 @@ final class LinkLobbyLossTest {
             LanLobby lobby = joiner.getLobby();
 
             return joiner.getState() == LanClient.State.LOBBY && lobby != null && lobby.getState() >= LanLobby.STATE_LOBBY;
-        }, () -> {
-        }, "the joiner reaches the lobby");
+        }, () -> Assertions.assertNotEquals(LanClient.State.FAILED, joiner.getState(), () -> "the join failed: " + joiner.getJoinFailure()),
+                        "the joiner reaches the lobby");
     }
 
     @Test

@@ -175,7 +175,7 @@ final class LinkMapExtensionTest {
         }
 
         void runUntil(@NotNull BooleanSupplier condition, @NotNull Runnable frame, @NotNull String description) throws IOException,
-                                                                                                                               InterruptedException {
+                                                                                                                       InterruptedException {
             long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PHASE_LIMIT_MILLISECONDS);
 
             while (!condition.getAsBoolean()) {

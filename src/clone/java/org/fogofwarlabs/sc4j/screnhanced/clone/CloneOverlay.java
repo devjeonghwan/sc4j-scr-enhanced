@@ -212,13 +212,18 @@ public final class CloneOverlay {
 
         for (String path : listPaths(this.overlayFolder)) {
             String recorded = lock.get(path);
+
+            if (recorded != null && recorded.equals(computeBaseHash(modFolder, path))) {
+                continue;
+            }
+
             List<String> now = readLines(modFolder.resolve(path));
             List<String> overlay = readLines(this.overlayFolder.resolve(path));
 
             if (recorded == null) {
                 builder.append(path).append(": not recorded in ").append(this.lockFile.getFileName()).append('\n');
                 builder.append(LineDiffUtils.formatUnified("base now", now, "overlay", overlay));
-            } else if (!recorded.equals(computeBaseHash(modFolder, path))) {
+            } else {
                 List<String> then = readLines(this.baseFolder.resolve(path));
 
                 builder.append(path).append(": the SC:R mod's change\n");
