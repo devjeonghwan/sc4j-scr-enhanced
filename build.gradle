@@ -1,0 +1,198 @@
+plugins {
+    id 'org.fogofwarlabs.sc4j.mod'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+}
+
+// SC:R Enhanced: a patch of the SC:R mod with its own mod identity. The repository holds no copy of the SC:R mod's sources: cloneScrMod copies
+// the main sources and resources of every SC:R mod module into build/clone (one folder per module) and copies the overlay (overlay/, the same
+// folder layout) over them, after checking against overlay.lock that no SC:R mod file under an overlay file changed; the source set "mod"
+// compiles that clone with the mod's own classes and resources (src/mod), and jar packages it as scr-enhanced.jar. Like scr.jar, the jar holds
+// no StarCraft: Remastered asset or data file: the mod reads them from the user's installation. The main source set stays empty; the tests
+// (src/test) use the built jars and the real SC:R mod modules.
+
+// The SC:R build's folder (the submodule scr, which settings.gradle includes), and its module folders and their compiler arguments
+// (mod.properties there).
+def scrFolder = file('scr')
+def scrModProperties = new File(scrFolder, 'mod.properties')
+def scrProperties = new Properties()
+scrModProperties.withReader('UTF-8') { reader -> scrProperties.load(reader) }
+def scrModuleNames = scrProperties.getProperty('modules').split(',').toList()
+def scrCompilerArgs = scrProperties.getProperty('compilerArgs').split(' ').toList()
+// The engine modules of the engine version that the SC:R build names, and the projects of the SC:R build.
+def scrBuildProperties = new Properties()
+new File(scrFolder, 'gradle.properties').withReader('UTF-8') { reader -> scrBuildProperties.load(reader) }
+def engineModule = { String name -> 'org.fogofwarlabs.sc4j:' + name + ':' + scrBuildProperties.getProperty('sc4jVersion') }
+def scrModule = { String name -> 'org.fogofwarlabs.sc4j:' + name }
+def overlay = file('overlay')
+def modResources = file('src/mod/resources')
+def overlayLock = file('overlay.lock')
+def overlayBase = file('overlay-base')
+def cloneRoot = layout.buildDirectory.dir('clone')
+
+sourceSets {
+    // The clone tool (src/clone/java): ScrModClone, the overlay and its lock (CloneOverlay). It runs at build time only.
+    clone {
+        java {
+            srcDir 'src/clone/java'
+        }
+    }
+    // The clone of the SC:R mod with the overlay: the sources and resources of every module folder under build/clone, and the mod's own classes
+    // and resources (src/mod, package org.fogofwarlabs.sc4j.screnhanced).
+    mod {
+        java {
+            srcDirs = [file('src/mod/java')] + scrModuleNames.collect { name -> cloneRoot.map { directory -> directory.dir(name + '/src/main/java') } }
+        }
+        resources {
+            srcDirs = [file('src/mod/resources')] + scrModuleNames.collect { name -> cloneRoot.map { directory -> directory.dir(name + '/src/main/resources') } }
+        }
+    }
+}
+
+sc4jMod {
+    id = 'scr-enhanced'
+    sourceSets = [project.sourceSets.mod]
+}
+
+// The third-party libraries of the SC:R mod modules (LWJGL, FFmpeg/JavaCPP, ...), resolved from the modules themselves so that the clone
+// compiles against what the SC:R mod uses. The engine modules come from the mod plugin and the dependencies below.
+def scrModuleDependencies = configurations.dependencyScope('scrModules')
+def scrModuleClasspath = configurations.resolvable('scrModuleClasspath') {
+    extendsFrom scrModuleDependencies.get()
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+    }
+}
+def scrLibraries = files(scrModuleClasspath.map { configuration ->
+    configuration.incoming.artifactView {
+        componentFilter { component -> component instanceof ModuleComponentIdentifier && component.group != 'org.fogofwarlabs.sc4j' }
+    }.files
+})
+
+// scr.jar of the SC:R mod, as the variant of its project.
+def scrModJarDependencies = configurations.dependencyScope('scrModJar')
+def scrModJarFiles = configurations.resolvable('scrModJarFiles') {
+    extendsFrom scrModJarDependencies.get()
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, 'sc4j-mod-jar'))
+}
+
+// The mod's own classes (package org.fogofwarlabs.sc4j.screnhanced) without the clone, for the unit tests of those classes.
+def enhancedClasses = tasks.register('enhancedClasses', Sync) {
+    description = "Copies the mod's own compiled classes, without the clone of the SC:R mod, for the tests."
+    from sourceSets.mod.output.classesDirs
+    include 'org/fogofwarlabs/sc4j/screnhanced/**'
+    into layout.buildDirectory.dir('enhanced-classes')
+}
+
+dependencies {
+    cloneImplementation engineModule('sc4j-base')
+
+    // The mod API and the base: at run time the runtime provides them, scr-enhanced.jar does not hold them (like scr.jar).
+    modImplementation engineModule('sc4j-base')
+    modImplementation scrLibraries
+
+    testImplementation sourceSets.clone.output
+    testImplementation files(enhancedClasses)
+    testImplementation engineModule('sc4j-runtime')
+    // The SC:R mod's entry, the mod the patch is compared with.
+    testImplementation scrModule('scr-client')
+    // The SC:R game module, whose types the tests of the mod's own classes use.
+    testImplementation scrModule('scr-game')
+    // The live map scenario of the local map check (ClassicMapCheckTest).
+    testImplementation testFixtures(scrModule('scr-game'))
+    // The service resources of the mod's own game extensions, which the games of the tests load.
+    testRuntimeOnly files(modResources)
+    // The SC:R network module and the lobby settings of the overlay (SC:R Enhanced's LAN join version), which the lobby tests read before
+    // those of the module.
+    testRuntimeOnly files(new File(overlay, 'scr-net/src/main/resources'))
+    testImplementation scrModule('scr-net')
+    // The Beacon.Link nodes and clients on 127.0.0.1 of the lobby tests over Beacon.Link.
+    testImplementation testFixtures(engineModule('sc4j-beaconlink'))
+    testImplementation scrLibraries
+    // The installation input of the integration tier (ExternalInput, RequiresInstallation).
+    testImplementation testFixtures(scrModule('scr-data'))
+    // The installation records that the install test lays out.
+    testImplementation testFixtures(engineModule('sc4j-mod-manifest'))
+
+    scrModuleNames.each { name -> scrModules scrModule(name) }
+    scrModJar scrModule('scr')
+}
+
+// The clone tool's tasks. A failure of the tool (a changed SC:R mod file under an overlay file, an overlay file the lock does not record)
+// is one plain line, which becomes the build's failure message.
+def configureCloneTool = { JavaExec task, String mode ->
+    def errors = new ByteArrayOutputStream()
+    task.group = 'build'
+    task.classpath = sourceSets.clone.runtimeClasspath
+    task.mainClass = 'org.fogofwarlabs.sc4j.screnhanced.clone.ScrModClone'
+    task.errorOutput = errors
+    task.ignoreExitValue = true
+    task.argumentProviders.add({
+        [mode, scrFolder.absolutePath, overlay.absolutePath, overlayLock.absolutePath, overlayBase.absolutePath, ':']
+    } as CommandLineArgumentProvider)
+    task.doFirst {
+        errors.reset()
+    }
+    task.doLast {
+        if (task.executionResult.get().exitValue != 0) {
+            def message = errors.toString('UTF-8').trim()
+            throw new GradleException(message.isEmpty() ? 'The clone tool failed with the exit value ' + task.executionResult.get().exitValue + '.' : message)
+        }
+    }
+}
+
+def cloneScrMod = tasks.register('cloneScrMod', JavaExec) { task ->
+    description = 'Clones the main sources of the SC:R mod into build/clone and copies the overlay of SC:R Enhanced over them.'
+    configureCloneTool(task, 'clone')
+    scrModuleNames.each { name -> inputs.dir(new File(scrFolder, name + '/src/main')).withPropertyName('scrSources-' + name) }
+    inputs.files(scrModProperties).withPropertyName('scrModProperties')
+    inputs.dir(overlay).withPropertyName('overlay')
+    inputs.files(overlayLock).withPropertyName('overlayLock')
+    outputs.dir(cloneRoot)
+    argumentProviders.add({
+        [cloneRoot.get().asFile.absolutePath] + scrModuleNames
+    } as CommandLineArgumentProvider)
+    doFirst {
+        project.delete(cloneRoot)
+    }
+}
+
+tasks.register('overlayDiff', JavaExec) { task ->
+    description = "Shows, for each overlay file whose SC:R mod file changed, the SC:R mod's change and the overlay's change."
+    configureCloneTool(task, 'diff')
+}
+
+tasks.register('acceptOverlay', JavaExec) { task ->
+    description = 'Records the SC:R mod file of each overlay file in overlay.lock and overlay-base, after a change was merged by hand.'
+    configureCloneTool(task, 'accept')
+}
+
+// The clone compiles with the SC:R mod's compiler arguments, so that the classes of the unchanged SC:R sources equal those of scr.jar.
+tasks.named('compileModJava') {
+    dependsOn cloneScrMod
+    options.compilerArgs += scrCompilerArgs
+}
+
+tasks.named('processModResources') {
+    dependsOn cloneScrMod
+}
+
+def modJar = tasks.named('jar')
+
+// The tests read scr-enhanced.jar and scr.jar as a user's mods/ folder has them.
+tasks.withType(Test).configureEach {
+    dependsOn modJar
+    inputs.files(scrModJarFiles).withPropertyName('scrModJar')
+    systemProperty 'sc4j.screnhanced.jar', modJar.get().archiveFile.get().asFile.absolutePath
+    jvmArgumentProviders.add({ ['-Dsc4j.scr.jar=' + scrModJarFiles.get().singleFile.absolutePath] } as CommandLineArgumentProvider)
+    systemProperty 'sc4j.screnhanced.overlay', overlay.absolutePath
+    systemProperty 'sc4j.screnhanced.resources', modResources.absolutePath
+    // The local map check: the map (-Psc4j.screnhanced.classicMap=<file>) and the folder of its drawn sheets, both outside the repository.
+    systemProperty 'sc4j.screnhanced.classicMap', providers.gradleProperty('sc4j.screnhanced.classicMap').getOrElse('')
+    systemProperty 'sc4j.screnhanced.classicMapOutput', providers.gradleProperty('sc4j.screnhanced.classicMapOutput').getOrElse('')
+    // The local image map check: the folder of raw test maps (-Psc4j.screnhanced.imageMaps=<folder>), outside the repository.
+    systemProperty 'sc4j.screnhanced.imageMaps', providers.gradleProperty('sc4j.screnhanced.imageMaps').getOrElse('')
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+    maxHeapSize = '4g'
+}
