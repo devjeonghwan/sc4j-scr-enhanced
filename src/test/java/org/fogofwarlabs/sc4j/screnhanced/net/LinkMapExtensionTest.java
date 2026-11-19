@@ -157,25 +157,25 @@ final class LinkMapExtensionTest {
      * Drives the clients in real time: the protocol clock follows the real time, the nodes and sessions are polled, and every client runs its
      * network once a frame.
      */
-    private static final class Driver {
+    static final class Driver {
         private final @NotNull ClientScenario link;
         private final @NotNull List<@NotNull LanClient> clients;
         private final long realStart;
         private final long protocolStart;
 
-        private Driver(@NotNull ClientScenario link, @NotNull List<@NotNull LanClient> clients) {
+        Driver(@NotNull ClientScenario link, @NotNull List<@NotNull LanClient> clients) {
             this.link          = link;
             this.clients       = clients;
             this.realStart     = System.nanoTime();
             this.protocolStart = link.getClock().getEpochMillis();
         }
 
-        private long getElapsedMilliseconds() {
+        long getElapsedMilliseconds() {
             return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.realStart);
         }
 
-        private void runUntil(@NotNull BooleanSupplier condition, @NotNull Runnable frame, @NotNull String description) throws IOException,
-                                                                                                                               InterruptedException {
+        void runUntil(@NotNull BooleanSupplier condition, @NotNull Runnable frame, @NotNull String description) throws IOException,
+                                                                                                                       InterruptedException {
             long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PHASE_LIMIT_MILLISECONDS);
 
             while (!condition.getAsBoolean()) {
@@ -208,16 +208,16 @@ final class LinkMapExtensionTest {
     }
 
     /**
-     * Creates the scenario of the hosted game.
+     * Creates the scenario of a hosted game whose first slots are open.
      */
-    private static @NotNull ChkFile createScenario() throws IOException {
+    static @NotNull ChkFile createScenario(int openSlots) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] owners = new byte[SLOTS];
         byte[] races = new byte[SLOTS];
         ByteBuffer version = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.LITTLE_ENDIAN);
         ByteBuffer dimensions = ByteBuffer.allocate(Short.BYTES * 2).order(ByteOrder.LITTLE_ENDIAN);
 
-        for (int slot = 0; slot < OPEN_SLOTS; slot++) {
+        for (int slot = 0; slot < openSlots; slot++) {
             owners[slot] = (byte) LanLobby.TYPE_OPEN;
             races[slot]  = (byte) SELECTABLE_RACE;
         }
@@ -247,7 +247,7 @@ final class LinkMapExtensionTest {
         return LanClient.open(name, new BeaconLinkProvider(session), MapFolders.of(List.of(maps), LanMapTransfer.DOWNLOAD_FOLDER));
     }
 
-    private static @NotNull LanLobby requireLobby(@NotNull LanClient client) {
+    static @NotNull LanLobby requireLobby(@NotNull LanClient client) {
         LanLobby lobby = client.getLobby();
 
         Assertions.assertNotNull(lobby);
@@ -260,7 +260,7 @@ final class LinkMapExtensionTest {
         Path mapPath = Files.write(folder.resolve(MAP_NAME), new byte[]{1, 2, 3});
 
         try (LanClient client = LanClient.open("host", new SilentNetwork(), MapFolders.of(List.of(folder), LanMapTransfer.DOWNLOAD_FOLDER))) {
-            client.host(GAME_NAME, LanClient.HostedMap.read(mapPath, createScenario(), MAP_NAME), LanGameOptions.MELEE, GameSpeed.FASTEST);
+            client.host(GAME_NAME, LanClient.HostedMap.read(mapPath, createScenario(OPEN_SLOTS), MAP_NAME), LanGameOptions.MELEE, GameSpeed.FASTEST);
 
             Assertions.assertEquals(ENHANCED_JOIN_VERSION, LanLobby.JOIN_VERSION, "SC:R Enhanced's own LAN join version");
             Assertions.assertNull(requireLobby(client).getMapTransfer().getDownloader());
@@ -287,7 +287,8 @@ final class LinkMapExtensionTest {
                 LanClient host = openClient(link, node, identity, "host", hostMaps);
 
                 clients.add(host);
-                host.host(GAME_NAME, LanClient.HostedMap.read(mapPath, createScenario(), MAP_NAME), LanGameOptions.MELEE, GameSpeed.FASTEST);
+                host.host(GAME_NAME, LanClient.HostedMap.read(mapPath, createScenario(OPEN_SLOTS), MAP_NAME), LanGameOptions.MELEE,
+                          GameSpeed.FASTEST);
 
                 Assertions.assertInstanceOf(LinkMapDownloader.class, requireLobby(host).getMapTransfer().getDownloader());
 

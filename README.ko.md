@@ -28,7 +28,13 @@
 
 모든 플레이어가 SC:R Enhanced인 Beacon.Link 방에서는 로비 맵을 SC4J 엔진의 전송으로 받아, 스타크래프트의 맵 전송보다 훨씬 빠릅니다. 다른 방은 스타크래프트의 맵 전송을 씁니다.
 
-### 2. EUD GRP
+### 2. 대용량 맵
+
+스타크래프트는 `scenario.chk`가 256 MiB보다 큰 맵을 거부하지만, SC:R Enhanced는 2 GiB까지 읽으므로 EUD GRP와 anim을 많이 담은 맵도 플레이할 수 있습니다.
+
+모든 플레이어가 SC:R Enhanced인 Beacon.Link 방에서는 이런 맵도 고속 맵 전송으로 받습니다.
+
+### 3. EUD GRP
 
 ![메모리에 쓴 GRP를 그리는 1.16 EUD 맵](docs/images/eud-grp.webp)
 
@@ -36,7 +42,7 @@
 
 맵이 메모리에 쓴 자원 아이콘, 지형 그림, 게임 화면 픽셀도 그리고, 콘솔은 맵이 바꾼 다이얼로그와 컨트롤의 배치와 투명도를 따릅니다.
 
-### 3. EUD ANIM
+### 4. EUD ANIM
 
 ![마린의 HD 그래픽을 anim으로 바꾼 EUD 맵](docs/images/eud-anim.webp)
 

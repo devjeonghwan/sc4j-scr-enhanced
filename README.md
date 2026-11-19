@@ -28,7 +28,13 @@ A patch of the [SC:R mod](https://github.com/fogofwarlabs/sc4j-scr) as its own S
 
 In a Beacon.Link room where every player runs SC:R Enhanced, the lobby map arrives through the SC4J engine's transfer, much faster than StarCraft's map transfer. Other rooms keep StarCraft's map transfer.
 
-### 2. EUD GRP
+### 2. Large maps
+
+StarCraft refuses a map whose `scenario.chk` is larger than 256 MiB; SC:R Enhanced reads it up to 2 GiB, so maps that carry many EUD GRPs and anims play.
+
+In a Beacon.Link room where every player runs SC:R Enhanced, fast map download sends these maps too.
+
+### 3. EUD GRP
 
 ![A 1.16 EUD map drawing the GRPs it writes to memory](docs/images/eud-grp.webp)
 
@@ -36,7 +42,7 @@ As in 1.16, an EUD map draws the GRP it writes to memory: write the GRP's addres
 
 It also draws the resource icons, terrain pictures and game screen pixels a map writes to memory, and the console follows the layout of the dialogs and controls and the transparency a map changes.
 
-### 3. EUD ANIM
+### 4. EUD ANIM
 
 ![An EUD map replacing the Marine's HD graphics with an anim](docs/images/eud-anim.webp)
 

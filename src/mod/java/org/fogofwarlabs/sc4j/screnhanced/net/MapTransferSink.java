@@ -26,10 +26,10 @@ final class MapTransferSink implements TransferSink {
     }
 
     /**
-     * @return a copy of the bytes held
+     * @return the bytes held: the map's array when it holds the whole map, else a copy of the bytes held
      */
     byte @NotNull [] getBytes() {
-        return Arrays.copyOf(this.data, this.length);
+        return this.length == this.data.length ? this.data : Arrays.copyOf(this.data, this.length);
     }
 
     /**
