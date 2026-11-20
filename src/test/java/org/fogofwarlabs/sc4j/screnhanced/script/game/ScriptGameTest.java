@@ -160,7 +160,7 @@ final class ScriptGameTest {
                     attempt('create', function () { core.unit.create(0, 0, 32, 32); });
                     attempt('kill', function () { core.unit.kill(1); });
                     attempt('location', function () { core.location.setBounds(0, 0, 0, 32, 32); });
-                    attempt('data', function () { UnitType.TerranMarine.setMaxHp(1); });
+                    attempt('data', function () { UnitType.TerranMarine.setHitPoints(256); });
                 }
                 """);
 

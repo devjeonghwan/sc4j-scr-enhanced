@@ -37,9 +37,9 @@ import java.util.Map;
  * modes.
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
- * {@code terrain}, {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType},
- * {@code imageType}, {@code resources}, {@code graphics} and {@code sync} take and return ids and raw values (hit points, shields and energy
- * in {@code 1/256} units, supply in half units); a write takes the routine that the trigger action or the order system runs for it. A text
+ * {@code terrain}, {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType},
+ * {@code upgradeType}, {@code techType}, {@code orderType}, {@code dat}, {@code resources}, {@code graphics} and {@code sync} take and return
+ * ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them); a write takes the routine that the trigger action or the order system runs for it. A text
  * that a routine shows as a map string takes a registered map string ({@link #findStringIndex}). The graphics replacements
  * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes. The channels ({@link ScriptSyncCore}) carry values from one
  * peer to every peer. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as
@@ -126,6 +126,7 @@ public final class ScriptGame {
         new ScriptTerrainCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "terrain"), global);
         new ScriptLeaderboardCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "leaderboard"), global);
         ScriptTypeCore.define(context, scriptGame, core, global);
+        new ScriptDatCore(scriptGame).define(context, ScriptCoreUtils.createNamespace(context, global, core, "dat"), global);
         graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
         graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
         scriptGame.sync.define(ScriptCoreUtils.createNamespace(context, global, core, "sync"));
@@ -630,8 +631,9 @@ public final class ScriptGame {
     }
 
     /**
-     * Runs the prelude: a script whose value is a function, called with the global scope and {@code core}, which returns the object of the
-     * functions {@value #CREATE_EVENT_FUNCTION} and {@value #CREATE_DECISION_FUNCTION}, kept outside the scripts' reach.
+     * Runs the prelude: a script whose value is a function, called with the global scope, {@code core} and the DAT tables of the type objects
+     * ({@link ScriptDatTables#createPreludeTables}), which returns the object of the functions {@value #CREATE_EVENT_FUNCTION} and
+     * {@value #CREATE_DECISION_FUNCTION}, kept outside the scripts' reach.
      */
     private void runPrelude(@NotNull Context context, @NotNull ScriptableObject global, @NotNull Scriptable core) {
         String source;
@@ -652,7 +654,9 @@ public final class ScriptGame {
             throw Exceptions.newIllegalStateException("The script game prelude {0} is not a function.", PRELUDE_RESOURCE);
         }
 
-        if (!(prelude.call(context, global, global, new Object[]{global, core}) instanceof Scriptable functions)) {
+        Scriptable datTables = ScriptDatTables.createPreludeTables(context, global);
+
+        if (!(prelude.call(context, global, global, new Object[]{global, core, datTables}) instanceof Scriptable functions)) {
             throw Exceptions.newIllegalStateException("The script game prelude {0} returned no functions.", PRELUDE_RESOURCE);
         }
 

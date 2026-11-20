@@ -653,52 +653,1192 @@ interface ConstantTable<T> {
     getCount(): number;
 }
 
+// BEGIN GENERATED DAT: the DAT columns of ScriptDatTables; ScriptDatTablesTest checks this block.
+
 /**
- * A unit type (units.dat). Hit points are the shown values; a write changes the data table of the current game.
+ * The units.dat values of the unit types: raw values of the current game.
  */
-interface UnitType extends GameType {
-    getMaxHp(): number;
-    setMaxHp(hp: number): void;
-    getMaxShields(): number;
-    setMaxShields(shields: number): void;
-    getArmor(): number;
-    setArmor(armor: number): void;
+interface UnitTypeData {
+    /** Graphics (below 209) */
+    getFlingyType(): FlingyType;
+    setFlingyType(flingyType: FlingyType): void;
+    /** Subunit1 */
+    getFirstSubunit(): UnitType | null;
+    setFirstSubunit(unitType: UnitType | null): void;
+    /** Subunit2 */
+    getSecondSubunit(): UnitType | null;
+    setSecondSubunit(unitType: UnitType | null): void;
+    /** Infestation (unit types 106 to 201) */
+    getInfestedType(): UnitType | null;
+    setInfestedType(unitType: UnitType | null): void;
+    /** Construction Animation */
+    getConstructionImage(): ImageType;
+    setConstructionImage(imageType: ImageType): void;
+    /** Unit Direction */
+    getInitialDirection(): number;
+    setInitialDirection(value: number): void;
+    /** Shield Enable */
+    getShieldEnabled(): number;
+    setShieldEnabled(value: number): void;
+    /** Shield Amount */
+    getShieldAmount(): number;
+    setShieldAmount(value: number): void;
+    /** Hit Points */
+    getHitPoints(): number;
+    setHitPoints(value: number): void;
+    /** Elevation Level */
+    getElevationLevel(): number;
+    setElevationLevel(value: number): void;
+    /** Unknown */
+    getUnknownByte(): number;
+    setUnknownByte(value: number): void;
+    /** Sublabel */
+    getSublabel(): number;
+    setSublabel(value: number): void;
+    /** Comp AI Idle */
+    getComputerIdleOrder(): Order | null;
+    setComputerIdleOrder(order: Order | null): void;
+    /** Human AI Idle */
+    getHumanIdleOrder(): Order | null;
+    setHumanIdleOrder(order: Order | null): void;
+    /** Return to Idle */
+    getReturnToIdleOrder(): Order | null;
+    setReturnToIdleOrder(order: Order | null): void;
+    /** Attack Unit */
+    getAttackUnitOrder(): Order | null;
+    setAttackUnitOrder(order: Order | null): void;
+    /** Attack Move */
+    getAttackMoveOrder(): Order | null;
+    setAttackMoveOrder(order: Order | null): void;
+    /** Ground Weapon */
     getGroundWeapon(): WeaponType | null;
+    setGroundWeapon(weaponType: WeaponType | null): void;
+    /** Max Ground Hits */
+    getMaximumGroundHits(): number;
+    setMaximumGroundHits(value: number): void;
+    /** Air Weapon */
     getAirWeapon(): WeaponType | null;
+    setAirWeapon(weaponType: WeaponType | null): void;
+    /** Max Air Hits */
+    getMaximumAirHits(): number;
+    setMaximumAirHits(value: number): void;
+    /** AI Internal 0x1 */
+    isComputerInternalAttackGroupIgnored(): boolean;
+    setComputerInternalAttackGroupIgnored(set: boolean): void;
+    /** AI Internal 0x2 */
+    isComputerInternalTownUnit(): boolean;
+    setComputerInternalTownUnit(set: boolean): void;
+    /** Special Ability Flags 0x1 */
+    isBuilding(): boolean;
+    setBuilding(set: boolean): void;
+    /** Special Ability Flags 0x2 */
+    isAddon(): boolean;
+    setAddon(set: boolean): void;
+    /** Special Ability Flags 0x4 */
+    isFlyer(): boolean;
+    setFlyer(set: boolean): void;
+    /** Special Ability Flags 0x8 */
+    isWorker(): boolean;
+    setWorker(set: boolean): void;
+    /** Special Ability Flags 0x10 */
+    isSubunit(): boolean;
+    setSubunit(set: boolean): void;
+    /** Special Ability Flags 0x20 */
+    isFlyingBuilding(): boolean;
+    setFlyingBuilding(set: boolean): void;
+    /** Special Ability Flags 0x40 */
+    isHero(): boolean;
+    setHero(set: boolean): void;
+    /** Special Ability Flags 0x80 */
+    isRegeneratesHitPoints(): boolean;
+    setRegeneratesHitPoints(set: boolean): void;
+    /** Special Ability Flags 0x200 */
+    isCloakable(): boolean;
+    setCloakable(set: boolean): void;
+    /** Special Ability Flags 0x400 */
+    isTwoUnitsInOneEgg(): boolean;
+    setTwoUnitsInOneEgg(set: boolean): void;
+    /** Special Ability Flags 0x800 */
+    isPowerup(): boolean;
+    setPowerup(set: boolean): void;
+    /** Special Ability Flags 0x1000 */
+    isResourceDepot(): boolean;
+    setResourceDepot(set: boolean): void;
+    /** Special Ability Flags 0x2000 */
+    isResourceContainer(): boolean;
+    setResourceContainer(set: boolean): void;
+    /** Special Ability Flags 0x4000 */
+    isRobotic(): boolean;
+    setRobotic(set: boolean): void;
+    /** Special Ability Flags 0x8000 */
+    isDetector(): boolean;
+    setDetector(set: boolean): void;
+    /** Special Ability Flags 0x10000 */
+    isOrganic(): boolean;
+    setOrganic(set: boolean): void;
+    /** Special Ability Flags 0x20000 */
+    isRequiresCreep(): boolean;
+    setRequiresCreep(set: boolean): void;
+    /** Special Ability Flags 0x80000 */
+    isRequiresPsionicMatrix(): boolean;
+    setRequiresPsionicMatrix(set: boolean): void;
+    /** Special Ability Flags 0x100000 */
+    isBurrowable(): boolean;
+    setBurrowable(set: boolean): void;
+    /** Special Ability Flags 0x200000 */
+    isSpellcaster(): boolean;
+    setSpellcaster(set: boolean): void;
+    /** Special Ability Flags 0x400000 */
+    isPermanentCloak(): boolean;
+    setPermanentCloak(set: boolean): void;
+    /** Special Ability Flags 0x1000000 */
+    isIgnoreSupplyCheck(): boolean;
+    setIgnoreSupplyCheck(set: boolean): void;
+    /** Special Ability Flags 0x2000000 */
+    isMediumOverlays(): boolean;
+    setMediumOverlays(set: boolean): void;
+    /** Special Ability Flags 0x4000000 */
+    isLargeOverlays(): boolean;
+    setLargeOverlays(set: boolean): void;
+    /** Special Ability Flags 0x8000000 */
+    isCanMove(): boolean;
+    setCanMove(set: boolean): void;
+    /** Special Ability Flags 0x10000000 */
+    isCanTurn(): boolean;
+    setCanTurn(set: boolean): void;
+    /** Special Ability Flags 0x20000000 */
+    isInvincible(): boolean;
+    setInvincible(set: boolean): void;
+    /** Special Ability Flags 0x40000000 */
+    isMechanical(): boolean;
+    setMechanical(set: boolean): void;
+    /** Target Acquisition Range */
+    getTargetAcquisitionRange(): number;
+    setTargetAcquisitionRange(value: number): void;
+    /** Sight Range */
+    getSightRange(): number;
+    setSightRange(value: number): void;
+    /** Armor Upgrade */
+    getArmorUpgrade(): UpgradeType | null;
+    setArmorUpgrade(upgradeType: UpgradeType | null): void;
+    /** Unit Size */
+    getSizeClass(): number;
+    setSizeClass(value: number): void;
+    /** Armor */
+    getArmor(): number;
+    setArmor(value: number): void;
+    /** Right-click Action */
+    getRightClickAction(): number;
+    setRightClickAction(value: number): void;
+    /** Ready Sound (unit types 0 to 105) */
+    getReadySound(): number;
+    setReadySound(value: number): void;
+    /** What Sound Start */
+    getWhatSoundStart(): number;
+    setWhatSoundStart(value: number): void;
+    /** What Sound End */
+    getWhatSoundEnd(): number;
+    setWhatSoundEnd(value: number): void;
+    /** Piss Sound Start (unit types 0 to 105) */
+    getAnnoyedSoundStart(): number;
+    setAnnoyedSoundStart(value: number): void;
+    /** Piss Sound End (unit types 0 to 105) */
+    getAnnoyedSoundEnd(): number;
+    setAnnoyedSoundEnd(value: number): void;
+    /** Yes Sound Start (unit types 0 to 105) */
+    getYesSoundStart(): number;
+    setYesSoundStart(value: number): void;
+    /** Yes Sound End (unit types 0 to 105) */
+    getYesSoundEnd(): number;
+    setYesSoundEnd(value: number): void;
+    /** Placement Box Width */
+    getPlacementWidth(): number;
+    setPlacementWidth(value: number): void;
+    /** Placement Box Height */
+    getPlacementHeight(): number;
+    setPlacementHeight(value: number): void;
+    /** Addon Horizontal (unit types 106 to 201) */
+    getAddonHorizontalOffset(): number;
+    setAddonHorizontalOffset(value: number): void;
+    /** Addon Vertical (unit types 106 to 201) */
+    getAddonVerticalOffset(): number;
+    setAddonVerticalOffset(value: number): void;
+    /** Unit Size Left */
+    getDimensionLeft(): number;
+    setDimensionLeft(value: number): void;
+    /** Unit Size Up */
+    getDimensionUp(): number;
+    setDimensionUp(value: number): void;
+    /** Unit Size Right */
+    getDimensionRight(): number;
+    setDimensionRight(value: number): void;
+    /** Unit Size Down */
+    getDimensionDown(): number;
+    setDimensionDown(value: number): void;
+    /** Portrait */
+    getPortrait(): number;
+    setPortrait(value: number): void;
+    /** Mineral Cost */
+    getMineralCost(): number;
+    setMineralCost(value: number): void;
+    /** Vespene Cost */
+    getGasCost(): number;
+    setGasCost(value: number): void;
+    /** Build Time */
+    getBuildTime(): number;
+    setBuildTime(value: number): void;
+    /** Requirement Index */
+    getRequirementIndex(): number;
+    setRequirementIndex(value: number): void;
+    /** StarEdit Group Flags 0x1 */
+    isGroupZerg(): boolean;
+    setGroupZerg(set: boolean): void;
+    /** StarEdit Group Flags 0x2 */
+    isGroupTerran(): boolean;
+    setGroupTerran(set: boolean): void;
+    /** StarEdit Group Flags 0x4 */
+    isGroupProtoss(): boolean;
+    setGroupProtoss(set: boolean): void;
+    /** StarEdit Group Flags 0x8 */
+    isGroupMen(): boolean;
+    setGroupMen(set: boolean): void;
+    /** StarEdit Group Flags 0x10 */
+    isGroupBuilding(): boolean;
+    setGroupBuilding(set: boolean): void;
+    /** StarEdit Group Flags 0x20 */
+    isGroupFactory(): boolean;
+    setGroupFactory(set: boolean): void;
+    /** StarEdit Group Flags 0x40 */
+    isGroupIndependent(): boolean;
+    setGroupIndependent(set: boolean): void;
+    /** StarEdit Group Flags 0x80 */
+    isGroupNeutral(): boolean;
+    setGroupNeutral(set: boolean): void;
+    /** Supply Provided */
+    getSupplyProvided(): number;
+    setSupplyProvided(value: number): void;
+    /** Supply Required */
+    getSupplyRequired(): number;
+    setSupplyRequired(value: number): void;
+    /** Space Required */
+    getSpaceRequired(): number;
+    setSpaceRequired(value: number): void;
+    /** Space Provided */
+    getSpaceProvided(): number;
+    setSpaceProvided(value: number): void;
+    /** Build Score */
+    getBuildScore(): number;
+    setBuildScore(value: number): void;
+    /** Destroy Score */
+    getDestroyScore(): number;
+    setDestroyScore(value: number): void;
+    /** Unit Map String */
+    getMapStringIndex(): number;
+    setMapStringIndex(value: number): void;
+    /** Broodwar Unit Flag */
+    getBroodWarFlag(): number;
+    setBroodWarFlag(value: number): void;
+    /** StarEdit Availability Flags 0x1 */
+    isAvailabilityNonNeutral(): boolean;
+    setAvailabilityNonNeutral(set: boolean): void;
+    /** StarEdit Availability Flags 0x2 */
+    isAvailabilityUnitListing(): boolean;
+    setAvailabilityUnitListing(set: boolean): void;
+    /** StarEdit Availability Flags 0x200 */
+    isAvailabilityExpansionOnly(): boolean;
+    setAvailabilityExpansionOnly(set: boolean): void;
+}
+
+/**
+ * The weapons.dat values of the weapon types: raw values of the current game.
+ */
+interface WeaponTypeData {
+    /** Label */
+    getLabel(): number;
+    setLabel(value: number): void;
+    /** Sprite */
+    getFlingyType(): FlingyType;
+    setFlingyType(flingyType: FlingyType): void;
+    /** Special Attack */
+    getSpecialAttack(): number;
+    setSpecialAttack(value: number): void;
+    /** Target Flags 0x1 */
+    isTargetAir(): boolean;
+    setTargetAir(set: boolean): void;
+    /** Target Flags 0x2 */
+    isTargetGround(): boolean;
+    setTargetGround(set: boolean): void;
+    /** Target Flags 0x4 */
+    isTargetMechanical(): boolean;
+    setTargetMechanical(set: boolean): void;
+    /** Target Flags 0x8 */
+    isTargetOrganic(): boolean;
+    setTargetOrganic(set: boolean): void;
+    /** Target Flags 0x10 */
+    isTargetNonBuilding(): boolean;
+    setTargetNonBuilding(set: boolean): void;
+    /** Target Flags 0x20 */
+    isTargetNonRobotic(): boolean;
+    setTargetNonRobotic(set: boolean): void;
+    /** Target Flags 0x40 */
+    isTargetTerrain(): boolean;
+    setTargetTerrain(set: boolean): void;
+    /** Target Flags 0x80 */
+    isTargetOrganicOrMechanical(): boolean;
+    setTargetOrganicOrMechanical(set: boolean): void;
+    /** Target Flags 0x100 */
+    isTargetOwn(): boolean;
+    setTargetOwn(set: boolean): void;
+    /** Minimum Range */
+    getMinimumRange(): number;
+    setMinimumRange(value: number): void;
+    /** Maximum Range */
+    getMaximumRange(): number;
+    setMaximumRange(value: number): void;
+    /** Upgrade Group */
+    getDamageUpgrade(): UpgradeType | null;
+    setDamageUpgrade(upgradeType: UpgradeType | null): void;
+    /** Damage Type */
+    getDamageType(): number;
+    setDamageType(value: number): void;
+    /** Weapon Behavior */
+    getBehavior(): number;
+    setBehavior(value: number): void;
+    /** Remove After */
+    getLifetime(): number;
+    setLifetime(value: number): void;
+    /** Explosion Type */
+    getExplosionType(): number;
+    setExplosionType(value: number): void;
+    /** Inner Splash Radius */
+    getInnerSplashRadius(): number;
+    setInnerSplashRadius(value: number): void;
+    /** Medium Splash Radius */
+    getMediumSplashRadius(): number;
+    setMediumSplashRadius(value: number): void;
+    /** Outer Splash Radius */
+    getOuterSplashRadius(): number;
+    setOuterSplashRadius(value: number): void;
+    /** Damage Amount */
+    getDamageAmount(): number;
+    setDamageAmount(value: number): void;
+    /** Damage Bonus */
+    getDamageBonus(): number;
+    setDamageBonus(value: number): void;
+    /** Weapon Cooldown */
+    getCooldown(): number;
+    setCooldown(value: number): void;
+    /** Damage Factor */
+    getDamageFactor(): number;
+    setDamageFactor(value: number): void;
+    /** Attack Angle */
+    getAttackAngle(): number;
+    setAttackAngle(value: number): void;
+    /** Launch Spin */
+    getLaunchSpin(): number;
+    setLaunchSpin(value: number): void;
+    /** Forward Offset */
+    getForwardOffset(): number;
+    setForwardOffset(value: number): void;
+    /** Upward Offset */
+    getUpwardOffset(): number;
+    setUpwardOffset(value: number): void;
+    /** Target Error Message */
+    getTargetErrorMessage(): number;
+    setTargetErrorMessage(value: number): void;
+    /** Icon */
+    getIcon(): number;
+    setIcon(value: number): void;
+}
+
+/**
+ * The flingy.dat values of the flingy types: raw values of the current game.
+ */
+interface FlingyTypeData {
+    /** Sprite */
+    getSprite(): SpriteType;
+    setSprite(spriteType: SpriteType): void;
+    /** Top Speed */
+    getTopSpeed(): number;
+    setTopSpeed(value: number): void;
+    /** Acceleration */
+    getAcceleration(): number;
+    setAcceleration(value: number): void;
+    /** Halt Distance */
+    getHaltDistance(): number;
+    setHaltDistance(value: number): void;
+    /** Turn Rate */
+    getTurnRate(): number;
+    setTurnRate(value: number): void;
+    /** Unused */
+    getUnused(): number;
+    setUnused(value: number): void;
+    /** Movement Control */
+    getMovementControl(): number;
+    setMovementControl(value: number): void;
+}
+
+/**
+ * The sprites.dat values of the sprite types: raw values of the current game.
+ */
+interface SpriteTypeData {
+    /** Image (below 999) */
+    getImage(): ImageType;
+    setImage(imageType: ImageType): void;
+    /** Health Bar (sprite types 130 to 516, read only) */
+    getHealthBarWidth(): number;
+    /** Unused */
+    getUnused(): number;
+    setUnused(value: number): void;
+    /** Is Visible */
+    getVisible(): number;
+    setVisible(value: number): void;
+    /** Selection Circle (sprite types 130 to 516, read only) */
+    getSelectionCircle(): number;
+    /** Y Position (sprite types 130 to 516, read only) */
+    getSelectionCircleOffset(): number;
+}
+
+/**
+ * The images.dat values of the image types: raw values of the current game.
+ */
+interface ImageTypeData {
+    /** GRP File (read only) */
+    getGraphicsFile(): number;
+    /** Graphic Turns */
+    getGraphicTurns(): number;
+    setGraphicTurns(value: number): void;
+    /** Clickable */
+    getClickable(): number;
+    setClickable(value: number): void;
+    /** Use Full Iscript */
+    getFullIscript(): number;
+    setFullIscript(value: number): void;
+    /** Draw If Cloaked */
+    getDrawIfCloaked(): number;
+    setDrawIfCloaked(value: number): void;
+    /** Draw Function (below 18) */
+    getDrawFunction(): number;
+    setDrawFunction(value: number): void;
+    /** Color Shift */
+    getColorShift(): number;
+    setColorShift(value: number): void;
+    /** Iscript (below 411) */
+    getIscript(): number;
+    setIscript(value: number): void;
+    /** Shield Overlay (read only) */
+    getShieldOverlay(): number;
+    /** Attack Overlay (read only) */
+    getAttackOverlay(): number;
+    /** Damage Overlay (read only) */
+    getDamageOverlay(): number;
+    /** Special Overlay (read only) */
+    getSpecialOverlay(): number;
+    /** Landing Dust Overlay (read only) */
+    getLandingDustOverlay(): number;
+    /** Liftoff Dust Overlay (read only) */
+    getLiftoffDustOverlay(): number;
+}
+
+/**
+ * The upgrades.dat values of the upgrade types: raw values of the current game.
+ */
+interface UpgradeTypeData {
+    /** Ore Cost */
+    getMineralCost(): number;
+    setMineralCost(value: number): void;
+    /** Ore Cost Factor */
+    getMineralCostFactor(): number;
+    setMineralCostFactor(value: number): void;
+    /** Gas Cost */
+    getGasCost(): number;
+    setGasCost(value: number): void;
+    /** Gas Cost Factor */
+    getGasCostFactor(): number;
+    setGasCostFactor(value: number): void;
+    /** Time Cost */
+    getResearchTime(): number;
+    setResearchTime(value: number): void;
+    /** Time Cost Factor */
+    getResearchTimeFactor(): number;
+    setResearchTimeFactor(value: number): void;
+    /** DatReqs Index */
+    getRequirementIndex(): number;
+    setRequirementIndex(value: number): void;
+    /** Icon */
+    getIcon(): number;
+    setIcon(value: number): void;
+    /** Label */
+    getLabel(): number;
+    setLabel(value: number): void;
+    /** Race */
+    getRace(): number;
+    setRace(value: number): void;
+    /** Max Repeats */
+    getMaximumLevel(): number;
+    setMaximumLevel(value: number): void;
+    /** BroodWar */
+    getBroodWarFlag(): number;
+    setBroodWarFlag(value: number): void;
+}
+
+/**
+ * The techdata.dat values of the tech types: raw values of the current game.
+ */
+interface TechTypeData {
+    /** Ore Cost */
+    getMineralCost(): number;
+    setMineralCost(value: number): void;
+    /** Gas Cost */
+    getGasCost(): number;
+    setGasCost(value: number): void;
+    /** Time Cost */
+    getResearchTime(): number;
+    setResearchTime(value: number): void;
+    /** Energy */
+    getEnergyCost(): number;
+    setEnergyCost(value: number): void;
+    /** DatReqs Index */
+    getResearchRequirementIndex(): number;
+    setResearchRequirementIndex(value: number): void;
+    /** UseReqs Index */
+    getUseRequirementIndex(): number;
+    setUseRequirementIndex(value: number): void;
+    /** Icon */
+    getIcon(): number;
+    setIcon(value: number): void;
+    /** Label */
+    getLabel(): number;
+    setLabel(value: number): void;
+    /** Race */
+    getRace(): number;
+    setRace(value: number): void;
+    /** Researched */
+    getResearchedFlag(): number;
+    setResearchedFlag(value: number): void;
+    /** BroodWar */
+    getBroodWarFlag(): number;
+    setBroodWarFlag(value: number): void;
+}
+
+/**
+ * The orders.dat values of the orders: raw values of the current game.
+ */
+interface OrderData {
+    /** Label */
+    getLabel(): number;
+    setLabel(value: number): void;
+    /** Use Weapon Targeting */
+    getUseWeaponTargeting(): number;
+    setUseWeaponTargeting(value: number): void;
+    /** Unused1 */
+    getUnused1(): number;
+    setUnused1(value: number): void;
+    /** Unused2 */
+    getUnused2(): number;
+    setUnused2(value: number): void;
+    /** Subunit Inheritance */
+    getSubunitInheritance(): number;
+    setSubunitInheritance(value: number): void;
+    /** Unused3 */
+    getUnused3(): number;
+    setUnused3(value: number): void;
+    /** Can Be Interrupted */
+    getCanBeInterrupted(): number;
+    setCanBeInterrupted(value: number): void;
+    /** Can Be Lifted */
+    getCanBeLifted(): number;
+    setCanBeLifted(value: number): void;
+    /** Can Be Queued */
+    getCanBeQueued(): number;
+    setCanBeQueued(value: number): void;
+    /** Disabling Keeps Target */
+    getDisablingKeepsTarget(): number;
+    setDisablingKeepsTarget(value: number): void;
+    /** Can Be Obstructed */
+    getCanBeObstructed(): number;
+    setCanBeObstructed(value: number): void;
+    /** Fleeable */
+    getFleeable(): number;
+    setFleeable(value: number): void;
+    /** Unused4 */
+    getUnused4(): number;
+    setUnused4(value: number): void;
+    /** Weapon */
+    getWeapon(): WeaponType | null;
+    setWeapon(weaponType: WeaponType | null): void;
+    /** Energy */
+    getTechnology(): TechType | null;
+    setTechnology(techType: TechType | null): void;
+    /** Animation */
+    getAnimation(): number;
+    setAnimation(value: number): void;
+    /** Highlight */
+    getHighlight(): number;
+    setHighlight(value: number): void;
+    /** DatReqs Index */
+    getRequirementIndex(): number;
+    setRequirementIndex(value: number): void;
+    /** Obscured */
+    getObscuredOrder(): Order | null;
+    setObscuredOrder(order: Order | null): void;
+}
+
+/**
+ * The units.dat values by unit type.
+ */
+interface CoreDatUnits {
+    /** Graphics (below 209) */
+    getFlingyType(unitType: number): number;
+    setFlingyType(unitType: number, value: number): void;
+    /** Subunit1 */
+    getFirstSubunit(unitType: number): number;
+    setFirstSubunit(unitType: number, value: number): void;
+    /** Subunit2 */
+    getSecondSubunit(unitType: number): number;
+    setSecondSubunit(unitType: number, value: number): void;
+    /** Infestation (unit types 106 to 201) */
+    getInfestedType(unitType: number): number;
+    setInfestedType(unitType: number, value: number): void;
+    /** Construction Animation */
+    getConstructionImage(unitType: number): number;
+    setConstructionImage(unitType: number, value: number): void;
+    /** Unit Direction */
+    getInitialDirection(unitType: number): number;
+    setInitialDirection(unitType: number, value: number): void;
+    /** Shield Enable */
+    getShieldEnabled(unitType: number): number;
+    setShieldEnabled(unitType: number, value: number): void;
+    /** Shield Amount */
+    getShieldAmount(unitType: number): number;
+    setShieldAmount(unitType: number, value: number): void;
+    /** Hit Points */
+    getHitPoints(unitType: number): number;
+    setHitPoints(unitType: number, value: number): void;
+    /** Elevation Level */
+    getElevationLevel(unitType: number): number;
+    setElevationLevel(unitType: number, value: number): void;
+    /** Unknown */
+    getUnknownByte(unitType: number): number;
+    setUnknownByte(unitType: number, value: number): void;
+    /** Sublabel */
+    getSublabel(unitType: number): number;
+    setSublabel(unitType: number, value: number): void;
+    /** Comp AI Idle */
+    getComputerIdleOrder(unitType: number): number;
+    setComputerIdleOrder(unitType: number, value: number): void;
+    /** Human AI Idle */
+    getHumanIdleOrder(unitType: number): number;
+    setHumanIdleOrder(unitType: number, value: number): void;
+    /** Return to Idle */
+    getReturnToIdleOrder(unitType: number): number;
+    setReturnToIdleOrder(unitType: number, value: number): void;
+    /** Attack Unit */
+    getAttackUnitOrder(unitType: number): number;
+    setAttackUnitOrder(unitType: number, value: number): void;
+    /** Attack Move */
+    getAttackMoveOrder(unitType: number): number;
+    setAttackMoveOrder(unitType: number, value: number): void;
+    /** Ground Weapon */
+    getGroundWeapon(unitType: number): number;
+    setGroundWeapon(unitType: number, value: number): void;
+    /** Max Ground Hits */
+    getMaximumGroundHits(unitType: number): number;
+    setMaximumGroundHits(unitType: number, value: number): void;
+    /** Air Weapon */
+    getAirWeapon(unitType: number): number;
+    setAirWeapon(unitType: number, value: number): void;
+    /** Max Air Hits */
+    getMaximumAirHits(unitType: number): number;
+    setMaximumAirHits(unitType: number, value: number): void;
+    /** AI Internal */
+    getComputerInternalFlags(unitType: number): number;
+    setComputerInternalFlags(unitType: number, value: number): void;
+    /** Special Ability Flags */
+    getFlags(unitType: number): number;
+    setFlags(unitType: number, value: number): void;
+    /** Target Acquisition Range */
+    getTargetAcquisitionRange(unitType: number): number;
+    setTargetAcquisitionRange(unitType: number, value: number): void;
+    /** Sight Range */
+    getSightRange(unitType: number): number;
+    setSightRange(unitType: number, value: number): void;
+    /** Armor Upgrade */
+    getArmorUpgrade(unitType: number): number;
+    setArmorUpgrade(unitType: number, value: number): void;
+    /** Unit Size */
+    getSizeClass(unitType: number): number;
+    setSizeClass(unitType: number, value: number): void;
+    /** Armor */
+    getArmor(unitType: number): number;
+    setArmor(unitType: number, value: number): void;
+    /** Right-click Action */
+    getRightClickAction(unitType: number): number;
+    setRightClickAction(unitType: number, value: number): void;
+    /** Ready Sound (unit types 0 to 105) */
+    getReadySound(unitType: number): number;
+    setReadySound(unitType: number, value: number): void;
+    /** What Sound Start */
+    getWhatSoundStart(unitType: number): number;
+    setWhatSoundStart(unitType: number, value: number): void;
+    /** What Sound End */
+    getWhatSoundEnd(unitType: number): number;
+    setWhatSoundEnd(unitType: number, value: number): void;
+    /** Piss Sound Start (unit types 0 to 105) */
+    getAnnoyedSoundStart(unitType: number): number;
+    setAnnoyedSoundStart(unitType: number, value: number): void;
+    /** Piss Sound End (unit types 0 to 105) */
+    getAnnoyedSoundEnd(unitType: number): number;
+    setAnnoyedSoundEnd(unitType: number, value: number): void;
+    /** Yes Sound Start (unit types 0 to 105) */
+    getYesSoundStart(unitType: number): number;
+    setYesSoundStart(unitType: number, value: number): void;
+    /** Yes Sound End (unit types 0 to 105) */
+    getYesSoundEnd(unitType: number): number;
+    setYesSoundEnd(unitType: number, value: number): void;
+    /** Placement Box Width */
+    getPlacementWidth(unitType: number): number;
+    setPlacementWidth(unitType: number, value: number): void;
+    /** Placement Box Height */
+    getPlacementHeight(unitType: number): number;
+    setPlacementHeight(unitType: number, value: number): void;
+    /** Addon Horizontal (unit types 106 to 201) */
+    getAddonHorizontalOffset(unitType: number): number;
+    setAddonHorizontalOffset(unitType: number, value: number): void;
+    /** Addon Vertical (unit types 106 to 201) */
+    getAddonVerticalOffset(unitType: number): number;
+    setAddonVerticalOffset(unitType: number, value: number): void;
+    /** Unit Size Left */
+    getDimensionLeft(unitType: number): number;
+    setDimensionLeft(unitType: number, value: number): void;
+    /** Unit Size Up */
+    getDimensionUp(unitType: number): number;
+    setDimensionUp(unitType: number, value: number): void;
+    /** Unit Size Right */
+    getDimensionRight(unitType: number): number;
+    setDimensionRight(unitType: number, value: number): void;
+    /** Unit Size Down */
+    getDimensionDown(unitType: number): number;
+    setDimensionDown(unitType: number, value: number): void;
+    /** Portrait */
+    getPortrait(unitType: number): number;
+    setPortrait(unitType: number, value: number): void;
+    /** Mineral Cost */
+    getMineralCost(unitType: number): number;
+    setMineralCost(unitType: number, value: number): void;
+    /** Vespene Cost */
+    getGasCost(unitType: number): number;
+    setGasCost(unitType: number, value: number): void;
+    /** Build Time */
+    getBuildTime(unitType: number): number;
+    setBuildTime(unitType: number, value: number): void;
+    /** Requirement Index */
+    getRequirementIndex(unitType: number): number;
+    setRequirementIndex(unitType: number, value: number): void;
+    /** StarEdit Group Flags */
+    getGroupFlags(unitType: number): number;
+    setGroupFlags(unitType: number, value: number): void;
+    /** Supply Provided */
+    getSupplyProvided(unitType: number): number;
+    setSupplyProvided(unitType: number, value: number): void;
+    /** Supply Required */
+    getSupplyRequired(unitType: number): number;
+    setSupplyRequired(unitType: number, value: number): void;
+    /** Space Required */
+    getSpaceRequired(unitType: number): number;
+    setSpaceRequired(unitType: number, value: number): void;
+    /** Space Provided */
+    getSpaceProvided(unitType: number): number;
+    setSpaceProvided(unitType: number, value: number): void;
+    /** Build Score */
+    getBuildScore(unitType: number): number;
+    setBuildScore(unitType: number, value: number): void;
+    /** Destroy Score */
+    getDestroyScore(unitType: number): number;
+    setDestroyScore(unitType: number, value: number): void;
+    /** Unit Map String */
+    getMapStringIndex(unitType: number): number;
+    setMapStringIndex(unitType: number, value: number): void;
+    /** Broodwar Unit Flag */
+    getBroodWarFlag(unitType: number): number;
+    setBroodWarFlag(unitType: number, value: number): void;
+    /** StarEdit Availability Flags */
+    getAvailabilityFlags(unitType: number): number;
+    setAvailabilityFlags(unitType: number, value: number): void;
+}
+
+/**
+ * The weapons.dat values by weapon type.
+ */
+interface CoreDatWeapons {
+    /** Label */
+    getLabel(weaponType: number): number;
+    setLabel(weaponType: number, value: number): void;
+    /** Sprite */
+    getFlingyType(weaponType: number): number;
+    setFlingyType(weaponType: number, value: number): void;
+    /** Special Attack */
+    getSpecialAttack(weaponType: number): number;
+    setSpecialAttack(weaponType: number, value: number): void;
+    /** Target Flags */
+    getTargetFlags(weaponType: number): number;
+    setTargetFlags(weaponType: number, value: number): void;
+    /** Minimum Range */
+    getMinimumRange(weaponType: number): number;
+    setMinimumRange(weaponType: number, value: number): void;
+    /** Maximum Range */
+    getMaximumRange(weaponType: number): number;
+    setMaximumRange(weaponType: number, value: number): void;
+    /** Upgrade Group */
+    getDamageUpgrade(weaponType: number): number;
+    setDamageUpgrade(weaponType: number, value: number): void;
+    /** Damage Type */
+    getDamageType(weaponType: number): number;
+    setDamageType(weaponType: number, value: number): void;
+    /** Weapon Behavior */
+    getBehavior(weaponType: number): number;
+    setBehavior(weaponType: number, value: number): void;
+    /** Remove After */
+    getLifetime(weaponType: number): number;
+    setLifetime(weaponType: number, value: number): void;
+    /** Explosion Type */
+    getExplosionType(weaponType: number): number;
+    setExplosionType(weaponType: number, value: number): void;
+    /** Inner Splash Radius */
+    getInnerSplashRadius(weaponType: number): number;
+    setInnerSplashRadius(weaponType: number, value: number): void;
+    /** Medium Splash Radius */
+    getMediumSplashRadius(weaponType: number): number;
+    setMediumSplashRadius(weaponType: number, value: number): void;
+    /** Outer Splash Radius */
+    getOuterSplashRadius(weaponType: number): number;
+    setOuterSplashRadius(weaponType: number, value: number): void;
+    /** Damage Amount */
+    getDamageAmount(weaponType: number): number;
+    setDamageAmount(weaponType: number, value: number): void;
+    /** Damage Bonus */
+    getDamageBonus(weaponType: number): number;
+    setDamageBonus(weaponType: number, value: number): void;
+    /** Weapon Cooldown */
+    getCooldown(weaponType: number): number;
+    setCooldown(weaponType: number, value: number): void;
+    /** Damage Factor */
+    getDamageFactor(weaponType: number): number;
+    setDamageFactor(weaponType: number, value: number): void;
+    /** Attack Angle */
+    getAttackAngle(weaponType: number): number;
+    setAttackAngle(weaponType: number, value: number): void;
+    /** Launch Spin */
+    getLaunchSpin(weaponType: number): number;
+    setLaunchSpin(weaponType: number, value: number): void;
+    /** Forward Offset */
+    getForwardOffset(weaponType: number): number;
+    setForwardOffset(weaponType: number, value: number): void;
+    /** Upward Offset */
+    getUpwardOffset(weaponType: number): number;
+    setUpwardOffset(weaponType: number, value: number): void;
+    /** Target Error Message */
+    getTargetErrorMessage(weaponType: number): number;
+    setTargetErrorMessage(weaponType: number, value: number): void;
+    /** Icon */
+    getIcon(weaponType: number): number;
+    setIcon(weaponType: number, value: number): void;
+}
+
+/**
+ * The flingy.dat values by flingy type.
+ */
+interface CoreDatFlingy {
+    /** Sprite */
+    getSprite(flingyType: number): number;
+    setSprite(flingyType: number, value: number): void;
+    /** Top Speed */
+    getTopSpeed(flingyType: number): number;
+    setTopSpeed(flingyType: number, value: number): void;
+    /** Acceleration */
+    getAcceleration(flingyType: number): number;
+    setAcceleration(flingyType: number, value: number): void;
+    /** Halt Distance */
+    getHaltDistance(flingyType: number): number;
+    setHaltDistance(flingyType: number, value: number): void;
+    /** Turn Rate */
+    getTurnRate(flingyType: number): number;
+    setTurnRate(flingyType: number, value: number): void;
+    /** Unused */
+    getUnused(flingyType: number): number;
+    setUnused(flingyType: number, value: number): void;
+    /** Movement Control */
+    getMovementControl(flingyType: number): number;
+    setMovementControl(flingyType: number, value: number): void;
+}
+
+/**
+ * The sprites.dat values by sprite type.
+ */
+interface CoreDatSprites {
+    /** Image (below 999) */
+    getImage(spriteType: number): number;
+    setImage(spriteType: number, value: number): void;
+    /** Health Bar (sprite types 130 to 516, read only) */
+    getHealthBarWidth(spriteType: number): number;
+    /** Unused */
+    getUnused(spriteType: number): number;
+    setUnused(spriteType: number, value: number): void;
+    /** Is Visible */
+    getVisible(spriteType: number): number;
+    setVisible(spriteType: number, value: number): void;
+    /** Selection Circle (sprite types 130 to 516, read only) */
+    getSelectionCircle(spriteType: number): number;
+    /** Y Position (sprite types 130 to 516, read only) */
+    getSelectionCircleOffset(spriteType: number): number;
+}
+
+/**
+ * The images.dat values by image type.
+ */
+interface CoreDatImages {
+    /** GRP File (read only) */
+    getGraphicsFile(imageType: number): number;
+    /** Graphic Turns */
+    getGraphicTurns(imageType: number): number;
+    setGraphicTurns(imageType: number, value: number): void;
+    /** Clickable */
+    getClickable(imageType: number): number;
+    setClickable(imageType: number, value: number): void;
+    /** Use Full Iscript */
+    getFullIscript(imageType: number): number;
+    setFullIscript(imageType: number, value: number): void;
+    /** Draw If Cloaked */
+    getDrawIfCloaked(imageType: number): number;
+    setDrawIfCloaked(imageType: number, value: number): void;
+    /** Draw Function (below 18) */
+    getDrawFunction(imageType: number): number;
+    setDrawFunction(imageType: number, value: number): void;
+    /** Color Shift */
+    getColorShift(imageType: number): number;
+    setColorShift(imageType: number, value: number): void;
+    /** Iscript (below 411) */
+    getIscript(imageType: number): number;
+    setIscript(imageType: number, value: number): void;
+    /** Shield Overlay (read only) */
+    getShieldOverlay(imageType: number): number;
+    /** Attack Overlay (read only) */
+    getAttackOverlay(imageType: number): number;
+    /** Damage Overlay (read only) */
+    getDamageOverlay(imageType: number): number;
+    /** Special Overlay (read only) */
+    getSpecialOverlay(imageType: number): number;
+    /** Landing Dust Overlay (read only) */
+    getLandingDustOverlay(imageType: number): number;
+    /** Liftoff Dust Overlay (read only) */
+    getLiftoffDustOverlay(imageType: number): number;
+}
+
+/**
+ * The upgrades.dat values by upgrade type.
+ */
+interface CoreDatUpgrades {
+    /** Ore Cost */
+    getMineralCost(upgradeType: number): number;
+    setMineralCost(upgradeType: number, value: number): void;
+    /** Ore Cost Factor */
+    getMineralCostFactor(upgradeType: number): number;
+    setMineralCostFactor(upgradeType: number, value: number): void;
+    /** Gas Cost */
+    getGasCost(upgradeType: number): number;
+    setGasCost(upgradeType: number, value: number): void;
+    /** Gas Cost Factor */
+    getGasCostFactor(upgradeType: number): number;
+    setGasCostFactor(upgradeType: number, value: number): void;
+    /** Time Cost */
+    getResearchTime(upgradeType: number): number;
+    setResearchTime(upgradeType: number, value: number): void;
+    /** Time Cost Factor */
+    getResearchTimeFactor(upgradeType: number): number;
+    setResearchTimeFactor(upgradeType: number, value: number): void;
+    /** DatReqs Index */
+    getRequirementIndex(upgradeType: number): number;
+    setRequirementIndex(upgradeType: number, value: number): void;
+    /** Icon */
+    getIcon(upgradeType: number): number;
+    setIcon(upgradeType: number, value: number): void;
+    /** Label */
+    getLabel(upgradeType: number): number;
+    setLabel(upgradeType: number, value: number): void;
+    /** Race */
+    getRace(upgradeType: number): number;
+    setRace(upgradeType: number, value: number): void;
+    /** Max Repeats */
+    getMaximumLevel(upgradeType: number): number;
+    setMaximumLevel(upgradeType: number, value: number): void;
+    /** BroodWar */
+    getBroodWarFlag(upgradeType: number): number;
+    setBroodWarFlag(upgradeType: number, value: number): void;
+}
+
+/**
+ * The techdata.dat values by tech type.
+ */
+interface CoreDatTechdata {
+    /** Ore Cost */
+    getMineralCost(techType: number): number;
+    setMineralCost(techType: number, value: number): void;
+    /** Gas Cost */
+    getGasCost(techType: number): number;
+    setGasCost(techType: number, value: number): void;
+    /** Time Cost */
+    getResearchTime(techType: number): number;
+    setResearchTime(techType: number, value: number): void;
+    /** Energy */
+    getEnergyCost(techType: number): number;
+    setEnergyCost(techType: number, value: number): void;
+    /** DatReqs Index */
+    getResearchRequirementIndex(techType: number): number;
+    setResearchRequirementIndex(techType: number, value: number): void;
+    /** UseReqs Index */
+    getUseRequirementIndex(techType: number): number;
+    setUseRequirementIndex(techType: number, value: number): void;
+    /** Icon */
+    getIcon(techType: number): number;
+    setIcon(techType: number, value: number): void;
+    /** Label */
+    getLabel(techType: number): number;
+    setLabel(techType: number, value: number): void;
+    /** Race */
+    getRace(techType: number): number;
+    setRace(techType: number, value: number): void;
+    /** Researched */
+    getResearchedFlag(techType: number): number;
+    setResearchedFlag(techType: number, value: number): void;
+    /** BroodWar */
+    getBroodWarFlag(techType: number): number;
+    setBroodWarFlag(techType: number, value: number): void;
+}
+
+/**
+ * The orders.dat values by order.
+ */
+interface CoreDatOrders {
+    /** Label */
+    getLabel(order: number): number;
+    setLabel(order: number, value: number): void;
+    /** Use Weapon Targeting */
+    getUseWeaponTargeting(order: number): number;
+    setUseWeaponTargeting(order: number, value: number): void;
+    /** Unused1 */
+    getUnused1(order: number): number;
+    setUnused1(order: number, value: number): void;
+    /** Unused2 */
+    getUnused2(order: number): number;
+    setUnused2(order: number, value: number): void;
+    /** Subunit Inheritance */
+    getSubunitInheritance(order: number): number;
+    setSubunitInheritance(order: number, value: number): void;
+    /** Unused3 */
+    getUnused3(order: number): number;
+    setUnused3(order: number, value: number): void;
+    /** Can Be Interrupted */
+    getCanBeInterrupted(order: number): number;
+    setCanBeInterrupted(order: number, value: number): void;
+    /** Can Be Lifted */
+    getCanBeLifted(order: number): number;
+    setCanBeLifted(order: number, value: number): void;
+    /** Can Be Queued */
+    getCanBeQueued(order: number): number;
+    setCanBeQueued(order: number, value: number): void;
+    /** Disabling Keeps Target */
+    getDisablingKeepsTarget(order: number): number;
+    setDisablingKeepsTarget(order: number, value: number): void;
+    /** Can Be Obstructed */
+    getCanBeObstructed(order: number): number;
+    setCanBeObstructed(order: number, value: number): void;
+    /** Fleeable */
+    getFleeable(order: number): number;
+    setFleeable(order: number, value: number): void;
+    /** Unused4 */
+    getUnused4(order: number): number;
+    setUnused4(order: number, value: number): void;
+    /** Weapon */
+    getWeapon(order: number): number;
+    setWeapon(order: number, value: number): void;
+    /** Energy */
+    getTechnology(order: number): number;
+    setTechnology(order: number, value: number): void;
+    /** Animation */
+    getAnimation(order: number): number;
+    setAnimation(order: number, value: number): void;
+    /** Highlight */
+    getHighlight(order: number): number;
+    setHighlight(order: number, value: number): void;
+    /** DatReqs Index */
+    getRequirementIndex(order: number): number;
+    setRequirementIndex(order: number, value: number): void;
+    /** Obscured */
+    getObscuredOrder(order: number): number;
+    setObscuredOrder(order: number, value: number): void;
+}
+
+/**
+ * The DAT tables of the current game; a write changes the game as an EUD write of the value does.
+ */
+interface CoreDat {
+    readonly units: CoreDatUnits;
+    readonly weapons: CoreDatWeapons;
+    readonly flingy: CoreDatFlingy;
+    readonly sprites: CoreDatSprites;
+    readonly images: CoreDatImages;
+    readonly upgrades: CoreDatUpgrades;
+    readonly techdata: CoreDatTechdata;
+    readonly orders: CoreDatOrders;
+}
+// END GENERATED DAT
+
+/**
+ * A unit type (units.dat); its DAT values are those of {@link UnitTypeData}.
+ */
+interface UnitType extends GameType, UnitTypeData {
 }
 
 /**
  * A weapon type (weapons.dat).
  */
-interface WeaponType extends GameType {
-    getDamage(): number;
-    setDamage(damage: number): void;
-    getDamageBonus(): number;
-    setDamageBonus(bonus: number): void;
+interface WeaponType extends GameType, WeaponTypeData {
+}
+
+/**
+ * A flingy type (flingy.dat), named after the sprite type of its sprite.
+ */
+interface FlingyType extends GameType, FlingyTypeData {
+}
+
+/**
+ * A sprite type (sprites.dat), named after the image type of its image.
+ */
+interface SpriteType extends GameType, SpriteTypeData {
 }
 
 /**
  * An upgrade type (upgrades.dat).
  */
-interface UpgradeType extends GameType {
+interface UpgradeType extends GameType, UpgradeTypeData {
 }
 
 /**
  * A technology (techdata.dat).
  */
-interface TechType extends GameType {
+interface TechType extends GameType, TechTypeData {
 }
 
 /**
  * An order (orders.dat).
  */
-interface Order extends GameType {
+interface Order extends GameType, OrderData {
 }
 
 /**
  * An image type (images.dat), named after its GRP path in images.tbl ("unit\terran\marine.grp" is UnitTerranMarine).
  */
-interface ImageType extends GameType {
+interface ImageType extends GameType, ImageTypeData {
     /**
      * @returns the image type whose HD anim this image type draws (images.rel), this image type for one with its own anim
      */
@@ -854,6 +1994,101 @@ interface Unit {
      * Issues an order to a target unit or a position; without a target the unit's own position is the target.
      */
     issueOrder(order: Order, target?: Unit | Position | null): void;
+    /**
+     * The status timers count status steps of eight frames. A timer that starts runs the effect's apply routine (overlay, disabling, speed)
+     * before it takes the value; 0 runs the effect's end routine.
+     */
+    getStimTimer(): number;
+    setStimTimer(timer: number): void;
+    getEnsnareTimer(): number;
+    setEnsnareTimer(timer: number): void;
+    getLockdownTimer(): number;
+    setLockdownTimer(timer: number): void;
+    getStasisTimer(): number;
+    setStasisTimer(timer: number): void;
+    getMaelstromTimer(): number;
+    setMaelstromTimer(timer: number): void;
+    getPlagueTimer(): number;
+    setPlagueTimer(timer: number): void;
+    getIrradiateTimer(): number;
+    setIrradiateTimer(timer: number): void;
+    getStormTimer(): number;
+    setStormTimer(timer: number): void;
+    getDefensiveMatrixTimer(): number;
+    setDefensiveMatrixTimer(timer: number): void;
+    getDefensiveMatrixHp(): number;
+    setDefensiveMatrixHp(hp: number): void;
+    /**
+     * Setting a count shows its overlay; 0 removes the spores.
+     */
+    getAcidSporeCount(): number;
+    setAcidSporeCount(count: number): void;
+    /**
+     * @returns the frames until a timed unit (a hallucination, a Broodling) is removed, 0 for an untimed unit
+     */
+    getRemoveTimer(): number;
+    setRemoveTimer(frames: number): void;
+    isParasitedBy(player: Player): boolean;
+    setParasitedBy(player: Player, parasited: boolean): void;
+    isBlind(): boolean;
+    isBlindedBy(player: Player): boolean;
+    setBlindedBy(player: Player, blinded: boolean): void;
+    /**
+     * The weapon and spell cooldowns in frames.
+     */
+    getGroundCooldown(): number;
+    setGroundCooldown(frames: number): void;
+    getAirCooldown(): number;
+    setAirCooldown(frames: number): void;
+    getSpellCooldown(): number;
+    setSpellCooldown(frames: number): void;
+    getKillCount(): number;
+    setKillCount(kills: number): void;
+    /**
+     * @returns the unit types in the build queue from the current one
+     */
+    getBuildQueue(): UnitType[];
+    /**
+     * The frames left of the current construction or training.
+     */
+    getRemainingBuildTime(): number;
+    setRemainingBuildTime(frames: number): void;
+    /**
+     * The frames left of the current research or upgrade.
+     */
+    getRemainingResearchTime(): number;
+    setRemainingResearchTime(frames: number): void;
+    getResearch(): TechType | null;
+    getUpgrade(): UpgradeType | null;
+    getAddon(): Unit | null;
+    getRallyPosition(): Position;
+    /**
+     * @returns false for a unit type without a rally point
+     */
+    setRallyPosition(position: Position): boolean;
+    getRallyUnit(): Unit | null;
+    /**
+     * @returns false for a unit type without a rally point
+     */
+    setRallyUnit(unit: Unit | null): boolean;
+    /**
+     * The direction from 0 to 255; setting it turns the unit at once.
+     */
+    getDirection(): number;
+    setDirection(direction: number): void;
+    /**
+     * @returns the speed in 1/256 pixels per frame
+     */
+    getCurrentSpeed(): number;
+    getTopSpeed(): number;
+    getMoveTarget(): Position;
+    setMoveTarget(position: Position): void;
+    /**
+     * Changes the unit's type through the morph routine, which keeps the unit, scales its hit points and rebuilds its sprite.
+     *
+     * @returns false for a subunit, a subunit type, or a type whose turret does not match the unit's
+     */
+    setType(type: UnitType): boolean;
 }
 
 /**
@@ -967,6 +2202,25 @@ interface Player {
      */
     showTalkingPortrait(unitType: UnitType, frames: number): void;
     setUnitSpeechMuted(muted: boolean): void;
+    getUpgradeLevel(upgrade: UpgradeType): number;
+    /**
+     * Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
+     */
+    setUpgradeLevel(upgrade: UpgradeType, level: number): void;
+    getMaxUpgradeLevel(upgrade: UpgradeType): number;
+    setMaxUpgradeLevel(upgrade: UpgradeType, level: number): void;
+    isUpgradeInProgress(upgrade: UpgradeType): boolean;
+    isTechResearched(tech: TechType): boolean;
+    setTechResearched(tech: TechType, researched: boolean): void;
+    isTechAvailable(tech: TechType): boolean;
+    setTechAvailable(tech: TechType, available: boolean): void;
+    isTechInProgress(tech: TechType): boolean;
+    /**
+     * The production availability of the map settings; a game without map settings allows every unit type and throws when a type is made
+     * unavailable.
+     */
+    isUnitAvailable(unitType: UnitType): boolean;
+    setUnitAvailable(unitType: UnitType, available: boolean): void;
     /**
      * Centers the screen on a position when the player is the local player; the screens of the other peers stay.
      */
@@ -1623,6 +2877,24 @@ interface ImageTypeNames {
 }
 
 declare const ImageType: ConstantTable<ImageType> & ImageTypeNames;
+
+/**
+ * The sprite types by the names of their image types; the names are known when the game starts.
+ */
+interface SpriteTypeNames {
+    readonly [name: string]: SpriteType;
+}
+
+declare const SpriteType: ConstantTable<SpriteType> & SpriteTypeNames;
+
+/**
+ * The flingy types by the names of their sprite types; the names are known when the game starts.
+ */
+interface FlingyTypeNames {
+    readonly [name: string]: FlingyType;
+}
+
+declare const FlingyType: ConstantTable<FlingyType> & FlingyTypeNames;
 
 interface UnitTypeTable extends ConstantTable<UnitType> {
     // GENERATED UnitType
@@ -2392,6 +3664,18 @@ interface CorePlayer {
     showTalkingPortrait(player: number, unitType: number, milliseconds: number): void;
     setUnitSpeechMuted(player: number, muted: boolean): void;
     centerView(player: number, x: number, y: number): void;
+    getUpgradeLevel(player: number, upgradeType: number): number;
+    setUpgradeLevel(player: number, upgradeType: number, level: number): void;
+    getMaxUpgradeLevel(player: number, upgradeType: number): number;
+    setMaxUpgradeLevel(player: number, upgradeType: number, level: number): void;
+    isUpgradeInProgress(player: number, upgradeType: number): boolean;
+    isTechResearched(player: number, techType: number): boolean;
+    setTechResearched(player: number, techType: number, researched: boolean): void;
+    isTechAvailable(player: number, techType: number): boolean;
+    setTechAvailable(player: number, techType: number, available: boolean): void;
+    isTechInProgress(player: number, techType: number): boolean;
+    isUnitAvailable(player: number, unitType: number): boolean;
+    setUnitAvailable(player: number, unitType: number, available: boolean): void;
 }
 
 interface CoreUnit {
@@ -2448,6 +3732,87 @@ interface CoreUnit {
      * @param target the target unit, -1 for the position
      */
     issueOrder(unit: number, order: number, target: number, x: number, y: number): void;
+    /**
+     * The status timers in status steps of eight frames, with the native apply and end routines as {@link Unit.setLockdownTimer} has them.
+     */
+    getStimTimer(unit: number): number;
+    setStimTimer(unit: number, timer: number): void;
+    getEnsnareTimer(unit: number): number;
+    setEnsnareTimer(unit: number, timer: number): void;
+    getLockdownTimer(unit: number): number;
+    setLockdownTimer(unit: number, timer: number): void;
+    getStasisTimer(unit: number): number;
+    setStasisTimer(unit: number, timer: number): void;
+    getMaelstromTimer(unit: number): number;
+    setMaelstromTimer(unit: number, timer: number): void;
+    getPlagueTimer(unit: number): number;
+    setPlagueTimer(unit: number, timer: number): void;
+    getIrradiateTimer(unit: number): number;
+    setIrradiateTimer(unit: number, timer: number): void;
+    getStormTimer(unit: number): number;
+    setStormTimer(unit: number, timer: number): void;
+    getDefensiveMatrixTimer(unit: number): number;
+    setDefensiveMatrixTimer(unit: number, timer: number): void;
+    getDefensiveMatrixHp(unit: number): number;
+    setDefensiveMatrixHp(unit: number, hp: number): void;
+    getAcidSporeCount(unit: number): number;
+    setAcidSporeCount(unit: number, count: number): void;
+    getRemoveTimer(unit: number): number;
+    setRemoveTimer(unit: number, frames: number): void;
+    /**
+     * @returns the players whose Parasite is on the unit, one bit per player
+     */
+    getParasiteFlags(unit: number): number;
+    setParasiteFlags(unit: number, flags: number): void;
+    /**
+     * @returns the players whose Optical Flare blinded the unit, one bit per player
+     */
+    getBlindFlags(unit: number): number;
+    setBlindFlags(unit: number, flags: number): void;
+    getGroundCooldown(unit: number): number;
+    setGroundCooldown(unit: number, frames: number): void;
+    getAirCooldown(unit: number): number;
+    setAirCooldown(unit: number, frames: number): void;
+    getSpellCooldown(unit: number): number;
+    setSpellCooldown(unit: number, frames: number): void;
+    getKillCount(unit: number): number;
+    setKillCount(unit: number, kills: number): void;
+    getBuildQueue(unit: number): number[];
+    getRemainingBuildTime(unit: number): number;
+    setRemainingBuildTime(unit: number, frames: number): void;
+    getRemainingResearchTime(unit: number): number;
+    setRemainingResearchTime(unit: number, frames: number): void;
+    /**
+     * @returns the technology in progress, -1 for none
+     */
+    getResearch(unit: number): number;
+    /**
+     * @returns the upgrade in progress, -1 for none
+     */
+    getUpgrade(unit: number): number;
+    /**
+     * @returns the add-on, -1 for none
+     */
+    getAddon(unit: number): number;
+    getRallyX(unit: number): number;
+    getRallyY(unit: number): number;
+    /**
+     * @returns the rally unit, -1 for none
+     */
+    getRallyUnit(unit: number): number;
+    setRallyPosition(unit: number, x: number, y: number): boolean;
+    /**
+     * @param target the rally unit, -1 for none
+     */
+    setRallyUnit(unit: number, target: number): boolean;
+    getDirection(unit: number): number;
+    setDirection(unit: number, direction: number): void;
+    getCurrentSpeed(unit: number): number;
+    getTopSpeed(unit: number): number;
+    getMoveTargetX(unit: number): number;
+    getMoveTargetY(unit: number): number;
+    setMoveTarget(unit: number, x: number, y: number): void;
+    setType(unit: number, unitType: number): boolean;
 }
 
 interface CoreLocation {
@@ -2506,27 +3871,6 @@ interface CoreImageTypes extends CoreTypes {
     getAnimImageType(imageType: number): number;
 }
 
-interface CoreUnitTypes extends CoreTypes {
-    getMaxHp(unitType: number): number;
-    setMaxHp(unitType: number, hp: number): void;
-    getMaxShields(unitType: number): number;
-    setMaxShields(unitType: number, shields: number): void;
-    getArmor(unitType: number): number;
-    setArmor(unitType: number, armor: number): void;
-    /**
-     * @returns the weapon type, -1 for none
-     */
-    getGroundWeapon(unitType: number): number;
-    getAirWeapon(unitType: number): number;
-}
-
-interface CoreWeaponTypes extends CoreTypes {
-    getDamage(weaponType: number): number;
-    setDamage(weaponType: number, damage: number): void;
-    getDamageBonus(weaponType: number): number;
-    setDamageBonus(weaponType: number, bonus: number): void;
-}
-
 interface CoreResources {
     has(name: string): boolean;
     /**
@@ -2571,12 +3915,15 @@ interface Core {
     readonly location: CoreLocation;
     readonly terrain: CoreTerrain;
     readonly leaderboard: CoreLeaderboard;
-    readonly unitType: CoreUnitTypes;
-    readonly weaponType: CoreWeaponTypes;
+    readonly unitType: CoreTypes;
+    readonly weaponType: CoreTypes;
+    readonly flingyType: CoreTypes;
+    readonly spriteType: CoreTypes;
+    readonly imageType: CoreImageTypes;
     readonly upgradeType: CoreTypes;
     readonly techType: CoreTypes;
     readonly orderType: CoreTypes;
-    readonly imageType: CoreImageTypes;
+    readonly dat: CoreDat;
     readonly resources: CoreResources;
     readonly graphics: CoreGraphics;
     readonly sync: CoreSync;

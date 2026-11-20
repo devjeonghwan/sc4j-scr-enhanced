@@ -5,6 +5,7 @@ import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
+import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptDatTables;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptHook;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptLogOutput;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
@@ -75,6 +76,8 @@ final class ScriptProjectUtilsTest {
             Map.entry("Unit", "bridge.createEvent('onUnitCreated', values).getUnit()"),
             Map.entry("UnitType", "UnitType.get(0)"),
             Map.entry("WeaponType", "WeaponType.get(0)"),
+            Map.entry("FlingyType", "FlingyType.get(0)"),
+            Map.entry("SpriteType", "SpriteType.get(0)"),
             Map.entry("UpgradeType", "UpgradeType.get(0)"),
             Map.entry("TechType", "TechType.get(0)"),
             Map.entry("Order", "Order.get(0)"),
@@ -98,7 +101,9 @@ final class ScriptProjectUtilsTest {
                     return {getCount: function () { return 1; }, getName: function () { return 'Stub Type'; }};
                 }
                 return {
-                    unitType: types(), weaponType: types(), upgradeType: types(), techType: types(), orderType: types(), imageType: types(),
+                    unitType: types(), weaponType: types(), flingyType: types(), spriteType: types(), imageType: types(), upgradeType: types(),
+                    techType: types(), orderType: types(),
+                    dat: {units: {}, weapons: {}, flingy: {}, sprites: {}, images: {}, upgrades: {}, techdata: {}, orders: {}},
                     player: {getCount: function () { return 1; }},
                     unit: {exists: function () { return false; }},
                     location: {getCount: function () { return 1; }},
@@ -253,7 +258,8 @@ final class ScriptProjectUtilsTest {
 
             Function preludeFunction = (Function) context.evaluateString(global, prelude, "prelude.js", 1, null);
             Object core = context.evaluateString(global, STUB_CORE, "core.js", 1, null);
-            Object bridge = preludeFunction.call(context, global, global, new Object[]{global, core});
+            Scriptable datTables = ScriptDatTables.createPreludeTables(context, global);
+            Object bridge = preludeFunction.call(context, global, global, new Object[]{global, core, datTables});
 
             ScriptableObject.putProperty(global, "bridge", bridge);
             context.evaluateString(global, EVENT_VALUES, "values.js", 1, null);

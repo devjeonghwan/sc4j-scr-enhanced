@@ -2,13 +2,18 @@ package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.content.ScrRaceIds;
+import org.fogofwarlabs.sc4j.scr.content.ScrTechIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
+import org.fogofwarlabs.sc4j.scr.content.ScrUpgradeIds;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayHeaderBuilder;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerTechnology;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerUnitAvailability;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerUpgrades;
 import org.fogofwarlabs.sc4j.scr.game.player.UnitAccounting;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerConditions;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
@@ -61,6 +66,14 @@ import java.nio.charset.StandardCharsets;
  * multiplayer Center View action moves it ({@link LocalView#centerScreen}); it returns nothing, so the simulation does not depend on the local
  * screen, and does nothing while the local view or its display geometry is unknown.
  * <p>
+ * The upgrade, technology and unit availability state of a player, which EUD writes change too: {@code getUpgradeLevel(player, upgrade)},
+ * {@code setUpgradeLevel(player, upgrade, level)} (then refreshes the upgrade flags of the player's units, as a finished upgrade does),
+ * {@code getMaxUpgradeLevel} and {@code setMaxUpgradeLevel}, {@code isUpgradeInProgress(player, upgrade)}, {@code isTechResearched(player,
+ * tech)} and {@code setTechResearched(player, tech, researched)}, {@code isTechAvailable} and {@code setTechAvailable(player, tech,
+ * available)}, {@code isTechInProgress(player, tech)}, {@code isUnitAvailable(player, unitType)} and {@code setUnitAvailable(player,
+ * unitType, available)} (the map settings' production availability; a game without map settings allows every unit type, and making a type
+ * unavailable there throws a {@code TypeError}).
+ * <p>
  * {@code endGame} ends the game for a player from {@code 0} to {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one as the Victory
  * ({@value TriggerPlayerResults#VICTORY}), Defeat ({@value TriggerPlayerResults#DEFEAT}) and Draw ({@value TriggerPlayerResults#DRAW})
  * actions do and returns {@code false} when a defeat or a draw meets a victory.
@@ -78,6 +91,14 @@ final class ScriptPlayerCore {
      * The count of {@code killUnits} and {@code removeUnits} that takes every unit.
      */
     private static final int EVERY_UNIT_COUNT = 0;
+    /**
+     * The largest upgrade level, a byte.
+     */
+    private static final int MAXIMUM_LEVEL = 0xFF;
+    /**
+     * The unit availability byte of a unit type a player may produce.
+     */
+    private static final int UNIT_AVAILABLE = 1;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -113,6 +134,7 @@ final class ScriptPlayerCore {
         this.defineUnitFunctions(namespace, global);
         this.defineAllianceFunctions(namespace, global);
         this.defineDisplayFunctions(namespace, global);
+        this.defineProgressFunctions(namespace, global);
 
         ScriptCoreUtils.defineFunction(global, namespace, "setMissionObjectives", 2, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
@@ -416,6 +438,149 @@ final class ScriptPlayerCore {
 
             return Context.getUndefinedValue();
         });
+    }
+
+    /**
+     * Defines the upgrade levels, the technologies and the unit availability of the players.
+     */
+    private void defineProgressFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getUpgradeLevel", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int upgrade = this.readUpgrade(arguments, 1);
+
+            return (double) this.requireUpgrades().getLevel(player, upgrade);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setUpgradeLevel", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int upgrade = this.readUpgrade(arguments, 1);
+            int level = this.readLevel(arguments, 2);
+
+            this.requireUpgrades().setLevel(player, upgrade, level);
+            this.scriptGame.getGame().getUnitResearch().applyToPlayerUnits(player, this.scriptGame.getInstructionLimit());
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getMaxUpgradeLevel", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int upgrade = this.readUpgrade(arguments, 1);
+
+            return (double) this.requireUpgrades().getMaximumLevel(player, upgrade);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setMaxUpgradeLevel", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int upgrade = this.readUpgrade(arguments, 1);
+            int level = this.readLevel(arguments, 2);
+
+            this.requireUpgrades().setMaximumLevel(player, upgrade, level);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isUpgradeInProgress", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int upgrade = this.readUpgrade(arguments, 1);
+
+            return this.requireUpgrades().isUpgrading(player, upgrade);
+        });
+
+        ScriptCoreUtils.defineFunction(global, namespace, "isTechResearched", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int technology = this.readTechnology(arguments, 1);
+
+            return this.requireTechnologies().isResearched(player, technology);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setTechResearched", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int technology = this.readTechnology(arguments, 1);
+            boolean researched = ScriptCoreUtils.readBoolean(arguments, 2);
+
+            this.requireTechnologies().setResearched(player, technology, researched);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isTechAvailable", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int technology = this.readTechnology(arguments, 1);
+
+            return this.requireTechnologies().isAvailable(player, technology);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setTechAvailable", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int technology = this.readTechnology(arguments, 1);
+            boolean available = ScriptCoreUtils.readBoolean(arguments, 2);
+
+            this.requireTechnologies().setAvailable(player, technology, available);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isTechInProgress", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int technology = this.readTechnology(arguments, 1);
+
+            return this.requireTechnologies().isResearching(player, technology);
+        });
+
+        ScriptCoreUtils.defineFunction(global, namespace, "isUnitAvailable", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int unitType = ScriptCoreUtils.requireId("unit type", ScriptCoreUtils.readInteger(arguments, 1), ScrUnitIds.NONE);
+            PlayerUnitAvailability availability = this.scriptGame.getGame().getPlayerTable().getPlayerUnitAvailability();
+
+            return availability == null || availability.isAllowed(player, unitType);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setUnitAvailable", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int unitType = ScriptCoreUtils.requireId("unit type", ScriptCoreUtils.readInteger(arguments, 1), ScrUnitIds.NONE);
+            boolean available = ScriptCoreUtils.readBoolean(arguments, 2);
+            PlayerUnitAvailability availability = this.scriptGame.getGame().getPlayerTable().getPlayerUnitAvailability();
+
+            if (availability != null) {
+                availability.writeByte(player, unitType, available ? UNIT_AVAILABLE : 0);
+            } else if (!available) {
+                throw ScriptRuntime.typeError("The game has no unit availability: only a game with map settings has one.");
+            }
+
+            return Context.getUndefinedValue();
+        });
+    }
+
+    private int readUpgrade(@NotNull Object @NotNull [] arguments, int index) {
+        return ScriptCoreUtils.requireId("upgrade type", ScriptCoreUtils.readInteger(arguments, index), ScrUpgradeIds.NONE);
+    }
+
+    private int readTechnology(@NotNull Object @NotNull [] arguments, int index) {
+        return ScriptCoreUtils.requireId("tech type", ScriptCoreUtils.readInteger(arguments, index), ScrTechIds.NONE);
+    }
+
+    /**
+     * Reads an upgrade level, a byte.
+     *
+     * @throws EcmaError if the argument is not an integer or is outside {@code 0} to {@value #MAXIMUM_LEVEL}
+     */
+    private int readLevel(@NotNull Object @NotNull [] arguments, int index) {
+        int level = ScriptCoreUtils.readInteger(arguments, index);
+
+        if (level < 0 || level > MAXIMUM_LEVEL) {
+            throw ScriptRuntime.rangeError(Exceptions.format("The level {0} is not from 0 to {1}.", level, MAXIMUM_LEVEL));
+        }
+
+        return level;
+    }
+
+    private @NotNull PlayerUpgrades requireUpgrades() {
+        return this.scriptGame.getGame().getPlayerTable().requirePlayerUpgrades();
+    }
+
+    private @NotNull PlayerTechnology requireTechnologies() {
+        return this.scriptGame.getGame().getPlayerTable().requirePlayerTechnology();
     }
 
     private int readPlayerId(@NotNull Object @NotNull [] arguments, int index) {

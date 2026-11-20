@@ -2,9 +2,12 @@ package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
+import org.fogofwarlabs.sc4j.scr.content.ScrTechIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
+import org.fogofwarlabs.sc4j.scr.content.ScrUpgradeIds;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
+import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
@@ -16,6 +19,7 @@ import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitStatusFlags;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitTypeTraitsUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
 import org.mozilla.javascript.ScriptRuntime;
@@ -23,6 +27,7 @@ import org.mozilla.javascript.Scriptable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ObjIntConsumer;
 import java.util.function.ToIntFunction;
 
 /**
@@ -50,6 +55,23 @@ import java.util.function.ToIntFunction;
  * {@code give(id, player)} (Give Units to Player) and {@code issueOrder(id, order, target, x, y)} (with {@code target} {@code -1} the Order
  * action to the position, with a target unit the order system after the order requirement test). A write that the routine refuses returns
  * {@code false}.
+ * <p>
+ * The unit fields that EUD maps read and write, as raw values with a {@code get} and a {@code set} each. The status timers count status steps
+ * of eight frames: {@code StimTimer} (refreshes the speed when it starts or ends), {@code EnsnareTimer}, {@code LockdownTimer},
+ * {@code StasisTimer}, {@code MaelstromTimer}, {@code PlagueTimer} and {@code IrradiateTimer} (a timer that starts runs the effect's apply
+ * routine, which adds the overlay and disables or slows the unit, then takes the value; {@code 0} runs the effect's end routine),
+ * {@code DefensiveMatrixTimer} (starting adds the overlays, {@code 0} ends the matrix as its expiry does), {@code AcidSporeCount} (shows the
+ * overlay of the count, {@code 0} removes the spores). The other fields take the value as an EUD write stores it: {@code DefensiveMatrixHp}
+ * (raw {@code 1/256} units), {@code StormTimer}, {@code RemoveTimer} (frames until a timed unit is removed), {@code ParasiteFlags} and
+ * {@code BlindFlags} (one bit per player), {@code GroundCooldown}, {@code AirCooldown} and {@code SpellCooldown} (frames), {@code KillCount},
+ * {@code RemainingBuildTime} and {@code RemainingResearchTime} (frames of the current production, research or upgrade). Positions:
+ * {@code getRallyX}, {@code getRallyY}, {@code getRallyUnit} ({@code -1} for none), {@code setRallyPosition(id, x, y)} and
+ * {@code setRallyUnit(id, unit)} ({@code false} for a unit type without a rally point), {@code getMoveTargetX}, {@code getMoveTargetY} and
+ * {@code setMoveTarget(id, x, y)}; {@code getDirection} and {@code setDirection} (the direction byte, turning the unit at once);
+ * {@code getCurrentSpeed} and {@code getTopSpeed} ({@code 1/256} pixels per frame). Reads: {@code getBuildQueue} (the queued unit types from
+ * the current one), {@code getResearch} and {@code getUpgrade} (the technology or upgrade in progress, {@code -1} for none) and
+ * {@code getAddon} ({@code -1} for none). {@code setType(id, type)} changes the unit's type through the morph routine and returns
+ * {@code false} for a subunit, a subunit type, or a type whose turret does not match the unit's.
  */
 final class ScriptUnitCore {
     /**
@@ -60,6 +82,14 @@ final class ScriptUnitCore {
      * The largest resource amount of a resource container, a WORD.
      */
     private static final int MAXIMUM_RESOURCES = 0xFFFF;
+    /**
+     * The largest value of a BYTE field, and the mask of a byte.
+     */
+    private static final int BYTE_MAXIMUM = 0xFF;
+    /**
+     * The largest value of a WORD field.
+     */
+    private static final int WORD_MAXIMUM = 0xFFFF;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -128,6 +158,9 @@ final class ScriptUnitCore {
 
         this.defineReads(namespace, global);
         this.defineWrites(namespace, global);
+        this.defineStatusFunctions(namespace, global);
+        this.defineProductionFunctions(namespace, global);
+        this.defineMovementFunctions(namespace, global);
     }
 
     private void defineReads(@NotNull Scriptable namespace, @NotNull Scriptable global) {
@@ -318,6 +351,268 @@ final class ScriptUnitCore {
     }
 
     /**
+     * Defines the status timers, the cooldowns and the kill count.
+     */
+    private void defineStatusFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        UnitSpells spells = this.getGame().getUnitSpells();
+
+        ScriptCoreUtils.defineFunction(global, namespace, "getStimTimer", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readUnit(arguments, 0).getSpeedIncreaseByte());
+        ScriptCoreUtils.defineFunction(global, namespace, "setStimTimer", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int timer = this.readValue(arguments, 1, BYTE_MAXIMUM);
+            int previous = unit.getSpeedIncreaseByte();
+
+            unit.setSpeedIncreaseByte(timer);
+
+            if ((previous == 0) != (timer == 0)) {
+                this.getGame().getEngineGame().getMovement().recalculateSpeed(unit, this.scriptGame.getInstructionLimit());
+            }
+
+            return Context.getUndefinedValue();
+        });
+        this.defineStatusTimer(namespace, global, "EnsnareTimer", Unit::getSpeedDecreaseByte, Unit::setSpeedDecreaseByte, spells::applyEnsnare,
+                               spells::removeEnsnare);
+        this.defineStatusTimer(namespace, global, "LockdownTimer", Unit::getLockdownTimer, Unit::setLockdownTimer, spells::applyLockdown,
+                               spells::removeLockdown);
+        this.defineStatusTimer(namespace, global, "StasisTimer", Unit::getStasisTimer, Unit::setStasisTimer, spells::applyStasis,
+                               spells::removeStasis);
+        this.defineStatusTimer(namespace, global, "MaelstromTimer", Unit::getMaelstromTimer, Unit::setMaelstromTimer, spells::applyMaelstrom,
+                               spells::removeMaelstrom);
+        this.defineStatusTimer(namespace, global, "PlagueTimer", Unit::getPlagueTimer, Unit::setPlagueTimer, spells::applyPlague,
+                               (unit, instructionLimit) -> spells.removePlague(unit));
+        this.defineStatusTimer(namespace, global, "IrradiateTimer", Unit::getIrradiateTimer, Unit::setIrradiateTimer,
+                               (unit, instructionLimit) -> spells.applyIrradiation(unit.getIrradiatedBy(), unit.getIrradiateOwner(), unit,
+                                                                                    instructionLimit),
+                               (unit, instructionLimit) -> spells.removeIrradiate(unit));
+
+        ScriptCoreUtils.defineFunction(global, namespace, "getDefensiveMatrixTimer", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readUnit(arguments, 0).getDefensiveMatrixTimer());
+        ScriptCoreUtils.defineFunction(global, namespace, "setDefensiveMatrixTimer", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int timer = this.readValue(arguments, 1, BYTE_MAXIMUM);
+            int previous = unit.getDefensiveMatrixTimer();
+
+            if (timer == 0) {
+                if (previous != 0) {
+                    spells.dealDefensiveMatrixDamage(unit, unit.getDefensiveMatrixHealth(), this.scriptGame.getInstructionLimit());
+                }
+
+                return Context.getUndefinedValue();
+            }
+
+            unit.setDefensiveMatrixTimer(timer);
+
+            if (previous == 0) {
+                spells.createDefensiveMatrixImage(unit, this.scriptGame.getInstructionLimit());
+            }
+
+            return Context.getUndefinedValue();
+        });
+        this.defineFieldWrite(namespace, global, "DefensiveMatrixHp", Unit::getDefensiveMatrixHealth, Unit::setDefensiveMatrixHealth, WORD_MAXIMUM);
+
+        ScriptCoreUtils.defineFunction(global, namespace, "getAcidSporeCount", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readUnit(arguments, 0).getAcidSporeCount());
+        ScriptCoreUtils.defineFunction(global, namespace, "setAcidSporeCount", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int count = this.readValue(arguments, 1, BYTE_MAXIMUM);
+
+            if (count == 0) {
+                if (unit.getAcidSporeCount() != 0) {
+                    spells.removeAcidSpores(unit);
+                }
+
+                return Context.getUndefinedValue();
+            }
+
+            unit.setAcidSporeCount(count);
+            spells.updateAcidSporeImage(unit, this.scriptGame.getInstructionLimit());
+
+            return Context.getUndefinedValue();
+        });
+
+        this.defineFieldWrite(namespace, global, "StormTimer", Unit::getStormTimer, Unit::setStormTimer, BYTE_MAXIMUM);
+        this.defineFieldWrite(namespace, global, "RemoveTimer", Unit::getRemainingLifetime, Unit::setRemainingLifetime, WORD_MAXIMUM);
+        this.defineFieldWrite(namespace, global, "ParasiteFlags", Unit::getParasiteFlags, Unit::setParasiteFlags, BYTE_MAXIMUM);
+        this.defineFieldWrite(namespace, global, "BlindFlags", Unit::getBlindnessState, Unit::setBlindnessState, BYTE_MAXIMUM);
+        this.defineCooldown(namespace, global, "GroundCooldown", Unit.GROUND_COOLDOWN_SHIFT);
+        this.defineCooldown(namespace, global, "AirCooldown", Unit.AIR_COOLDOWN_SHIFT);
+        this.defineCooldown(namespace, global, "SpellCooldown", Unit.SPELL_COOLDOWN_SHIFT);
+        this.defineFieldWrite(namespace, global, "KillCount", Unit::getKillCount, Unit::setKillCount, BYTE_MAXIMUM);
+    }
+
+    /**
+     * Defines the build queue, the remaining times, the research, the upgrade, the add-on, the rally point and the unit type change.
+     */
+    private void defineProductionFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getBuildQueue", 1, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+            List<Object> types = new ArrayList<>();
+
+            for (int offset = 0; offset < Unit.BUILD_QUEUE_SLOTS; offset++) {
+                int type = unit.getBuildQueueUnitType(Math.floorMod(unit.getBuildQueueIndex() + offset, Unit.BUILD_QUEUE_SLOTS));
+
+                if (type == ScrUnitIds.NONE) {
+                    break;
+                }
+
+                types.add((double) type);
+            }
+
+            return context.newArray(global, types.toArray());
+        });
+        this.defineFieldWrite(namespace, global, "RemainingBuildTime", Unit::getRemainingBuildTime, Unit::setRemainingBuildTime, WORD_MAXIMUM);
+        this.defineFieldWrite(namespace, global, "RemainingResearchTime", Unit::getUpgradeResearchTime, Unit::setUpgradeResearchTime, WORD_MAXIMUM);
+        this.defineRead(namespace, global, "getResearch",
+                        unit -> unit.getResearchType() < ScrTechIds.NONE ? unit.getResearchType() : ScriptCoreUtils.NO_ID);
+        this.defineRead(namespace, global, "getUpgrade",
+                        unit -> unit.getUpgradeType() < ScrUpgradeIds.NONE ? unit.getUpgradeType() : ScriptCoreUtils.NO_ID);
+        this.defineRead(namespace, global, "getAddon", unit -> this.toId(unit.getAddon()));
+
+        this.defineRead(namespace, global, "getRallyX", Unit::getRallyPositionX);
+        this.defineRead(namespace, global, "getRallyY", Unit::getRallyPositionY);
+        this.defineRead(namespace, global, "getRallyUnit", unit -> this.toId(unit.getRallyTargetUnit()));
+        ScriptCoreUtils.defineFunction(global, namespace, "setRallyPosition", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int positionX = this.readValue(arguments, 1, WORD_MAXIMUM);
+            int positionY = this.readValue(arguments, 2, WORD_MAXIMUM);
+
+            if (!this.getUnitTypes().isRallyProducer(unit.getUnitId())) {
+                return false;
+            }
+
+            unit.setRallyPositionX(positionX);
+            unit.setRallyPositionY(positionY);
+
+            return true;
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setRallyUnit", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            Unit target = ScriptCoreUtils.readInteger(arguments, 1) == ScriptCoreUtils.NO_ID ? null : this.readUnit(arguments, 1);
+
+            if (!this.getUnitTypes().isRallyProducer(unit.getUnitId())) {
+                return false;
+            }
+
+            unit.setRallyTargetUnit(target);
+
+            return true;
+        });
+
+        ScriptCoreUtils.defineFunction(global, namespace, "setType", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int type = ScriptCoreUtils.requireId("unit type", ScriptCoreUtils.readInteger(arguments, 1), ScrUnitIds.NONE);
+
+            return this.changeType(unit, type);
+        });
+    }
+
+    /**
+     * Defines the direction, the speeds and the movement target.
+     */
+    private void defineMovementFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        this.defineRead(namespace, global, "getDirection", Unit::getHeading);
+        ScriptCoreUtils.defineFunction(global, namespace, "setDirection", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int direction = this.readValue(arguments, 1, BYTE_MAXIMUM);
+
+            unit.resetDirection(this.getGame(), direction);
+
+            return Context.getUndefinedValue();
+        });
+        this.defineRead(namespace, global, "getCurrentSpeed", Unit::getCurrentSpeed);
+        this.defineRead(namespace, global, "getTopSpeed", Unit::getTopSpeed);
+        this.defineRead(namespace, global, "getMoveTargetX", Unit::getMovementDestinationX);
+        this.defineRead(namespace, global, "getMoveTargetY", Unit::getMovementDestinationY);
+        ScriptCoreUtils.defineFunction(global, namespace, "setMoveTarget", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int positionX = this.readValue(arguments, 1, WORD_MAXIMUM);
+            int positionY = this.readValue(arguments, 2, WORD_MAXIMUM);
+
+            unit.setMovementDestinationX(positionX);
+            unit.setMovementDestinationY(positionY);
+
+            return Context.getUndefinedValue();
+        });
+    }
+
+    /**
+     * Defines the read and the write of a status timer with the native routines of its effect: a timer that starts runs the effect's apply
+     * routine (overlay, disabling, speed) and then takes the value, a timer set to {@code 0} runs the effect's end routine, any other value
+     * replaces the timer.
+     */
+    private void defineStatusTimer(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name, @NotNull ToIntFunction<Unit> read,
+                                   @NotNull ObjIntConsumer<Unit> write, @NotNull ObjIntConsumer<Unit> apply, @NotNull ObjIntConsumer<Unit> remove) {
+        this.defineRead(namespace, global, "get" + name, read);
+        ScriptCoreUtils.defineFunction(global, namespace, "set" + name, 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int timer = this.readValue(arguments, 1, BYTE_MAXIMUM);
+            int previous = read.applyAsInt(unit);
+
+            if (timer == 0) {
+                if (previous != 0) {
+                    remove.accept(unit, this.scriptGame.getInstructionLimit());
+                }
+
+                return Context.getUndefinedValue();
+            }
+
+            if (previous == 0) {
+                apply.accept(unit, this.scriptGame.getInstructionLimit());
+            }
+
+            write.accept(unit, timer);
+
+            return Context.getUndefinedValue();
+        });
+    }
+
+    /**
+     * Defines the read and the write of a field that no routine keeps, which the write stores as an EUD write does.
+     */
+    private void defineFieldWrite(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name, @NotNull ToIntFunction<Unit> read,
+                                  @NotNull ObjIntConsumer<Unit> write, int maximum) {
+        this.defineRead(namespace, global, "get" + name, read);
+        ScriptCoreUtils.defineFunction(global, namespace, "set" + name, 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int value = this.readValue(arguments, 1, maximum);
+
+            write.accept(unit, value);
+
+            return Context.getUndefinedValue();
+        });
+    }
+
+    /**
+     * Defines the read and the write of a cooldown byte of the timer DWORD.
+     */
+    private void defineCooldown(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name, int shift) {
+        this.defineFieldWrite(namespace, global, name, unit -> unit.getCooldownTimers() >>> shift & BYTE_MAXIMUM,
+                              (unit, value) -> unit.setCooldownTimers(unit.getCooldownTimers() & ~(BYTE_MAXIMUM << shift) | value << shift),
+                              BYTE_MAXIMUM);
+    }
+
+    /**
      * Defines a read of a live unit that returns an integer.
      */
     private void defineRead(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name,
@@ -378,6 +673,49 @@ final class ScriptUnitCore {
         }
 
         return amount;
+    }
+
+    /**
+     * Reads a value of a unit field.
+     *
+     * @throws EcmaError if the argument is not an integer or is outside {@code 0} to the maximum
+     */
+    private int readValue(@NotNull Object @NotNull [] arguments, int index, int maximum) {
+        int value = ScriptCoreUtils.readInteger(arguments, index);
+
+        if (value < 0 || value > maximum) {
+            throw ScriptRuntime.rangeError(Exceptions.format("The value {0} is not from 0 to {1}.", value, maximum));
+        }
+
+        return value;
+    }
+
+    /**
+     * @return the id of a live unit, or {@code -1} for none or a unit that is gone
+     */
+    private int toId(@Nullable Unit unit) {
+        return unit != null && isLive(this.getPool(), unit.getIndex()) ? unit.getIndex() : ScriptCoreUtils.NO_ID;
+    }
+
+    /**
+     * Changes a unit's type through the morph routine, which keeps the unit, its owner, order and links, scales its hit points and rebuilds its
+     * sprite and status overlays.
+     *
+     * @return {@code true} if the routine took the unit, {@code false} for a subunit, a subunit type, or a type with a turret for a unit
+     *         without one or the reverse
+     */
+    private boolean changeType(@NotNull Unit unit, int type) {
+        ScrUnitTypeView units = this.getUnitTypes();
+        boolean turret = unit.getSubunit() != null;
+
+        if ((units.getFlags(unit.getUnitId()) & UnitTypeFlags.SUBUNIT) != 0 || (units.getFlags(type) & UnitTypeFlags.SUBUNIT) != 0 ||
+            turret != (units.getFirstSubunit(type) != ScrUnitIds.NONE)) {
+            return false;
+        }
+
+        this.getGame().getUnitMorphing().morph(unit, type, this.scriptGame.getInstructionLimit());
+
+        return true;
     }
 
     private int getMaximumShields(@NotNull Unit unit) {

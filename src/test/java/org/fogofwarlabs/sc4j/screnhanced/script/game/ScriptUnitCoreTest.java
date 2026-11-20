@@ -23,6 +23,10 @@ final class ScriptUnitCoreTest {
      * The frames the doodad test runs after its start, so that the disabled unit runs its DisableDoodad order.
      */
     private static final int DOODAD_FRAMES = 8;
+    /**
+     * The frames the status timer test runs after its start, two status steps of eight frames.
+     */
+    private static final int STATUS_FRAMES = 16;
 
     @Test
     void units_read_the_start_units_in_slot_order(@NotNull InstallationTestResources resources) throws IOException {
@@ -133,6 +137,131 @@ final class ScriptUnitCoreTest {
                                         "RangeError",
                                         "frame false false 0",
                                         "frame false false 0"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void status_timers_take_the_apply_and_end_routines_of_their_effects(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var marine;
+                var hp;
+                var frames = 0;
+                function onStart() {
+                    var human = game.getHumanPlayers()[0];
+                    var position = game.findUnit({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
+                    var ensnared = game.createUnit(UnitType.TerranVulture, human, position);
+                    var stimmed = game.createUnit(UnitType.TerranVulture, human, position);
+                    var speed = ensnared.getTopSpeed();
+                    ensnared.setEnsnareTimer(20);
+                    stimmed.setStimTimer(20);
+                    log.info(ensnared.getEnsnareTimer(), ensnared.getTopSpeed() < speed, stimmed.getStimTimer(), stimmed.getTopSpeed() > speed);
+                    ensnared.setEnsnareTimer(0);
+                    stimmed.setStimTimer(0);
+                    log.info(ensnared.getEnsnareTimer(), ensnared.getTopSpeed() === speed, stimmed.getTopSpeed() === speed);
+                    marine = game.createUnit(UnitType.TerranMarine, human, position);
+                    marine.setLockdownTimer(30);
+                    log.info(marine.getLockdownTimer(), marine.isDisabled());
+                    marine.setLockdownTimer(0);
+                    marine.setStasisTimer(10);
+                    log.info(marine.isDisabled(), marine.getStasisTimer(), marine.isInvincible());
+                    marine.setStasisTimer(0);
+                    marine.setMaelstromTimer(4);
+                    log.info(marine.isDisabled(), marine.isInvincible(), marine.getMaelstromTimer());
+                    marine.setMaelstromTimer(0);
+                    marine.setDefensiveMatrixHp(250);
+                    marine.setDefensiveMatrixTimer(10);
+                    log.info(marine.isDisabled(), marine.getDefensiveMatrixTimer(), marine.getDefensiveMatrixHp(), core.unit.getDefensiveMatrixHp(marine.getId()));
+                    marine.setDefensiveMatrixTimer(0);
+                    marine.setIrradiateTimer(5);
+                    marine.setAcidSporeCount(3);
+                    log.info(marine.getDefensiveMatrixTimer(), marine.getDefensiveMatrixHp(), marine.getIrradiateTimer(), marine.getAcidSporeCount());
+                    marine.setIrradiateTimer(0);
+                    marine.setAcidSporeCount(0);
+                    marine.setStormTimer(2);
+                    marine.setPlagueTimer(3);
+                    hp = marine.getHp();
+                    log.info(marine.getIrradiateTimer(), marine.getAcidSporeCount(), marine.getStormTimer(), marine.getPlagueTimer());
+                }
+                function onFrame() {
+                    frames++;
+                    if (frames === 16) {
+                        log.info(marine.getHp() < hp, marine.getPlagueTimer() < 3, marine.getStormTimer() < 2);
+                    }
+                }
+                """);
+
+        for (int frame = 0; frame < STATUS_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        Assertions.assertEquals(List.of("20 true 20 true",
+                                        "0 true true",
+                                        "30 true",
+                                        "true 10 true",
+                                        "true false 4",
+                                        "false 10 250 64000",
+                                        "0 0 5 3",
+                                        "0 0 2 3",
+                                        "true true true"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void unit_fields_read_and_write_as_eud_writes_and_the_type_changes_through_the_morph_routine(
+            @NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var marine;
+                var frames = 0;
+                function onStart() {
+                    var human = game.getHumanPlayers()[0];
+                    var enemy = game.getPlayer(1);
+                    var commandCenter = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
+                    var position = commandCenter.getPosition();
+                    marine = game.createUnit(UnitType.TerranMarine, human, position);
+                    marine.setGroundCooldown(40);
+                    marine.setSpellCooldown(7);
+                    marine.setKillCount(3);
+                    marine.setParasitedBy(enemy, true);
+                    marine.setBlindedBy(enemy, true);
+                    marine.setDirection(64);
+                    marine.setMoveTarget(Position.of(100, 200));
+                    log.info(marine.getGroundCooldown(), marine.getAirCooldown(), marine.getSpellCooldown(), marine.getKillCount(),
+                             marine.isParasitedBy(enemy), marine.isParasitedBy(human), core.unit.getParasiteFlags(marine.getId()), marine.isBlind(),
+                             marine.getDirection(), marine.getMoveTarget().getX(), marine.getMoveTarget().getY());
+                    marine.setParasitedBy(enemy, false);
+                    marine.setBlindedBy(enemy, false);
+                    log.info(marine.isParasitedBy(enemy), marine.isBlind(), commandCenter.getResearch(), commandCenter.getUpgrade(),
+                             commandCenter.getAddon(), commandCenter.getBuildQueue().length, commandCenter.getRemainingBuildTime());
+                    var rally = Position.of(position.getX() + 96, position.getY());
+                    log.info(commandCenter.setRallyPosition(rally), commandCenter.getRallyPosition().getX() === rally.getX(),
+                             commandCenter.setRallyUnit(marine), commandCenter.getRallyUnit() === marine, marine.setRallyPosition(rally),
+                             commandCenter.setRallyUnit(null), commandCenter.getRallyUnit());
+                    var scv = game.findUnit({type: UnitType.TerranSCV, owner: human});
+                    var scvs = human.countUnits(UnitType.TerranSCV);
+                    var marines = human.countUnits(UnitType.TerranMarine);
+                    scv.setHp(30);
+                    log.info(scv.setType(UnitType.TerranMarine), scv.exists(), game.getUnit(scv.getId()) === scv, scv.getType() === UnitType.TerranMarine,
+                             scv.getHp(), human.countUnits(UnitType.TerranSCV) === scvs - 1, human.countUnits(UnitType.TerranMarine) === marines + 1);
+                    var tank = game.createUnit(UnitType.TerranSiegeTankTankMode, human, position);
+                    log.info(tank.setType(UnitType.TerranMarine), tank.setType(UnitType.TerranSiegeTankSiegeMode), tank.getType().getName(),
+                             marine.setType(UnitType.TerranSiegeTankTankMode));
+                }
+                function onFrame() {
+                    frames++;
+                    if (frames === 8) {
+                        log.info(marine.getGroundCooldown() < 40);
+                    }
+                }
+                """);
+
+        for (int frame = 0; frame < DOODAD_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        Assertions.assertEquals(List.of("40 0 7 3 true false 2 true 64 100 200",
+                                        "false false null null null 0 0",
+                                        "true true true true false true null",
+                                        "true true true true 20 true true",
+                                        "false true Terran Siege Tank Siege Mode false",
+                                        "true"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 
     @Test

@@ -6,12 +6,14 @@ import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.fogofwarlabs.sc4j.scr.game.test.RunningGameScenario;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerEvents;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
+import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,7 +27,8 @@ import java.util.List;
 /**
  * Tests {@code core.player} and the {@code Player} objects of the prelude in a live melee game: identity, resources through the Set
  * Resources routine, supply, alliances, printed texts, game results, the centering of the local view, the counters and unit removals of the
- * trigger routines, AI scripts, mission objectives as registered map strings and the local display routines.
+ * trigger routines, AI scripts, mission objectives as registered map strings, the local display routines, and the upgrade, technology and unit
+ * availability state with its effect on the player's units and production.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -38,6 +41,71 @@ final class ScriptPlayerCoreTest {
      * The frames the counter test runs after its start, so that the killed units are gone.
      */
     private static final int COUNTED_FRAMES = 24;
+
+    @Test
+    void upgrade_levels_refresh_the_existing_units_and_technologies_change_their_state(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                function onStart() {
+                    var human = game.getHumanPlayers()[0];
+                    var position = game.findUnit({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
+                    var vulture = game.createUnit(UnitType.TerranVulture, human, position);
+                    var speed = vulture.getTopSpeed();
+                    var thrusters = UpgradeType.IonThrusters;
+                    log.info(human.getUpgradeLevel(thrusters), human.getMaxUpgradeLevel(thrusters), human.isUpgradeInProgress(thrusters));
+                    human.setUpgradeLevel(thrusters, 1);
+                    log.info(human.getUpgradeLevel(thrusters), vulture.getTopSpeed() > speed, core.player.getUpgradeLevel(human.getId(), thrusters.getId()));
+                    human.setMaxUpgradeLevel(UpgradeType.TerranInfantryWeapons, 5);
+                    log.info(human.getMaxUpgradeLevel(UpgradeType.TerranInfantryWeapons), game.getPlayer(2).getMaxUpgradeLevel(UpgradeType.TerranInfantryWeapons));
+                    log.info(human.isTechResearched(TechType.StimPacks), human.isTechAvailable(TechType.Lockdown), human.isTechInProgress(TechType.StimPacks));
+                    human.setTechResearched(TechType.StimPacks, true);
+                    human.setTechAvailable(TechType.Lockdown, false);
+                    log.info(human.isTechResearched(TechType.StimPacks), human.isTechAvailable(TechType.Lockdown));
+                    human.setUnitAvailable(UnitType.TerranMarine, true);
+                    log.info(human.isUnitAvailable(UnitType.TerranMarine));
+                    try {
+                        human.setUnitAvailable(UnitType.TerranMarine, false);
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                }
+                """);
+
+        Assertions.assertEquals(List.of("0 1 false", "1 true 1", "5 3", "false true false", "true false", "true", "TypeError"),
+                                scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void unit_availability_blocks_production_in_a_map_settings_game(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
+                var human;
+                function onStart() {
+                    human = game.getHumanPlayers()[0];
+                    var barracks = null;
+                    for (var x = 256; barracks === null && x < game.getMapWidth(); x += 256) {
+                        for (var y = 256; barracks === null && y < game.getMapHeight(); y += 256) {
+                            barracks = game.createUnit(UnitType.TerranBarracks, human, Position.of(x, y));
+                        }
+                    }
+                    log.info(barracks.getId(), human.isUnitAvailable(UnitType.TerranMarine));
+                    human.setUnitAvailable(UnitType.TerranMarine, false);
+                    log.info(human.isUnitAvailable(UnitType.TerranMarine));
+                }
+                function onFrame() {
+                    human.setUnitAvailable(UnitType.TerranMarine, true);
+                }
+                """);
+        Assertions.assertFalse(scenario.getInfoMessages().isEmpty(), scenario.getLines()::toString);
+
+        Game game = scenario.getGame();
+        Unit barracks = game.getUnitSystem().requireUnitPool().getUnit(Integer.parseInt(scenario.getInfoMessages().getFirst().split(" ")[0]));
+        boolean unavailable = game.getUnitProduction().canBuild(barracks, ScrUnitIds.TERRAN_MARINE);
+
+        scenario.stepFrame();
+
+        Assertions.assertFalse(unavailable);
+        Assertions.assertTrue(game.getUnitProduction().canBuild(barracks, ScrUnitIds.TERRAN_MARINE));
+        Assertions.assertEquals(List.of(barracks.getIndex() + " true", "false"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
 
     @Test
     void players_read_and_change_resources_supply_and_alliances(@NotNull InstallationTestResources resources) throws IOException {

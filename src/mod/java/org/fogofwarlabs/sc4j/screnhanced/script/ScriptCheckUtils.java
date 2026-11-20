@@ -4,6 +4,8 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptFinding.Severity;
+import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptDatTables;
+import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptGame;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptHook;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -57,7 +59,8 @@ import java.util.regex.Pattern;
  * have ({@code eval}, {@code Date}, {@code java}, {@code Packages} and the other Java and timer globals) and calls of the {@code Function}
  * constructor (errors) unless the script declares the name, top-level functions with the form of a hook name that no hook has (warnings, as
  * the runtime warns), a {@code const} in a loop, which keeps its first value in Rhino 1.8.1 (a warning), and functions in the body of a
- * {@code for (let ...)} loop that use its variables, which all iterations share in Rhino 1.8.1 (a warning).
+ * {@code for (let ...)} loop that use its variables, which all iterations share in Rhino 1.8.1 (a warning), and names under {@code core.dat}
+ * that the DAT tables do not have, a table or a function of a table (errors), unless the script declares {@code core}.
  * <p>
  * Each resource named {@code *.grp} or {@code *.anim}, read as the runtime reads a GRP or an anim. The size: the script trailer with every file
  * stored as it is against the largest map file (a warning).
@@ -73,6 +76,12 @@ public final class ScriptCheckUtils {
     private static final @NotNull String ANIM_EXTENSION = ".anim";
     private static final int FIRST_LINE = 1;
     private static final @NotNull String FUNCTION_CONSTRUCTOR_NAME = "Function";
+    /**
+     * The namespace of the DAT tables under {@code core}.
+     */
+    private static final @NotNull String DAT_NAMESPACE = "dat";
+    private static final @NotNull String GETTER_PREFIX = "get";
+    private static final @NotNull String SETTER_PREFIX = "set";
     /**
      * The globals a script does not have: removed from Rhino's standard objects, or Java, XML and timer globals that the runtime never defines.
      */
@@ -333,10 +342,54 @@ public final class ScriptCheckUtils {
                 checkDeclaration(scriptName, declaration, findings);
             } else if (node instanceof Loop loop) {
                 checkLetLoop(scriptName, loop, findings);
+            } else if (node instanceof PropertyGet get && !declaredNames.contains(ScriptGame.CORE_NAME)) {
+                checkDatName(scriptName, get, findings);
             }
 
             return true;
         });
+    }
+
+    /**
+     * Reports a name under {@code core.dat} that the DAT tables ({@link ScriptDatTables}) do not have: a table, or a function of a table.
+     */
+    private static void checkDatName(@NotNull String scriptName, @NotNull PropertyGet get, @NotNull List<ScriptFinding> findings) {
+        String name = get.getProperty().getIdentifier();
+
+        if (isCoreDat(get.getTarget())) {
+            if (ScriptDatTables.findTable(name) == null) {
+                findings.add(new ScriptFinding(scriptName, get.getLineno(), Severity.ERROR, Exceptions.format("core.dat has no table {0}.", name)));
+            }
+
+            return;
+        }
+
+        if (!(get.getTarget() instanceof PropertyGet tableGet) || !isCoreDat(tableGet.getTarget())) {
+            return;
+        }
+
+        ScriptDatTables.Table table = ScriptDatTables.findTable(tableGet.getProperty().getIdentifier());
+
+        if (table == null) {
+            return;
+        }
+
+        for (ScriptDatTables.Column column : table.getColumns()) {
+            if (name.equals(GETTER_PREFIX + column.getName()) || column.isWritable() && name.equals(SETTER_PREFIX + column.getName())) {
+                return;
+            }
+        }
+
+        findings.add(new ScriptFinding(scriptName, get.getLineno(), Severity.ERROR,
+                                       Exceptions.format("core.dat.{0} has no function {1}.", table.getName(), name)));
+    }
+
+    /**
+     * @return {@code true} if the node is {@code core.dat}, {@code false} otherwise
+     */
+    private static boolean isCoreDat(@NotNull AstNode node) {
+        return node instanceof PropertyGet get && get.getTarget() instanceof Name target && target.getIdentifier().equals(ScriptGame.CORE_NAME) &&
+               get.getProperty().getIdentifier().equals(DAT_NAMESPACE);
     }
 
     /**

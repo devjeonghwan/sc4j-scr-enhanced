@@ -15,8 +15,8 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Tests the {@code ImageType} names that {@code core.imageType} builds from the installed GRP paths and drawing functions, and the image types
- * whose HD anims the image types draw after the installed {@code images.rel}.
+ * Tests the {@code ImageType} names that {@code core.imageType} builds from the installed GRP paths and drawing functions, the {@code SpriteType}
+ * and {@code FlingyType} names from their images, and the image types whose HD anims the image types draw after the installed {@code images.rel}.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -50,6 +50,33 @@ final class ScriptTypeCoreTest {
         Assertions.assertEquals(List.of("999 999 999",
                                         "UnitTerranMarine UnitProtossArbiter UnitProtossArbiterShadow UnitProtossArbiterWarpFlash " +
                                         "UnitNeutralGeyser UnitNeutralGeyser_2 UnitZergZLurker UnitZergZlurker_2"),
+                                scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void sprite_and_flingy_type_names_are_unique_identifiers_from_their_images(@NotNull InstallationTestResources resources) throws IOException {
+        GameMap map = new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]);
+        ScriptGameScenario scenario = new ScriptGameScenario(Game.create(resources.getGameData(), map, new LcgRandom(0)), """
+                function count(table) {
+                    var names = {};
+                    var valid = 0;
+                    for (var id = 0; id < table.getCount(); id++) {
+                        var name = table.get(id).getName();
+                        if (names[name.toLowerCase()] === undefined && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && table[name] === table.get(id)) {
+                            names[name.toLowerCase()] = id;
+                            valid++;
+                        }
+                    }
+                    return table.getCount() + ' ' + valid;
+                }
+                var flingy = UnitType.TerranMarine.getFlingyType();
+                log.info(count(SpriteType), count(FlingyType));
+                log.info(flingy.getName(), flingy.getSprite().getName(), core.spriteType.getName(flingy.getSprite().getId()));
+                """);
+
+        scenario.getRuntime().start();
+
+        Assertions.assertEquals(List.of("517 517 209 209", "UnitTerranMarine UnitTerranMarine UnitTerranMarine"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 

@@ -1,11 +1,12 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, UnitGroup,
-// WeaponType, UpgradeType, TechType, Order, ImageType, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier, resources, graphics,
-// tileset, terrain and sync, and the Unit, Player, Location, Tile, Channel and PlayerValue objects they return. One unit, player, location
-// or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields
-// and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply
-// (core's half units divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object
-// also has the methods that decide. The prelude returns the functions that make these objects to the game.
-(function (global, core) {
+// WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType, Order, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier,
+// resources, graphics, tileset, terrain and sync, and the Unit, Player, Location, Tile, Channel and PlayerValue objects they return. One unit,
+// player, location or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone.
+// Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them), supply
+// the shown supply (core's half units divided by 2). The DAT methods of the type objects come from the DAT tables the game passes
+// (datTables) over core.dat, with its raw values. The event and decision objects of the hooks have getters for their captured values; a
+// decision object also has the methods that decide. The prelude returns the functions that make these objects to the game.
+(function (global, core, datTables) {
     'use strict';
 
     var RAW_SCALE = 256;
@@ -137,60 +138,114 @@
 
     var unitTypePrototype = create(typePrototype);
     var weaponTypePrototype = create(typePrototype);
+    var flingyTypePrototype = create(typePrototype);
+    var spriteTypePrototype = create(typePrototype);
+    var imageTypePrototype = create(typePrototype);
     var upgradeTypePrototype = create(typePrototype);
     var techTypePrototype = create(typePrototype);
     var orderPrototype = create(typePrototype);
-    var imageTypePrototype = create(typePrototype);
-
-    unitTypePrototype.getMaxHp = function () {
-        return core.unitType.getMaxHp(this.id) / RAW_SCALE;
-    };
-    unitTypePrototype.setMaxHp = function (hp) {
-        core.unitType.setMaxHp(this.id, round(hp * RAW_SCALE));
-    };
-    unitTypePrototype.getMaxShields = function () {
-        return core.unitType.getMaxShields(this.id);
-    };
-    unitTypePrototype.setMaxShields = function (shields) {
-        core.unitType.setMaxShields(this.id, shields);
-    };
-    unitTypePrototype.getArmor = function () {
-        return core.unitType.getArmor(this.id);
-    };
-    unitTypePrototype.setArmor = function (armor) {
-        core.unitType.setArmor(this.id, armor);
-    };
-    unitTypePrototype.getGroundWeapon = function () {
-        return WeaponType.get(core.unitType.getGroundWeapon(this.id));
-    };
-    unitTypePrototype.getAirWeapon = function () {
-        return WeaponType.get(core.unitType.getAirWeapon(this.id));
-    };
 
     // The image type whose HD anim this image type draws (images.rel), this image type for one with its own anim.
     imageTypePrototype.getAnimImageType = function () {
         return ImageType.get(core.imageType.getAnimImageType(this.id));
     };
 
-    weaponTypePrototype.getDamage = function () {
-        return core.weaponType.getDamage(this.id);
-    };
-    weaponTypePrototype.setDamage = function (damage) {
-        core.weaponType.setDamage(this.id, damage);
-    };
-    weaponTypePrototype.getDamageBonus = function () {
-        return core.weaponType.getDamageBonus(this.id);
-    };
-    weaponTypePrototype.setDamageBonus = function (bonus) {
-        core.weaponType.setDamageBonus(this.id, bonus);
-    };
-
     var UnitType = createTypeTable(core.unitType, unitTypePrototype);
     var WeaponType = createTypeTable(core.weaponType, weaponTypePrototype);
+    var FlingyType = createTypeTable(core.flingyType, flingyTypePrototype);
+    var SpriteType = createTypeTable(core.spriteType, spriteTypePrototype);
+    var ImageType = createTypeTable(core.imageType, imageTypePrototype);
     var UpgradeType = createTypeTable(core.upgradeType, upgradeTypePrototype);
     var TechType = createTypeTable(core.techType, techTypePrototype);
     var Order = createTypeTable(core.orderType, orderPrototype);
-    var ImageType = createTypeTable(core.imageType, imageTypePrototype);
+
+    // The type tables and the prototypes of their objects by the type names of the DAT tables.
+    var datTypeTables = {
+        UnitType: UnitType, WeaponType: WeaponType, FlingyType: FlingyType, SpriteType: SpriteType, ImageType: ImageType,
+        UpgradeType: UpgradeType, TechType: TechType, Order: Order
+    };
+    var datTypePrototypes = {
+        UnitType: unitTypePrototype, WeaponType: weaponTypePrototype, FlingyType: flingyTypePrototype, SpriteType: spriteTypePrototype,
+        ImageType: imageTypePrototype, UpgradeType: upgradeTypePrototype, TechType: techTypePrototype, Order: orderPrototype
+    };
+
+    // Defines the methods of a DAT column on the type objects: get<Column>() and, for a writable column, set<Column>(value) with the raw
+    // value, or the type object a reference names (null for its none id).
+    function defineDatColumn(prototype, namespace, column) {
+        var read = namespace['get' + column.name];
+        var write = column.writable ? namespace['set' + column.name] : null;
+
+        if (column.reference === null) {
+            prototype['get' + column.name] = function () {
+                return read(this.id);
+            };
+
+            if (write !== null) {
+                prototype['set' + column.name] = function (value) {
+                    write(this.id, value);
+                };
+            }
+
+            return;
+        }
+
+        var table = datTypeTables[column.reference];
+        var referencePrototype = datTypePrototypes[column.reference];
+
+        prototype['get' + column.name] = function () {
+            return table.get(read(this.id));
+        };
+
+        if (write !== null) {
+            prototype['set' + column.name] = function (type) {
+                write(this.id, type === null && column.none !== NONE ? column.none : requireObject(type, referencePrototype, column.reference).id);
+            };
+        }
+    }
+
+    // Defines is<Flag>() and, for a writable column, set<Flag>(set) for each named bit of a DAT flag column.
+    function defineDatFlag(prototype, namespace, column, flag) {
+        var read = namespace['get' + column.name];
+        var write = column.writable ? namespace['set' + column.name] : null;
+
+        prototype['is' + flag.name] = function () {
+            return (read(this.id) & flag.mask) !== 0;
+        };
+
+        if (write !== null) {
+            prototype['set' + flag.name] = function (set) {
+                if (typeof set !== 'boolean') {
+                    throw new TypeError('A boolean is needed, not ' + set + '.');
+                }
+
+                var value = read(this.id);
+
+                write(this.id, (set ? value | flag.mask : value & ~flag.mask) >>> 0);
+            };
+        }
+    }
+
+    function defineDatMethods(tables) {
+        for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+            var table = tables[tableIndex];
+            var namespace = core.dat[table.name];
+            var prototype = datTypePrototypes[table.type];
+
+            for (var columnIndex = 0; columnIndex < table.columns.length; columnIndex++) {
+                var column = table.columns[columnIndex];
+
+                if (column.flags === null) {
+                    defineDatColumn(prototype, namespace, column);
+                } else {
+                    for (var flagIndex = 0; flagIndex < column.flags.length; flagIndex++) {
+                        defineDatFlag(prototype, namespace, column, column.flags[flagIndex]);
+                    }
+                }
+            }
+        }
+    }
+
+    defineDatMethods(datTables);
 
     var positionPrototype = {
         getX: function () {
@@ -657,9 +712,111 @@
                 core.unit.issueOrder(id, orderId, NONE, target.x, target.y);
             }
         },
+        getDefensiveMatrixHp: function () {
+            return core.unit.getDefensiveMatrixHp(requireUnitId(this)) / RAW_SCALE;
+        },
+        setDefensiveMatrixHp: function (hp) {
+            core.unit.setDefensiveMatrixHp(requireUnitId(this), round(hp * RAW_SCALE));
+        },
+        isParasitedBy: function (player) {
+            return (core.unit.getParasiteFlags(requireUnitId(this)) & 1 << requireObject(player, playerPrototype, 'A player').id) !== 0;
+        },
+        setParasitedBy: function (player, parasited) {
+            var id = requireUnitId(this);
+            var bit = 1 << requireObject(player, playerPrototype, 'A player').id;
+            var flags = core.unit.getParasiteFlags(id);
+
+            core.unit.setParasiteFlags(id, parasited ? flags | bit : flags & ~bit);
+        },
+        isBlind: function () {
+            return core.unit.getBlindFlags(requireUnitId(this)) !== 0;
+        },
+        isBlindedBy: function (player) {
+            return (core.unit.getBlindFlags(requireUnitId(this)) & 1 << requireObject(player, playerPrototype, 'A player').id) !== 0;
+        },
+        setBlindedBy: function (player, blinded) {
+            var id = requireUnitId(this);
+            var bit = 1 << requireObject(player, playerPrototype, 'A player').id;
+            var flags = core.unit.getBlindFlags(id);
+
+            core.unit.setBlindFlags(id, blinded ? flags | bit : flags & ~bit);
+        },
+        // The unit types in the build queue from the current one.
+        getBuildQueue: function () {
+            return core.unit.getBuildQueue(requireUnitId(this)).map(function (id) {
+                return UnitType.get(id);
+            });
+        },
+        getResearch: function () {
+            return TechType.get(core.unit.getResearch(requireUnitId(this)));
+        },
+        getUpgrade: function () {
+            return UpgradeType.get(core.unit.getUpgrade(requireUnitId(this)));
+        },
+        getAddon: function () {
+            return getUnit(core.unit.getAddon(requireUnitId(this)));
+        },
+        getRallyPosition: function () {
+            var id = requireUnitId(this);
+
+            return createPosition(core.unit.getRallyX(id), core.unit.getRallyY(id));
+        },
+        // The rally writes return false for a unit type without a rally point.
+        setRallyPosition: function (position) {
+            var id = requireUnitId(this);
+
+            requireObject(position, positionPrototype, 'A position');
+
+            return core.unit.setRallyPosition(id, position.x, position.y);
+        },
+        getRallyUnit: function () {
+            return getUnit(core.unit.getRallyUnit(requireUnitId(this)));
+        },
+        setRallyUnit: function (unit) {
+            var id = requireUnitId(this);
+
+            return core.unit.setRallyUnit(id, unit === null ? NONE : requireUnitId(unit));
+        },
+        getMoveTarget: function () {
+            var id = requireUnitId(this);
+
+            return createPosition(core.unit.getMoveTargetX(id), core.unit.getMoveTargetY(id));
+        },
+        setMoveTarget: function (position) {
+            var id = requireUnitId(this);
+
+            requireObject(position, positionPrototype, 'A position');
+            core.unit.setMoveTarget(id, position.x, position.y);
+        },
+        // Changes the unit's type through the morph routine; false for a subunit, a subunit type or a type whose turret does not match.
+        setType: function (type) {
+            return core.unit.setType(requireUnitId(this), requireObject(type, unitTypePrototype, 'A unit type').id);
+        },
         toString: function () {
             return 'Unit ' + this.id;
         }
+    };
+
+    // The raw unit fields with a get and a set: the status timers in status steps of eight frames (a timer that starts runs the effect's apply
+    // routine, 0 its end routine), the cooldowns and the remaining times in frames.
+    function defineUnitField(name) {
+        unitPrototype['get' + name] = function () {
+            return core.unit['get' + name](requireUnitId(this));
+        };
+        unitPrototype['set' + name] = function (value) {
+            core.unit['set' + name](requireUnitId(this), value);
+        };
+    }
+
+    ['StimTimer', 'EnsnareTimer', 'LockdownTimer', 'StasisTimer', 'MaelstromTimer', 'PlagueTimer', 'IrradiateTimer', 'StormTimer',
+     'DefensiveMatrixTimer', 'AcidSporeCount', 'RemoveTimer', 'GroundCooldown', 'AirCooldown', 'SpellCooldown', 'KillCount',
+     'RemainingBuildTime', 'RemainingResearchTime', 'Direction'].forEach(defineUnitField);
+
+    unitPrototype.getCurrentSpeed = function () {
+        return core.unit.getCurrentSpeed(requireUnitId(this));
+    };
+    unitPrototype.getTopSpeed = function () {
+        return core.unit.getTopSpeed(requireUnitId(this));
     };
 
     var playerPrototype = {
@@ -828,6 +985,44 @@
             core.player.setUnitSpeechMuted(this.id, muted);
         },
         // Centers the screen on a position when the player is the local player; the screens of the other peers stay.
+        getUpgradeLevel: function (upgrade) {
+            return core.player.getUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
+        },
+        // Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
+        setUpgradeLevel: function (upgrade, level) {
+            core.player.setUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id, level);
+        },
+        getMaxUpgradeLevel: function (upgrade) {
+            return core.player.getMaxUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
+        },
+        setMaxUpgradeLevel: function (upgrade, level) {
+            core.player.setMaxUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id, level);
+        },
+        isUpgradeInProgress: function (upgrade) {
+            return core.player.isUpgradeInProgress(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
+        },
+        isTechResearched: function (tech) {
+            return core.player.isTechResearched(this.id, requireObject(tech, techTypePrototype, 'A tech type').id);
+        },
+        setTechResearched: function (tech, researched) {
+            core.player.setTechResearched(this.id, requireObject(tech, techTypePrototype, 'A tech type').id, researched);
+        },
+        isTechAvailable: function (tech) {
+            return core.player.isTechAvailable(this.id, requireObject(tech, techTypePrototype, 'A tech type').id);
+        },
+        setTechAvailable: function (tech, available) {
+            core.player.setTechAvailable(this.id, requireObject(tech, techTypePrototype, 'A tech type').id, available);
+        },
+        isTechInProgress: function (tech) {
+            return core.player.isTechInProgress(this.id, requireObject(tech, techTypePrototype, 'A tech type').id);
+        },
+        // The map settings' production availability; a game without map settings allows every unit type.
+        isUnitAvailable: function (unitType) {
+            return core.player.isUnitAvailable(this.id, requireObject(unitType, unitTypePrototype, 'A unit type').id);
+        },
+        setUnitAvailable: function (unitType, available) {
+            core.player.setUnitAvailable(this.id, requireObject(unitType, unitTypePrototype, 'A unit type').id, available);
+        },
         centerView: function (position) {
             requireObject(position, positionPrototype, 'A position');
             core.player.centerView(this.id, position.x, position.y);
@@ -1725,10 +1920,12 @@
     defineGlobal('UnitType', UnitType);
     defineGlobal('UnitGroup', UnitGroup);
     defineGlobal('WeaponType', WeaponType);
+    defineGlobal('FlingyType', FlingyType);
+    defineGlobal('SpriteType', SpriteType);
+    defineGlobal('ImageType', ImageType);
     defineGlobal('UpgradeType', UpgradeType);
     defineGlobal('TechType', TechType);
     defineGlobal('Order', Order);
-    defineGlobal('ImageType', ImageType);
     defineGlobal('ScoreType', ScoreType);
     defineGlobal('ResourceType', ResourceType);
     defineGlobal('Alliance', Alliance);

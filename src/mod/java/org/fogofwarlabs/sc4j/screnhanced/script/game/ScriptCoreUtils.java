@@ -36,7 +36,11 @@ final class ScriptCoreUtils {
      * custom.
      */
     private static final int SCORE_TYPE_COUNT = 8;
-    private static final int MEMBER_ATTRIBUTES = ScriptableObject.READONLY | ScriptableObject.DONTENUM | ScriptableObject.PERMANENT;
+    /**
+     * The largest unsigned 32-bit value.
+     */
+    private static final long MAXIMUM_UNSIGNED_INTEGER = (1L << Integer.SIZE) - 1;
+    private static final int MEMBER_ATTRIBUTES =ScriptableObject.READONLY | ScriptableObject.DONTENUM | ScriptableObject.PERMANENT;
 
     /**
      * Creates an empty namespace object and defines it as a property of {@code core}.
@@ -86,6 +90,24 @@ final class ScriptCoreUtils {
         }
 
         return (int) value;
+    }
+
+    /**
+     * Reads an integer argument of a signed or unsigned 32-bit value.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the integer, from {@code -2^31} to {@code 2^32 - 1}
+     * @throws EcmaError if the argument is missing or not an integral number inside that range
+     */
+    static long readLong(@NotNull Object @NotNull [] arguments, int index) {
+        double value = index < arguments.length && arguments[index] instanceof Number number ? number.doubleValue() : Double.NaN;
+
+        if (!(value >= Integer.MIN_VALUE && value <= MAXIMUM_UNSIGNED_INTEGER) || value != StrictMath.floor(value)) {
+            throw ScriptRuntime.typeError(Exceptions.format("Argument {0} is not an integer.", index + 1));
+        }
+
+        return (long) value;
     }
 
     /**

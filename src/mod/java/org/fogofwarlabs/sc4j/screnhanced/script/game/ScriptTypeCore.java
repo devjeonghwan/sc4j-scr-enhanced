@@ -7,9 +7,8 @@ import org.fogofwarlabs.sc4j.scr.content.ScrTechs;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnits;
 import org.fogofwarlabs.sc4j.scr.content.ScrUpgrades;
 import org.fogofwarlabs.sc4j.scr.content.ScrWeapons;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.DatTable;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.UnitsDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.WeaponsDat;
+import org.fogofwarlabs.sc4j.scr.data.format.dat.FlingyDat;
+import org.fogofwarlabs.sc4j.scr.data.format.dat.SpritesDat;
 import org.fogofwarlabs.sc4j.scr.data.format.image.ImageRelations;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
@@ -25,12 +24,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
- * Defines the type namespaces of {@code core}: {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType},
- * {@code orderType} and {@code imageType}, the entries of {@code units.dat}, {@code weapons.dat}, {@code upgrades.dat}, {@code techdata.dat},
- * {@code orders.dat} and {@code images.dat} by their index.
+ * Defines the type namespaces of {@code core}: {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType},
+ * {@code imageType}, {@code upgradeType}, {@code techType} and {@code orderType}, the entries of {@code units.dat}, {@code weapons.dat},
+ * {@code flingy.dat}, {@code sprites.dat}, {@code images.dat}, {@code upgrades.dat}, {@code techdata.dat} and {@code orders.dat} by their
+ * index. Their DAT values are {@code core.dat} ({@link ScriptDatCore}).
  * <p>
  * Each has {@code getCount()} and {@code getName(id)}, the original data name of the entry ({@code "Terran Marine"}). The {@code images.dat}
  * entries have no names, so an image type is named after its GRP path in {@code images.tbl} when the game starts: the path without the
@@ -40,19 +39,21 @@ import java.util.function.Function;
  * {@code _3} and so on in entry order ({@code UnitNeutralGeyser_2}). An image without a valid GRP path, and every image of a game without
  * game data, is named {@code Image<entry>}.
  * <p>
+ * The {@code sprites.dat} and {@code flingy.dat} entries have no names either: as the game starts, a sprite type takes the name of the image
+ * type of its {@code sprites.dat} Image, a flingy type the name of the sprite type of its {@code flingy.dat} Sprite, and a name that is
+ * taken gets {@code _2}, {@code _3} and so on in entry order. The entries of a game without game data are named {@code Sprite<entry>} and
+ * {@code Flingy<entry>}.
+ * <p>
  * {@code imageType} also has {@code getAnimImageType(id)}: the image type whose HD anim the image type draws, after the installed
  * {@code images.rel} ({@code UnitTerranControl} for {@code UnitTerranControl_2}); the image type itself for one with its own anim, for every
  * image type of a game without game data and when {@code images.rel} cannot be read.
- * <p>
- * {@code unitType} also has {@code getMaxHp} and {@code setMaxHp} (raw {@code 1/256} units), {@code getMaxShields}, {@code setMaxShields},
- * {@code getArmor}, {@code setArmor}, {@code getGroundWeapon} and {@code getAirWeapon} ({@code -1} for none); {@code weaponType} has
- * {@code getDamage}, {@code setDamage}, {@code getDamageBonus} and {@code setDamageBonus}. A write changes the data table of the current game, which the map
- * settings and EUD writes change too, with the field's width.
  */
 final class ScriptTypeCore {
     private static final @NotNull String GRP_EXTENSION = ".grp";
     private static final @NotNull String GRP_PATH_SEPARATORS = "[/\\\\]";
     private static final @NotNull String IMAGE_NAME_PREFIX = "Image";
+    private static final @NotNull String SPRITE_NAME_PREFIX = "Sprite";
+    private static final @NotNull String FLINGY_NAME_PREFIX = "Flingy";
     /**
      * The installed file of the image relations, which shares one HD anim among several image types.
      */
@@ -94,27 +95,21 @@ final class ScriptTypeCore {
      * @param global     the global scope
      */
     static void define(@NotNull Context context, @NotNull ScriptGame scriptGame, @NotNull Scriptable core, @NotNull Scriptable global) {
-        Scriptable unitTypes = defineNames(ScriptCoreUtils.createNamespace(context, global, core, "unitType"), global, "unit type",
-                                           getNames(ScrUnits.getTypes()));
-        Scriptable weaponTypes = defineNames(ScriptCoreUtils.createNamespace(context, global, core, "weaponType"), global, "weapon type",
-                                             getNames(ScrWeapons.getTypes()));
+        GameData gameData = scriptGame.getGame().getGameData();
+        List<String> imageNames = createImageNames(gameData);
+        List<String> spriteNames = createSpriteNames(gameData, imageNames);
 
+        defineNames(ScriptCoreUtils.createNamespace(context, global, core, "unitType"), global, "unit type", getNames(ScrUnits.getTypes()));
+        defineNames(ScriptCoreUtils.createNamespace(context, global, core, "weaponType"), global, "weapon type", getNames(ScrWeapons.getTypes()));
+        defineNames(ScriptCoreUtils.createNamespace(context, global, core, "flingyType"), global, "flingy type",
+                    createFlingyNames(gameData, spriteNames));
+        defineNames(ScriptCoreUtils.createNamespace(context, global, core, "spriteType"), global, "sprite type", spriteNames);
+        Scriptable imageTypes = defineNames(ScriptCoreUtils.createNamespace(context, global, core, "imageType"), global, "image type", imageNames);
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "upgradeType"), global, "upgrade type", getNames(ScrUpgrades.getTypes()));
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "techType"), global, "tech type", getNames(ScrTechs.getTypes()));
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "orderType"), global, "order type", getNames(ScrOrders.getTypes()));
-        Scriptable imageTypes = defineNames(ScriptCoreUtils.createNamespace(context, global, core, "imageType"), global, "image type",
-                                            createImageNames(scriptGame.getGame().getGameData()));
 
-        defineAnimImageTypes(imageTypes, global, createAnimImageTypes(scriptGame.getGame().getGameData()));
-
-        defineField(scriptGame, unitTypes, global, "MaxHp", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.HIT_POINTS);
-        defineField(scriptGame, unitTypes, global, "MaxShields", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.SHIELD_AMOUNT);
-        defineField(scriptGame, unitTypes, global, "Armor", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.ARMOR);
-        defineWeapon(scriptGame, unitTypes, global, "getGroundWeapon", UnitsDat.GROUND_WEAPON);
-        defineWeapon(scriptGame, unitTypes, global, "getAirWeapon", UnitsDat.AIR_WEAPON);
-
-        defineField(scriptGame, weaponTypes, global, "Damage", "weapon type", ScrWeapons.COUNT, GameData::getWeapons, WeaponsDat.DAMAGE_AMOUNT);
-        defineField(scriptGame, weaponTypes, global, "DamageBonus", "weapon type", ScrWeapons.COUNT, GameData::getWeapons, WeaponsDat.DAMAGE_BONUS);
+        defineAnimImageTypes(imageTypes, global, createAnimImageTypes(gameData));
     }
 
     /**
@@ -161,7 +156,6 @@ final class ScriptTypeCore {
         }
 
         String[] baseNames = new String[ScrImages.COUNT];
-        Set<String> baseNameSet = new HashSet<>();
 
         for (int id = 0; id < ScrImages.COUNT; id++) {
             String path = paths[id];
@@ -172,14 +166,67 @@ final class ScriptTypeCore {
             }
 
             baseNames[id] = name;
-            baseNameSet.add(name.toLowerCase(Locale.ROOT));
         }
 
-        String[] names = new String[ScrImages.COUNT];
+        return toUniqueNames(baseNames);
+    }
+
+    /**
+     * Creates the unique names of the {@code sprites.dat} entries from the names of their images.
+     *
+     * @param gameData   the game data, or {@code null} for a game without game data
+     * @param imageNames the names of the image types, by entry
+     * @return the names, by entry
+     */
+    private static @NotNull List<@NotNull String> createSpriteNames(@Nullable GameData gameData, @NotNull List<@NotNull String> imageNames) {
+        String[] baseNames = new String[SpritesDat.SPRITE_COUNT];
+
+        for (int id = 0; id < baseNames.length; id++) {
+            int image = gameData == null ? -1 : gameData.getSprites().get(SpritesDat.IMAGE, id);
+
+            baseNames[id] = image >= 0 && image < imageNames.size() ? imageNames.get(image) : SPRITE_NAME_PREFIX + id;
+        }
+
+        return toUniqueNames(baseNames);
+    }
+
+    /**
+     * Creates the unique names of the {@code flingy.dat} entries from the names of their sprites.
+     *
+     * @param gameData    the game data, or {@code null} for a game without game data
+     * @param spriteNames the names of the sprite types, by entry
+     * @return the names, by entry
+     */
+    private static @NotNull List<@NotNull String> createFlingyNames(@Nullable GameData gameData, @NotNull List<@NotNull String> spriteNames) {
+        String[] baseNames = new String[FlingyDat.FLINGY_COUNT];
+
+        for (int id = 0; id < baseNames.length; id++) {
+            int sprite = gameData == null ? -1 : gameData.getFlingy().get(FlingyDat.SPRITE, id);
+
+            baseNames[id] = sprite >= 0 && sprite < spriteNames.size() ? spriteNames.get(sprite) : FLINGY_NAME_PREFIX + id;
+        }
+
+        return toUniqueNames(baseNames);
+    }
+
+    /**
+     * Makes names unique: a name that an earlier entry or another entry's base name takes, ignoring letter case, gets {@code _2}, {@code _3}
+     * and so on.
+     *
+     * @param baseNames the names before, by entry
+     * @return the unique names, by entry
+     */
+    private static @NotNull List<@NotNull String> toUniqueNames(@NotNull String @NotNull [] baseNames) {
+        Set<String> baseNameSet = new HashSet<>();
+
+        for (String baseName : baseNames) {
+            baseNameSet.add(baseName.toLowerCase(Locale.ROOT));
+        }
+
+        String[] names = new String[baseNames.length];
         Set<String> takenNames = new HashSet<>();
 
-        // Names that differ only in letter case count as taken.
-        for (int id = 0; id < ScrImages.COUNT; id++) {
+        for (int id = 0; id < baseNames.length; id++) {
             String name = baseNames[id];
 
             if (takenNames.contains(name.toLowerCase(Locale.ROOT))) {
@@ -284,42 +331,6 @@ final class ScriptTypeCore {
         }
 
         return name.toString();
-    }
-
-    /**
-     * Defines {@code get<property>(id)} and {@code set<property>(id, value)} of a data table field.
-     */
-    private static void defineField(@NotNull ScriptGame scriptGame, @NotNull Scriptable namespace, @NotNull Scriptable global,
-                                    @NotNull String property, @NotNull String kind, int count,
-                                    @NotNull Function<GameData, DatTable> table, @NotNull String field) {
-        ScriptCoreUtils.defineFunction(global, namespace, "get" + property, 1, (context, scope, thisObject, arguments) -> {
-            int id = ScriptCoreUtils.requireId(kind, ScriptCoreUtils.readInteger(arguments, 0), count);
-
-            return (double) table.apply(scriptGame.getGame().requireGameData()).get(field, id);
-        });
-        ScriptCoreUtils.defineFunction(global, namespace, "set" + property, 2, (context, scope, thisObject, arguments) -> {
-            scriptGame.checkWritable();
-
-            int id = ScriptCoreUtils.requireId(kind, ScriptCoreUtils.readInteger(arguments, 0), count);
-            int value = ScriptCoreUtils.readInteger(arguments, 1);
-
-            table.apply(scriptGame.getGame().requireGameData()).set(field, id, value);
-
-            return Context.getUndefinedValue();
-        });
-    }
-
-    /**
-     * Defines a read of a unit type's weapon: the weapon id, or {@code -1} for none.
-     */
-    private static void defineWeapon(@NotNull ScriptGame scriptGame, @NotNull Scriptable namespace, @NotNull Scriptable global,
-                                     @NotNull String name, @NotNull String field) {
-        ScriptCoreUtils.defineFunction(global, namespace, name, 1, (context, scope, thisObject, arguments) -> {
-            int id = ScriptCoreUtils.requireId("unit type", ScriptCoreUtils.readInteger(arguments, 0), ScrUnits.COUNT);
-            int weapon = scriptGame.getGame().requireGameData().getUnits().get(field, id);
-
-            return (double) (weapon < ScrWeapons.COUNT ? weapon : ScriptCoreUtils.NO_ID);
-        });
     }
 
 

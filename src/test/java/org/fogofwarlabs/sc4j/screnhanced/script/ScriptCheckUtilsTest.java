@@ -141,6 +141,22 @@ final class ScriptCheckUtilsTest {
     }
 
     @Test
+    void check_should_report_names_that_core_dat_lacks(@TempDir @NotNull Path folder) throws IOException {
+        Assertions.assertEquals(List.of("main.js:2: error: core.dat has no table unit.",
+                                        "main.js:3: error: core.dat.units has no function getMineralCosts.",
+                                        "main.js:4: error: core.dat.sprites has no function setHealthBarWidth."),
+                                check(folder, withManifest("main.js", """
+                                        function onStart() {
+                                            core.dat.unit.getMineralCost(0);
+                                            core.dat.units.getMineralCosts(0);
+                                            core.dat.sprites.setHealthBarWidth(130, 1);
+                                            core.dat.units.setMineralCost(0, core.dat.units.getMineralCost(0) + 1);
+                                            core.dat.weapons.getTargetFlags(0);
+                                        }
+                                        """, "own.js", "var core = {dat: {unit: 1}};\nlog.info(core.dat.unit);\n")));
+    }
+
+    @Test
     void check_should_warn_of_a_const_in_a_loop(@TempDir @NotNull Path folder) throws IOException {
         Assertions.assertEquals(List.of("main.js:4: warning: The const value in a loop keeps its first value in Rhino 1.8.1; use let.",
                                         "main.js:8: warning: The const next in a loop keeps its first value in Rhino 1.8.1; use let."),
