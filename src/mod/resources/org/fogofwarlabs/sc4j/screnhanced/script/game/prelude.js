@@ -1,6 +1,6 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, WeaponType,
-// UpgradeType, TechType, Order, ImageType, resources and graphics, and the Unit, Player and Location objects they return. One unit, player or location is always the same
-// object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
+// UpgradeType, TechType, Order, ImageType, Key, MouseButton, Modifier, resources, graphics and input, and the Unit, Player and Location
+// objects they return. One unit, player or location is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
 // values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply (core's half units
 // divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object also has the
 // methods that decide. The prelude returns the functions that make these objects to the game.
@@ -191,6 +191,132 @@
         },
         minutes: function (minutes) {
             return Time.seconds(minutes * SECONDS_PER_MINUTE);
+        }
+    });
+
+    // The keys by Windows virtual-key code: the named codes are constants of Key, the others only Key.get(code), named "Key " and the code.
+    var KEY_COUNT = 256;
+    var NAMED_KEYS = [
+        [0x08, 'Backspace'], [0x09, 'Tab'], [0x0D, 'Enter'], [0x10, 'Shift'], [0x11, 'Control'], [0x12, 'Alt'], [0x13, 'Pause'],
+        [0x14, 'CapsLock'], [0x1B, 'Escape'], [0x20, 'Space'], [0x21, 'PageUp'], [0x22, 'PageDown'], [0x23, 'End'], [0x24, 'Home'],
+        [0x25, 'Left'], [0x26, 'Up'], [0x27, 'Right'], [0x28, 'Down'], [0x2D, 'Insert'], [0x2E, 'Delete'], [0x6A, 'NumpadMultiply'],
+        [0x6B, 'NumpadAdd'], [0x6D, 'NumpadSubtract'], [0x6E, 'NumpadDecimal'], [0x6F, 'NumpadDivide'], [0xBA, 'Semicolon'], [0xBB, 'Equal'],
+        [0xBC, 'Comma'], [0xBD, 'Minus'], [0xBE, 'Period'], [0xBF, 'Slash'], [0xC0, 'Backquote'], [0xDB, 'BracketLeft'], [0xDC, 'Backslash'],
+        [0xDD, 'BracketRight'], [0xDE, 'Quote']
+    ];
+    var LETTER_A = 0x41;
+    var LETTER_COUNT = 26;
+    var DIGIT_0 = 0x30;
+    var NUMPAD_0 = 0x60;
+    var DIGIT_COUNT = 10;
+    var F1 = 0x70;
+    var FUNCTION_KEY_COUNT = 12;
+    var MOUSE_BUTTON_NAMES = ['Left', 'Right', 'Middle'];
+    var ALL_MOUSE_BUTTONS = 7;
+
+    function createKeyNames() {
+        var names = [];
+
+        NAMED_KEYS.forEach(function (entry) {
+            names[entry[0]] = entry[1];
+        });
+
+        for (var letter = 0; letter < LETTER_COUNT; letter++) {
+            names[LETTER_A + letter] = String.fromCharCode(LETTER_A + letter);
+        }
+
+        for (var digit = 0; digit < DIGIT_COUNT; digit++) {
+            names[DIGIT_0 + digit] = 'Digit' + digit;
+            names[NUMPAD_0 + digit] = 'Numpad' + digit;
+        }
+
+        for (var number = 1; number <= FUNCTION_KEY_COUNT; number++) {
+            names[F1 + number - 1] = 'F' + number;
+        }
+
+        return names;
+    }
+
+    // Creates the constants of ids from 0 to count - 1: one object per id, under its name when it has one, get(id) and getCount().
+    function createConstantTable(prototype, names, count, unnamedPrefix) {
+        var constants = [];
+        var table = {};
+
+        for (var id = 0; id < count; id++) {
+            var name = names[id];
+            var constant = freeze(createObject(prototype, {id: id, name: name === undefined ? unnamedPrefix + id : name}));
+
+            constants.push(constant);
+
+            if (name !== undefined) {
+                table[name] = constant;
+            }
+        }
+
+        defineProperty(table, 'get', {
+            value: function (id) {
+                var constant = constants[id];
+
+                return constant === undefined ? null : constant;
+            }
+        });
+        defineProperty(table, 'getCount', {
+            value: function () {
+                return count;
+            }
+        });
+
+        return freeze(table);
+    }
+
+    var keyPrototype = create(typePrototype);
+    var mouseButtonPrototype = create(typePrototype);
+    var Key = createConstantTable(keyPrototype, createKeyNames(), KEY_COUNT, 'Key ');
+    var MouseButton = createConstantTable(mouseButtonPrototype, MOUSE_BUTTON_NAMES, MOUSE_BUTTON_NAMES.length, 'Button ');
+    // The bits of the modifier mask of an input event.
+    var Modifier = freeze({Shift: 1, Control: 2, Alt: 4});
+
+    // Returns an optional array of a tracking option, empty when it is missing.
+    function readOptionArray(value, name) {
+        if (value === undefined) {
+            return [];
+        }
+
+        if (!Array.isArray(value)) {
+            throw new TypeError('The ' + name + ' option is an array, not ' + value + '.');
+        }
+
+        return value;
+    }
+
+    var input = freeze({
+        // Tracks the keys and mouse buttons whose changes every player sends, the same on every peer: {keys: an array of Keys, mouse: true for
+        // every button, false or an array of MouseButtons, consume: true to keep the tracked local presses from the game}. Each call replaces
+        // the tracking; a key or button that is down stays down until its release.
+        track: function (options) {
+            if (options === null || typeof options !== 'object') {
+                throw new TypeError('The tracking {keys, mouse, consume} is needed, not ' + options + '.');
+            }
+
+            var keys = readOptionArray(options.keys, 'keys');
+            var keyIds = [];
+            var buttons = 0;
+
+            for (var index = 0; index < keys.length; index++) {
+                keyIds.push(requireObject(keys[index], keyPrototype, 'A key').id);
+            }
+
+            if (options.mouse === true) {
+                buttons = ALL_MOUSE_BUTTONS;
+            } else if (options.mouse !== false) {
+                var mouse = readOptionArray(options.mouse, 'mouse');
+
+                for (var button = 0; button < mouse.length; button++) {
+                    buttons |= 1 << requireObject(mouse[button], mouseButtonPrototype, 'A mouse button').id;
+                }
+            }
+
+            core.input.track(keyIds, buttons, options.consume === true);
         }
     });
 
@@ -483,6 +609,22 @@
         },
         print: function (text) {
             core.player.print(this.id, String(text));
+        },
+        // The input state of the player that the player's tracked input changed, the same on every peer.
+        isKeyDown: function (key) {
+            return core.input.isKeyDown(this.id, requireObject(key, keyPrototype, 'A key').id);
+        },
+        isButtonDown: function (button) {
+            return core.input.isButtonDown(this.id, requireObject(button, mouseButtonPrototype, 'A mouse button').id);
+        },
+        // The map position of the mouse at the player's last input with a position, or null.
+        getMousePosition: function () {
+            return core.input.hasMousePosition(this.id) ? createPosition(core.input.getMouseX(this.id), core.input.getMouseY(this.id)) : null;
+        },
+        // Centers the screen on a position when the player is the local player; the screens of the other peers stay.
+        centerView: function (position) {
+            requireObject(position, positionPrototype, 'A position');
+            core.player.centerView(this.id, position.x, position.y);
         },
         toString: function () {
             return 'Player ' + this.id;
@@ -793,6 +935,57 @@
         return this.result === RESULT_DROPPED;
     };
 
+    // The input events: the player, the key or button, the modifier mask and the mouse position in map pixels, or null while unknown.
+    var KEY_FIELDS = ['frame', 'player', 'key', 'modifiers', 'mousePosition'];
+    var BUTTON_FIELDS = ['frame', 'player', 'button', 'modifiers', 'mousePosition'];
+    var modifierGetters = {
+        isShift: function () {
+            return (this.modifiers & Modifier.Shift) !== 0;
+        },
+        isControl: function () {
+            return (this.modifiers & Modifier.Control) !== 0;
+        },
+        isAlt: function () {
+            return (this.modifiers & Modifier.Alt) !== 0;
+        }
+    };
+
+    function readInputFields(values) {
+        return {
+            frame: values.frame,
+            player: getPlayer(values.player),
+            modifiers: values.modifiers,
+            mousePosition: values.positioned ? createPosition(values.x, values.y) : null
+        };
+    }
+
+    function readKeyFields(values) {
+        var fields = readInputFields(values);
+
+        fields.key = Key.get(values.key);
+
+        return fields;
+    }
+
+    function readButtonFields(values) {
+        var fields = readInputFields(values);
+
+        fields.button = MouseButton.get(values.button);
+
+        return fields;
+    }
+
+    [
+        defineEvent('onKeyDown', KEY_FIELDS, readKeyFields),
+        defineEvent('onKeyUp', KEY_FIELDS, readKeyFields),
+        defineEvent('onMouseDown', BUTTON_FIELDS, readButtonFields),
+        defineEvent('onMouseUp', BUTTON_FIELDS, readButtonFields)
+    ].forEach(function (prototype) {
+        for (var name in modifierGetters) {
+            prototype[name] = modifierGetters[name];
+        }
+    });
+
     // A decision object keeps the values a hook may change in its hidden state, which the game reads back after the hook.
     function defineDecision(hookName, fields, prototype, read) {
         var getters = createGetters(fields);
@@ -1014,6 +1207,8 @@
     freeze(techTypePrototype);
     freeze(orderPrototype);
     freeze(imageTypePrototype);
+    freeze(keyPrototype);
+    freeze(mouseButtonPrototype);
     freeze(positionPrototype);
     freeze(unitPrototype);
     freeze(playerPrototype);
@@ -1040,8 +1235,12 @@
     defineGlobal('TechType', TechType);
     defineGlobal('Order', Order);
     defineGlobal('ImageType', ImageType);
+    defineGlobal('Key', Key);
+    defineGlobal('MouseButton', MouseButton);
+    defineGlobal('Modifier', Modifier);
     defineGlobal('resources', resources);
     defineGlobal('graphics', graphics);
+    defineGlobal('input', input);
 
     return gameFunctions;
 });

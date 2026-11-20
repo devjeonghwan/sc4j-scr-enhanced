@@ -9,6 +9,8 @@ import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputEvent;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
@@ -29,11 +31,12 @@ import java.util.List;
  * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the prelude, the timers and the read-only mode.
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
- * {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType}, {@code imageType}, {@code resources} and
- * {@code graphics} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units); a write
- * takes the routine that the trigger action or the order system runs for it. The graphics replacements ({@link ScriptGraphicsCore}) change
- * only what is drawn and count as writes. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the
- * upper layer as read-only globals over {@code core}.
+ * {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType}, {@code imageType}, {@code resources},
+ * {@code graphics} and {@code input} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half
+ * units); a write takes the routine that the trigger action or the order system runs for it. The graphics replacements
+ * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes, as does the input tracking ({@link ScriptInputCore}). The
+ * prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as read-only globals over
+ * {@code core}.
  * <p>
  * A timer of {@code core.game.every} runs first at the frame its interval after the current game frame, then every interval; the timers of a
  * frame run in the order of their due frames, then of their registration. While the game is read-only, every {@code core} function that
@@ -108,6 +111,7 @@ public final class ScriptGame {
         ScriptTypeCore.define(context, scriptGame, core, global);
         graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
         graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
+        new ScriptInputCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "input"), global);
 
         for (Object name : core.getAllIds()) {
             ((ScriptableObject) core.get((String) name, core)).preventExtensions();
@@ -126,6 +130,7 @@ public final class ScriptGame {
     private @Nullable Scriptable bridge;
 
     private final @NotNull ImageReplacements imageReplacements;
+    private final @NotNull ScriptInputState inputState;
 
     private final @NotNull List<Timer> timers;
     private int nextTimerId;
@@ -144,6 +149,7 @@ public final class ScriptGame {
         this.bridge = null;
 
         this.imageReplacements = new ImageReplacements(() -> game.getUnitSystem().getUnitPool());
+        this.inputState        = new ScriptInputState();
 
         this.timers      = new ArrayList<>();
         this.nextTimerId = 1;
@@ -163,6 +169,13 @@ public final class ScriptGame {
      */
     public @NotNull ImageReplacements getImageReplacements() {
         return this.imageReplacements;
+    }
+
+    /**
+     * @return the tracked input ({@code core.input}) and the input state of the players, the same instance for the whole game
+     */
+    public @NotNull ScriptInputState getInputState() {
+        return this.inputState;
     }
 
     /**
@@ -266,6 +279,21 @@ public final class ScriptGame {
      */
     public @NotNull Scriptable createEvent(@NotNull Context context, @NotNull String hookName, @NotNull SimulationEvent event, int frame) {
         Scriptable values = ScriptSimulationUtils.createEventValues(context, this.global, this.getUnitPool(), event, frame);
+
+        return this.callBridge(context, CREATE_EVENT_FUNCTION, hookName, values);
+    }
+
+    /**
+     * Creates the script object of an input event: the prelude's event object of the hook, with the event's captured values.
+     *
+     * @param context  the current context
+     * @param hookName the name of the hook that receives the event
+     * @param event    the input event
+     * @param frame    the frame the event's command ran in
+     * @return the created event object
+     */
+    public @NotNull Scriptable createInputEvent(@NotNull Context context, @NotNull String hookName, @NotNull ScriptInputEvent event, int frame) {
+        Scriptable values = ScriptInputCore.createEventValues(context, this.global, event, frame);
 
         return this.callBridge(context, CREATE_EVENT_FUNCTION, hookName, values);
     }

@@ -20,6 +20,7 @@ import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitTrainedEvent;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitUnloadedEvent;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UpgradeCompletedEvent;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.WeaponDamageDecision;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,8 @@ import java.util.Map;
  * <p>
  * An event hook receives one event object at the start of the frame after the event; a decision hook ({@code onBefore*}) receives one
  * decision object while the game routine waits for the decision. The kind of such a hook is the class of the SC:R simulation event or
- * decision it receives.
+ * decision it receives. An input hook receives one input event at the start of the frame after the input command ran; it has no kind
+ * ({@link #findByInput}).
  */
 public enum ScriptHook {
     /**
@@ -116,6 +118,23 @@ public enum ScriptHook {
     PLAYER_RESULT("onPlayerResult", PlayerResultEvent.class),
 
     /**
+     * Called with the event of a tracked key a player pressed.
+     */
+    KEY_DOWN("onKeyDown", null),
+    /**
+     * Called with the event of a key a player released after its press.
+     */
+    KEY_UP("onKeyUp", null),
+    /**
+     * Called with the event of a tracked mouse button a player pressed.
+     */
+    MOUSE_DOWN("onMouseDown", null),
+    /**
+     * Called with the event of a mouse button a player released after its press.
+     */
+    MOUSE_UP("onMouseUp", null),
+
+    /**
      * Called with the decision on the damage of a weapon hit.
      */
     BEFORE_DAMAGE("onBeforeDamage", WeaponDamageDecision.class),
@@ -164,6 +183,20 @@ public enum ScriptHook {
      */
     public static @Nullable ScriptHook findByKind(@NotNull Class<?> kind) {
         return HOOKS_BY_KIND.get(kind);
+    }
+
+    /**
+     * Finds the hook that receives the event of an input command.
+     *
+     * @param command the input command
+     * @return {@link #KEY_DOWN}, {@link #KEY_UP}, {@link #MOUSE_DOWN} or {@link #MOUSE_UP}
+     */
+    public static @NotNull ScriptHook findByInput(@NotNull ScriptInputCommand command) {
+        if (command.getKind() == ScriptInputCommand.Kind.MOUSE) {
+            return command.isPressed() ? MOUSE_DOWN : MOUSE_UP;
+        }
+
+        return command.isPressed() ? KEY_DOWN : KEY_UP;
     }
 
     /**

@@ -1,6 +1,10 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrInputModifiers;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrMouseInput;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
@@ -17,7 +21,7 @@ import java.util.List;
 /**
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
  * frame hooks, the event hooks with their captured values, the decision hooks that change damage and reject orders, the read-only game in a
- * decision, and a map without a script package.
+ * decision, the input hooks of local input that the game's {@link ScriptInputPlugin} sends, and a map without a script package.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -52,6 +56,7 @@ final class ScriptSimulationPluginTest {
             }
             """;
     private static final int FIGHT_FRAMES = 400;
+    private static final int KEY_Q = 0x51;
 
     @Test
     void a_map_script_starts_runs_its_frames_and_receives_the_start_units(@NotNull InstallationTestResources resources,
@@ -224,6 +229,56 @@ final class ScriptSimulationPluginTest {
         scenario.stepUntilPrinted("damaged", FIGHT_FRAMES);
 
         Assertions.assertEquals(List.of("damaged 6 TypeError true false 29"), scenario.getPrints());
+    }
+
+    @Test
+    void tracked_local_input_reaches_the_input_hooks_with_its_player_and_mouse_position(@NotNull InstallationTestResources resources,
+                                                                                        @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
+                function onStart() {
+                    input.track({keys: [Key.Q], mouse: [MouseButton.Right], consume: true});
+                    game.print('ES tracked');
+                }
+                function describe(event) {
+                    var player = event.getPlayer();
+                    return (player === game.getHumanPlayers()[0]) + ' ' + player.isKeyDown(Key.Q) + ' ' + player.isButtonDown(MouseButton.Right) +
+                           ' ' + event.getMousePosition() + ' ' + player.getMousePosition() + ' ' + event.isShift() + ' ' + event.isAlt();
+                }
+                function onMouseDown(event) {
+                    game.print('ES mouse down ' + event.getButton() + ' ' + describe(event));
+                }
+                function onKeyDown(event) {
+                    game.print('ES key down ' + event.getKey() + ' ' + describe(event));
+                }
+                function onKeyUp(event) {
+                    game.print('ES key up ' + event.getKey() + ' ' + describe(event));
+                }
+                """);
+
+        scenario.stepUntilPrinted("tracked", FIGHT_FRAMES);
+
+        ScriptInputPlugin plugin = null;
+
+        for (ScrGamePlugin gamePlugin : scenario.getGame().getPlugins()) {
+            if (gamePlugin instanceof ScriptInputPlugin inputPlugin) {
+                plugin = inputPlugin;
+            }
+        }
+
+        Assertions.assertNotNull(plugin);
+        scenario.getGame().getInterfaceLink().getLocalView().setView(640, 320, 100, 50);
+        Assertions.assertTrue(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.RIGHT, true, 0, 300, 200)));
+        Assertions.assertFalse(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.LEFT, true, 0, 1, 1)), "an untracked button");
+        Assertions.assertTrue(plugin.onKeyInput(new ScrKeyInput(KEY_Q, true, ScrInputModifiers.SHIFT)));
+        Assertions.assertFalse(plugin.onKeyInput(new ScrKeyInput(KEY_Q, false, ScrInputModifiers.ALT)));
+
+        scenario.stepUntilPrinted("key up", FIGHT_FRAMES);
+
+        // The commands of one turn run before the events of their frame are delivered, so the hooks see the state after all of them.
+        Assertions.assertEquals(List.of("tracked",
+                                        "mouse down Right true false true (300, 200) (740, 370) false false",
+                                        "key down Q true false true (740, 370) (740, 370) true false",
+                                        "key up Q true false true (740, 370) (740, 370) false true"), scenario.getPrints());
     }
 
     @Test

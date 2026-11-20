@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.scr.game.player.UnitAccounting;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerPlayerResults;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerScoreActionsUtils;
+import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
@@ -28,7 +29,10 @@ import java.nio.charset.StandardCharsets;
  * other)} ({@code 0} enemy, {@code 1} allied, {@code 2} allied victory), {@code print(player, text)} and {@code endGame(player, result)}. The
  * resource writes run the Set Resources routine: setting sets the gathered amount too, adding adds to it, subtracting leaves {@code 0}
  * when the amount is not below the current one as unsigned numbers, and players from {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} keep their
- * resources. A printed text shows when the player is the local player.
+ * resources. A printed text shows when the player is the local player. {@code centerView(player, x, y)} centers the local screen on a map
+ * position when the player is the local player, at once, as the multiplayer Center View action moves it ({@link LocalView#centerScreen}); it
+ * returns nothing, so the simulation does not depend on the local screen, and does nothing while the local view or its display geometry is
+ * unknown.
  * {@code endGame} ends the game for a player from {@code 0} to {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one as the Victory
  * ({@value TriggerPlayerResults#VICTORY}), Defeat ({@value TriggerPlayerResults#DEFEAT}) and Draw ({@value TriggerPlayerResults#DRAW})
  * actions do and returns {@code false} when a defeat or a draw meets a victory.
@@ -101,6 +105,17 @@ final class ScriptPlayerCore {
 
             if (player == this.scriptGame.requireTriggerContext().getLocalPlayer()) {
                 this.scriptGame.printText(text);
+            }
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "centerView", 3, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int x = ScriptCoreUtils.readInteger(arguments, 1);
+            int y = ScriptCoreUtils.readInteger(arguments, 2);
+
+            if (player == this.scriptGame.requireTriggerContext().getLocalPlayer()) {
+                this.scriptGame.getGame().getInterfaceLink().getLocalView().centerScreen(x, y);
             }
 
             return Context.getUndefinedValue();

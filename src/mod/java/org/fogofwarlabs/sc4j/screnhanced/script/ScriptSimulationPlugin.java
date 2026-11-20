@@ -3,9 +3,15 @@ package org.fogofwarlabs.sc4j.screnhanced.script;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
+import org.fogofwarlabs.sc4j.scr.game.player.Player;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
+import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputCommand;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputEvent;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,7 +23,9 @@ import org.jetbrains.annotations.NotNull;
  * <p>
  * The events of the game go into the runtime's queue with their frame, the events from before the first frame (the units the map and the
  * game start create) as well, and the runtime delivers them at the next frame start, before the triggers. A frame start whose frame number
- * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. Mod commands are not used.
+ * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. The input commands of the players
+ * ({@link ScriptInputCommand}), which the game's {@link ScriptInputPlugin} of each peer sends, change the players' input state when they run
+ * and queue their events like the other events.
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
  * forgets the replacements of units whose slot was freed. A game the plugin runs cannot be saved: a saved game would lose the script's state.
@@ -57,6 +65,13 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     @Override
     public @NotNull ImageReplacements getImageReplacements() {
         return this.runtime.getImageReplacements();
+    }
+
+    /**
+     * @return the input the script tracks and the input state of the players, the same instance for the whole game
+     */
+    public @NotNull ScriptInputState getInputState() {
+        return this.runtime.getInputState();
     }
 
 
@@ -112,6 +127,34 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     }
 
     /**
+     * Called when a mod command of a player runs, at its place in the command stream of the frame. The player is the record the command's issuer
+     * resolved to, the issuing player's own record also in a team game, where the other commands of every member act for the team's leader. A
+     * live game queues the mod commands of the local player through the game's mod command submitter
+     * ({@link InterfaceLink#getModCommandSubmitter()}).
+     * <p>
+     * An input command ({@link ScriptInputCommand}) changes the input state of the player's slot, and the event of a change goes into the
+     * runtime's queue with the current frame; any other data is ignored.
+     *
+     * @param player the issuing player's record
+     * @param data   the command data, which every plugin of the game receives; the plugin does not change it
+     */
+    @Override
+    public void onModCommand(@NotNull Player player, byte @NotNull [] data) {
+        ScriptInputCommand command = ScriptInputCommand.decode(data);
+        int slot = this.findSlot(player);
+
+        if (command == null || slot < 0) {
+            return;
+        }
+
+        ScriptInputEvent event = this.runtime.getInputState().apply(slot, command);
+
+        if (event != null) {
+            this.runtime.queueInputEvent(event, this.game.getCurrentFrame());
+        }
+    }
+
+    /**
      * Tells whether the game can be saved while this plugin runs it: never, since a saved game would lose the script's state.
      *
      * @return {@code false}
@@ -119,5 +162,22 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     @Override
     public boolean allowsSave() {
         return false;
+    }
+
+    /**
+     * Finds the slot of a player record in the game's player table.
+     *
+     * @return the slot id, or {@code -1} if no slot holds the record
+     */
+    private int findSlot(@NotNull Player player) {
+        PlayerTable table = this.game.getPlayerTable();
+
+        for (int slot = 0; slot < PlayerTable.PLAYER_SLOTS; slot++) {
+            if (table.getPlayer(slot) == player) {
+                return slot;
+            }
+        }
+
+        return -1;
     }
 }
