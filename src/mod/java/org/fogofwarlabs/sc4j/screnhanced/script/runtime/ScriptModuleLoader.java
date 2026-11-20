@@ -27,8 +27,9 @@ import java.util.Map;
  * an id that starts with {@code ./} or {@code ../} names a script relative to the folder of the requiring script, any other id a script
  * relative to the package root, and {@value ScriptPackage#SCRIPT_EXTENSION} is added when the id does not end with it. A module loads at
  * its first {@code require}; later calls return the cached module, and a module that is still loading returns its current
- * {@code module.exports}, so cycles end. A module whose loading fails is forgotten. When a module has loaded, its hooks are collected and
- * each top-level function with a hook name that no hook has logs one warning.
+ * {@code module.exports}, so cycles end. A module whose loading fails is forgotten. Local code ({@link #setLocal}) loads no new module, which
+ * would run on one machine only. When a module has loaded, its hooks are collected and each top-level function with a hook name that no hook
+ * has logs one warning.
  */
 final class ScriptModuleLoader {
     private static final char NAME_SEPARATOR = '/';
@@ -114,6 +115,8 @@ final class ScriptModuleLoader {
     private final @NotNull Map<String, ScriptModule> modulesByName;
     private final @NotNull List<ScriptModule> modules;
 
+    private boolean local;
+
     /**
      * Creates a {@link ScriptModuleLoader} instance without modules.
      *
@@ -128,6 +131,17 @@ final class ScriptModuleLoader {
 
         this.modulesByName = new HashMap<>();
         this.modules       = new ArrayList<>();
+
+        this.local = false;
+    }
+
+    /**
+     * Sets whether local code runs: {@code require} of a module that has not loaded then throws a {@code TypeError}.
+     *
+     * @param local {@code true} while local code runs
+     */
+    void setLocal(boolean local) {
+        this.local = local;
     }
 
     /**
@@ -185,6 +199,10 @@ final class ScriptModuleLoader {
 
         if (module != null) {
             return module.getExports();
+        }
+
+        if (this.local) {
+            throw ScriptRuntime.typeError(Exceptions.format("Local code cannot load the module {0}.", name));
         }
 
         byte[] source = this.scripts.get(name);

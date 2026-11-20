@@ -9,8 +9,6 @@ import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
-import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputCommand;
-import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 
@@ -22,9 +20,10 @@ import org.jetbrains.annotations.NotNull;
  * <p>
  * The events of the game go into the runtime's queue with their frame, the events from before the first frame (the units the map and the
  * game start create) as well, and the runtime delivers them at the next frame start, before the triggers. A frame start whose frame number
- * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. The input commands of the players
- * ({@link ScriptInputCommand}), which the game's {@link ScriptInputPlugin} of each peer sends, go into the queue like the other events and
- * change the players' input state when the runtime delivers them.
+ * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. The mod commands of the players go to
+ * the runtime, which joins the channel commands into messages and queues them like the other events. After each frame start the channel
+ * commands the script sent go to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}); the game's
+ * {@link ScriptInputPlugin} sends those of the local hooks at once.
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
  * forgets the replacements of units whose slot was freed. A game the plugin runs cannot be saved: a saved game would lose the script's state.
@@ -66,38 +65,35 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
         return this.runtime.getImageReplacements();
     }
 
-    /**
-     * @return the input the script tracks and the input state of the players, the same instance for the whole game
-     */
-    public @NotNull ScriptInputState getInputState() {
-        return this.runtime.getInputState();
-    }
-
 
     /**
      * Called once per frame when the frame's trigger step runs, before the triggers, with the random generator enabled as for the triggers; the
      * trigger step also runs while the game is paused.
      * <p>
-     * Every call forgets the image replacements of units whose slot was freed; the first call starts the script; every call whose frame number
-     * advanced runs the script's frame.
+     * Every call forgets the image replacements of units whose slot was freed; the first call starts the script; the first call and every
+     * call whose frame number advanced run the script's frame; every call then hands the waiting channel commands to the game's mod command
+     * submitter, which drops them in a replay or for an observer.
      */
     @Override
     public void onFrameStarted() {
         int frame = this.game.getCurrentFrame();
+        boolean first = !this.started;
 
         this.runtime.getImageReplacements().removeFreedUnits();
 
-        if (!this.started) {
+        if (first) {
             this.started = true;
 
             this.runtime.start();
-        } else if (frame == this.lastFrame) {
-            return;
         }
 
-        this.lastFrame = frame;
+        if (first || frame != this.lastFrame) {
+            this.lastFrame = frame;
 
-        this.runtime.runFrame(frame);
+            this.runtime.runFrame(frame);
+        }
+
+        this.runtime.submitCommands(this.game.getInterfaceLink().getModCommandSubmitter());
     }
 
     /**
@@ -131,22 +127,19 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
      * live game queues the mod commands of the local player through the game's mod command submitter
      * ({@link InterfaceLink#getModCommandSubmitter()}).
      * <p>
-     * An input command ({@link ScriptInputCommand}) of the player's slot goes into the runtime's queue with the current frame, and changes the
-     * slot's input state when the runtime delivers it; any other data is ignored.
+     * The data goes to the runtime with the slot of the player and the current frame ({@link ScriptRuntime#queueModCommand}); the data of a
+     * player without a slot is ignored.
      *
      * @param player the issuing player's record
      * @param data   the command data, which every plugin of the game receives; the plugin does not change it
      */
     @Override
     public void onModCommand(@NotNull Player player, byte @NotNull [] data) {
-        ScriptInputCommand command = ScriptInputCommand.decode(data);
         int slot = this.findSlot(player);
 
-        if (command == null || slot < 0) {
-            return;
+        if (slot >= 0) {
+            this.runtime.queueModCommand(slot, data, this.game.getCurrentFrame());
         }
-
-        this.runtime.queueInputCommand(slot, command, this.game.getCurrentFrame());
     }
 
     /**

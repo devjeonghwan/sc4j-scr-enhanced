@@ -1,12 +1,16 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayFile;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrInputModifiers;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrMouseInput;
+import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
+import org.fogofwarlabs.sc4j.scr.game.test.RunningGameScenario;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -21,8 +25,8 @@ import java.util.List;
 /**
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
  * frame hooks, the event hooks with their captured values, the decision hooks that change damage and reject orders, the read-only game in a
- * decision with its refused trigger writes and its local display, the input hooks of local input that the game's {@link ScriptInputPlugin}
- * sends, and a map without a script package.
+ * decision with its refused trigger writes and its local display, the channel messages of shared code and of the local hooks that the
+ * game's {@link ScriptInputPlugin} calls, live and in the replay, and a map without a script package.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -58,6 +62,34 @@ final class ScriptSimulationPluginTest {
             """;
     private static final int FIGHT_FRAMES = 400;
     private static final int KEY_Q = 0x51;
+    private static final int KEY_W = 0x57;
+    /**
+     * The switches the channel test reads: the 32 bits of the digest of the handler calls, then one switch per call.
+     */
+    private static final int CHANNEL_SWITCHES = 36;
+
+    private static @NotNull ScriptInputPlugin findInputPlugin(@NotNull Game game) {
+        for (ScrGamePlugin plugin : game.getPlugins()) {
+            if (plugin instanceof ScriptInputPlugin inputPlugin) {
+                return inputPlugin;
+            }
+        }
+
+        return Assertions.fail("The game has no script input plugin.");
+    }
+
+    private static @NotNull String readSwitches(@NotNull Game game) {
+        TriggerContext context = game.getTriggerContext();
+        StringBuilder switches = new StringBuilder();
+
+        Assertions.assertNotNull(context);
+
+        for (int index = 0; index < CHANNEL_SWITCHES; index++) {
+            switches.append(context.isSwitchSet(index) ? '1' : '0');
+        }
+
+        return switches.toString();
+    }
 
     @Test
     void a_map_script_starts_runs_its_frames_and_receives_the_start_units(@NotNull InstallationTestResources resources,
@@ -284,57 +316,78 @@ final class ScriptSimulationPluginTest {
     }
 
     @Test
-    void tracked_local_input_reaches_the_input_hooks_with_its_player_and_mouse_position(@NotNull InstallationTestResources resources,
-                                                                                        @TempDir @NotNull Path folder) throws IOException {
+    void channel_messages_of_shared_code_and_local_hooks_reach_the_handler_live_and_in_the_replay(@NotNull InstallationTestResources resources,
+                                                                                                   @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
+                var DIGEST_BITS = 32;
+                var human;
+                var digest = 0;
+                var count = 0;
+                var score = sync.createPlayerValue(0);
+                var channel = sync.createChannel(function (player, value) {
+                    var text = 'channel ' + (player === human) + ' ' + (typeof value === 'string' ? value : JSON.stringify(value)) + ' ' +
+                               score.get(player);
+                    game.print('ES ' + text);
+                    for (var index = 0; index < text.length; index++) {
+                        digest = (digest * 31 + text.charCodeAt(index)) | 0;
+                    }
+                    for (var bit = 0; bit < DIGEST_BITS; bit++) {
+                        game.setSwitch(bit, (digest >>> bit & 1) === 1);
+                    }
+                    game.setSwitch(DIGEST_BITS + count++, true);
+                });
                 function onStart() {
-                    input.track({keys: [Key.Q], mouse: [MouseButton.Right], consume: true});
-                    game.print('ES tracked');
+                    human = game.getHumanPlayers()[0];
+                    channel.send({start: [1, 'two', true, null]});
+                    game.print('ES started');
                 }
-                function describe(event) {
-                    var player = event.getPlayer();
-                    return (player === game.getHumanPlayers()[0]) + ' ' + player.isKeyDown(Key.Q) + ' ' + player.isButtonDown(MouseButton.Right) +
-                           ' ' + event.getMousePosition() + ' ' + player.getMousePosition() + ' ' + event.isShift() + ' ' + event.isAlt();
+                function onLocalKeyDown(event) {
+                    if (event.getKey() === Key.Q) {
+                        score.set(7);
+                        channel.send('key ' + event.isShift() + ' ' + event.getMousePosition());
+                        event.consume();
+                    }
                 }
-                function onMouseDown(event) {
-                    game.print('ES mouse down ' + event.getButton() + ' ' + describe(event));
-                }
-                function onKeyDown(event) {
-                    game.print('ES key down ' + event.getKey() + ' ' + describe(event));
-                }
-                function onKeyUp(event) {
-                    game.print('ES key up ' + event.getKey() + ' ' + describe(event));
+                function onLocalChat(event) {
+                    if (event.getText().charAt(0) === '!') {
+                        channel.send(event.getText());
+                        event.consume();
+                    }
                 }
                 """);
 
-        scenario.stepUntilPrinted("tracked", FIGHT_FRAMES);
+        scenario.stepUntilPrinted("channel", FIGHT_FRAMES);
 
-        ScriptInputPlugin plugin = null;
+        ScriptInputPlugin plugin = findInputPlugin(scenario.getGame());
 
-        for (ScrGamePlugin gamePlugin : scenario.getGame().getPlugins()) {
-            if (gamePlugin instanceof ScriptInputPlugin inputPlugin) {
-                plugin = inputPlugin;
-            }
+        scenario.getGame().getInterfaceLink().getLocalView().setView(640, 320, 100, 50);
+        Assertions.assertTrue(plugin.onKeyInput(new ScrKeyInput(KEY_Q, true, ScrInputModifiers.SHIFT)));
+        Assertions.assertFalse(plugin.onKeyInput(new ScrKeyInput(KEY_W, true, 0)));
+        Assertions.assertTrue(plugin.onChatInput("!go"));
+        Assertions.assertFalse(plugin.onChatInput("hello"));
+
+        scenario.stepUntilPrinted("channel true !go", FIGHT_FRAMES);
+
+        List<String> expected = List.of("started",
+                                        "channel true {\"start\":[1,\"two\",true,null]} 0",
+                                        "channel true key true (740, 370) 7",
+                                        "channel true !go 7");
+
+        Assertions.assertEquals(expected, scenario.getPrints());
+        Assertions.assertTrue(readSwitches(scenario.getGame()).endsWith("1110"), "one switch per handler call");
+
+        int frames = scenario.getGame().getCurrentFrame();
+        ReplayRuntime playback = RunningGameScenario.createRuntime(ReplayFile.parse(scenario.writeReplay()), resources.getGameData());
+        Game game = playback.getGame();
+
+        playback.start(0, 0);
+
+        while (game.getCurrentFrame() < frames) {
+            Assertions.assertTrue(playback.step(0, game.getCurrentFrame() * playback.getFrameDuration()));
         }
 
-        Assertions.assertNotNull(plugin);
-        scenario.getGame().getInterfaceLink().getLocalView().setView(640, 320, 100, 50);
-        Assertions.assertTrue(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.RIGHT, true, 0, 300, 200)));
-        Assertions.assertFalse(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.LEFT, true, 0, 1, 1)), "an untracked button");
-        Assertions.assertTrue(plugin.onKeyInput(new ScrKeyInput(KEY_Q, true, ScrInputModifiers.SHIFT)));
-        Assertions.assertFalse(plugin.onKeyInput(new ScrKeyInput(KEY_Q, false, ScrInputModifiers.ALT)));
-        Assertions.assertFalse(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.RIGHT, false, 0, 310, 210)));
-        Assertions.assertTrue(plugin.onKeyInput(new ScrKeyInput(KEY_Q, true, 0)));
-
-        scenario.stepUntilPrinted("key up", FIGHT_FRAMES);
-
-        // Each command changes the input state when its event is delivered, so every hook sees the state as of its own event; the mouse
-        // release, which no hook receives, still releases the button.
-        Assertions.assertEquals(List.of("tracked",
-                                        "mouse down Right true false true (300, 200) (300, 200) false false",
-                                        "key down Q true true true (740, 370) (740, 370) true false",
-                                        "key up Q true false true (740, 370) (740, 370) false true",
-                                        "key down Q true true false (740, 370) (740, 370) false false"), scenario.getPrints());
+        Assertions.assertEquals(readSwitches(scenario.getGame()), readSwitches(game), "the replay calls the handler with the recorded commands");
+        Assertions.assertFalse(findInputPlugin(game).onKeyInput(new ScrKeyInput(KEY_Q, true, 0)), "a replay calls no local hook");
     }
 
     @Test

@@ -84,7 +84,9 @@ final class ScriptProjectUtilsTest {
             Map.entry("UnitGroup", "UnitGroup.Men"),
             Map.entry("ScoreType", "ScoreType.get(0)"),
             Map.entry("ResourceType", "ResourceType.get(0)"),
-            Map.entry("Alliance", "Alliance.get(0)")
+            Map.entry("Alliance", "Alliance.get(0)"),
+            Map.entry("Channel", "sync.createChannel(function () {})"),
+            Map.entry("PlayerValue", "sync.createPlayerValue(0)")
     );
     /**
      * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player, one location
@@ -102,7 +104,8 @@ final class ScriptProjectUtilsTest {
                     location: {getCount: function () { return 1; }},
                     terrain: {isValidTile: function () { return true; }},
                     game: {every: function () { return 1; }, getFrameDuration: function () { return 42; }},
-                    resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }}
+                    resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }},
+                    sync: {createChannel: function () { return 0; }, send: function () {}}
                 };
             })()
             """;
@@ -114,7 +117,8 @@ final class ScriptProjectUtilsTest {
                           targetGeneration: -1, targetX: 0, targetY: 0, buildType: 0, queued: false, tech: 0, upgrade: 0, level: 1, source: -1,
                           sourceGeneration: -1, killer: -1, killerGeneration: -1, killerPlayer: 0, sourcePlayer: 0, producer: -1,
                           producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
-                          key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, cancelled: false, rejected: false};
+                          key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, text: '', consumed: false, cancelled: false,
+                          rejected: false};
             """;
     /**
      * Reads the names of the module scope and the global scope, which of the declared globals a script reaches, the own and the prototype

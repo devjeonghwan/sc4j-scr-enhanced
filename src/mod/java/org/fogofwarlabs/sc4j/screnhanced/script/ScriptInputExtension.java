@@ -4,22 +4,22 @@ import org.fogofwarlabs.sc4j.scr.game.extension.ScrGameExtension;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
-import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
+import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Gives every game the plugin that sends the local input the game's script tracks ({@link ScriptInputPlugin}); the plugin finds the script
- * among the game's simulation plugins ({@link ScriptSimulationPlugin}).
+ * Gives every game the plugin that hands the local player's input to the local hooks of the game's script ({@link ScriptInputPlugin}); the
+ * plugin finds the script among the game's simulation plugins ({@link ScriptSimulationPlugin}).
  */
 public final class ScriptInputExtension implements ScrGameExtension {
     /**
-     * Finds the input state of a game's script: that of its {@link ScriptSimulationPlugin}.
+     * Finds the runtime of a game's script: that of its {@link ScriptSimulationPlugin}.
      *
      * @param game the game
-     * @return the input state, or {@code null} if the game has no script
+     * @return the runtime, or {@code null} if the game has no script
      */
-    private static @Nullable ScriptInputState findInputState(@NotNull Game game) {
+    private static @Nullable ScriptRuntime findRuntime(@NotNull Game game) {
         ScrSimulationPlugins plugins = game.getSimulationPlugins();
 
         if (plugins == null) {
@@ -28,7 +28,7 @@ public final class ScriptInputExtension implements ScrGameExtension {
 
         for (ScrSimulationPlugin plugin : plugins.getPlugins()) {
             if (plugin instanceof ScriptSimulationPlugin scriptPlugin) {
-                return scriptPlugin.getInputState();
+                return scriptPlugin.getRuntime();
             }
         }
 
@@ -45,7 +45,7 @@ public final class ScriptInputExtension implements ScrGameExtension {
      */
     @Override
     public @NotNull ScriptInputPlugin createPlugin(@NotNull Game game) {
-        return new ScriptInputPlugin(() -> findInputState(game), () -> game.getInterfaceLink().getModCommandSubmitter(),
+        return new ScriptInputPlugin(() -> findRuntime(game), () -> game.getInterfaceLink().getModCommandSubmitter(),
                                      game.getInterfaceLink().getLocalView());
     }
 }

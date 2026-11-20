@@ -107,6 +107,25 @@ final class ScriptMapGameScenario {
         return null;
     }
 
+    /**
+     * Collects the shown texts of a game that start with {@value #PRINT_PREFIX}, without the prefix, once each.
+     *
+     * @param game   the game
+     * @param prints the collected texts, to which the new ones are added
+     */
+    static void collectPrints(@NotNull Game game, @NotNull Set<String> prints) {
+        MessageLines lines = game.getInterfaceLink().getMessageLines();
+
+        for (int line = 0; line < MessageLines.LINE_COUNT; line++) {
+            String text = new String(lines.getLine(line), StandardCharsets.UTF_8);
+            int start = text.indexOf(PRINT_PREFIX);
+
+            if (start >= 0) {
+                prints.add(text.substring(start + PRINT_PREFIX.length()));
+            }
+        }
+    }
+
 
     private final @NotNull LiveGame live;
     private final @NotNull ReplayRuntime gameRuntime;
@@ -172,16 +191,6 @@ final class ScriptMapGameScenario {
      */
     private void stepFrame() {
         LiveMapGameScenario.stepFrame(this.gameRuntime, this.live);
-
-        MessageLines lines = this.getGame().getInterfaceLink().getMessageLines();
-
-        for (int line = 0; line < MessageLines.LINE_COUNT; line++) {
-            String text = new String(lines.getLine(line), StandardCharsets.UTF_8);
-            int start = text.indexOf(PRINT_PREFIX);
-
-            if (start >= 0) {
-                this.prints.add(text.substring(start + PRINT_PREFIX.length()));
-            }
-        }
+        collectPrints(this.getGame(), this.prints);
     }
 }

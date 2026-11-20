@@ -11,8 +11,9 @@ import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
-import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputEvent;
-import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
+import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptHook;
+import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptChannelOutbox;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
@@ -32,24 +33,25 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the prelude, the timers and the read-only mode.
+ * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the prelude, the timers, the channels and the read-only and local
+ * modes.
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
  * {@code terrain}, {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType},
- * {@code imageType}, {@code resources}, {@code graphics} and {@code input} take and return ids and raw values (hit points, shields and energy
- * in {@code 1/256} units,
- * supply in half units); a write takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a
- * map string takes a registered map string ({@link #findStringIndex}). The graphics replacements
- * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes, as does the input tracking ({@link ScriptInputCore}). The
- * prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as read-only globals over
- * {@code core}.
+ * {@code imageType}, {@code resources}, {@code graphics} and {@code sync} take and return ids and raw values (hit points, shields and energy
+ * in {@code 1/256} units, supply in half units); a write takes the routine that the trigger action or the order system runs for it. A text
+ * that a routine shows as a map string takes a registered map string ({@link #findStringIndex}). The graphics replacements
+ * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes. The channels ({@link ScriptSyncCore}) carry values from one
+ * peer to every peer. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as
+ * read-only globals over {@code core}.
  * <p>
  * A timer of {@code core.game.every} runs first at the frame its interval after the current game frame, then every interval; the timers of a
  * frame run in the order of their due frames, then of their registration. While the game is read-only, every {@code core} function that
- * changes the game state throws a {@code TypeError}.
+ * changes the game state throws a {@code TypeError}. While the game is local, as in a local hook, it is also read-only, and adding or
+ * cancelling a timer throws a {@code TypeError} as well.
  * <p>
- * The prelude also makes the event and decision objects of the hooks ({@link #createEvent}, {@link #createDecision}); the values a decision
- * hook left in a decision object go back into the decision with {@link #applyDecision}.
+ * The prelude also makes the event and decision objects of the hooks ({@link #createEvent}, {@link #createLocalEvent},
+ * {@link #createDecision}); the values a decision hook left in a decision object go back into the decision with {@link #applyDecision}.
  */
 public final class ScriptGame {
     /**
@@ -66,6 +68,10 @@ public final class ScriptGame {
      */
     private static final @NotNull String CREATE_EVENT_FUNCTION = "createEvent";
     private static final @NotNull String CREATE_DECISION_FUNCTION = "createDecision";
+    /**
+     * The value of a local event that its {@code consume()} sets.
+     */
+    private static final @NotNull String CONSUMED_PROPERTY = "consumed";
     private static final int CORE_ATTRIBUTES = ScriptableObject.READONLY | ScriptableObject.DONTENUM | ScriptableObject.PERMANENT;
     /**
      * The number of switches of the trigger state.
@@ -122,7 +128,7 @@ public final class ScriptGame {
         ScriptTypeCore.define(context, scriptGame, core, global);
         graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
         graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
-        new ScriptInputCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "input"), global);
+        scriptGame.sync.define(ScriptCoreUtils.createNamespace(context, global, core, "sync"));
 
         for (Object name : core.getAllIds()) {
             ((ScriptableObject) core.get((String) name, core)).preventExtensions();
@@ -141,7 +147,7 @@ public final class ScriptGame {
     private @Nullable Scriptable bridge;
 
     private final @NotNull ImageReplacements imageReplacements;
-    private final @NotNull ScriptInputState inputState;
+    private final @NotNull ScriptSyncCore sync;
 
     private final @NotNull List<Timer> timers;
     private int nextTimerId;
@@ -149,9 +155,11 @@ public final class ScriptGame {
     private final @NotNull Map<String, Integer> registeredTexts;
 
     private boolean readOnly;
+    private boolean local;
 
     /**
-     * Creates a {@link ScriptGame} instance without timers, image replacements and registered texts, not read-only, whose prelude has not run.
+     * Creates a {@link ScriptGame} instance without timers, image replacements, channels and registered texts, neither read-only nor local,
+     * whose prelude has not run.
      *
      * @param game   the game
      * @param global the global scope
@@ -162,7 +170,7 @@ public final class ScriptGame {
         this.bridge = null;
 
         this.imageReplacements = new ImageReplacements(() -> game.getUnitSystem().getUnitPool());
-        this.inputState        = new ScriptInputState();
+        this.sync              = new ScriptSyncCore(global);
 
         this.timers      = new ArrayList<>();
         this.nextTimerId = 1;
@@ -170,6 +178,7 @@ public final class ScriptGame {
         this.registeredTexts = new HashMap<>();
 
         this.readOnly = false;
+        this.local    = false;
     }
 
     /**
@@ -187,10 +196,20 @@ public final class ScriptGame {
     }
 
     /**
-     * @return the tracked input ({@code core.input}) and the input state of the players, the same instance for the whole game
+     * @return the channel commands that wait for the local player's outgoing turn ({@code core.sync}), the same instance for the whole game
      */
-    public @NotNull ScriptInputState getInputState() {
-        return this.inputState;
+    public @NotNull ScriptChannelOutbox getChannelOutbox() {
+        return this.sync.getOutbox();
+    }
+
+    /**
+     * Finds the handler of a channel ({@code core.sync}).
+     *
+     * @param channel the channel id
+     * @return the handler, or {@code null} if no channel has the id
+     */
+    public @Nullable Function findChannelHandler(int channel) {
+        return this.sync.findHandler(channel);
     }
 
     /**
@@ -207,6 +226,22 @@ public final class ScriptGame {
      */
     public void setReadOnly(boolean readOnly) {
         this.readOnly = readOnly;
+    }
+
+    /**
+     * @return {@code true} if local code runs, which may not add or cancel timers, {@code false} otherwise
+     */
+    public boolean isLocal() {
+        return this.local;
+    }
+
+    /**
+     * Sets whether local code runs: adding and cancelling a timer then throws a {@code TypeError}. The caller also makes the game read-only.
+     *
+     * @param local {@code true} while local code runs
+     */
+    public void setLocal(boolean local) {
+        this.local = local;
     }
 
     /**
@@ -248,6 +283,36 @@ public final class ScriptGame {
         if (this.readOnly) {
             throw ScriptRuntime.typeError("The game state cannot change here: the game is read-only.");
         }
+    }
+
+    /**
+     * Checks that no local code runs.
+     *
+     * @throws EcmaError if local code runs
+     */
+    private void checkShared() {
+        if (this.local) {
+            throw ScriptRuntime.typeError("Local code cannot change the timers of the script.");
+        }
+    }
+
+    /**
+     * Ends the creation of channels ({@code core.sync}), once the modules have loaded.
+     */
+    public void closeChannelCreation() {
+        this.sync.closeCreation();
+    }
+
+    /**
+     * Decodes the value of a channel message into new script values.
+     *
+     * @param context the current context
+     * @param value   the encoded value
+     * @return the value
+     * @throws IllegalArgumentException if the bytes are not one well-formed value
+     */
+    public @Nullable Object decodeChannelValue(@NotNull Context context, byte @NotNull [] value) {
+        return this.sync.decodeValue(context, value);
     }
 
     /**
@@ -299,18 +364,50 @@ public final class ScriptGame {
     }
 
     /**
-     * Creates the script object of an input event: the prelude's event object of the hook, with the event's captured values.
+     * Creates the values of a local event: {@code key} or {@code button} (the input's code), {@code modifiers}, {@code positioned} with the
+     * map position {@code x} and {@code y}, {@code text}, and {@code consumed}, {@code false} until a hook consumes the event.
+     *
+     * @param context the current context
+     * @param input   the local input
+     * @return the values
+     */
+    public @NotNull Scriptable createLocalValues(@NotNull Context context, @NotNull ScriptLocalInput input) {
+        Scriptable values = context.newObject(this.global);
+        ScriptHook hook = input.getHook();
+        String codeName = hook == ScriptHook.LOCAL_MOUSE_DOWN || hook == ScriptHook.LOCAL_MOUSE_UP ? "button" : "key";
+
+        ScriptableObject.putProperty(values, codeName, (double) input.getCode());
+        ScriptableObject.putProperty(values, "modifiers", (double) input.getModifiers());
+        ScriptableObject.putProperty(values, "positioned", input.isPositioned());
+        ScriptableObject.putProperty(values, "x", (double) input.getX());
+        ScriptableObject.putProperty(values, "y", (double) input.getY());
+        ScriptableObject.putProperty(values, "text", input.getText());
+        ScriptableObject.putProperty(values, CONSUMED_PROPERTY, false);
+
+        return values;
+    }
+
+    /**
+     * Creates the script object of a local event: the prelude's event object of the hook over the values ({@link #createLocalValues}), whose
+     * {@code consume()} marks the values consumed.
      *
      * @param context  the current context
-     * @param hookName the name of the hook that receives the event
-     * @param event    the input event
-     * @param frame    the frame the event's command ran in
+     * @param hookName the name of the local hook that receives the event
+     * @param values   the values of the event
      * @return the created event object
      */
-    public @NotNull Scriptable createInputEvent(@NotNull Context context, @NotNull String hookName, @NotNull ScriptInputEvent event, int frame) {
-        Scriptable values = ScriptInputCore.createEventValues(context, this.global, event, frame);
-
+    public @NotNull Scriptable createLocalEvent(@NotNull Context context, @NotNull String hookName, @NotNull Scriptable values) {
         return this.callBridge(context, CREATE_EVENT_FUNCTION, hookName, values);
+    }
+
+    /**
+     * Checks whether a hook consumed a local event.
+     *
+     * @param values the values of the event ({@link #createLocalValues})
+     * @return {@code true} if a hook called the event's {@code consume()}, {@code false} otherwise
+     */
+    public boolean isConsumed(@NotNull Scriptable values) {
+        return Boolean.TRUE.equals(ScriptableObject.getProperty(values, CONSUMED_PROPERTY));
     }
 
     /**
@@ -412,7 +509,8 @@ public final class ScriptGame {
     /**
      * Defines {@code core.game}: {@code getFrame()}, {@code getMapTileWidth()}, {@code getMapTileHeight()}, {@code getTileset()},
      * {@code getFrameDuration()} (milliseconds per frame at the fastest speed), {@code print(text)} (all players, as Display Text Message shows a
-     * text with forced display), {@code every(frames, fn)} (the timer id), {@code cancelTimer(id)} and {@code isReadOnly()}.
+     * text with forced display), {@code every(frames, fn)} (the timer id), {@code cancelTimer(id)} (both refused in local code) and
+     * {@code isReadOnly()}.
      * <p>
      * The trigger state: {@code isSwitchSet(index)}, {@code setSwitch(index, set)} and {@code toggleSwitch(index)} (switches {@code 0} to
      * {@value #SWITCH_COUNT} minus one, as Set Switch sets, clears and toggles them); {@code getCountdownTimer()},
@@ -440,6 +538,8 @@ public final class ScriptGame {
             return Context.getUndefinedValue();
         });
         ScriptCoreUtils.defineFunction(global, namespace, "every", 2, (context, scope, thisObject, arguments) -> {
+            this.checkShared();
+
             int interval = ScriptCoreUtils.readInteger(arguments, 0);
             Function function = ScriptCoreUtils.readFunction(arguments, 1);
 
@@ -454,6 +554,8 @@ public final class ScriptGame {
             return (double) timer.id;
         });
         ScriptCoreUtils.defineFunction(global, namespace, "cancelTimer", 1, (context, scope, thisObject, arguments) -> {
+            this.checkShared();
+
             int id = ScriptCoreUtils.readInteger(arguments, 0);
 
             return this.timers.removeIf(timer -> timer.id == id);

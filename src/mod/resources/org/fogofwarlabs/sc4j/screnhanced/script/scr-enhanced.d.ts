@@ -537,6 +537,11 @@ declare const random: Random;
  * The hooks a script may define, as top-level functions: {@code function onUnitDied(event) { ... }}. Event hooks ({@code on*}) run at the
  * start of the frame after the event, before the triggers; decision hooks ({@code onBefore*}) run inside the game routine and may only
  * change the decision. Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
+ *
+ * Shared code (module top level, onStart, onFrame, the event and decision hooks, channel handlers, timers) runs the same on every peer and may
+ * change the game. Local hooks ({@code onLocal*}) run on the local machine only, at once, not in replays and not for observers: they may read
+ * the game, center the view, print and send ({@link Channel.send}, {@link PlayerValue.set}), but changing the game, adding or cancelling a
+ * timer, drawing a random number or loading a new module throws. They must not change variables that shared code reads.
  */
 interface Hooks {
     /**
@@ -577,24 +582,34 @@ interface Hooks {
      * Called for a unit that left a transport or a Bunker.
      */
     onUnitUnloaded?(event: UnitUnloadedEvent): void;
+    /**
+     * Called for a player who left the game or was dropped.
+     */
     onPlayerLeft?(event: PlayerLeftEvent): void;
+    /**
+     * Called for a player who received a result: the triggers ended the player's game, or the player left.
+     */
     onPlayerResult?(event: PlayerResultEvent): void;
     /**
-     * Called for a tracked key a player pressed ({@link Input.track}).
+     * Local: called for a chat line the local player submitted, before it is sent.
      */
-    onKeyDown?(event: KeyEvent): void;
+    onLocalChat?(event: LocalChatEvent): void;
     /**
-     * Called for a key a player released after its press.
+     * Local: called for a key the local player pressed while the game takes play keys, before the game's own keys.
      */
-    onKeyUp?(event: KeyEvent): void;
+    onLocalKeyDown?(event: LocalKeyEvent): void;
     /**
-     * Called for a tracked mouse button a player pressed ({@link Input.track}).
+     * Local: called for a key the local player released.
      */
-    onMouseDown?(event: MouseButtonEvent): void;
+    onLocalKeyUp?(event: LocalKeyEvent): void;
     /**
-     * Called for a mouse button a player released after its press.
+     * Local: called for a mouse button the local player pressed over the map, before the game's own handling.
      */
-    onMouseUp?(event: MouseButtonEvent): void;
+    onLocalMouseDown?(event: LocalMouseButtonEvent): void;
+    /**
+     * Local: called for a mouse button the local player released.
+     */
+    onLocalMouseUp?(event: LocalMouseButtonEvent): void;
     /**
      * Decides the damage of a weapon hit.
      */
@@ -953,15 +968,6 @@ interface Player {
     showTalkingPortrait(unitType: UnitType, frames: number): void;
     setUnitSpeechMuted(muted: boolean): void;
     /**
-     * @returns whether a tracked key is down, the same on every peer
-     */
-    isKeyDown(key: Key): boolean;
-    isButtonDown(button: MouseButton): boolean;
-    /**
-     * @returns the map position of the mouse at the player's last input with a position, or null
-     */
-    getMousePosition(): Position | null;
-    /**
      * Centers the screen on a position when the player is the local player; the screens of the other peers stay.
      */
     centerView(position: Position): void;
@@ -1194,22 +1200,51 @@ interface Terrain {
 declare const terrain: Terrain;
 
 /**
- * The tracked input: the keys, the mouse buttons (true for all) and whether the tracked local presses stay out of the game.
+ * A channel: a value one peer sends reaches the channel's handler on every peer, the sender's included, and in every replay, at the frame the
+ * game runs it, in the order the game runs them.
  */
-interface InputTracking {
-    keys?: Key[];
-    mouse?: boolean | MouseButton[];
-    consume?: boolean;
-}
-
-interface Input {
+interface Channel<T> {
     /**
-     * Tracks the keys and mouse buttons whose changes every player sends; each call replaces the tracking.
+     * Sends a value: null, a boolean, a number, a string, an array or a plain object of these; anything else throws a TypeError. The handler
+     * receives a copy. Shared code and local code may send; shared code sends once from every human peer, so the handler runs once per such
+     * player.
      */
-    track(tracking: InputTracking): void;
+    send(value: T): void;
 }
 
-declare const input: Input;
+/**
+ * A value per player, on a channel of its own: a change reaches every peer at the frame the game runs it.
+ */
+interface PlayerValue<T> {
+    /**
+     * @returns the player's value, the initial value until one was set
+     */
+    get(player: Player): T;
+    /**
+     * Sets the value of the sending player.
+     */
+    set(value: T): void;
+    /**
+     * Sets the value of a player.
+     */
+    set(player: Player, value: T): void;
+}
+
+/**
+ * Creates the channels. Create them only at the top level of a module, while it loads: anywhere else, onStart included, creating throws.
+ */
+interface Sync {
+    /**
+     * Creates a channel whose handler runs as shared code with the sending player and the value.
+     */
+    createChannel<T>(handler: (player: Player, value: T) => void): Channel<T>;
+    /**
+     * Creates a value per player over a new channel.
+     */
+    createPlayerValue<T>(initial: T): PlayerValue<T>;
+}
+
+declare const sync: Sync;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The events and decisions of the hooks.
@@ -1303,16 +1338,31 @@ interface BulletHitEvent extends BulletEvent {
     isMissed(): boolean;
 }
 
+/**
+ * A player who left the game or was dropped.
+ */
 interface PlayerLeftEvent {
     getFrame(): number;
     getPlayer(): Player;
+    /**
+     * @returns the signed departure reason of the player's Leave Game command
+     */
     getReason(): number;
 }
 
+/**
+ * The result a player received: the triggers ended the player's game, or the player left.
+ */
 interface PlayerResultEvent {
     getFrame(): number;
     getPlayer(): Player;
+    /**
+     * @returns the raw result: 1 dropped, 2 defeat, 3 victory, 4 secured victory, 5 draw
+     */
     getResult(): number;
+    /**
+     * @returns whether the result is a victory, secured or not
+     */
     isVictory(): boolean;
     isDefeat(): boolean;
     isDraw(): boolean;
@@ -1320,11 +1370,20 @@ interface PlayerResultEvent {
 }
 
 /**
- * An input event of a player, the same on every peer: the modifier mask ({@link Modifier}) and the mouse position, or null while unknown.
+ * A local event of the local player's input, seen on the local machine only. Consuming it keeps it from the game.
  */
-interface InputEvent {
-    getFrame(): number;
-    getPlayer(): Player;
+interface LocalEvent {
+    /**
+     * Keeps a pressed key or button, or a chat line, from the game's own handling; it has no effect on a release.
+     */
+    consume(): void;
+    isConsumed(): boolean;
+}
+
+/**
+ * A local key or mouse button event: the modifier mask ({@link Modifier}) and the map position under the pointer, or null while unknown.
+ */
+interface LocalInputEvent extends LocalEvent {
     getModifiers(): number;
     getMousePosition(): Position | null;
     isShift(): boolean;
@@ -1332,12 +1391,19 @@ interface InputEvent {
     isAlt(): boolean;
 }
 
-interface KeyEvent extends InputEvent {
+interface LocalKeyEvent extends LocalInputEvent {
     getKey(): Key;
 }
 
-interface MouseButtonEvent extends InputEvent {
+interface LocalMouseButtonEvent extends LocalInputEvent {
     getButton(): MouseButton;
+}
+
+/**
+ * A chat line of the local player; a consumed line is neither sent nor shown.
+ */
+interface LocalChatEvent extends LocalEvent {
+    getText(): string;
 }
 
 /**
@@ -1390,7 +1456,7 @@ interface TargetAcquisitionDecision {
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * The bits of the modifier mask of an input event.
+ * The bits of the modifier mask of a local key or mouse button event.
  */
 interface ModifierTable {
     readonly Shift: number;
@@ -2482,20 +2548,20 @@ interface CoreGraphics {
     restoreUnitImage(unit: number, imageType: number): void;
 }
 
-interface CoreInput {
+/**
+ * The channels ({@link Sync}) by id.
+ */
+interface CoreSync {
     /**
-     * @param keys    Windows virtual-key codes
-     * @param buttons the mouse button mask: 1 left, 2 right, 4 middle
+     * Creates a channel, only while the modules load; the handler runs as shared code with the sending player's id.
+     *
+     * @returns the channel id, the number of channels created before
      */
-    track(keys: number[], buttons: number, consume: boolean): void;
-    isKeyDown(player: number, key: number): boolean;
+    createChannel(handler: (player: number, value: any) => void): number;
     /**
-     * @param button 0 left, 1 right, 2 middle
+     * Sends a value on a channel, from shared or local code ({@link Channel.send}).
      */
-    isButtonDown(player: number, button: number): boolean;
-    hasMousePosition(player: number): boolean;
-    getMouseX(player: number): number;
-    getMouseY(player: number): number;
+    send(channel: number, value: any): void;
 }
 
 interface Core {
@@ -2513,7 +2579,7 @@ interface Core {
     readonly imageType: CoreImageTypes;
     readonly resources: CoreResources;
     readonly graphics: CoreGraphics;
-    readonly input: CoreInput;
+    readonly sync: CoreSync;
 }
 
 declare const core: Core;

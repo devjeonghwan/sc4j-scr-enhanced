@@ -1,9 +1,10 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, UnitGroup,
 // WeaponType, UpgradeType, TechType, Order, ImageType, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier, resources, graphics,
-// tileset, terrain and input, and the Unit, Player, Location and Tile objects they return. One unit, player, location or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
-// values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply (core's half units
-// divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object also has the
-// methods that decide. The prelude returns the functions that make these objects to the game.
+// tileset, terrain and sync, and the Unit, Player, Location, Tile, Channel and PlayerValue objects they return. One unit, player, location
+// or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields
+// and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply
+// (core's half units divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object
+// also has the methods that decide. The prelude returns the functions that make these objects to the game.
 (function (global, core) {
     'use strict';
 
@@ -246,7 +247,6 @@
     var F1 = 0x70;
     var FUNCTION_KEY_COUNT = 12;
     var MOUSE_BUTTON_NAMES = ['Left', 'Right', 'Middle'];
-    var ALL_MOUSE_BUTTONS = 7;
 
     function createKeyNames() {
         var names = [];
@@ -307,7 +307,7 @@
     var mouseButtonPrototype = create(typePrototype);
     var Key = createConstantTable(keyPrototype, createKeyNames(), KEY_COUNT, 'Key ');
     var MouseButton = createConstantTable(mouseButtonPrototype, MOUSE_BUTTON_NAMES, MOUSE_BUTTON_NAMES.length, 'Button ');
-    // The bits of the modifier mask of an input event.
+    // The bits of the modifier mask of a local key or mouse button event.
     var Modifier = freeze({Shift: 1, Control: 2, Alt: 4});
 
     // The operands of the trigger counters: the unit groups after the unit types, the score types, the resource types and the alliances, with
@@ -415,50 +415,6 @@
             core.leaderboard.show(goalType, operand, goal, String(label));
         }
     }
-
-    // Returns an optional array of a tracking option, empty when it is missing.
-    function readOptionArray(value, name) {
-        if (value === undefined) {
-            return [];
-        }
-
-        if (!Array.isArray(value)) {
-            throw new TypeError('The ' + name + ' option is an array, not ' + value + '.');
-        }
-
-        return value;
-    }
-
-    var input = freeze({
-        // Tracks the keys and mouse buttons whose changes every player sends, the same on every peer: {keys: an array of Keys, mouse: true for
-        // every button, false or an array of MouseButtons, consume: true to keep the tracked local presses from the game}. Each call replaces
-        // the tracking; a key or button that is down stays down until its release.
-        track: function (options) {
-            if (options === null || typeof options !== 'object') {
-                throw new TypeError('The tracking {keys, mouse, consume} is needed, not ' + options + '.');
-            }
-
-            var keys = readOptionArray(options.keys, 'keys');
-            var keyIds = [];
-            var buttons = 0;
-
-            for (var index = 0; index < keys.length; index++) {
-                keyIds.push(requireObject(keys[index], keyPrototype, 'A key').id);
-            }
-
-            if (options.mouse === true) {
-                buttons = ALL_MOUSE_BUTTONS;
-            } else if (options.mouse !== false) {
-                var mouse = readOptionArray(options.mouse, 'mouse');
-
-                for (var button = 0; button < mouse.length; button++) {
-                    buttons |= 1 << requireObject(mouse[button], mouseButtonPrototype, 'A mouse button').id;
-                }
-            }
-
-            core.input.track(keyIds, buttons, options.consume === true);
-        }
-    });
 
     var playerCount = core.player.getCount();
     var players = [];
@@ -870,17 +826,6 @@
         },
         setUnitSpeechMuted: function (muted) {
             core.player.setUnitSpeechMuted(this.id, muted);
-        },
-        // The input state of the player that the player's tracked input changed, the same on every peer.
-        isKeyDown: function (key) {
-            return core.input.isKeyDown(this.id, requireObject(key, keyPrototype, 'A key').id);
-        },
-        isButtonDown: function (button) {
-            return core.input.isButtonDown(this.id, requireObject(button, mouseButtonPrototype, 'A mouse button').id);
-        },
-        // The map position of the mouse at the player's last input with a position, or null.
-        getMousePosition: function () {
-            return core.input.hasMousePosition(this.id) ? createPosition(core.input.getMouseX(this.id), core.input.getMouseY(this.id)) : null;
         },
         // Centers the screen on a position when the player is the local player; the screens of the other peers stay.
         centerView: function (position) {
@@ -1328,9 +1273,19 @@
         return this.result === RESULT_DROPPED;
     };
 
-    // The input events: the player, the key or button, the modifier mask and the mouse position in map pixels, or null while unknown.
-    var KEY_FIELDS = ['frame', 'player', 'key', 'modifiers', 'mousePosition'];
-    var BUTTON_FIELDS = ['frame', 'player', 'button', 'modifiers', 'mousePosition'];
+    // The local events of the local player's input: the key or button, the modifier mask and the map position under the pointer, or null
+    // while unknown; the chat line. consume() keeps the press or the chat line from the game; the event keeps its values object, whose
+    // consumed flag the game reads after the hooks.
+    var LOCAL_KEY_FIELDS = ['key', 'modifiers', 'mousePosition'];
+    var LOCAL_BUTTON_FIELDS = ['button', 'modifiers', 'mousePosition'];
+    var consumeMethods = {
+        consume: function () {
+            this.values.consumed = true;
+        },
+        isConsumed: function () {
+            return this.values.consumed === true;
+        }
+    };
     var modifierGetters = {
         isShift: function () {
             return (this.modifiers & Modifier.Shift) !== 0;
@@ -1343,25 +1298,30 @@
         }
     };
 
-    function readInputFields(values) {
+    function addMethods(prototype, methods) {
+        for (var name in methods) {
+            prototype[name] = methods[name];
+        }
+    }
+
+    function readLocalInputFields(values) {
         return {
-            frame: values.frame,
-            player: getPlayer(values.player),
+            values: values,
             modifiers: values.modifiers,
             mousePosition: values.positioned ? createPosition(values.x, values.y) : null
         };
     }
 
-    function readKeyFields(values) {
-        var fields = readInputFields(values);
+    function readLocalKeyFields(values) {
+        var fields = readLocalInputFields(values);
 
         fields.key = Key.get(values.key);
 
         return fields;
     }
 
-    function readButtonFields(values) {
-        var fields = readInputFields(values);
+    function readLocalButtonFields(values) {
+        var fields = readLocalInputFields(values);
 
         fields.button = MouseButton.get(values.button);
 
@@ -1369,15 +1329,17 @@
     }
 
     [
-        defineEvent('onKeyDown', KEY_FIELDS, readKeyFields),
-        defineEvent('onKeyUp', KEY_FIELDS, readKeyFields),
-        defineEvent('onMouseDown', BUTTON_FIELDS, readButtonFields),
-        defineEvent('onMouseUp', BUTTON_FIELDS, readButtonFields)
+        defineEvent('onLocalKeyDown', LOCAL_KEY_FIELDS, readLocalKeyFields),
+        defineEvent('onLocalKeyUp', LOCAL_KEY_FIELDS, readLocalKeyFields),
+        defineEvent('onLocalMouseDown', LOCAL_BUTTON_FIELDS, readLocalButtonFields),
+        defineEvent('onLocalMouseUp', LOCAL_BUTTON_FIELDS, readLocalButtonFields)
     ].forEach(function (prototype) {
-        for (var name in modifierGetters) {
-            prototype[name] = modifierGetters[name];
-        }
+        addMethods(prototype, modifierGetters);
+        addMethods(prototype, consumeMethods);
     });
+    addMethods(defineEvent('onLocalChat', ['text'], function (values) {
+        return {values: values, text: String(values.text)};
+    }), consumeMethods);
 
     // A decision object keeps the values a hook may change in its hidden state, which the game reads back after the hook.
     function defineDecision(hookName, fields, prototype, read) {
@@ -1499,6 +1461,64 @@
         fields.state = {target: values.target, targetGeneration: values.targetGeneration};
 
         return fields;
+    });
+
+    // A channel sends a value to its handler on every peer (core.sync); the handler receives the sending player and a copy of the value.
+    var channelPrototype = {
+        send: function (value) {
+            core.sync.send(this.id, value);
+        }
+    };
+
+    // A value per player on a channel: a message [slot, value] sets the slot, or the sending player's slot for NONE; get returns the initial
+    // value until a message set the slot.
+    var playerValuePrototype = {
+        get: function (player) {
+            var id = requireObject(player, playerPrototype, 'A player').id;
+
+            return this.assigned[id] ? this.values[id] : this.initial;
+        },
+        set: function (playerOrValue, value) {
+            if (arguments.length < 2) {
+                this.channel.send([NONE, playerOrValue]);
+            } else {
+                this.channel.send([requireObject(playerOrValue, playerPrototype, 'A player').id, value]);
+            }
+        }
+    };
+
+    var sync = freeze({
+        // Creates a channel; only while the modules load, at their top level, so that every peer has the same channels.
+        createChannel: function (handler) {
+            if (typeof handler !== 'function') {
+                throw new TypeError('A channel handler function is needed, not ' + handler + '.');
+            }
+
+            var id = core.sync.createChannel(function (player, value) {
+                handler(getPlayer(player), value);
+            });
+
+            return freeze(createObject(channelPrototype, {id: id}));
+        },
+        // Creates a value per player over a new channel; only while the modules load, as createChannel.
+        createPlayerValue: function (initial) {
+            var values = [];
+            var assigned = [];
+            var channel = sync.createChannel(function (player, message) {
+                if (!Array.isArray(message) || message.length !== 2) {
+                    return;
+                }
+
+                var id = message[0] === NONE ? player.id : message[0];
+
+                if (typeof id === 'number' && id === floor(id) && getPlayer(id) !== null) {
+                    values[id] = message[1];
+                    assigned[id] = true;
+                }
+            });
+
+            return freeze(createObject(playerValuePrototype, {channel: channel, initial: initial, values: values, assigned: assigned}));
+        }
     });
 
     // The functions the game calls, which the scripts do not see.
@@ -1688,6 +1708,8 @@
     freeze(resourcePrototype);
     freeze(grpPrototype);
     freeze(animPrototype);
+    freeze(channelPrototype);
+    freeze(playerValuePrototype);
 
     for (var eventName in eventKinds) {
         freeze(eventKinds[eventName].prototype);
@@ -1717,7 +1739,7 @@
     defineGlobal('graphics', graphics);
     defineGlobal('tileset', tileset);
     defineGlobal('terrain', terrain);
-    defineGlobal('input', input);
+    defineGlobal('sync', sync);
 
     return gameFunctions;
 });
