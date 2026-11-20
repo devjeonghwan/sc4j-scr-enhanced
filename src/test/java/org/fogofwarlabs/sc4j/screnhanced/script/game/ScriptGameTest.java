@@ -1,14 +1,19 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
+import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
+import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptManifest;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -17,12 +22,17 @@ import java.util.Map;
 
 /**
  * Tests the game API of {@link ScriptGame} on a game without game data: the type constants with their original data names, the game's frame
- * and map, the timers of {@code game.every}, the read-only mode and the sealed {@code core}.
+ * and map, the timers of {@code game.every}, the read-only mode and the sealed {@code core}; and in a live melee game the switches, the
+ * countdown timer and the elapsed time of the trigger state.
  */
 final class ScriptGameTest {
     private static final int MAP_TILE_WIDTH = 4;
     private static final int MAP_TILE_HEIGHT = 3;
     private static final int MAP_TILESET = 2;
+    /**
+     * The frames the trigger state test runs after its start: three seconds of the trigger clock.
+     */
+    private static final int CLOCK_FRAMES = 48;
 
     private static @NotNull Game createGame() {
         return Game.create(null, new GameMap(MAP_TILE_WIDTH, MAP_TILE_HEIGHT, MAP_TILESET, new int[MAP_TILE_WIDTH * MAP_TILE_HEIGHT]),
@@ -160,6 +170,126 @@ final class ScriptGameTest {
         Assertions.assertTrue(scenario.getRuntime().isReadOnly());
         Assertions.assertEquals(List.of("read-only true 0", "minerals TypeError", "create TypeError", "kill TypeError", "location TypeError",
                                         "data TypeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void read_only_mode_refuses_the_trigger_writes_with_a_type_error() throws IOException {
+        Game game = createGame();
+        ScriptGameScenario scenario = new ScriptGameScenario(game, """
+                var writes = {
+                    switch: function () { game.setSwitch(0, true); },
+                    toggle: function () { game.toggleSwitch(0); },
+                    countdown: function () { game.setCountdownTimer(5); },
+                    add: function () { game.addCountdownTimer(5); },
+                    subtract: function () { game.subtractCountdownTimer(5); },
+                    pause: function () { game.pauseCountdownTimer(); },
+                    resume: function () { game.resumeCountdownTimer(); },
+                    deaths: function () { game.getPlayer(0).setDeaths(UnitType.TerranMarine, 1); },
+                    addDeaths: function () { game.getPlayer(0).addDeaths(UnitGroup.Men, 1); },
+                    subtractDeaths: function () { game.getPlayer(0).subtractDeaths(UnitType.TerranMarine, 1); },
+                    score: function () { game.getPlayer(0).setScore(ScoreType.Custom, 1); },
+                    addScore: function () { game.getPlayer(0).addScore(ScoreType.Custom, 1); },
+                    subtractScore: function () { game.getPlayer(0).subtractScore(ScoreType.Custom, 1); },
+                    kill: function () { game.getPlayer(0).killUnits(UnitGroup.AnyUnit); },
+                    remove: function () { game.getPlayer(0).removeUnits(UnitGroup.AnyUnit); },
+                    alliance: function () { game.getPlayer(0).setAlliance(game.getPlayer(1), Alliance.Ally); },
+                    script: function () { game.getPlayer(0).runAiScript('EnBk'); },
+                    scriptAt: function () { core.player.runAiScriptAt(0, 0, 0); },
+                    objectives: function () { game.getPlayer(0).setMissionObjectives('Objectives'); },
+                    leaderboard: function () { game.showKillsLeaderboard('Kills', UnitGroup.Men); },
+                    leaderboardAt: function () { core.leaderboard.showAt(18, 0, 0, 0, 'Here'); },
+                    greed: function () { game.showGreedLeaderboard(10); },
+                    computers: function () { game.setLeaderboardComputersIncluded(true); },
+                    resources: function () { core.unit.setResources(1, 5); },
+                    hangar: function () { core.unit.addHangarCount(1, 1); },
+                    enable: function () { core.unit.enableDoodad(1); },
+                    disable: function () { core.unit.disableDoodad(1); },
+                    invincible: function () { core.unit.setInvincible(1, true); }
+                };
+                function onFrame() {
+                    var refused = [];
+                    for (var name in writes) {
+                        try {
+                            writes[name]();
+                        } catch (error) {
+                            if (error.name === 'TypeError' && error.message.indexOf('read-only') >= 0) {
+                                refused.push(name);
+                            }
+                        }
+                    }
+                    var changed = Object.keys(writes).filter(function (name) {
+                        return refused.indexOf(name) < 0;
+                    });
+                    log.info(changed.length === 0 ? 'all refused' : 'changed: ' + changed.join(' '));
+                }
+                """);
+
+        scenario.getRuntime().start();
+        scenario.getRuntime().setReadOnly(true);
+        scenario.getRuntime().runFrame(0);
+
+        Assertions.assertEquals(List.of("all refused"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    @RequiresInstallation
+    @ExtendWith(GameResourcesExtension.class)
+    void switches_and_the_countdown_timer_take_the_trigger_routines(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var frames = 0;
+                var started;
+                function onStart() {
+                    log.info(game.isSwitchSet(3), game.isSwitchSet(4), game.getCountdownTimer(), game.isCountdownTimerPaused());
+                    game.setSwitch(3, true);
+                    game.toggleSwitch(4);
+                    game.toggleSwitch(3);
+                    log.info(game.isSwitchSet(3), game.isSwitchSet(4), core.game.isSwitchSet(4));
+                    game.setCountdownTimer(100);
+                    game.addCountdownTimer(10);
+                    game.subtractCountdownTimer(5);
+                    log.info(game.getCountdownTimer());
+                    game.subtractCountdownTimer(1000);
+                    log.info(game.getCountdownTimer());
+                    game.setCountdownTimer(400000);
+                    log.info(game.getCountdownTimer());
+                    game.setCountdownTimer(60);
+                    game.pauseCountdownTimer();
+                    log.info(game.isCountdownTimerPaused());
+                    game.resumeCountdownTimer();
+                    started = game.getElapsedTime();
+                    try {
+                        game.setSwitch(256, true);
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                }
+                function onFrame() {
+                    frames++;
+                    if (frames === 48) {
+                        log.info(game.getCountdownTimer(), game.getElapsedTime() - started, game.isCountdownTimerPaused());
+                    }
+                }
+                """);
+
+        for (int frame = 0; frame < CLOCK_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        Assertions.assertEquals(List.of("false false 0 false",
+                                        "false true true",
+                                        "105",
+                                        "0",
+                                        "359999",
+                                        "true",
+                                        "RangeError",
+                                        "57 3 false"), scenario.getInfoMessages(), scenario.getLines()::toString);
+
+        TriggerContext triggers = scenario.getGame().getTriggerContext();
+
+        Assertions.assertNotNull(triggers);
+        Assertions.assertFalse(triggers.isSwitchSet(3));
+        Assertions.assertTrue(triggers.isSwitchSet(4));
+        Assertions.assertEquals(57, triggers.getCountdownTimer());
     }
 
     @Test

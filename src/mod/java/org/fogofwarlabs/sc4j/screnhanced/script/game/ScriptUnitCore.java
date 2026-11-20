@@ -5,6 +5,7 @@ import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
+import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
@@ -34,13 +35,18 @@ import java.util.function.ToIntFunction;
  * Reads: {@code getType}, {@code getOwner}, {@code getX}, {@code getY}, {@code getHp}, {@code getMaxHp}, {@code getShields},
  * {@code getMaxShields}, {@code getEnergy}, {@code getMaxEnergy} (raw {@code 1/256} units), {@code getOrder}, {@code getTarget} ({@code -1}
  * without a target unit), {@code getTargetX}, {@code getTargetY}, {@code getStatus} (the status flags), {@code getImageType} (the image type
- * of the main image of the unit's sprite), {@code isCompleted}, {@code isCloaked}, {@code isBurrowed} and {@code isInvincible}.
+ * of the main image of the unit's sprite), {@code getResources} (the resource amount of a resource container), {@code getHangarCount} (the
+ * Interceptors or Scarabs inside and outside the hangar), {@code isCompleted}, {@code isCloaked}, {@code isBurrowed}, {@code isInvincible}
+ * and {@code isDisabled} (the disabled status or a disabling status timer).
  * <p>
  * Writes of raw amounts: {@code setHp} (the hit point routine, at least {@code 1} and at most the maximum), {@code setShields} and
  * {@code setEnergy} (at most the maximum, {@code false} for a unit without shields or energy). Writes through the routines of the trigger
  * actions and the order system: {@code setHpPercent}, {@code setShieldsPercent} and {@code setEnergyPercent} (Modify Unit Hit Points, Shield
- * Points and Energy with a percentage of the maximum), {@code setInvincible} (Set Invincibility), {@code create(type, owner, x, y)} (Create
- * Unit; the new id or {@code -1}), {@code kill} and {@code remove} (Kill Unit and Remove Unit), {@code move(id, x, y)} (Move Unit),
+ * Points and Energy with a percentage of the maximum), {@code setInvincible} (Set Invincibility), {@code enableDoodad} and
+ * {@code disableDoodad} (Set Doodad State), {@code setResources} (Modify Unit Resource Amount, from {@code 0} to {@value #MAXIMUM_RESOURCES};
+ * {@code false} for a unit that is no resource container), {@code addHangarCount(id, count)} (Modify Unit Hanger Count: up to {@code count}
+ * Interceptors or Scarabs while the hangar takes another one; {@code false} for a unit without a hangar), {@code create(type, owner, x, y)}
+ * (Create Unit; the new id or {@code -1}), {@code kill} and {@code remove} (Kill Unit and Remove Unit), {@code move(id, x, y)} (Move Unit),
  * {@code give(id, player)} (Give Units to Player) and {@code issueOrder(id, order, target, x, y)} (with {@code target} {@code -1} the Order
  * action to the position, with a target unit the order system after the order requirement test). A write that the routine refuses returns
  * {@code false}.
@@ -50,6 +56,10 @@ final class ScriptUnitCore {
      * The fixed-point shift of hit points, shields and energy.
      */
     private static final int FIXED_POINT_SHIFT = 8;
+    /**
+     * The largest resource amount of a resource container, a WORD.
+     */
+    private static final int MAXIMUM_RESOURCES = 0xFFFF;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -146,11 +156,15 @@ final class ScriptUnitCore {
 
             return image == null ? ScriptCoreUtils.NO_ID : image.getImageTypeId();
         });
+        this.defineRead(namespace, global, "getResources", Unit::getResources);
+        this.defineRead(namespace, global, "getHangarCount", unit -> unit.getHangarCount(false) + unit.getHangarCount(true));
 
         this.defineStatusRead(namespace, global, "isCompleted", UnitStatusFlags.COMPLETED);
         this.defineStatusRead(namespace, global, "isCloaked", UnitStatusFlags.CLOAKED | UnitStatusFlags.PASSIVELY_CLOAKED);
         this.defineStatusRead(namespace, global, "isBurrowed", UnitStatusFlags.BURROWED);
         this.defineStatusRead(namespace, global, "isInvincible", UnitStatusFlags.INVINCIBLE);
+        ScriptCoreUtils.defineFunction(global, namespace, "isDisabled", 1,
+                                       (context, scope, thisObject, arguments) -> UnitOrderEligibility.isDisabled(this.readUnit(arguments, 0)));
     }
 
     private void defineWrites(@NotNull Scriptable namespace, @NotNull Scriptable global) {
@@ -222,9 +236,47 @@ final class ScriptUnitCore {
             Unit unit = this.readUnit(arguments, 0);
             boolean invincible = ScriptCoreUtils.readBoolean(arguments, 1);
 
-            unit.setStatus(invincible ? unit.getStatus() | UnitStatusFlags.INVINCIBLE : unit.getStatus() & ~UnitStatusFlags.INVINCIBLE);
+            this.getGame().getTriggerUnitActions().setInvincible(unit, invincible);
 
             return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "enableDoodad", 1, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+
+            this.getGame().getTriggerUnitActions().enableDoodad(unit, this.scriptGame.getInstructionLimit());
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "disableDoodad", 1, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+
+            this.getGame().getTriggerUnitActions().disableDoodad(unit, this.scriptGame.getInstructionLimit());
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setResources", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int amount = this.readAmount(arguments, 1);
+
+            if (amount > MAXIMUM_RESOURCES) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The resource amount {0} is above {1}.", amount, MAXIMUM_RESOURCES));
+            }
+
+            return this.getGame().getTriggerUnitActions().modifyResources(unit, amount, this.scriptGame.getInstructionLimit());
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "addHangarCount", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int count = this.readAmount(arguments, 1);
+
+            return this.getGame().getTriggerUnitActions().modifyHangar(unit, count, this.scriptGame.getInstructionLimit());
         });
 
         ScriptCoreUtils.defineFunction(global, namespace, "create", 4, (context, scope, thisObject, arguments) -> {

@@ -1,6 +1,9 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
+import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
@@ -24,6 +27,15 @@ final class ScriptCoreUtils {
      */
     static final int NO_ID = -1;
 
+    /**
+     * The number of resource types of the trigger routines: ore, gas, and ore and gas.
+     */
+    private static final int RESOURCE_TYPE_COUNT = 3;
+    /**
+     * The number of score types of the trigger routines: total, units, buildings, units and buildings, kills, razings, kills and razings, and
+     * custom.
+     */
+    private static final int SCORE_TYPE_COUNT = 8;
     private static final int MEMBER_ATTRIBUTES = ScriptableObject.READONLY | ScriptableObject.DONTENUM | ScriptableObject.PERMANENT;
 
     /**
@@ -139,6 +151,74 @@ final class ScriptCoreUtils {
         }
 
         return id;
+    }
+
+    /**
+     * Reads a unit operand of the trigger routines: a unit type from {@code 0} to {@value ScrUnitIds#NONE} minus one or a unit group from
+     * {@value TriggerUnitGroups#ANY_UNIT} to {@value TriggerUnitGroups#FACTORIES}.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the unit operand
+     * @throws EcmaError if the argument is not an integer, or is neither a unit type nor a unit group
+     */
+    static int readUnitOperand(@NotNull Object @NotNull [] arguments, int index) {
+        int operand = requireId("unit type", readInteger(arguments, index), TriggerUnitGroups.FACTORIES + 1);
+
+        if (operand == ScrUnitIds.NONE) {
+            throw ScriptRuntime.rangeError(Exceptions.format("The unit type {0} is neither a unit type nor a unit group.", operand));
+        }
+
+        return operand;
+    }
+
+    /**
+     * Reads a resource type of the trigger routines: {@code 0} ore, {@code 1} gas or {@code 2} ore and gas.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the resource type
+     * @throws EcmaError if the argument is not an integer or not a resource type
+     */
+    static int readResourceType(@NotNull Object @NotNull [] arguments, int index) {
+        return requireId("resource type", readInteger(arguments, index), RESOURCE_TYPE_COUNT);
+    }
+
+    /**
+     * Reads a score type of the trigger routines: {@code 0} total, {@code 1} units, {@code 2} buildings, {@code 3} units and buildings,
+     * {@code 4} kills, {@code 5} razings, {@code 6} kills and razings or {@code 7} custom.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the score type
+     * @throws EcmaError if the argument is not an integer or not a score type
+     */
+    static int readScoreType(@NotNull Object @NotNull [] arguments, int index) {
+        return requireId("score type", readInteger(arguments, index), SCORE_TYPE_COUNT);
+    }
+
+    /**
+     * Reads a location argument.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the location index from {@code 0} to {@value TriggerContext#LOCATION_COUNT} minus one
+     * @throws EcmaError if the argument is not an integer or not a location index
+     */
+    static int readLocationId(@NotNull Object @NotNull [] arguments, int index) {
+        return requireId("location", readInteger(arguments, index), TriggerContext.LOCATION_COUNT);
+    }
+
+    /**
+     * Reads an optional location argument: a location index or {@value #NO_ID} for none.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the location index, or {@value #NO_ID} for none
+     * @throws EcmaError if the argument is not an integer, or neither a location index nor {@value #NO_ID}
+     */
+    static int readOptionalLocationId(@NotNull Object @NotNull [] arguments, int index) {
+        return readInteger(arguments, index) == NO_ID ? NO_ID : readLocationId(arguments, index);
     }
 
 

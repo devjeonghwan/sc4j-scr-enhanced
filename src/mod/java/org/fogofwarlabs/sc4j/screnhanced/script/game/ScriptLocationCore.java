@@ -40,7 +40,7 @@ final class ScriptLocationCore {
         ScriptCoreUtils.defineFunction(global, namespace, "getCount", 0,
                                        (context, scope, thisObject, arguments) -> (double) TriggerContext.LOCATION_COUNT);
         ScriptCoreUtils.defineFunction(global, namespace, "getName", 1,
-                                       (context, scope, thisObject, arguments) -> this.findName(this.readLocationId(arguments, 0)));
+                                       (context, scope, thisObject, arguments) -> this.findName(ScriptCoreUtils.readLocationId(arguments, 0)));
         ScriptCoreUtils.defineFunction(global, namespace, "findByName", 1, (context, scope, thisObject, arguments) -> {
             String name = ScriptCoreUtils.readString(arguments, 0);
 
@@ -63,7 +63,7 @@ final class ScriptLocationCore {
         ScriptCoreUtils.defineFunction(global, namespace, "setBounds", 5, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
 
-            int id = this.readLocationId(arguments, 0);
+            int id = ScriptCoreUtils.readLocationId(arguments, 0);
             int left = ScriptCoreUtils.readInteger(arguments, 1);
             int top = ScriptCoreUtils.readInteger(arguments, 2);
             int right = ScriptCoreUtils.readInteger(arguments, 3);
@@ -76,7 +76,7 @@ final class ScriptLocationCore {
         ScriptCoreUtils.defineFunction(global, namespace, "setCenter", 3, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
 
-            int id = this.readLocationId(arguments, 0);
+            int id = ScriptCoreUtils.readLocationId(arguments, 0);
             int centerX = ScriptCoreUtils.readInteger(arguments, 1);
             int centerY = ScriptCoreUtils.readInteger(arguments, 2);
             TriggerLocation location = this.scriptGame.requireTriggerContext().getLocation(id);
@@ -93,14 +93,10 @@ final class ScriptLocationCore {
     private void defineRead(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name,
                             @NotNull ToIntFunction<TriggerLocation> read) {
         ScriptCoreUtils.defineFunction(global, namespace, name, 1, (context, scope, thisObject, arguments) -> {
-            int id = this.readLocationId(arguments, 0);
+            int id = ScriptCoreUtils.readLocationId(arguments, 0);
 
             return (double) read.applyAsInt(this.scriptGame.requireTriggerContext().getLocation(id));
         });
-    }
-
-    private int readLocationId(@NotNull Object @NotNull [] arguments, int index) {
-        return ScriptCoreUtils.requireId("location", ScriptCoreUtils.readInteger(arguments, index), TriggerContext.LOCATION_COUNT);
     }
 
     /**

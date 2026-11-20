@@ -4,8 +4,10 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
+import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
@@ -25,15 +27,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the prelude, the timers and the read-only mode.
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
- * {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType}, {@code imageType}, {@code resources},
- * {@code graphics} and {@code input} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half
- * units); a write takes the routine that the trigger action or the order system runs for it. The graphics replacements
+ * {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType}, {@code imageType},
+ * {@code resources}, {@code graphics} and {@code input} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units,
+ * supply in half units); a write takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a
+ * map string takes a registered map string ({@link #findStringIndex}). The graphics replacements
  * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes, as does the input tracking ({@link ScriptInputCore}). The
  * prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as read-only globals over
  * {@code core}.
@@ -62,10 +67,13 @@ public final class ScriptGame {
     private static final @NotNull String CREATE_DECISION_FUNCTION = "createDecision";
     private static final int CORE_ATTRIBUTES = ScriptableObject.READONLY | ScriptableObject.DONTENUM | ScriptableObject.PERMANENT;
     /**
-     * The display time of each character of a printed text and the shortest display time, those of the trigger texts.
+     * The number of switches of the trigger state.
      */
-    private static final int TEXT_CHARACTER_MILLISECONDS = 50;
-    private static final int MINIMUM_TEXT_MILLISECONDS = 4000;
+    private static final int SWITCH_COUNT = 256;
+    /**
+     * The string index of no map string, which an empty text takes.
+     */
+    private static final int NO_STRING_INDEX = 0;
 
     /**
      * One timer of {@code core.game.every}.
@@ -108,6 +116,7 @@ public final class ScriptGame {
         new ScriptPlayerCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "player"), global);
         unitCore.define(ScriptCoreUtils.createNamespace(context, global, core, "unit"), global);
         new ScriptLocationCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "location"), global);
+        new ScriptLeaderboardCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "leaderboard"), global);
         ScriptTypeCore.define(context, scriptGame, core, global);
         graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
         graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
@@ -135,10 +144,12 @@ public final class ScriptGame {
     private final @NotNull List<Timer> timers;
     private int nextTimerId;
 
+    private final @NotNull Map<String, Integer> registeredTexts;
+
     private boolean readOnly;
 
     /**
-     * Creates a {@link ScriptGame} instance without timers and image replacements, not read-only, whose prelude has not run.
+     * Creates a {@link ScriptGame} instance without timers, image replacements and registered texts, not read-only, whose prelude has not run.
      *
      * @param game   the game
      * @param global the global scope
@@ -153,6 +164,8 @@ public final class ScriptGame {
 
         this.timers      = new ArrayList<>();
         this.nextTimerId = 1;
+
+        this.registeredTexts = new HashMap<>();
 
         this.readOnly = false;
     }
@@ -350,21 +363,61 @@ public final class ScriptGame {
     }
 
     /**
-     * Writes a text as a trigger text, the way Display Text Message shows it with forced display.
+     * Finds the map string index of a text for the routines that show a map string: the empty text has no map string, any other text is
+     * registered in the map strings ({@link MapStringSection#registerString}) as UTF-8, the encoding the map strings decode first.
+     * <p>
+     * An identical text registers once and keeps its index for the whole game, so a text set every frame does not grow the map strings. The
+     * indices follow the order of the first registrations, the same on every peer.
      *
      * @param text the text
+     * @return the map string index, {@code 0} for the empty text
+     * @throws EcmaError if the text holds a NUL character, the game has no map strings or no map string index is left
      */
-    void printText(@NotNull String text) {
-        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    int findStringIndex(@NotNull String text) {
+        if (text.isEmpty()) {
+            return NO_STRING_INDEX;
+        }
 
-        this.game.getInterfaceLink().getMessageLines().writeTriggerText(bytes, Math.max(bytes.length * TEXT_CHARACTER_MILLISECONDS,
-                                                                                         MINIMUM_TEXT_MILLISECONDS));
+        Integer registered = this.registeredTexts.get(text);
+
+        if (registered != null) {
+            return registered;
+        }
+
+        if (text.indexOf('\0') >= 0) {
+            throw ScriptRuntime.rangeError("A map string text holds no NUL character.");
+        }
+
+        MapStringSection strings = this.game.getInterfaceLink().getMessageLines().getMapStringSection();
+
+        if (strings == null) {
+            throw ScriptRuntime.typeError("The game has no map strings.");
+        }
+
+        int stringIndex;
+
+        try {
+            stringIndex = strings.registerString(text.getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalStateException exception) {
+            throw ScriptRuntime.rangeError("No map string index is left for a new text.");
+        }
+
+        this.registeredTexts.put(text, stringIndex);
+
+        return stringIndex;
     }
 
     /**
      * Defines {@code core.game}: {@code getFrame()}, {@code getMapTileWidth()}, {@code getMapTileHeight()}, {@code getTileset()},
-     * {@code getFrameDuration()} (milliseconds per frame at the fastest speed), {@code print(text)} (all players), {@code every(frames, fn)}
-     * (the timer id), {@code cancelTimer(id)} and {@code isReadOnly()}.
+     * {@code getFrameDuration()} (milliseconds per frame at the fastest speed), {@code print(text)} (all players, as Display Text Message shows a
+     * text with forced display), {@code every(frames, fn)} (the timer id), {@code cancelTimer(id)} and {@code isReadOnly()}.
+     * <p>
+     * The trigger state: {@code isSwitchSet(index)}, {@code setSwitch(index, set)} and {@code toggleSwitch(index)} (switches {@code 0} to
+     * {@value #SWITCH_COUNT} minus one, as Set Switch sets, clears and toggles them); {@code getCountdownTimer()},
+     * {@code setCountdownTimer(seconds)}, {@code addCountdownTimer(seconds)} and {@code subtractCountdownTimer(seconds)} (Set Countdown Timer,
+     * kept from {@code 0} to {@code 359999}), {@code isCountdownTimerPaused()} and {@code setCountdownTimerPaused(paused)} (Pause Timer and
+     * Unpause Timer); {@code getElapsedTime()} (the seconds the Elapsed Time condition compares). Countdown and elapsed time are game seconds
+     * of the trigger clock, which advances one second every sixteen frames, not frames.
      */
     private void defineGameFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
         ScriptCoreUtils.defineFunction(global, namespace, "getFrame", 0,
@@ -378,7 +431,9 @@ public final class ScriptGame {
         ScriptCoreUtils.defineFunction(global, namespace, "getFrameDuration", 0,
                                        (context, scope, thisObject, arguments) -> (double) GameSpeed.FASTEST_DURATION);
         ScriptCoreUtils.defineFunction(global, namespace, "print", 1, (context, scope, thisObject, arguments) -> {
-            this.printText(ScriptCoreUtils.readString(arguments, 0));
+            byte[] text = ScriptCoreUtils.readString(arguments, 0).getBytes(StandardCharsets.UTF_8);
+
+            this.game.getInterfaceLink().getMessageLines().writeTriggerText(text, true, 0);
 
             return Context.getUndefinedValue();
         });
@@ -402,6 +457,72 @@ public final class ScriptGame {
             return this.timers.removeIf(timer -> timer.id == id);
         });
         ScriptCoreUtils.defineFunction(global, namespace, "isReadOnly", 0, (context, scope, thisObject, arguments) -> this.readOnly);
+
+        this.defineTriggerStateFunctions(namespace, global);
+    }
+
+    /**
+     * Defines the functions of {@code core.game} over the switches, the countdown timer and the elapsed time of the trigger state.
+     */
+    private void defineTriggerStateFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "isSwitchSet", 1, (context, scope, thisObject, arguments) -> {
+            int index = ScriptCoreUtils.requireId("switch", ScriptCoreUtils.readInteger(arguments, 0), SWITCH_COUNT);
+
+            return this.requireTriggerContext().isSwitchSet(index);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setSwitch", 2, (context, scope, thisObject, arguments) -> {
+            this.checkWritable();
+
+            int index = ScriptCoreUtils.requireId("switch", ScriptCoreUtils.readInteger(arguments, 0), SWITCH_COUNT);
+            boolean set = ScriptCoreUtils.readBoolean(arguments, 1);
+
+            this.requireTriggerContext().setSwitch(index, set);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "toggleSwitch", 1, (context, scope, thisObject, arguments) -> {
+            this.checkWritable();
+
+            int index = ScriptCoreUtils.requireId("switch", ScriptCoreUtils.readInteger(arguments, 0), SWITCH_COUNT);
+
+            this.requireTriggerContext().toggleSwitch(index);
+
+            return Context.getUndefinedValue();
+        });
+
+        ScriptCoreUtils.defineFunction(global, namespace, "getCountdownTimer", 0,
+                                       (context, scope, thisObject, arguments) -> (double) this.requireTriggerContext().getCountdownTimer());
+        this.defineCountdownWrite(namespace, global, "setCountdownTimer", TriggerModifiers.SET_TO);
+        this.defineCountdownWrite(namespace, global, "addCountdownTimer", TriggerModifiers.ADD);
+        this.defineCountdownWrite(namespace, global, "subtractCountdownTimer", TriggerModifiers.SUBTRACT);
+        ScriptCoreUtils.defineFunction(global, namespace, "isCountdownTimerPaused", 0,
+                                       (context, scope, thisObject, arguments) -> this.requireTriggerContext().isCountdownPaused());
+        ScriptCoreUtils.defineFunction(global, namespace, "setCountdownTimerPaused", 1, (context, scope, thisObject, arguments) -> {
+            this.checkWritable();
+
+            boolean paused = ScriptCoreUtils.readBoolean(arguments, 0);
+
+            this.requireTriggerContext().setCountdownPaused(paused);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getElapsedTime", 0,
+                                       (context, scope, thisObject, arguments) -> (double) this.requireTriggerContext().getElapsedClockTicks());
+    }
+
+    /**
+     * Defines a write of the countdown timer that runs the Set Countdown Timer routine with a modifier.
+     */
+    private void defineCountdownWrite(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name, int modifier) {
+        ScriptCoreUtils.defineFunction(global, namespace, name, 1, (context, scope, thisObject, arguments) -> {
+            this.checkWritable();
+
+            int seconds = ScriptCoreUtils.readInteger(arguments, 0);
+
+            this.requireTriggerContext().modifyCountdownTimer(modifier, seconds);
+
+            return Context.getUndefinedValue();
+        });
     }
 
     /**

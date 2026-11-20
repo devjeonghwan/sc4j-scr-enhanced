@@ -21,7 +21,8 @@ import java.util.List;
 /**
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
  * frame hooks, the event hooks with their captured values, the decision hooks that change damage and reject orders, the read-only game in a
- * decision, the input hooks of local input that the game's {@link ScriptInputPlugin} sends, and a map without a script package.
+ * decision with its refused trigger writes and its local display, the input hooks of local input that the game's {@link ScriptInputPlugin}
+ * sends, and a map without a script package.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -229,6 +230,57 @@ final class ScriptSimulationPluginTest {
         scenario.stepUntilPrinted("damaged", FIGHT_FRAMES);
 
         Assertions.assertEquals(List.of("damaged 6 TypeError true false 29"), scenario.getPrints());
+    }
+
+    @Test
+    void trigger_writes_in_a_decision_throw_while_the_local_display_runs(@NotNull InstallationTestResources resources,
+                                                                         @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
+                var refused = null;
+                var displayed = false;
+                var printed = false;
+                function onBeforeDamage(damage) {
+                    if (damage.getTarget() !== zergling || refused !== null) {
+                        return;
+                    }
+                    var writes = [
+                        function () { game.setSwitch(0, true); },
+                        function () { game.setCountdownTimer(30); },
+                        function () { human.setDeaths(UnitType.TerranMarine, 1); },
+                        function () { human.setScore(ScoreType.Custom, 1); },
+                        function () { computer.killUnits(UnitType.ZergDrone); },
+                        function () { human.setAlliance(computer, Alliance.Ally); },
+                        function () { computer.runAiScript('EnBk'); },
+                        function () { human.setMissionObjectives('Objectives'); },
+                        function () { game.showGreedLeaderboard(10); },
+                        function () { zergling.disableDoodad(); }
+                    ];
+                    refused = writes.filter(function (write) {
+                        try {
+                            write();
+                            return false;
+                        } catch (error) {
+                            return error.name === 'TypeError';
+                        }
+                    }).length + '/' + writes.length;
+                    human.pingMinimap(marine.getPosition());
+                    human.print('a decision text');
+                    human.getDeaths(UnitType.TerranMarine);
+                    human.countUnits(UnitType.TerranMarine);
+                    displayed = true;
+                }
+                function onUnitDamaged(event) {
+                    if (event.getUnit() === zergling && !printed) {
+                        printed = true;
+                        game.print('ES refused ' + refused + ' ' + displayed + ' ' + game.isSwitchSet(0) + ' ' + game.getCountdownTimer() + ' ' +
+                                   human.getDeaths(UnitType.TerranMarine) + ' ' + computer.countUnits(UnitType.ZergDrone));
+                    }
+                }
+                """);
+
+        scenario.stepUntilPrinted("refused", FIGHT_FRAMES);
+
+        Assertions.assertEquals(List.of("refused 10/10 true false 0 0 4"), scenario.getPrints());
     }
 
     @Test

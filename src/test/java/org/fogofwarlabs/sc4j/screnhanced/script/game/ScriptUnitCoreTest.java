@@ -13,11 +13,17 @@ import java.util.List;
 
 /**
  * Tests {@code core.unit} and the {@code Unit} objects of the prelude in a live melee game: reading the start units, shown and raw hit
- * points, creating and killing through the trigger routines, one object per unit and {@code exists()} after death.
+ * points, creating and killing through the trigger routines, one object per unit, {@code exists()} after death, and the doodad state,
+ * resource amount and hangar routines.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
 final class ScriptUnitCoreTest {
+    /**
+     * The frames the doodad test runs after its start, so that the disabled unit runs its DisableDoodad order.
+     */
+    private static final int DOODAD_FRAMES = 8;
+
     @Test
     void units_read_the_start_units_in_slot_order(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
@@ -127,5 +133,53 @@ final class ScriptUnitCoreTest {
                                         "RangeError",
                                         "frame false false 0",
                                         "frame false false 0"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void units_take_the_doodad_resource_and_hangar_routines(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var doodad;
+                var frames = 0;
+                function onStart() {
+                    var human = game.getHumanPlayers()[0];
+                    var commandCenter = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
+                    var mineral = game.findUnit(function (unit) {
+                        var type = unit.getType().getId();
+                        return type >= 176 && type <= 178;
+                    });
+                    log.info(mineral.getResources() > 0, mineral.setResources(1234), mineral.getResources(), core.unit.getResources(mineral.getId()),
+                             commandCenter.setResources(5));
+                    var carrier = game.createUnit(UnitType.ProtossCarrier, human, commandCenter.getPosition());
+                    log.info(carrier.getHangarCount(), carrier.addHangarCount(3), carrier.getHangarCount(), carrier.addHangarCount(10),
+                             carrier.getHangarCount(), commandCenter.addHangarCount(1));
+                    doodad = game.createUnit(UnitType.TerranMarine, human, commandCenter.getPosition());
+                    log.info(doodad !== null, doodad.isDisabled());
+                    doodad.disableDoodad();
+                    try {
+                        mineral.setResources(65536);
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                }
+                function onFrame() {
+                    frames++;
+                    if (frames === 8) {
+                        log.info(doodad.isDisabled());
+                        doodad.enableDoodad();
+                        log.info(doodad.isDisabled());
+                    }
+                }
+                """);
+
+        for (int frame = 0; frame < DOODAD_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        Assertions.assertEquals(List.of("true true 1234 1234 false",
+                                        "0 true 3 true 4 false",
+                                        "true false",
+                                        "RangeError",
+                                        "true",
+                                        "false"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 }

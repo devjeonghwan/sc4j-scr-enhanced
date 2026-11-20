@@ -1,6 +1,6 @@
-// The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, WeaponType,
-// UpgradeType, TechType, Order, ImageType, Key, MouseButton, Modifier, resources, graphics and input, and the Unit, Player and Location
-// objects they return. One unit, player or location is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
+// The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, UnitGroup,
+// WeaponType, UpgradeType, TechType, Order, ImageType, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier, resources, graphics and
+// input, and the Unit, Player and Location objects they return. One unit, player or location is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
 // values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply (core's half units
 // divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object also has the
 // methods that decide. The prelude returns the functions that make these objects to the game.
@@ -20,6 +20,24 @@
     var RESULT_VICTORY = 3;
     var RESULT_SECURED = 4;
     var RESULT_DRAW = 5;
+    // The leaderboard types of core.leaderboard: the action ids of the leaderboard actions and of their goal forms.
+    var LEADERBOARD_CONTROL = 17;
+    var LEADERBOARD_CONTROL_AT_LOCATION = 18;
+    var LEADERBOARD_RESOURCES = 19;
+    var LEADERBOARD_KILLS = 20;
+    var LEADERBOARD_POINTS = 21;
+    var LEADERBOARD_GOAL_CONTROL = 33;
+    var LEADERBOARD_GOAL_CONTROL_AT_LOCATION = 34;
+    var LEADERBOARD_GOAL_RESOURCES = 35;
+    var LEADERBOARD_GOAL_KILLS = 36;
+    var LEADERBOARD_GOAL_POINTS = 37;
+    // The unit operand of the first unit group, after the unit types and their none.
+    var FIRST_UNIT_GROUP = 229;
+    var UNIT_GROUP_NAMES = ['Any unit', 'Men', 'Buildings', 'Factories'];
+    // An AI script id: four characters, the first one in the low byte.
+    var AI_SCRIPT_LENGTH = 4;
+    var BITS_PER_CHARACTER = 8;
+    var LAST_SCRIPT_CHARACTER = 0xFF;
 
     var round = Math.round;
     var create = Object.create;
@@ -276,6 +294,112 @@
     // The bits of the modifier mask of an input event.
     var Modifier = freeze({Shift: 1, Control: 2, Alt: 4});
 
+    // The operands of the trigger counters: the unit groups after the unit types, the score types, the resource types and the alliances, with
+    // the names of the original trigger editor.
+    var unitGroupPrototype = create(typePrototype);
+    var scoreTypePrototype = create(typePrototype);
+    var resourceTypePrototype = create(typePrototype);
+    var alliancePrototype = create(typePrototype);
+
+    function createUnitGroups() {
+        var table = {};
+
+        UNIT_GROUP_NAMES.forEach(function (name, index) {
+            table[toIdentifier(name)] = freeze(createObject(unitGroupPrototype, {id: FIRST_UNIT_GROUP + index, name: name}));
+        });
+
+        return freeze(table);
+    }
+
+    var UnitGroup = createUnitGroups();
+    var SCORE_TYPE_NAMES = ['Total', 'Units', 'Buildings', 'UnitsAndBuildings', 'Kills', 'Razings', 'KillsAndRazings', 'Custom'];
+    var RESOURCE_TYPE_NAMES = ['Ore', 'Gas', 'OreAndGas'];
+    var ALLIANCE_NAMES = ['Enemy', 'Ally', 'AlliedVictory'];
+    var ScoreType = createConstantTable(scoreTypePrototype, SCORE_TYPE_NAMES, SCORE_TYPE_NAMES.length, 'Score ');
+    var ResourceType = createConstantTable(resourceTypePrototype, RESOURCE_TYPE_NAMES, RESOURCE_TYPE_NAMES.length, 'Resource ');
+    var Alliance = createConstantTable(alliancePrototype, ALLIANCE_NAMES, ALLIANCE_NAMES.length, 'Alliance ');
+
+    // Returns the unit operand of a UnitType or a UnitGroup.
+    function readUnitOperand(unit) {
+        if (isObjectOf(unit, unitTypePrototype) || isObjectOf(unit, unitGroupPrototype)) {
+            return unit.id;
+        }
+
+        throw new TypeError('A unit type or a unit group is needed, not ' + unit + '.');
+    }
+
+    // Returns an optional options object, empty when it is missing.
+    function readOptions(options) {
+        if (options === undefined) {
+            return {};
+        }
+
+        if (options === null || typeof options !== 'object') {
+            throw new TypeError('The options are an object, not ' + options + '.');
+        }
+
+        return options;
+    }
+
+    // Returns the location id of the location option, NONE without one.
+    function readLocationOption(options) {
+        var location = options.location;
+
+        return location === undefined || location === null ? NONE : requireObject(location, locationPrototype, 'A location').id;
+    }
+
+    // Returns the id of an AI script name: four characters up to 0xFF, the first one in the low byte ('EnBk', '+Vi0').
+    function readAiScript(name) {
+        var text = String(name);
+        var script = 0;
+
+        if (text.length !== AI_SCRIPT_LENGTH) {
+            throw new RangeError('An AI script name has four characters, not ' + text + '.');
+        }
+
+        for (var index = 0; index < AI_SCRIPT_LENGTH; index++) {
+            var code = text.charCodeAt(index);
+
+            if (code > LAST_SCRIPT_CHARACTER) {
+                throw new RangeError('The AI script name ' + text + ' has a character above 0xFF.');
+            }
+
+            script |= code << index * BITS_PER_CHARACTER;
+        }
+
+        return script;
+    }
+
+    // Kills or removes a player's units of a UnitType or UnitGroup: {location: a Location to take only the units there, count: the most units
+    // to take, all without one}.
+    function removePlayerUnits(player, unit, options, remove) {
+        var operand = readUnitOperand(unit);
+        var values = readOptions(options);
+        var location = readLocationOption(values);
+        var count = values.count === undefined ? 0 : values.count;
+
+        if (values.count !== undefined && !(count >= 1)) {
+            throw new RangeError('The unit count ' + count + ' is not positive.');
+        }
+
+        if (remove) {
+            core.player.removeUnits(player.id, operand, location, count);
+        } else {
+            core.player.killUnits(player.id, operand, location, count);
+        }
+    }
+
+    // Shows a leaderboard without a location: the goal form with the goal option.
+    function showLeaderboard(type, goalType, operand, label, options) {
+        var goal = readOptions(options).goal;
+
+        if (goal === undefined) {
+            core.leaderboard.show(type, operand, 0, String(label));
+        } else {
+            core.leaderboard.show(goalType, operand, goal, String(label));
+        }
+    }
+
     // Returns an optional array of a tracking option, empty when it is missing.
     function readOptionArray(value, name) {
         if (value === undefined) {
@@ -514,6 +638,31 @@
         setInvincible: function (invincible) {
             core.unit.setInvincible(requireUnitId(this), invincible);
         },
+        // The disabled status of a doodad (or a unit under Lockdown, Stasis Field or Maelstrom), which Set Doodad State changes.
+        isDisabled: function () {
+            return core.unit.isDisabled(requireUnitId(this));
+        },
+        enableDoodad: function () {
+            core.unit.enableDoodad(requireUnitId(this));
+        },
+        disableDoodad: function () {
+            core.unit.disableDoodad(requireUnitId(this));
+        },
+        // The resource amount of a mineral field or geyser; setting it returns false for a unit that holds no resources.
+        getResources: function () {
+            return core.unit.getResources(requireUnitId(this));
+        },
+        setResources: function (amount) {
+            return core.unit.setResources(requireUnitId(this), amount);
+        },
+        // The Interceptors or Scarabs of a Carrier or Reaver; adding builds up to count of them while the hangar takes another one and returns
+        // false for a unit without a hangar.
+        getHangarCount: function () {
+            return core.unit.getHangarCount(requireUnitId(this));
+        },
+        addHangarCount: function (count) {
+            return core.unit.addHangarCount(requireUnitId(this), count);
+        },
         kill: function () {
             return core.unit.kill(requireUnitId(this));
         },
@@ -604,11 +753,107 @@
         isEnemyOf: function (player) {
             return core.player.getAlliance(this.id, requireObject(player, playerPrototype, 'A player').id) === 0;
         },
+        getAlliance: function (player) {
+            return Alliance.get(core.player.getAlliance(this.id, requireObject(player, playerPrototype, 'A player').id));
+        },
+        // Sets the alliance toward another player as Set Alliance Status does; the player is one from 0 to 7.
+        setAlliance: function (player, alliance) {
+            var other = requireObject(player, playerPrototype, 'A player').id;
+
+            core.player.setAlliance(this.id, other, requireObject(alliance, alliancePrototype, 'An alliance').id);
+        },
+        // Ore, gas, or ore and gas, as the Accumulate condition reads them.
+        getResources: function (resourceType) {
+            return core.player.getResources(this.id, requireObject(resourceType, resourceTypePrototype, 'A resource type').id);
+        },
+        // The counters of the trigger conditions and actions, of a UnitType or a UnitGroup: deaths (Deaths, Set Deaths), kills (Kill) and
+        // scores of a ScoreType (Score, Set Score; set for players 0 to 7).
+        getDeaths: function (unit) {
+            return core.player.getDeaths(this.id, readUnitOperand(unit));
+        },
+        setDeaths: function (unit, amount) {
+            core.player.setDeaths(this.id, readUnitOperand(unit), amount);
+        },
+        addDeaths: function (unit, amount) {
+            core.player.addDeaths(this.id, readUnitOperand(unit), amount);
+        },
+        subtractDeaths: function (unit, amount) {
+            core.player.subtractDeaths(this.id, readUnitOperand(unit), amount);
+        },
+        getKills: function (unit) {
+            return core.player.getKills(this.id, readUnitOperand(unit));
+        },
+        getScore: function (scoreType) {
+            return core.player.getScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id);
+        },
+        setScore: function (scoreType, amount) {
+            core.player.setScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
+        },
+        addScore: function (scoreType, amount) {
+            core.player.addScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
+        },
+        subtractScore: function (scoreType, amount) {
+            core.player.subtractScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
+        },
+        // Counts the player's units of a UnitType or a UnitGroup as the Command and Bring conditions do: {location: a Location to count only
+        // the units there, completed: true to count only completed units}.
+        countUnits: function (unit, options) {
+            var operand = readUnitOperand(unit);
+            var values = readOptions(options);
+            var location = readLocationOption(values);
+            var completed = values.completed === true;
+
+            return location === NONE ? core.player.countUnits(this.id, operand, completed)
+                                     : core.player.countUnitsAt(this.id, operand, location, completed);
+        },
+        // The opponents the Opponents condition counts.
+        countOpponents: function () {
+            return core.player.countOpponents(this.id);
+        },
+        // Kills or removes the player's units as Kill Unit and Remove Unit do: {location: a Location, count: the most units, all without one}.
+        killUnits: function (unit, options) {
+            removePlayerUnits(this, unit, options, false);
+        },
+        removeUnits: function (unit, options) {
+            removePlayerUnits(this, unit, options, true);
+        },
+        // Starts an AI script by its four-character name, at a location when one is given; false when the player may not run it.
+        runAiScript: function (name, location) {
+            var script = readAiScript(name);
+
+            if (location === undefined || location === null) {
+                return core.player.runAiScript(this.id, script);
+            }
+
+            return core.player.runAiScriptAt(this.id, script, requireObject(location, locationPrototype, 'A location').id);
+        },
+        setMissionObjectives: function (text) {
+            core.player.setMissionObjectives(this.id, String(text));
+        },
         getUnits: function () {
             return game.findUnits({owner: this});
         },
-        print: function (text) {
-            core.player.print(this.id, String(text));
+        // The local display of the player's screen, as the trigger actions show it when the player is the local player. A printed text always
+        // shows; with {forced: false} it shows when the subtitle option is on.
+        print: function (text, options) {
+            core.player.print(this.id, String(text), readOptions(options).forced !== false);
+        },
+        pingMinimap: function (position) {
+            requireObject(position, positionPrototype, 'A position');
+            core.player.pingMinimap(this.id, position.x, position.y);
+        },
+        // Plays a sound file of the map archive by its path.
+        playSound: function (path) {
+            core.player.playSound(this.id, String(path));
+        },
+        // Shows the talking portrait of a unit type for a number of frames.
+        showTalkingPortrait: function (unitType, frames) {
+            var id = requireObject(unitType, unitTypePrototype, 'A unit type').id;
+
+            core.player.showTalkingPortrait(this.id, id, round(frames * core.game.getFrameDuration()));
+        },
+        setUnitSpeechMuted: function (muted) {
+            core.player.setUnitSpeechMuted(this.id, muted);
         },
         // The input state of the player that the player's tracked input changed, the same on every peer.
         isKeyDown: function (key) {
@@ -1197,6 +1442,79 @@
         // Calls a function every given number of frames, first that many frames from now.
         every: function (frames, callback) {
             return freeze(createObject(timerPrototype, {id: core.game.every(frames, callback)}));
+        },
+        // The switches 0 to 255 of the trigger state.
+        isSwitchSet: function (index) {
+            return core.game.isSwitchSet(index);
+        },
+        setSwitch: function (index, set) {
+            core.game.setSwitch(index, set);
+        },
+        toggleSwitch: function (index) {
+            core.game.toggleSwitch(index);
+        },
+        // The countdown timer and the elapsed time count game seconds of the trigger clock, one every sixteen frames, not frames.
+        getCountdownTimer: function () {
+            return core.game.getCountdownTimer();
+        },
+        setCountdownTimer: function (seconds) {
+            core.game.setCountdownTimer(seconds);
+        },
+        addCountdownTimer: function (seconds) {
+            core.game.addCountdownTimer(seconds);
+        },
+        subtractCountdownTimer: function (seconds) {
+            core.game.subtractCountdownTimer(seconds);
+        },
+        isCountdownTimerPaused: function () {
+            return core.game.isCountdownTimerPaused();
+        },
+        pauseCountdownTimer: function () {
+            core.game.setCountdownTimerPaused(true);
+        },
+        resumeCountdownTimer: function () {
+            core.game.setCountdownTimerPaused(false);
+        },
+        getElapsedTime: function () {
+            return core.game.getElapsedTime();
+        },
+        // The leaderboards of the leaderboard actions with a text label: the goal form with {goal: amount}, Control also {location: a
+        // Location}.
+        showControlLeaderboard: function (label, unit, options) {
+            var operand = readUnitOperand(unit);
+            var values = readOptions(options);
+            var location = readLocationOption(values);
+
+            if (location === NONE) {
+                showLeaderboard(LEADERBOARD_CONTROL, LEADERBOARD_GOAL_CONTROL, operand, label, values);
+            } else if (values.goal === undefined) {
+                core.leaderboard.showAt(LEADERBOARD_CONTROL_AT_LOCATION, location, operand, 0, String(label));
+            } else {
+                core.leaderboard.showAt(LEADERBOARD_GOAL_CONTROL_AT_LOCATION, location, operand, values.goal, String(label));
+            }
+        },
+        showResourcesLeaderboard: function (label, resourceType, options) {
+            var operand = requireObject(resourceType, resourceTypePrototype, 'A resource type').id;
+
+            showLeaderboard(LEADERBOARD_RESOURCES, LEADERBOARD_GOAL_RESOURCES, operand, label, options);
+        },
+        showKillsLeaderboard: function (label, unit, options) {
+            showLeaderboard(LEADERBOARD_KILLS, LEADERBOARD_GOAL_KILLS, readUnitOperand(unit), label, options);
+        },
+        showPointsLeaderboard: function (label, scoreType, options) {
+            var operand = requireObject(scoreType, scoreTypePrototype, 'A score type').id;
+
+            showLeaderboard(LEADERBOARD_POINTS, LEADERBOARD_GOAL_POINTS, operand, label, options);
+        },
+        // The Greed leaderboard of the ore and gas of every player, toward a goal.
+        showGreedLeaderboard: function (goal) {
+            core.leaderboard.showGreed(goal);
+        },
+        areLeaderboardComputersIncluded: function () {
+            return core.leaderboard.areComputersIncluded();
+        },
+        setLeaderboardComputersIncluded: function (included) {
+            core.leaderboard.setComputersIncluded(included);
         }
     });
 
@@ -1209,6 +1527,10 @@
     freeze(imageTypePrototype);
     freeze(keyPrototype);
     freeze(mouseButtonPrototype);
+    freeze(unitGroupPrototype);
+    freeze(scoreTypePrototype);
+    freeze(resourceTypePrototype);
+    freeze(alliancePrototype);
     freeze(positionPrototype);
     freeze(unitPrototype);
     freeze(playerPrototype);
@@ -1230,11 +1552,15 @@
     defineGlobal('Time', Time);
     defineGlobal('Position', Position);
     defineGlobal('UnitType', UnitType);
+    defineGlobal('UnitGroup', UnitGroup);
     defineGlobal('WeaponType', WeaponType);
     defineGlobal('UpgradeType', UpgradeType);
     defineGlobal('TechType', TechType);
     defineGlobal('Order', Order);
     defineGlobal('ImageType', ImageType);
+    defineGlobal('ScoreType', ScoreType);
+    defineGlobal('ResourceType', ResourceType);
+    defineGlobal('Alliance', Alliance);
     defineGlobal('Key', Key);
     defineGlobal('MouseButton', MouseButton);
     defineGlobal('Modifier', Modifier);
