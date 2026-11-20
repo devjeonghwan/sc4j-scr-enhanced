@@ -1,25 +1,31 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
-import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkSection;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
+import org.fogofwarlabs.sc4j.scr.net.lan.LanMapTransfer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
- * Tests {@link ScriptStorageUtils} with synthetic map archives; the layout test reads the section and resource bytes because their layout
- * is the map format.
+ * Tests {@link ScriptStorageUtils} with synthetic map archives; the layout tests read the footer and the bytes before the trailer because their
+ * layout is the map format.
  */
 final class ScriptStorageUtilsTest {
     private static final @NotNull String MAP_NAME = "script-map.scx";
@@ -29,27 +35,28 @@ final class ScriptStorageUtilsTest {
     private static final @NotNull String OTHER_RESOURCE_NAME = "sounds/hit.wav";
     private static final byte @NotNull [] VERSION_PAYLOAD = {(byte) 0xCD, 0x00};
     private static final byte @NotNull [] DIMENSIONS_PAYLOAD = {0x40, 0x00, 0x40, 0x00};
-    private static final byte @NotNull [] TILESET_PAYLOAD = {0x04, 0x00};
-    private static final byte @NotNull [] OWNER_PAYLOAD = {5, 5, 5, 5, 6, 6, 6, 6, 0, 0, 0, 0};
-    private static final byte @NotNull [] OLD_SECTION_PAYLOAD = "old script data".getBytes(StandardCharsets.ISO_8859_1);
+    private static final byte @NotNull [] MAGIC = {'S', 'C', 'E', 'S', 0x1A, '\r', '\n', 0};
+    private static final int FOOTER_FLAGS_OFFSET = 2;
+    private static final int FOOTER_PADDING_OFFSET = 4;
+    private static final int FOOTER_DIRECTORY_OFFSET = 8;
+    private static final int FOOTER_TRAILER_SIZE_OFFSET = 12;
+    private static final int INCOMPRESSIBLE_SIZE = 4096;
+    private static final int RANDOM_SEED = 17;
     /**
-     * The capacity of the expected section and resource file bytes of the layout test.
+     * The bytes the hash table of the padding test reaches past the end of the map.
      */
-    private static final int LAYOUT_BUFFER_SIZE = 256;
+    private static final int TABLE_OVERHANG = 100;
 
-    private static byte @NotNull [] createScenario() {
-        return ScriptMapScenario.join(ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD),
-                                      ScriptMapScenario.createSection(ScriptStorageUtils.SECTION_NAME, OLD_SECTION_PAYLOAD),
-                                      ScriptMapScenario.createSection(ChkFile.DIMENSIONS_SECTION, DIMENSIONS_PAYLOAD),
-                                      ScriptMapScenario.createSection(ChkFile.TILESET_SECTION, TILESET_PAYLOAD),
-                                      ScriptMapScenario.createSection(ChkFile.OWNER_SECTION, OWNER_PAYLOAD));
+    private static byte @NotNull [] createMap() {
+        return ScriptMapScenario.createMap(ScriptMapScenario.join(ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD),
+                                                                  ScriptMapScenario.createSection(ChkFile.DIMENSIONS_SECTION, DIMENSIONS_PAYLOAD)));
     }
 
     private static @NotNull ScriptPackage createPackage(@NotNull String name, @NotNull Map<String, String> scripts,
-                                                        @NotNull Map<String, String> resources) throws IOException {
+                                                        @NotNull Map<String, byte[]> resources) throws IOException {
         String manifest = "{\"name\": \"" + name + "\", \"main\": \"" + MAIN_SCRIPT + "\", \"api\": \"1\"}";
 
-        return ScriptPackage.create(ScriptManifest.parse(manifest.getBytes(StandardCharsets.UTF_8)), toContents(scripts), toContents(resources));
+        return ScriptPackage.create(ScriptManifest.parse(manifest.getBytes(StandardCharsets.UTF_8)), toContents(scripts), resources);
     }
 
     private static @NotNull Map<String, byte[]> toContents(@NotNull Map<String, String> texts) {
@@ -72,229 +79,311 @@ final class ScriptStorageUtilsTest {
         return texts;
     }
 
-    private static byte @NotNull [] readScenario(byte @NotNull [] map) throws IOException {
-        return MpqArchive.open(map, MAP_NAME, false).readFile(ChkFile.ARCHIVE_ENTRY);
+    private static byte @NotNull [] createIncompressible() {
+        byte[] content = new byte[INCOMPRESSIBLE_SIZE];
+
+        new Random(RANDOM_SEED).nextBytes(content);
+
+        return content;
     }
 
-    private static @NotNull List<ChkSection> findOtherSections(@NotNull ChkFile scenario) {
-        List<ChkSection> sections = new ArrayList<>();
+    private static byte @NotNull [] digest(byte @NotNull [] content) throws NoSuchAlgorithmException {
+        return MessageDigest.getInstance("SHA-256").digest(content);
+    }
 
-        for (ChkSection section : scenario.getSections()) {
-            if (!section.getName().equals(ScriptStorageUtils.SECTION_NAME)) {
-                sections.add(section);
+    private static @NotNull ByteBuffer readFooter(byte @NotNull [] file) {
+        return ByteBuffer.wrap(file, file.length - ScriptStorageUtils.FOOTER_SIZE, ScriptStorageUtils.FOOTER_SIZE).slice().order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    private static @NotNull ScriptTrailer requireTrailer(byte @NotNull [] file) throws IOException {
+        ScriptTrailer trailer = ScriptStorageUtils.readTrailer(file, MAP_NAME);
+
+        Assertions.assertNotNull(trailer);
+
+        return trailer;
+    }
+
+    private static int indexOf(byte @NotNull [] data, byte @NotNull [] part) {
+        for (int start = 0; start + part.length <= data.length; start++) {
+            if (Arrays.equals(data, start, start + part.length, part, 0, part.length)) {
+                return start;
             }
         }
 
-        return sections;
+        return Assertions.fail("The bytes are not in the data.");
     }
 
-    private static void writeEntry(@NotNull ByteBuffer payload, @NotNull String name, @NotNull String content) {
-        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
-        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+    private static void assertSameEntries(@Nullable MpqArchive.MpqEntry expected, @Nullable MpqArchive.MpqEntry actual) {
+        Assertions.assertEquals(expected == null, actual == null);
 
-        payload.putShort((short) nameBytes.length).put(nameBytes).putInt(contentBytes.length).put(contentBytes);
+        if (expected != null && actual != null) {
+            Assertions.assertEquals(expected.getFilePosition(), actual.getFilePosition());
+            Assertions.assertEquals(expected.getCompressedSize(), actual.getCompressedSize());
+            Assertions.assertEquals(expected.getFileSize(), actual.getFileSize());
+            Assertions.assertEquals(expected.getFlags(), actual.getFlags());
+        }
     }
 
-    @Test
-    void write_package_should_write_the_section_and_resource_file_layout() throws IOException {
-        ScriptPackage scriptPackage = createPackage("Layout", Map.of(MAIN_SCRIPT, "game.print(1);"), Map.of(RESOURCE_NAME, "GRP"));
-        byte[] manifest = scriptPackage.getManifest().getContent();
-        ByteBuffer section = ByteBuffer.allocate(LAYOUT_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
-        ByteBuffer resourceFile = ByteBuffer.allocate(LAYOUT_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
+    /**
+     * Checks that the map reader reads the same archive from a map and from the map with its trailer.
+     */
+    private static void assertSameArchive(byte @NotNull [] map, byte @NotNull [] packedMap) throws IOException {
+        MpqArchive archive = MpqArchive.open(map, MAP_NAME, true);
+        MpqArchive packedArchive = MpqArchive.open(packedMap, MAP_NAME, true);
+        List<MpqArchive.MpqEntry> entries = archive.getEntries();
+        List<MpqArchive.MpqEntry> packedEntries = packedArchive.getEntries();
 
-        section.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(manifest.length).put(manifest).putInt(1);
-        writeEntry(section, MAIN_SCRIPT, "game.print(1);");
-        resourceFile.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(1);
-        writeEntry(resourceFile, RESOURCE_NAME, "GRP");
+        Assertions.assertEquals(archive.getHeaderOffset(), packedArchive.getHeaderOffset());
+        Assertions.assertEquals(entries.size(), packedEntries.size());
 
-        byte[] map = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME, scriptPackage);
-        ChkFile scenario = ChkFile.parse(readScenario(map));
-
-        byte[] storedResourceFile = MpqArchive.open(map, MAP_NAME, false).readFile(ScriptStorageUtils.RESOURCE_FILE_NAME);
-
-        Assertions.assertArrayEquals(Arrays.copyOf(section.array(), section.position()), scenario.getSection(ScriptStorageUtils.SECTION_NAME));
-        Assertions.assertArrayEquals(Arrays.copyOf(resourceFile.array(), resourceFile.position()), storedResourceFile);
-    }
-
-    @Test
-    void write_package_keeps_every_other_chk_section_and_mpq_file() throws IOException {
-        byte[] originalScenario = createScenario();
-        ScriptPackage scriptPackage = createPackage("Kept", Map.of(MAIN_SCRIPT, "1;", MODULE_SCRIPT, "2;"), Map.of(RESOURCE_NAME, "GRP"));
-        byte[] map = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(originalScenario), MAP_NAME, scriptPackage);
-        MpqArchive archive = MpqArchive.open(map, MAP_NAME, false);
-        ChkFile scenario = ChkFile.parse(archive.readFile(ChkFile.ARCHIVE_ENTRY));
-        List<ChkSection> originalSections = findOtherSections(ChkFile.parse(originalScenario));
-        List<ChkSection> sections = findOtherSections(scenario);
-
-        Assertions.assertEquals(List.of(ChkFile.VERSION_SECTION, ChkFile.DIMENSIONS_SECTION, ChkFile.TILESET_SECTION, ChkFile.OWNER_SECTION,
-                                        ScriptStorageUtils.SECTION_NAME), scenario.getSectionNames());
-        Assertions.assertEquals(ScriptStorageUtils.SECTION_NAME, scenario.getSections().getLast().getName());
-        Assertions.assertEquals(originalSections.size(), sections.size());
-
-        for (int index = 0; index < sections.size(); index++) {
-            Assertions.assertEquals(originalSections.get(index).getName(), sections.get(index).getName());
-            Assertions.assertArrayEquals(originalSections.get(index).getPayload(), sections.get(index).getPayload());
+        for (int index = 0; index < entries.size(); index++) {
+            assertSameEntries(entries.get(index), packedEntries.get(index));
         }
 
-        Assertions.assertArrayEquals(ScriptMapScenario.SOUND, archive.readFile(ScriptMapScenario.SOUND_NAME));
-        Assertions.assertTrue(new String(archive.readFile("(listfile)"), StandardCharsets.ISO_8859_1).contains(ScriptStorageUtils.RESOURCE_FILE_NAME));
+        for (String name : List.of(ChkFile.ARCHIVE_ENTRY, ScriptMapScenario.SOUND_NAME, "(listfile)")) {
+            assertSameEntries(archive.findEntry(name), packedArchive.findEntry(name));
+        }
+    }
 
-        ScriptPackage readPackage = ScriptStorageUtils.readPackage(map, MAP_NAME);
+    @Test
+    void write_package_should_append_the_trailer_after_the_unchanged_map() throws IOException {
+        byte[] map = createMap();
+        ScriptPackage scriptPackage = createPackage("Layout", Map.of(MAIN_SCRIPT, "game.print(1);"), Map.of(RESOURCE_NAME, createIncompressible()));
+        byte[] packedMap = ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage);
+        ByteBuffer footer = readFooter(packedMap);
+
+        Assertions.assertArrayEquals(map, Arrays.copyOf(packedMap, map.length));
+        Assertions.assertArrayEquals(MAGIC, Arrays.copyOfRange(packedMap, packedMap.length - MAGIC.length, packedMap.length));
+        Assertions.assertEquals(ScriptStorageUtils.FORMAT_VERSION, footer.getShort(0));
+        Assertions.assertEquals(0, footer.getShort(FOOTER_FLAGS_OFFSET));
+        Assertions.assertEquals(0, footer.getInt(FOOTER_PADDING_OFFSET));
+        Assertions.assertTrue(footer.getInt(FOOTER_DIRECTORY_OFFSET) > 0);
+        Assertions.assertEquals(packedMap.length - map.length, footer.getLong(FOOTER_TRAILER_SIZE_OFFSET));
+        Assertions.assertEquals(map.length, ScriptStorageUtils.findMapEnd(packedMap, MAP_NAME));
+        assertSameArchive(map, packedMap);
+        Assertions.assertArrayEquals(ScriptMapScenario.SOUND, MpqArchive.open(packedMap, MAP_NAME, false).readFile(ScriptMapScenario.SOUND_NAME));
+    }
+
+    @Test
+    void read_package_gives_back_the_written_package() throws IOException {
+        Map<String, byte[]> resources = new LinkedHashMap<>();
+
+        resources.put(RESOURCE_NAME, createIncompressible());
+        resources.put(OTHER_RESOURCE_NAME, "RIFF RIFF RIFF RIFF RIFF RIFF".getBytes(StandardCharsets.ISO_8859_1));
+
+        ScriptPackage scriptPackage = createPackage("Round Trip", Map.of(MAIN_SCRIPT, "require('lib/module.js');", MODULE_SCRIPT, "2;"), resources);
+        ScriptPackage readPackage = ScriptStorageUtils.readPackage(ScriptStorageUtils.writePackage(createMap(), MAP_NAME, scriptPackage), MAP_NAME);
 
         Assertions.assertNotNull(readPackage);
-        Assertions.assertEquals("Kept", readPackage.getManifest().getName());
+        Assertions.assertArrayEquals(scriptPackage.getManifest().getContent(), readPackage.getManifest().getContent());
         Assertions.assertEquals(toTexts(scriptPackage.getScripts()), toTexts(readPackage.getScripts()));
-        Assertions.assertEquals(toTexts(scriptPackage.getResources()), toTexts(readPackage.getResources()));
-    }
+        Assertions.assertEquals(List.of(RESOURCE_NAME, OTHER_RESOURCE_NAME), List.copyOf(readPackage.getResources().keySet()));
 
-    @Test
-    void write_package_again_replaces_the_section_and_the_resource_file() throws IOException {
-        byte[] firstMap = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME,
-                                                          createPackage("First", Map.of(MAIN_SCRIPT, "1;"), Map.of(RESOURCE_NAME, "first")));
-        ScriptPackage secondPackage = createPackage("Second", Map.of(MAIN_SCRIPT, "2;", MODULE_SCRIPT, "3;"), Map.of(OTHER_RESOURCE_NAME, "second"));
-        byte[] secondMap = ScriptStorageUtils.writePackage(firstMap, MAP_NAME, secondPackage);
-        ScriptPackage secondReadPackage = ScriptStorageUtils.readPackage(secondMap, MAP_NAME);
-
-        Assertions.assertEquals(1, ChkFile.parse(readScenario(secondMap)).getSections(ScriptStorageUtils.SECTION_NAME).size());
-        Assertions.assertNotNull(secondReadPackage);
-        Assertions.assertEquals("Second", secondReadPackage.getManifest().getName());
-        Assertions.assertEquals(toTexts(secondPackage.getScripts()), toTexts(secondReadPackage.getScripts()));
-        Assertions.assertEquals(Map.of(OTHER_RESOURCE_NAME, "second"), toTexts(secondReadPackage.getResources()));
-
-        byte[] thirdMap = ScriptStorageUtils.writePackage(secondMap, MAP_NAME, createPackage("Third", Map.of(MAIN_SCRIPT, "4;"), Map.of()));
-        ScriptPackage thirdReadPackage = ScriptStorageUtils.readPackage(thirdMap, MAP_NAME);
-        MpqArchive thirdArchive = MpqArchive.open(thirdMap, MAP_NAME, false);
-
-        Assertions.assertEquals(1, ChkFile.parse(readScenario(thirdMap)).getSections(ScriptStorageUtils.SECTION_NAME).size());
-        Assertions.assertNull(thirdArchive.findEntry(ScriptStorageUtils.RESOURCE_FILE_NAME));
-        Assertions.assertArrayEquals(ScriptMapScenario.SOUND, thirdArchive.readFile(ScriptMapScenario.SOUND_NAME));
-        Assertions.assertNotNull(thirdReadPackage);
-        Assertions.assertEquals("Third", thirdReadPackage.getManifest().getName());
-        Assertions.assertEquals(Map.of(MAIN_SCRIPT, "4;"), toTexts(thirdReadPackage.getScripts()));
-        Assertions.assertTrue(thirdReadPackage.getResources().isEmpty());
-    }
-
-    @Test
-    void write_package_should_refuse_a_scenario_that_is_not_plain() throws IOException {
-        byte[] version = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
-        byte[] scenario = ScriptMapScenario.join(version, ScriptMapScenario.createSection("BACK", -16, new byte[0]), version);
-        byte[] map = ScriptMapScenario.createMap(scenario);
-        ScriptPackage scriptPackage = createPackage("Refused", Map.of(MAIN_SCRIPT, "1;"), Map.of());
-        IOException refusal = Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage));
-
-        Assertions.assertTrue(refusal.getMessage().contains("not a plain CHK file"), refusal.getMessage());
-    }
-
-    @Test
-    void write_package_should_refuse_a_tail_section_that_would_lead_into_the_new_scenario() throws IOException {
-        byte[] version = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
-        // The size leads two bytes before the start of the scenario, and into it once the script section moves the tail.
-        byte[] tail = ScriptMapScenario.createSection("BACK", -(version.length + 8 + 2), new byte[0]);
-        byte[] map = ScriptMapScenario.createMap(ScriptMapScenario.join(version, tail));
-        ScriptPackage scriptPackage = createPackage("Refused", Map.of(MAIN_SCRIPT, "1;"), Map.of());
-        IOException refusal = Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage));
-
-        Assertions.assertTrue(refusal.getMessage().contains("would be read differently"), refusal.getMessage());
-    }
-
-    @Test
-    void write_package_keeps_the_scenario_tail_after_the_script_section() throws IOException {
-        byte[] version = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
-        List<byte[]> tails = List.of(new byte[]{1, 2, 3}, ScriptMapScenario.createSection("LONG", 64, new byte[4]),
-                                     ScriptMapScenario.createSection("BACK", Integer.MIN_VALUE, new byte[]{1, 2, 3, 4, 5}));
-        ScriptPackage scriptPackage = createPackage("Tail", Map.of(MAIN_SCRIPT, "1;"), Map.of());
-
-        for (byte[] tail : tails) {
-            byte[] map = ScriptMapScenario.createMap(ScriptMapScenario.join(version, tail));
-            byte[] packedMap = ScriptStorageUtils.writePackage(ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage), MAP_NAME, scriptPackage);
-            byte[] scenario = readScenario(packedMap);
-            ScriptPackage readPackage = ScriptStorageUtils.readPackage(packedMap, MAP_NAME);
-
-            Assertions.assertArrayEquals(version, Arrays.copyOf(scenario, version.length));
-            Assertions.assertArrayEquals(tail, Arrays.copyOfRange(scenario, scenario.length - tail.length, scenario.length));
-            Assertions.assertEquals(1, ChkFile.parseTolerant(scenario).getSections(ScriptStorageUtils.SECTION_NAME).size());
-            Assertions.assertNotNull(readPackage);
-            Assertions.assertEquals("Tail", readPackage.getManifest().getName());
+        for (Map.Entry<String, byte[]> resource : resources.entrySet()) {
+            Assertions.assertArrayEquals(resource.getValue(), readPackage.getResources().get(resource.getKey()));
         }
     }
 
     @Test
-    void read_package_takes_the_last_script_section() throws IOException {
-        byte[] firstMap = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME,
-                                                          createPackage("First", Map.of(MAIN_SCRIPT, "1;"), Map.of()));
-        byte[] secondMap = ScriptStorageUtils.writePackage(firstMap, MAP_NAME, createPackage("Second", Map.of(MAIN_SCRIPT, "2;"), Map.of()));
-        byte[] firstSection = ChkFile.parse(readScenario(firstMap)).requireSection(ScriptStorageUtils.SECTION_NAME);
-        byte[] secondSection = ChkFile.parse(readScenario(secondMap)).requireSection(ScriptStorageUtils.SECTION_NAME);
-        byte[] scenario = ScriptMapScenario.join(ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD),
-                                                 ScriptMapScenario.createSection(ScriptStorageUtils.SECTION_NAME, firstSection),
-                                                 ScriptMapScenario.createSection(ChkFile.DIMENSIONS_SECTION, DIMENSIONS_PAYLOAD),
-                                                 ScriptMapScenario.createSection(ScriptStorageUtils.SECTION_NAME, secondSection),
-                                                 ScriptMapScenario.createSection(ChkFile.TILESET_SECTION, TILESET_PAYLOAD));
-        ScriptPackage readPackage = ScriptStorageUtils.readPackage(ScriptMapScenario.createMap(scenario), MAP_NAME);
+    void write_package_again_replaces_the_trailer() throws IOException {
+        byte[] map = createMap();
+        byte[] firstMap = ScriptStorageUtils.writePackage(map, MAP_NAME, createPackage("First", Map.of(MAIN_SCRIPT, "1;"),
+                                                                                       Map.of(RESOURCE_NAME, createIncompressible())));
+        ScriptPackage secondPackage = createPackage("Second", Map.of(MAIN_SCRIPT, "2;"), Map.of());
+        byte[] secondMap = ScriptStorageUtils.writePackage(firstMap, MAP_NAME, secondPackage);
+        ScriptPackage readPackage = ScriptStorageUtils.readPackage(secondMap, MAP_NAME);
 
+        Assertions.assertArrayEquals(ScriptStorageUtils.writePackage(map, MAP_NAME, secondPackage), secondMap);
+        Assertions.assertArrayEquals(map, Arrays.copyOf(secondMap, map.length));
         Assertions.assertNotNull(readPackage);
         Assertions.assertEquals("Second", readPackage.getManifest().getName());
-        Assertions.assertEquals(Map.of(MAIN_SCRIPT, "2;"), toTexts(readPackage.getScripts()));
+        Assertions.assertTrue(readPackage.getResources().isEmpty());
     }
 
     @Test
-    void read_package_should_return_null_when_the_scenario_has_no_script_section() throws IOException {
-        byte[] scenario = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
+    void write_package_should_deflate_only_files_that_get_smaller() throws IOException {
+        String repeated = "game.print('again');\n".repeat(64);
+        byte[] incompressible = createIncompressible();
+        ScriptTrailer trailer = requireTrailer(ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage(
+                "Stored", Map.of(MAIN_SCRIPT, repeated), Map.of(RESOURCE_NAME, incompressible))));
+        ScriptResources.Entry resource = trailer.getResources().findEntry(RESOURCE_NAME);
 
-        Assertions.assertNull(ScriptStorageUtils.readPackage(ScriptMapScenario.createMap(scenario), MAP_NAME));
+        Assertions.assertNotNull(resource);
+        Assertions.assertEquals(incompressible.length, resource.getStoredSize(), "an incompressible file is stored as it is");
+        Assertions.assertEquals(incompressible.length, resource.getOriginalSize());
+        Assertions.assertArrayEquals(incompressible, trailer.getResources().read(resource));
+        Assertions.assertEquals(repeated, new String(trailer.getScripts().getScripts().get(MAIN_SCRIPT), StandardCharsets.UTF_8));
+
+        byte[] compressibleMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage(
+                "Stored", Map.of(MAIN_SCRIPT, "1;"), Map.of(RESOURCE_NAME, repeated.getBytes(StandardCharsets.UTF_8))));
+        ScriptResources resources = requireTrailer(compressibleMap).getResources();
+        ScriptResources.Entry compressible = resources.findEntry(RESOURCE_NAME);
+
+        Assertions.assertNotNull(compressible);
+        Assertions.assertTrue(compressible.getStoredSize() < compressible.getOriginalSize(), "a compressible file is stored as a zlib stream");
+        Assertions.assertEquals(repeated, new String(resources.read(compressible), StandardCharsets.UTF_8));
     }
 
     @Test
-    void read_scripts_should_read_the_scenario_section_without_the_resources() throws IOException {
-        byte[] map = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME,
-                                                     createPackage("Scripts", Map.of(MAIN_SCRIPT, "main;", MODULE_SCRIPT, "module;"),
-                                                                   Map.of(RESOURCE_NAME, "image")));
-        ScriptPackage scripts = ScriptStorageUtils.readScripts(ChkFile.parseTolerant(readScenario(map)), MAP_NAME);
-        byte[] withoutSection = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
+    void read_trailer_should_read_resources_only_on_demand_and_check_their_digest() throws IOException, NoSuchAlgorithmException {
+        byte[] incompressible = createIncompressible();
+        byte[] packedMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Lazy", Map.of(MAIN_SCRIPT, "1;"),
+                                                                                               Map.of(RESOURCE_NAME, incompressible)));
 
-        Assertions.assertNotNull(scripts);
-        Assertions.assertEquals("Scripts", scripts.getManifest().getName());
-        Assertions.assertEquals(Map.of(MAIN_SCRIPT, "main;", MODULE_SCRIPT, "module;"), toTexts(scripts.getScripts()));
-        Assertions.assertTrue(scripts.getResources().isEmpty());
-        Assertions.assertNull(ScriptStorageUtils.readScripts(ChkFile.parseTolerant(withoutSection), MAP_NAME));
+        // A changed resource byte leaves the trailer readable until the resource is read.
+        packedMap[indexOf(packedMap, incompressible) + 1] ^= 1;
+
+        ScriptTrailer trailer = requireTrailer(packedMap);
+        ScriptResources.Entry resource = trailer.getResources().findEntry(RESOURCE_NAME);
+
+        Assertions.assertNotNull(resource);
+        Assertions.assertArrayEquals(digest(incompressible), resource.getDigest());
+
+        IOException mismatch = Assertions.assertThrows(IOException.class, () -> trailer.getResources().read(resource));
+
+        Assertions.assertTrue(mismatch.getMessage().contains("SHA-256"), mismatch.getMessage());
+        Assertions.assertThrows(IOException.class, trailer::createPackage);
     }
 
     @Test
-    void read_resources_should_index_the_resources_in_the_file_bytes() throws IOException {
-        byte[] map = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME,
-                                                     createPackage("Resources", Map.of(MAIN_SCRIPT, "main;"),
-                                                                   Map.of(RESOURCE_NAME, "image", OTHER_RESOURCE_NAME, "sound")));
-        byte[] resourceFile = MpqArchive.open(map, MAP_NAME, false).readFile(ScriptStorageUtils.RESOURCE_FILE_NAME);
-        ScriptResources resources = ScriptStorageUtils.readResources(resourceFile, ScriptStorageUtils.RESOURCE_FILE_NAME);
-        ScriptResources.Entry image = resources.findEntry(RESOURCE_NAME);
+    void read_trailer_should_reject_a_changed_script() throws IOException {
+        String script = "var text = 'a script';";
+        byte[] packedMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Changed", Map.of(MAIN_SCRIPT, script), Map.of()));
 
-        Assertions.assertSame(resourceFile, resources.getData(), "the resources stay in the file bytes");
-        Assertions.assertNotNull(image);
-        Assertions.assertEquals("image", new String(resourceFile, image.getOffset(), image.getSize(), StandardCharsets.UTF_8));
-        Assertions.assertEquals(2, resources.getEntries().size());
-        Assertions.assertNull(resources.findEntry("images/missing.grp"));
-        Assertions.assertTrue(ScriptResources.EMPTY.getEntries().isEmpty());
+        packedMap[indexOf(packedMap, script.getBytes(StandardCharsets.UTF_8))] ^= 1;
+
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readTrailer(packedMap, MAP_NAME));
     }
 
     @Test
-    void read_resources_should_reject_a_malformed_file() {
-        ByteBuffer truncated = ByteBuffer.allocate(LAYOUT_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
-        ByteBuffer repeated = ByteBuffer.allocate(LAYOUT_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
-        byte[] otherVersion = {2, 0, 0, 0, 0, 0, 0, 0};
+    void read_trailer_should_return_null_only_without_the_magic() throws IOException {
+        byte[] map = createMap();
+        byte[] packedMap = ScriptStorageUtils.writePackage(map, MAP_NAME, createPackage("Footer", Map.of(MAIN_SCRIPT, "1;"), Map.of()));
+        byte[] withoutMagic = Arrays.copyOf(packedMap, packedMap.length - 1);
+        byte[] otherVersion = packedMap.clone();
+        byte[] tooLarge = packedMap.clone();
+        byte[] truncated = new byte[packedMap.length - 1];
+        int footerStart = packedMap.length - ScriptStorageUtils.FOOTER_SIZE;
 
-        truncated.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(1);
-        writeEntry(truncated, RESOURCE_NAME, "image");
-        repeated.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(2);
-        writeEntry(repeated, RESOURCE_NAME, "image");
-        writeEntry(repeated, RESOURCE_NAME, "again");
+        otherVersion[footerStart] = 2;
+        ByteBuffer.wrap(tooLarge).order(ByteOrder.LITTLE_ENDIAN).putLong(footerStart + FOOTER_TRAILER_SIZE_OFFSET, packedMap.length + 1L);
+        // One trailer byte cut out of the data: the stored sizes no longer fit.
+        System.arraycopy(packedMap, 0, truncated, 0, map.length);
+        System.arraycopy(packedMap, map.length + 1, truncated, map.length, truncated.length - map.length);
 
-        byte[] truncatedFile = Arrays.copyOf(truncated.array(), truncated.position() - 1);
-        byte[] repeatedFile = Arrays.copyOf(repeated.array(), repeated.position());
-        byte[] trailingFile = Arrays.copyOf(truncated.array(), truncated.position() + 1);
+        IOException versionRefusal = Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readTrailer(otherVersion, MAP_NAME));
+        ScriptPackage repacked = createPackage("Repacked", Map.of(MAIN_SCRIPT, "1;"), Map.of());
 
-        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(truncatedFile, MAP_NAME));
-        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(repeatedFile, MAP_NAME));
-        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(trailingFile, MAP_NAME));
-        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(otherVersion, MAP_NAME));
+        Assertions.assertNull(ScriptStorageUtils.readTrailer(map, MAP_NAME));
+        Assertions.assertNull(ScriptStorageUtils.readPackage(map, MAP_NAME));
+        Assertions.assertNull(ScriptStorageUtils.readTrailer(withoutMagic, MAP_NAME));
+        Assertions.assertEquals(map.length, ScriptStorageUtils.findMapEnd(map, MAP_NAME));
+        Assertions.assertTrue(versionRefusal.getMessage().contains("version"), versionRefusal.getMessage());
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readTrailer(tooLarge, MAP_NAME));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readTrailer(truncated, MAP_NAME));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.writePackage(truncated, MAP_NAME, repacked));
+    }
+
+    @Test
+    void write_package_keeps_a_map_with_its_block_table_at_offset_zero() throws IOException {
+        // As protectors do, the block table overlaps the header: the reader decrypts the header bytes as block entries.
+        byte[] map = ScriptMapScenario.setHeaderField(createMap(), ScriptMapScenario.BLOCK_TABLE_POSITION_FIELD, 0);
+        byte[] packedMap = ScriptStorageUtils.writePackage(map, MAP_NAME, createPackage("Protected", Map.of(MAIN_SCRIPT, "1;"),
+                                                                                         Map.of(RESOURCE_NAME, createIncompressible())));
+
+        Assertions.assertArrayEquals(map, Arrays.copyOf(packedMap, map.length));
+        Assertions.assertEquals(0, readFooter(packedMap).getInt(FOOTER_PADDING_OFFSET));
+        assertSameArchive(map, packedMap);
+    }
+
+    @Test
+    void write_package_should_pad_mpq_ranges_past_the_end_of_the_map() throws IOException {
+        byte[] plainMap = createMap();
+        int hashTableSize = ScriptMapScenario.HASH_ENTRY_COUNT * ScriptMapScenario.TABLE_ENTRY_SIZE;
+        // The hash table starts inside the map and ends past its end, where the reader reads zeros.
+        byte[] map = ScriptMapScenario.setHeaderField(plainMap, ScriptMapScenario.HASH_TABLE_POSITION_FIELD,
+                                                      plainMap.length - hashTableSize + TABLE_OVERHANG);
+        byte[] archiveSizeMap = ScriptMapScenario.setHeaderField(plainMap, ScriptMapScenario.ARCHIVE_SIZE_FIELD, plainMap.length + TABLE_OVERHANG);
+        byte[] absurdSizeMap = ScriptMapScenario.setHeaderField(plainMap, ScriptMapScenario.ARCHIVE_SIZE_FIELD, -1);
+        ScriptPackage scriptPackage = createPackage("Padded", Map.of(MAIN_SCRIPT, "1;"), Map.of(RESOURCE_NAME, createIncompressible()));
+        byte[] packedMap = ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage);
+
+        Assertions.assertArrayEquals(map, Arrays.copyOf(packedMap, map.length));
+        Assertions.assertEquals(TABLE_OVERHANG, readFooter(packedMap).getInt(FOOTER_PADDING_OFFSET));
+        Assertions.assertArrayEquals(new byte[TABLE_OVERHANG], Arrays.copyOfRange(packedMap, map.length, map.length + TABLE_OVERHANG));
+        Assertions.assertEquals(map.length, ScriptStorageUtils.findMapEnd(packedMap, MAP_NAME));
+        assertSameArchive(map, packedMap);
+        Assertions.assertArrayEquals(ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage),
+                                     ScriptStorageUtils.writePackage(packedMap, MAP_NAME, scriptPackage));
+        Assertions.assertEquals(TABLE_OVERHANG, readFooter(ScriptStorageUtils.writePackage(archiveSizeMap, MAP_NAME, scriptPackage))
+                .getInt(FOOTER_PADDING_OFFSET));
+        Assertions.assertEquals(0, readFooter(ScriptStorageUtils.writePackage(absurdSizeMap, MAP_NAME, scriptPackage)).getInt(FOOTER_PADDING_OFFSET));
+    }
+
+    @Test
+    void replay_section_carries_the_scripts_and_references_the_resources() throws IOException {
+        byte[] incompressible = createIncompressible();
+        ScriptTrailer trailer = requireTrailer(ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage(
+                "Replay", Map.of(MAIN_SCRIPT, "require('lib/module.js');", MODULE_SCRIPT, "2;"), Map.of(RESOURCE_NAME, incompressible))));
+        byte[] section = ScriptStorageUtils.createReplaySection(trailer);
+        ScriptTrailer recorded = ScriptStorageUtils.readReplaySection(section);
+        ScriptResources.Entry reference = recorded.getResources().findEntry(RESOURCE_NAME);
+        ScriptResources.Entry resource = trailer.getResources().findEntry(RESOURCE_NAME);
+
+        Assertions.assertTrue(section.length < incompressible.length, "the section holds no resource bytes");
+        Assertions.assertEquals("Replay", recorded.getScripts().getManifest().getName());
+        Assertions.assertEquals(toTexts(trailer.getScripts().getScripts()), toTexts(recorded.getScripts().getScripts()));
+        Assertions.assertNotNull(reference);
+        Assertions.assertNotNull(resource);
+        Assertions.assertEquals(0, reference.getStoredSize());
+        Assertions.assertTrue(reference.isSameFile(resource));
+        Assertions.assertThrows(IOException.class, () -> recorded.getResources().read(reference));
+
+        ScriptResources selected = trailer.getResources().select(recorded.getResources().getEntries());
+
+        Assertions.assertNotNull(selected);
+        Assertions.assertArrayEquals(incompressible, selected.read(selected.getEntries().iterator().next()));
+
+        ScriptTrailer otherTrailer = requireTrailer(ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage(
+                "Other", Map.of(MAIN_SCRIPT, "1;"), Map.of(RESOURCE_NAME, "other".getBytes(StandardCharsets.UTF_8)))));
+        byte[] mapTrailer = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Map", Map.of(MAIN_SCRIPT, "1;"), Map.of()));
+
+        Assertions.assertNull(otherTrailer.getResources().select(recorded.getResources().getEntries()));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readReplaySection(Arrays.copyOf(section, section.length - 1)));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readReplaySection(mapTrailer));
+    }
+
+    @Test
+    void maps_that_differ_only_in_their_script_are_different_lobby_maps(@TempDir @NotNull Path folder) throws IOException {
+        byte[] firstMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Same", Map.of(MAIN_SCRIPT, "1;"), Map.of()));
+        byte[] secondMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Same", Map.of(MAIN_SCRIPT, "2;"), Map.of()));
+        int firstChecksum = LanMapTransfer.calculateChecksum(firstMap, firstMap.length);
+        int secondChecksum = LanMapTransfer.calculateChecksum(secondMap, secondMap.length);
+        Path secondFile = folder.resolve("second.scx");
+
+        Files.write(secondFile, secondMap);
+
+        Assertions.assertEquals(firstMap.length, secondMap.length);
+        Assertions.assertNotEquals(firstChecksum, secondChecksum);
+        Assertions.assertFalse(LanMapTransfer.createFileMatch(firstMap.length, firstChecksum).matches(secondFile));
+        Assertions.assertTrue(LanMapTransfer.createFileMatch(secondMap.length, secondChecksum).matches(secondFile));
+    }
+
+    @Test
+    void read_resource_index_reads_the_resources_of_a_map_file(@TempDir @NotNull Path folder) throws IOException {
+        ScriptPackage scriptPackage = createPackage("Index", Map.of(MAIN_SCRIPT, "1;"), Map.of(RESOURCE_NAME, createIncompressible()));
+        Path packedMap = folder.resolve("packed.scx");
+        Path plainMap = folder.resolve("plain.scx");
+
+        Files.write(packedMap, ScriptStorageUtils.writePackage(createMap(), MAP_NAME, scriptPackage));
+        Files.write(plainMap, createMap());
+
+        ScriptResources index = ScriptStorageUtils.readResourceIndex(packedMap);
+        ScriptResources resources = requireTrailer(Files.readAllBytes(packedMap)).getResources();
+
+        Assertions.assertNotNull(index);
+        Assertions.assertNotNull(index.select(resources.getEntries()));
+        Assertions.assertEquals(1, index.getEntries().size());
+        Assertions.assertNull(ScriptStorageUtils.readResourceIndex(plainMap));
     }
 }

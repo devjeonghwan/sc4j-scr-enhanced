@@ -40,7 +40,7 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
      *
      * @param game          the game
      * @param scriptPackage the script package of the game's scenario
-     * @param resources     the resource file of the game's map
+     * @param resources     the resources of the game's map
      */
     public ScriptSimulationPlugin(@NotNull Game game, @NotNull ScriptPackage scriptPackage, @NotNull ScriptResources resources) {
         this.game    = game;

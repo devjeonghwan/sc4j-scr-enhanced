@@ -108,7 +108,7 @@ public final class ScriptGame {
      * @param context   the current context
      * @param global    the global scope
      * @param game      the game
-     * @param resources the resource file of the map
+     * @param resources the resources of the map
      * @return the created {@link ScriptGame} instance
      * @throws IllegalStateException if the prelude cannot be read or fails
      */

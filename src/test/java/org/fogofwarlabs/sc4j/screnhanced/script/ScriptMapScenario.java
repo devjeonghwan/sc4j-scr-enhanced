@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqCryptoUtils;
@@ -20,25 +21,25 @@ import java.util.stream.Stream;
 /**
  * Writes the synthetic map archives, CHK files and script folders of the script storage tests and reads folders back.
  */
-final class ScriptMapScenario {
+public final class ScriptMapScenario {
     static final @NotNull String SOUND_NAME = "staredit\\wav\\sound.wav";
     static final byte @NotNull [] SOUND = "RIFF sound data".getBytes(StandardCharsets.ISO_8859_1);
+    static final int ARCHIVE_SIZE_FIELD = 8;
+    static final int HASH_TABLE_POSITION_FIELD = 16;
+    static final int BLOCK_TABLE_POSITION_FIELD = 20;
+    static final int BLOCK_TABLE_SIZE_FIELD = 28;
+    static final int TABLE_ENTRY_SIZE = 16;
+    static final int HASH_ENTRY_COUNT = 16;
 
     private static final @NotNull String LISTFILE_NAME = "(listfile)";
     private static final @NotNull String LISTFILE_LINE_SEPARATOR = "\r\n";
     private static final int MPQ_MAGIC = 0x1A51504D;
     private static final int HEADER_SIZE = 32;
     private static final int HEADER_SIZE_FIELD = 4;
-    private static final int ARCHIVE_SIZE_FIELD = 8;
-    private static final int HASH_TABLE_POSITION_FIELD = 16;
-    private static final int BLOCK_TABLE_POSITION_FIELD = 20;
     private static final int HASH_TABLE_SIZE_FIELD = 24;
-    private static final int BLOCK_TABLE_SIZE_FIELD = 28;
-    private static final int TABLE_ENTRY_SIZE = 16;
     private static final int TABLE_ENTRY_DWORD_COUNT = 4;
     private static final int HASH_BLOCK_INDEX_DWORD = 3;
     private static final int EMPTY = -1;
-    private static final int HASH_ENTRY_COUNT = 16;
     private static final int SECTION_HEADER_SIZE = 8;
 
     /**
@@ -184,6 +185,43 @@ final class ScriptMapScenario {
         }
 
         return files;
+    }
+
+    /**
+     * Copies a map archive with one header field changed.
+     *
+     * @param map   the archive bytes
+     * @param field the offset of the field in the header at offset {@code 0}
+     * @param value the new field value
+     * @return the changed copy
+     */
+    static byte @NotNull [] setHeaderField(byte @NotNull [] map, int field, int value) {
+        byte[] changed = map.clone();
+
+        LittleEndianUtils.writeInt32(changed, field, value);
+
+        return changed;
+    }
+
+    /**
+     * Creates the resources of a script package packed into a synthetic map, as a game reads them from the map's script trailer.
+     *
+     * @param resources the resource contents by name
+     * @return the resources, read on demand
+     * @throws IOException if the package or the trailer is not valid
+     */
+    public static @NotNull ScriptResources createResources(@NotNull Map<String, byte[]> resources) throws IOException {
+        String manifest = "{\"name\": \"Resources\", \"main\": \"main.js\", \"api\": \"1\"}";
+        ScriptPackage scriptPackage = ScriptPackage.create(ScriptManifest.parse(manifest.getBytes(StandardCharsets.UTF_8)),
+                                                           Map.of("main.js", new byte[0]), resources);
+        ScriptTrailer trailer = ScriptStorageUtils.readTrailer(ScriptStorageUtils.writePackage(createMap(new byte[0]), "resources.scx", scriptPackage),
+                                                               "resources.scx");
+
+        if (trailer == null) {
+            throw Exceptions.newIOException("The packed map has no script trailer.");
+        }
+
+        return trailer.getResources();
     }
 
     private ScriptMapScenario() {

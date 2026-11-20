@@ -17,7 +17,8 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * Commands: {@code init <folder>} writes a new script folder ({@link ScriptProjectUtils}); {@code check <folder>} prints one line per
  * finding of a script folder ({@link ScriptCheckUtils}); {@code pack <map> --script <folder> -o <output>} writes the map with the package of
- * the script folder to the output file; {@code unpack <map> -o <folder>} writes the package of the map to the folder, which must be absent or
+ * the script folder to the output file, the bytes of the map followed by the script trailer ({@link ScriptStorageUtils}), which replaces an
+ * old one; {@code unpack <map> -o <folder>} writes the package of the map to the folder, which must be absent or
  * empty; {@code run <map> --script <folder> [--melee] [--watch] [--install <folder>]} packs the script folder into a copy of the map and
  * runs SC:R Enhanced of an SC4J install on it until the game ends ({@link ScriptRunner}), as a melee game with {@code --melee}, else as a
  * Use Map Settings game, packing again on every change of the folder with {@code --watch}. The install is the one {@code --install} names, else {@link ScriptRunner#findInstall()}.
@@ -198,7 +199,7 @@ public final class ScriptTool {
         ScriptPackage scriptPackage = ScriptStorageUtils.readPackage(Files.readAllBytes(map), map.toString());
 
         if (scriptPackage == null) {
-            throw Exceptions.newIOException("The map {0} has no script section.", map);
+            throw Exceptions.newIOException("The map {0} has no script package.", map);
         }
 
         scriptPackage.writeFolder(outputFolder);

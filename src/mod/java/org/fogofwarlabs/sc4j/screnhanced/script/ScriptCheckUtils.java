@@ -1,7 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
-import org.fogofwarlabs.sc4j.scr.data.extension.ScrDataExtensionUtils;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptFinding.Severity;
@@ -60,9 +59,8 @@ import java.util.regex.Pattern;
  * the runtime warns), a {@code const} in a loop, which keeps its first value in Rhino 1.8.1 (a warning), and functions in the body of a
  * {@code for (let ...)} loop that use its variables, which all iterations share in Rhino 1.8.1 (a warning).
  * <p>
- * Each resource named {@code *.grp} or {@code *.anim}, read as the runtime reads a GRP or an anim. The sizes: the script section against
- * the largest scenario of a map (an error) and of a StarCraft: Remastered map (a warning), the resource file against the largest file of a
- * map archive (an error).
+ * Each resource named {@code *.grp} or {@code *.anim}, read as the runtime reads a GRP or an anim. The size: the script trailer with every file
+ * stored as it is against the largest map file (a warning).
  */
 public final class ScriptCheckUtils {
     /**
@@ -253,25 +251,13 @@ public final class ScriptCheckUtils {
     }
 
     private static void checkSizes(@NotNull ScriptPackage scriptPackage, @NotNull List<ScriptFinding> findings) {
-        long sectionSize = ScriptStorageUtils.getSectionSize(scriptPackage);
-        long resourceFileSize = ScriptStorageUtils.getResourceFileSize(scriptPackage);
+        long trailerSize = ScriptStorageUtils.getMaximumTrailerSize(scriptPackage);
 
-        int maximumScenarioSize = ScrDataExtensionUtils.getMaximumScenarioSize();
-
-        if (sectionSize > maximumScenarioSize) {
-            findings.add(new ScriptFinding(FOLDER_FILE, ScriptFinding.NO_LINE, Severity.ERROR,
-                                           Exceptions.format("The manifest and the scripts take {0} bytes of the scenario, more than the {1} bytes " +
-                                                             "a map may hold.", sectionSize, maximumScenarioSize)));
-        } else if (sectionSize > MpqArchive.NATIVE_MAXIMUM_SCENARIO_SIZE) {
+        if (trailerSize > MpqArchive.MAXIMUM_FILE_SIZE) {
             findings.add(new ScriptFinding(FOLDER_FILE, ScriptFinding.NO_LINE, Severity.WARNING,
-                                           Exceptions.format("The manifest and the scripts take {0} bytes of the scenario, more than the {1} bytes " +
-                                                             "StarCraft: Remastered reads.", sectionSize, MpqArchive.NATIVE_MAXIMUM_SCENARIO_SIZE)));
-        }
-
-        if (resourceFileSize > MpqArchive.MAXIMUM_FILE_SIZE) {
-            findings.add(new ScriptFinding(FOLDER_FILE, ScriptFinding.NO_LINE, Severity.ERROR,
-                                           Exceptions.format("The resources take {0} bytes, more than the {1} bytes of one map archive file.",
-                                                             resourceFileSize, MpqArchive.MAXIMUM_FILE_SIZE)));
+                                           Exceptions.format("The package takes {0} bytes before compression, more than the {1} bytes a map file " +
+                                                             "may hold; packing fails unless it compresses enough.",
+                                                             trailerSize, MpqArchive.MAXIMUM_FILE_SIZE)));
         }
     }
 

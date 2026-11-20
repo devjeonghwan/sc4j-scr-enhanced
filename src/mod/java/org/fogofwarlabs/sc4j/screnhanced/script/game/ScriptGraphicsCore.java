@@ -22,13 +22,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Defines {@code core.resources} and {@code core.graphics}: the GRPs and anims of the map's resource file, and the graphics they replace.
+ * Defines {@code core.resources} and {@code core.graphics}: the GRPs and anims of the map's resources, and the graphics they replace.
  * <p>
  * {@code core.resources}: {@code has(name)}, {@code getGrp(name)} and {@code getAnim(name)}. A resource name is relative to the resource folder
  * with {@code /} separators. {@code getGrp} and {@code getAnim} return the id of a resource handle, the same id for the same name, after checking
  * the resource once: a GRP header with a readable frame table whose frames decode, or a single-entry anim of asset scale {@code 4} (HD) or
  * {@code 2} (HD2) with a canvas and a {@code diffuse} layer. A missing or invalid resource throws an {@code Error}. The resources are read from
- * the bytes of the resource file, kept once for the game, when they are first asked for.
+ * the map's script trailer, inflated and checked, when they are first asked for.
  * <p>
  * {@code core.graphics}: {@code replaceImage(imageType, grp, hdAnim, hd2Anim)} replaces the graphics of every image of an image type,
  * {@code replaceUnitImage(unit, imageType, grp, hdAnim, hd2Anim)} those of one live unit's images of the type, while the unit lives;
@@ -77,7 +77,7 @@ final class ScriptGraphicsCore {
      *
      * @param scriptGame the game binding
      * @param unitCore   the unit functions, which read unit arguments
-     * @param resources  the resource file of the map
+     * @param resources  the resources of the map
      */
     ScriptGraphicsCore(@NotNull ScriptGame scriptGame, @NotNull ScriptUnitCore unitCore, @NotNull ScriptResources resources) {
         this.scriptGame = scriptGame;
@@ -238,21 +238,21 @@ final class ScriptGraphicsCore {
     }
 
     private @NotNull ImageGrp readGrp(@NotNull String name) throws IOException {
-        ScriptResources.Entry entry = this.requireEntry(name);
+        byte[] content = this.resources.read(this.requireEntry(name));
 
-        return this.getReplacements().readGrp(this.resources.getData(), entry.getOffset(), entry.getSize(), name);
+        return this.getReplacements().readGrp(content, 0, content.length, name);
     }
 
     private @NotNull ImageAnim readAnim(@NotNull String name) throws IOException {
-        ScriptResources.Entry entry = this.requireEntry(name);
+        byte[] content = this.resources.read(this.requireEntry(name));
 
-        return this.getReplacements().readAnim(this.resources.getData(), entry.getOffset(), entry.getSize(), name);
+        return this.getReplacements().readAnim(content, 0, content.length, name);
     }
 
     /**
-     * Finds a resource of the resource file.
+     * Finds a resource of the map.
      *
-     * @throws EcmaError if the resource file has no resource of the name
+     * @throws EcmaError if the map has no resource of the name
      */
     private @NotNull ScriptResources.Entry requireEntry(@NotNull String name) {
         ScriptResources.Entry entry = this.resources.findEntry(name);

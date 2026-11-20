@@ -56,7 +56,7 @@ final class ScriptToolTest {
     }
 
     @Test
-    void unpack_should_fail_when_the_map_has_no_script_section(@TempDir @NotNull Path folder) throws IOException {
+    void unpack_should_fail_when_the_map_has_no_script_package(@TempDir @NotNull Path folder) throws IOException {
         Path map = writeMap(folder);
 
         Assertions.assertEquals(1, runTool(ScriptTool.UNPACK_COMMAND, map.toString(), ScriptTool.OUTPUT_OPTION, folder.resolve("out").toString()));

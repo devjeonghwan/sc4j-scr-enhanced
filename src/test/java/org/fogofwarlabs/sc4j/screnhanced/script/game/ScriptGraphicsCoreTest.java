@@ -6,16 +6,13 @@ import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageFileScenario;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGraphics;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptMapScenario;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptStorageUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +29,6 @@ final class ScriptGraphicsCoreTest {
     private static final @NotNull String HD2_ANIM_NAME = "units/marine-hd2.anim";
     private static final int REPLACED_IMAGE_TYPE = 239;
     private static final int OTHER_IMAGE_TYPE = 240;
-    private static final int RESOURCE_FILE_HEADER_SIZE = 8;
-    private static final int RESOURCE_ENTRY_HEADER_SIZE = 6;
     /**
      * Defines {@code error(fn)}, which returns the name of the error {@code fn} throws, or {@code "none"}.
      */
@@ -62,23 +57,7 @@ final class ScriptGraphicsCoreTest {
         files.put(HD_ANIM_NAME, ImageFileScenario.createAnim(ImageFileScenario.HD_SCALE));
         files.put(HD2_ANIM_NAME, ImageFileScenario.createAnim(ImageFileScenario.HD2_SCALE));
 
-        int size = RESOURCE_FILE_HEADER_SIZE;
-
-        for (Map.Entry<String, byte[]> file : files.entrySet()) {
-            size += RESOURCE_ENTRY_HEADER_SIZE + file.getKey().length() + file.getValue().length;
-        }
-
-        ByteBuffer resourceFile = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
-
-        resourceFile.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(files.size());
-
-        for (Map.Entry<String, byte[]> file : files.entrySet()) {
-            byte[] name = file.getKey().getBytes(StandardCharsets.UTF_8);
-
-            resourceFile.putShort((short) name.length).put(name).putInt(file.getValue().length).put(file.getValue());
-        }
-
-        return ScriptStorageUtils.readResources(resourceFile.array(), ScriptStorageUtils.RESOURCE_FILE_NAME);
+        return ScriptMapScenario.createResources(files);
     }
 
     @Test

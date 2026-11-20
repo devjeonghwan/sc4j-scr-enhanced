@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.client.configuration.InstallLayout;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +27,7 @@ import java.util.stream.Stream;
  *}
  * A melee run ends the command line with {@code --melee <packed map> --computer random} instead: one computer player of a random race against
  * the human of the client's default race, name and slot. The runtime takes the settings, storage and log folders of the mod from the install. The packed map is
- * {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside its map folders; the source map
+ * {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside the map folder the client lists; the source map
  * stays as it is.
  * <p>
  * {@link #repackIfChanged()} packs again when a file that the package holds ({@value ScriptManifest#FILE_NAME}, a script or a resource) was
@@ -116,6 +117,19 @@ public final class ScriptRunner {
         }
 
         return null;
+    }
+
+    /**
+     * Lists the folders of an install that hold maps of SC:R Enhanced: the map folder of the mod's storage
+     * ({@code <install>/userdata/mods/scr-enhanced/maps}, downloads included) and the folder of the packed maps ({@value #RUN_FOLDER}).
+     *
+     * @param install the SC4J install
+     * @return the folders in search order
+     */
+    public static @NotNull List<Path> getMapFolders(@NotNull Path install) {
+        Path storage = install.resolve(USER_DATA_FOLDER).resolve(MODS_FOLDER).resolve(MOD_ID);
+
+        return List.of(storage.resolve(InstallLayout.MAP_FOLDER), storage.resolve(RUN_FOLDER));
     }
 
     /**
