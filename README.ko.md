@@ -103,6 +103,8 @@ SC:R 모드를 갱신하려면 `git submodule update --remote scr`로 받고, �
 
 ## 라이선스
 
-[Apache License 2.0](LICENSE). 서드파티 자료: [NOTICE](NOTICE).
+[Apache License 2.0](LICENSE). 서드파티 자료: [NOTICE](NOTICE), [`licenses/`](licenses/).
+
+모드 jar에는 맵 스크립트 엔진 [Rhino](https://github.com/mozilla/rhino)가 Mozilla Public License 2.0([`licenses/MPL-2.0.txt`](licenses/MPL-2.0.txt))으로 들어 있습니다.
 
 StarCraft는 Blizzard Entertainment, Inc.의 상표입니다. SC4J는 Blizzard Entertainment와 제휴하거나 승인받지 않았습니다.

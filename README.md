@@ -103,6 +103,8 @@ To update the SC:R mod: `git submodule update --remote scr`, build, merge any st
 
 ## Licence
 
-[Apache License 2.0](LICENSE). Third-party material: [NOTICE](NOTICE).
+[Apache License 2.0](LICENSE). Third-party material: [NOTICE](NOTICE), [`licenses/`](licenses/).
+
+The mod jar carries [Rhino](https://github.com/mozilla/rhino), the script engine of map scripts, under the Mozilla Public License 2.0 ([`licenses/MPL-2.0.txt`](licenses/MPL-2.0.txt)).
 
 StarCraft is a trademark of Blizzard Entertainment, Inc. SC4J is not affiliated with or endorsed by Blizzard Entertainment.
