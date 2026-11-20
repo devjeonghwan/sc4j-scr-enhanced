@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Tests {@code core.location} and the {@code Location} objects of the prelude in a live Use Map Settings game: finding a location by its map string,
- * reading its bounds and setting them in the trigger state.
+ * reading its bounds, setting them in the trigger state and moving it by its center.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -34,12 +34,15 @@ final class ScriptLocationCoreTest {
                     var changed = game.getLocation(3);
                     changed.setBounds(32, 64, 97, 129);
                     log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom(), String(changed.getCenter()));
+                    changed.setCenter(Position.of(100, 100));
+                    log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom());
                 }
                 """);
 
         Assertions.assertEquals(List.of("63 true Anywhere 0 0 true true true",
                                         "null 255 null",
-                                        "32 64 97 129 (64, 96)"), scenario.getInfoMessages(), scenario.getLines()::toString);
+                                        "32 64 97 129 (64, 96)",
+                                        "68 68 133 133"), scenario.getInfoMessages(), scenario.getLines()::toString);
 
         TriggerContext triggers = scenario.getGame().getTriggerContext();
 
@@ -47,6 +50,6 @@ final class ScriptLocationCoreTest {
 
         TriggerLocation location = triggers.getLocation(CHANGED_LOCATION);
 
-        Assertions.assertEquals(List.of(32, 64, 97, 129), List.of(location.getLeft(), location.getTop(), location.getRight(), location.getBottom()));
+        Assertions.assertEquals(List.of(68, 68, 133, 133), List.of(location.getLeft(), location.getTop(), location.getRight(), location.getBottom()));
     }
 }

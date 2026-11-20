@@ -7,6 +7,9 @@ import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.player.UnitAccounting;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerPlayerResults;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerScoreActionsUtils;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
@@ -19,12 +22,16 @@ import java.nio.charset.StandardCharsets;
  * Defines {@code core.player}: the players by slot id from {@code 0} to {@value PlayerTable#PLAYER_SLOTS} minus one.
  * <p>
  * {@code getCount()}, {@code getName(player)}, {@code getRace(player)}, {@code getType(player)}, {@code isHuman(player)},
- * {@code getMinerals(player)}, {@code setMinerals(player, amount)}, {@code addMinerals(player, amount)}, the same three for gas,
- * {@code getSupplyUsed(player, race)}, {@code getSupplyProvided(player, race)} and {@code getSupplyMax(player, race)} (half supply units of a
- * race from {@code 0} Zerg to {@code 2} Protoss), {@code getAlliance(player, other)} ({@code 0} enemy, {@code 1} allied, {@code 2} allied
- * victory) and {@code print(player, text)}. The resource writes run the Set Resources routine: setting sets the gathered amount too, adding
- * adds to it, and players from {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} keep their resources. A printed text shows when the player is the
- * local player.
+ * {@code getMinerals(player)}, {@code setMinerals(player, amount)}, {@code addMinerals(player, amount)},
+ * {@code subtractMinerals(player, amount)}, the same four for gas, {@code getSupplyUsed(player, race)}, {@code getSupplyProvided(player, race)}
+ * and {@code getSupplyMax(player, race)} (half supply units of a race from {@code 0} Zerg to {@code 2} Protoss), {@code getAlliance(player,
+ * other)} ({@code 0} enemy, {@code 1} allied, {@code 2} allied victory), {@code print(player, text)} and {@code endGame(player, result)}. The
+ * resource writes run the Set Resources routine: setting sets the gathered amount too, adding adds to it, subtracting leaves {@code 0}
+ * when the amount is not below the current one as unsigned numbers, and players from {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} keep their
+ * resources. A printed text shows when the player is the local player.
+ * {@code endGame} ends the game for a player from {@code 0} to {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one as the Victory
+ * ({@value TriggerPlayerResults#VICTORY}), Defeat ({@value TriggerPlayerResults#DEFEAT}) and Draw ({@value TriggerPlayerResults#DRAW})
+ * actions do and returns {@code false} when a defeat or a draw meets a victory.
  */
 final class ScriptPlayerCore {
     private final @NotNull ScriptGame scriptGame;
@@ -57,28 +64,14 @@ final class ScriptPlayerCore {
 
         ScriptCoreUtils.defineFunction(global, namespace, "getMinerals", 1,
                                        (context, scope, thisObject, arguments) -> (double) this.readPlayer(arguments, 0).getMinerals());
-        ScriptCoreUtils.defineFunction(global, namespace, "setMinerals", 2, (context, scope, thisObject, arguments) -> {
-            this.changeResources(arguments, true, false);
-
-            return Context.getUndefinedValue();
-        });
-        ScriptCoreUtils.defineFunction(global, namespace, "addMinerals", 2, (context, scope, thisObject, arguments) -> {
-            this.changeResources(arguments, true, true);
-
-            return Context.getUndefinedValue();
-        });
+        this.defineResourceWrite(namespace, global, "setMinerals", TriggerModifiers.SET_TO, TriggerScoreActionsUtils.RESOURCE_MINERALS);
+        this.defineResourceWrite(namespace, global, "addMinerals", TriggerModifiers.ADD, TriggerScoreActionsUtils.RESOURCE_MINERALS);
+        this.defineResourceWrite(namespace, global, "subtractMinerals", TriggerModifiers.SUBTRACT, TriggerScoreActionsUtils.RESOURCE_MINERALS);
         ScriptCoreUtils.defineFunction(global, namespace, "getGas", 1,
                                        (context, scope, thisObject, arguments) -> (double) this.readPlayer(arguments, 0).getGas());
-        ScriptCoreUtils.defineFunction(global, namespace, "setGas", 2, (context, scope, thisObject, arguments) -> {
-            this.changeResources(arguments, false, false);
-
-            return Context.getUndefinedValue();
-        });
-        ScriptCoreUtils.defineFunction(global, namespace, "addGas", 2, (context, scope, thisObject, arguments) -> {
-            this.changeResources(arguments, false, true);
-
-            return Context.getUndefinedValue();
-        });
+        this.defineResourceWrite(namespace, global, "setGas", TriggerModifiers.SET_TO, TriggerScoreActionsUtils.RESOURCE_GAS);
+        this.defineResourceWrite(namespace, global, "addGas", TriggerModifiers.ADD, TriggerScoreActionsUtils.RESOURCE_GAS);
+        this.defineResourceWrite(namespace, global, "subtractGas", TriggerModifiers.SUBTRACT, TriggerScoreActionsUtils.RESOURCE_GAS);
 
         ScriptCoreUtils.defineFunction(global, namespace, "getSupplyUsed", 2, (context, scope, thisObject, arguments) -> {
             int counter = this.readSupplyCounter(arguments);
@@ -108,6 +101,38 @@ final class ScriptPlayerCore {
 
             if (player == this.scriptGame.requireTriggerContext().getLocalPlayer()) {
                 this.scriptGame.printText(text);
+            }
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "endGame", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = ScriptCoreUtils.requireId("player", ScriptCoreUtils.readInteger(arguments, 0), PlayerTable.PLAYABLE_PLAYER_SLOTS);
+            int result = ScriptCoreUtils.readInteger(arguments, 1);
+
+            if (result != TriggerPlayerResults.VICTORY && result != TriggerPlayerResults.DEFEAT && result != TriggerPlayerResults.DRAW) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The result {0} is not a victory, a defeat or a draw.", result));
+            }
+
+            return this.scriptGame.requireTriggerContext().endGame(player, result);
+        });
+    }
+
+    /**
+     * Defines a write of a player's minerals or gas that runs the Set Resources routine with a modifier; players from
+     * {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} keep their resources, as Set Resources leaves them.
+     */
+    private void defineResourceWrite(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull String name, int modifier, int resourceType) {
+        ScriptCoreUtils.defineFunction(global, namespace, name, 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int id = this.readPlayerId(arguments, 0);
+            int amount = ScriptCoreUtils.readInteger(arguments, 1);
+            Player player = this.requirePlayer(id);
+
+            if (id < PlayerTable.PLAYABLE_PLAYER_SLOTS) {
+                TriggerScoreActionsUtils.setResources(player, modifier, resourceType, amount);
             }
 
             return Context.getUndefinedValue();
@@ -173,32 +198,5 @@ final class ScriptPlayerCore {
         }
 
         return new String(header, start, end - start, StandardCharsets.UTF_8);
-    }
-
-    /**
-     * Sets or adds minerals or gas of a player as Set Resources does with the Set To or the Add modifier.
-     *
-     * @param arguments the player and the amount
-     * @param minerals  {@code true} for minerals, {@code false} for gas
-     * @param add       {@code true} to add the amount, {@code false} to set it
-     */
-    private void changeResources(@NotNull Object @NotNull [] arguments, boolean minerals, boolean add) {
-        this.scriptGame.checkWritable();
-
-        int id = this.readPlayerId(arguments, 0);
-        int amount = ScriptCoreUtils.readInteger(arguments, 1);
-        Player player = this.requirePlayer(id);
-
-        if (id >= PlayerTable.PLAYABLE_PLAYER_SLOTS) {
-            return;
-        }
-
-        if (minerals) {
-            player.setGatheredMinerals(add ? player.getGatheredMinerals() + amount : amount);
-            player.setMinerals(add ? player.getMinerals() + amount : amount);
-        } else {
-            player.setGatheredGas(add ? player.getGatheredGas() + amount : amount);
-            player.setGas(add ? player.getGas() + amount : amount);
-        }
     }
 }

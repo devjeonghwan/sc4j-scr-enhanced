@@ -14,8 +14,9 @@ import java.util.function.ToIntFunction;
  * <p>
  * {@code getCount()}, {@code getName(id)} (the map string of the location, {@code null} without one), {@code findByName(name)} (the first
  * location with the name, {@code -1} for none), {@code getLeft}, {@code getTop}, {@code getRight}, {@code getBottom}, {@code getCenterX},
- * {@code getCenterY} and {@code setBounds(id, left, top, right, bottom)}. The bounds are map pixels; {@code setBounds} writes the four bound
- * DWORDs of the location record through the trigger state's game-data bytes, the way an EUD write of the location table does.
+ * {@code getCenterY}, {@code setBounds(id, left, top, right, bottom)} and {@code setCenter(id, x, y)}. The bounds are map pixels;
+ * {@code setBounds} writes the four bound DWORDs of the location record through the trigger state's game-data bytes, the way an EUD write of
+ * the location table does; {@code setCenter} moves the location as Move Location moves its destination, kept inside the map.
  */
 final class ScriptLocationCore {
     /**
@@ -78,6 +79,18 @@ final class ScriptLocationCore {
                     triggers.writeGameDataByte(record + BOUND_OFFSETS[bound] + byteIndex, value >>> byteIndex * Byte.SIZE);
                 }
             }
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setCenter", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int id = this.readLocationId(arguments, 0);
+            int centerX = ScriptCoreUtils.readInteger(arguments, 1);
+            int centerY = ScriptCoreUtils.readInteger(arguments, 2);
+            TriggerLocation location = this.scriptGame.requireTriggerContext().getLocation(id);
+
+            this.scriptGame.getGame().getTriggerLocations().moveLocation(location, centerX, centerY);
 
             return Context.getUndefinedValue();
         });

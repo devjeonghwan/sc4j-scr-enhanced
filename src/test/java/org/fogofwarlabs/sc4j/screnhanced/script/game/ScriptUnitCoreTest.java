@@ -60,7 +60,10 @@ final class ScriptUnitCoreTest {
                     log.info(marine.setShields(10), marine.setEnergy(10), marine.getShields(), marine.getEnergy());
                     marine.setInvincible(true);
                     log.info(marine.isInvincible(), core.unit.getStatus(id) !== 0);
-                    log.info(marine.issueOrder(Order.Move, Position.of(marine.getX() + 64, marine.getY())), marine.getOrder().getName());
+                    marine.issueOrder(Order.Move, Position.of(marine.getX() + 64, marine.getY()));
+                    log.info(marine.getOrder().getName());
+                    marine.setHpPercent(50);
+                    log.info(marine.getHp(), marine.setShieldsPercent(50), marine.setEnergyPercent(50));
                     var zergling = game.createUnit(UnitType.ZergZergling, game.getPlayer(11), commandCenter.getPosition());
                     log.info(zergling.getOwner().getId(), zergling.setOwner(human), zergling.getOwner() === human);
                     log.info(game.createUnit(UnitType.TerranMarine, human, Position.of(-5000, -5000)) !== null);
@@ -77,7 +80,8 @@ final class ScriptUnitCoreTest {
                                         "1",
                                         "false false 0 0",
                                         "true true",
-                                        "true Move",
+                                        "Move",
+                                        "20 false false",
                                         "11 true true",
                                         "true",
                                         "RangeError"), scenario.getInfoMessages(), scenario.getLines()::toString);

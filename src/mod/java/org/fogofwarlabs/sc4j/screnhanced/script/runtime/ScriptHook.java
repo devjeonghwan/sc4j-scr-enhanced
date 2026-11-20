@@ -1,5 +1,25 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.BulletCreatedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.BulletHitEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OrderDecision;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OrderIssuedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OwnerChangedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerLeftEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerResultEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.ResearchCompletedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SpellCastEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.TargetAcquiredEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.TargetAcquisitionDecision;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitCompletedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitCreatedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDamagedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDiedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitLoadedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitTrainedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitUnloadedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UpgradeCompletedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.WeaponDamageDecision;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,16 +31,102 @@ import java.util.Map;
  * <p>
  * A hook name is {@value #NAME_PREFIX} followed by an upper-case letter. The runtime collects the hooks of each module when the module has
  * loaded and calls a hook in every module that has it, in load order.
+ * <p>
+ * An event hook receives one event object at the start of the frame after the event; a decision hook ({@code onBefore*}) receives one
+ * decision object while the game routine waits for the decision. The kind of such a hook is the class of the SC:R simulation event or
+ * decision it receives.
  */
 public enum ScriptHook {
     /**
      * Called once after the main script has loaded, without arguments.
      */
-    START("onStart"),
+    START("onStart", null),
     /**
      * Called every game frame with the frame number.
      */
-    FRAME("onFrame");
+    FRAME("onFrame", null),
+
+    /**
+     * Called with the event of a created unit.
+     */
+    UNIT_CREATED("onUnitCreated", UnitCreatedEvent.class),
+    /**
+     * Called with the event of a completed unit.
+     */
+    UNIT_COMPLETED("onUnitCompleted", UnitCompletedEvent.class),
+    /**
+     * Called with the event of a unit that started to die, with its killer and the weapon when known.
+     */
+    UNIT_DIED("onUnitDied", UnitDiedEvent.class),
+    /**
+     * Called with the event of hit point damage to a unit.
+     */
+    UNIT_DAMAGED("onUnitDamaged", UnitDamagedEvent.class),
+    /**
+     * Called with the event of an order a unit received.
+     */
+    ORDER_ISSUED("onOrderIssued", OrderIssuedEvent.class),
+    /**
+     * Called with the event of a target an automatic target search found.
+     */
+    TARGET_ACQUIRED("onTargetAcquired", TargetAcquiredEvent.class),
+    /**
+     * Called with the event of a unit a producer trained.
+     */
+    UNIT_TRAINED("onUnitTrained", UnitTrainedEvent.class),
+    /**
+     * Called with the event of a finished research.
+     */
+    RESEARCH_COMPLETED("onResearchCompleted", ResearchCompletedEvent.class),
+    /**
+     * Called with the event of a finished upgrade.
+     */
+    UPGRADE_COMPLETED("onUpgradeCompleted", UpgradeCompletedEvent.class),
+    /**
+     * Called with the event of a cast technology.
+     */
+    SPELL_CAST("onSpellCast", SpellCastEvent.class),
+    /**
+     * Called with the event of a created bullet.
+     */
+    BULLET_CREATED("onBulletCreated", BulletCreatedEvent.class),
+    /**
+     * Called with the event of a bullet hit.
+     */
+    BULLET_HIT("onBulletHit", BulletHitEvent.class),
+    /**
+     * Called with the event of a unit that changed its owner.
+     */
+    OWNER_CHANGED("onOwnerChanged", OwnerChangedEvent.class),
+    /**
+     * Called with the event of a unit that entered a transport or a Bunker.
+     */
+    UNIT_LOADED("onUnitLoaded", UnitLoadedEvent.class),
+    /**
+     * Called with the event of a unit that left a transport or a Bunker.
+     */
+    UNIT_UNLOADED("onUnitUnloaded", UnitUnloadedEvent.class),
+    /**
+     * Called with the event of a player who left the game.
+     */
+    PLAYER_LEFT("onPlayerLeft", PlayerLeftEvent.class),
+    /**
+     * Called with the event of a player's result.
+     */
+    PLAYER_RESULT("onPlayerResult", PlayerResultEvent.class),
+
+    /**
+     * Called with the decision on the damage of a weapon hit.
+     */
+    BEFORE_DAMAGE("onBeforeDamage", WeaponDamageDecision.class),
+    /**
+     * Called with the decision on an order issued to a unit.
+     */
+    BEFORE_ORDER("onBeforeOrder", OrderDecision.class),
+    /**
+     * Called with the decision on the target an automatic target search found.
+     */
+    BEFORE_TARGET_ACQUIRED("onBeforeTargetAcquired", TargetAcquisitionDecision.class);
 
     /**
      * The prefix of every hook name.
@@ -28,10 +134,15 @@ public enum ScriptHook {
     public static final @NotNull String NAME_PREFIX = "on";
 
     private static final @NotNull Map<String, ScriptHook> HOOKS_BY_FUNCTION_NAME = new HashMap<>();
+    private static final @NotNull Map<Class<?>, ScriptHook> HOOKS_BY_KIND = new HashMap<>();
 
     static {
         for (ScriptHook hook : values()) {
             HOOKS_BY_FUNCTION_NAME.put(hook.functionName, hook);
+
+            if (hook.kind != null) {
+                HOOKS_BY_KIND.put(hook.kind, hook);
+            }
         }
     }
 
@@ -43,6 +154,16 @@ public enum ScriptHook {
      */
     public static @Nullable ScriptHook findByFunctionName(@NotNull String functionName) {
         return HOOKS_BY_FUNCTION_NAME.get(functionName);
+    }
+
+    /**
+     * Finds the hook that receives a kind of SC:R simulation event or decision.
+     *
+     * @param kind the class of the event or decision
+     * @return the hook of the kind, or {@code null} if no hook receives it
+     */
+    public static @Nullable ScriptHook findByKind(@NotNull Class<?> kind) {
+        return HOOKS_BY_KIND.get(kind);
     }
 
     /**
@@ -63,9 +184,11 @@ public enum ScriptHook {
 
 
     private final @NotNull String functionName;
+    private final @Nullable Class<?> kind;
 
-    ScriptHook(@NotNull String functionName) {
+    ScriptHook(@NotNull String functionName, @Nullable Class<?> kind) {
         this.functionName = functionName;
+        this.kind         = kind;
     }
 
     /**

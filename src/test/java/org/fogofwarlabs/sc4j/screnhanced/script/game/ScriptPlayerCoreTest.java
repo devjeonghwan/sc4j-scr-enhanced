@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * Tests {@code core.player} and the {@code Player} objects of the prelude in a live melee game: identity, resources through the Set
- * Resources routine, supply, alliances and printed texts.
+ * Resources routine, supply, alliances, printed texts and game results.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -36,6 +36,10 @@ final class ScriptPlayerCoreTest {
                     human.addGas(-10);
                     core.player.setGas(game.getPlayer(11).getId(), 99);
                     log.info(human.getMinerals(), human.getGas(), game.getPlayer(11).getGas());
+                    human.subtractMinerals(25);
+                    human.subtractGas(5);
+                    log.info(human.getMinerals(), human.getGas());
+                    log.info(computer.lose(), computer.win(), computer.lose(), computer.draw());
                     log.info(human.getSupplyUsed(), human.getSupplyProvided(), human.getSupplyMax(), core.player.getSupplyUsed(human.getId(), 1),
                              computer.getSupplyProvided());
                     log.info(human.isEnemyOf(computer), human.isAlliedWith(human), core.player.getAlliance(human.getId(), computer.getId()));
@@ -48,6 +52,8 @@ final class ScriptPlayerCoreTest {
         Assertions.assertEquals(List.of("1 true tester 1 false 0 12 null",
                                         "50 0",
                                         "525 -10 0",
+                                        "500 -15",
+                                        "true true false false",
                                         "4 10 200 8 9",
                                         "true true 0"), scenario.getInfoMessages(), scenario.getLines()::toString);
 

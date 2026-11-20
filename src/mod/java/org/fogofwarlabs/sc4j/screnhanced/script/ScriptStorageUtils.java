@@ -66,7 +66,34 @@ public final class ScriptStorageUtils {
      */
     public static @Nullable ScriptPackage readPackage(byte @NotNull [] archiveData, @NotNull String description) throws IOException {
         MpqArchive archive = MpqArchive.open(archiveData, description, false);
-        List<ChkSection> sections = ChkFile.parseTolerant(archive.readFile(ChkFile.ARCHIVE_ENTRY)).getSections(SECTION_NAME);
+        ScriptPackage scripts = readScripts(ChkFile.parseTolerant(archive.readFile(ChkFile.ARCHIVE_ENTRY)), description);
+
+        if (scripts == null || archive.findEntry(RESOURCE_FILE_NAME) == null) {
+            return scripts;
+        }
+
+        ByteBuffer resourceFile = ByteBuffer.wrap(archive.readFile(RESOURCE_FILE_NAME)).order(ByteOrder.LITTLE_ENDIAN);
+        String resourceDescription = RESOURCE_FILE_NAME + " of " + description;
+
+        readFormatHeader(resourceFile, resourceDescription);
+
+        Map<String, byte[]> resources = readEntries(resourceFile, resourceDescription);
+
+        requireEnd(resourceFile, resourceDescription);
+
+        return ScriptPackage.create(scripts.getManifest(), scripts.getScripts(), resources);
+    }
+
+    /**
+     * Reads the manifest and the scripts of a scenario's last {@value #SECTION_NAME} section, without the resources of the map archive.
+     *
+     * @param scenario    the parsed scenario
+     * @param description the map name used in messages
+     * @return the script package without resources, or {@code null} if the scenario has no {@value #SECTION_NAME} section
+     * @throws IOException if the script section or the package is not valid
+     */
+    public static @Nullable ScriptPackage readScripts(@NotNull ChkFile scenario, @NotNull String description) throws IOException {
+        List<ChkSection> sections = scenario.getSections(SECTION_NAME);
 
         if (sections.isEmpty()) {
             return null;
@@ -85,20 +112,10 @@ public final class ScriptStorageUtils {
 
         byte[] manifest = readBytes(sectionPayload, readUnsigned(sectionPayload, Integer.BYTES, sectionDescription), sectionDescription);
         Map<String, byte[]> scripts = readEntries(sectionPayload, sectionDescription);
-        Map<String, byte[]> resources = Map.of();
 
         requireEnd(sectionPayload, sectionDescription);
 
-        if (archive.findEntry(RESOURCE_FILE_NAME) != null) {
-            ByteBuffer resourceFile = ByteBuffer.wrap(archive.readFile(RESOURCE_FILE_NAME)).order(ByteOrder.LITTLE_ENDIAN);
-            String resourceDescription = RESOURCE_FILE_NAME + " of " + description;
-
-            readFormatHeader(resourceFile, resourceDescription);
-            resources = readEntries(resourceFile, resourceDescription);
-            requireEnd(resourceFile, resourceDescription);
-        }
-
-        return ScriptPackage.create(ScriptManifest.parse(manifest), scripts, resources);
+        return ScriptPackage.create(ScriptManifest.parse(manifest), scripts, Map.of());
     }
 
     /**

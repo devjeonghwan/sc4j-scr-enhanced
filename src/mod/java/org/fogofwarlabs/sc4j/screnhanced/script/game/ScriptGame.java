@@ -1,9 +1,12 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
+import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
@@ -32,6 +35,9 @@ import java.util.List;
  * A timer of {@code core.game.every} runs first at the frame its interval after the current game frame, then every interval; the timers of a
  * frame run in the order of their due frames, then of their registration. While the game is read-only, every {@code core} function that
  * changes the game state throws a {@code TypeError}.
+ * <p>
+ * The prelude also makes the event and decision objects of the hooks ({@link #createEvent}, {@link #createDecision}); the values a decision
+ * hook left in a decision object go back into the decision with {@link #applyDecision}.
  */
 public final class ScriptGame {
     /**
@@ -43,6 +49,11 @@ public final class ScriptGame {
      * The resource of the prelude, next to this class.
      */
     private static final @NotNull String PRELUDE_RESOURCE = "prelude.js";
+    /**
+     * The functions of the object the prelude returns: they make the event and the decision objects of a hook from their values.
+     */
+    private static final @NotNull String CREATE_EVENT_FUNCTION = "createEvent";
+    private static final @NotNull String CREATE_DECISION_FUNCTION = "createDecision";
     private static final int CORE_ATTRIBUTES = ScriptableObject.READONLY | ScriptableObject.DONTENUM | ScriptableObject.PERMANENT;
     /**
      * The display time of each character of a printed text and the shortest display time, those of the trigger texts.
@@ -80,7 +91,7 @@ public final class ScriptGame {
      * @throws IllegalStateException if the prelude cannot be read or fails
      */
     public static @NotNull ScriptGame install(@NotNull Context context, @NotNull ScriptableObject global, @NotNull Game game) {
-        ScriptGame scriptGame = new ScriptGame(game);
+        ScriptGame scriptGame = new ScriptGame(game, global);
         ScriptableObject core = (ScriptableObject) context.newObject(global);
 
         scriptGame.defineGameFunctions(ScriptCoreUtils.createNamespace(context, global, core, "game"), global);
@@ -102,6 +113,8 @@ public final class ScriptGame {
 
 
     private final @NotNull Game game;
+    private final @NotNull Scriptable global;
+    private @Nullable Scriptable bridge;
 
     private final @NotNull List<Timer> timers;
     private int nextTimerId;
@@ -109,12 +122,15 @@ public final class ScriptGame {
     private boolean readOnly;
 
     /**
-     * Creates a {@link ScriptGame} instance without timers, not read-only.
+     * Creates a {@link ScriptGame} instance without timers, not read-only, whose prelude has not run.
      *
-     * @param game the game
+     * @param game   the game
+     * @param global the global scope
      */
-    private ScriptGame(@NotNull Game game) {
-        this.game = game;
+    private ScriptGame(@NotNull Game game, @NotNull Scriptable global) {
+        this.game   = game;
+        this.global = global;
+        this.bridge = null;
 
         this.timers      = new ArrayList<>();
         this.nextTimerId = 1;
@@ -219,6 +235,73 @@ public final class ScriptGame {
     }
 
     /**
+     * Creates the script object of an event: the prelude's event object of the hook, with the event's captured values.
+     *
+     * @param context  the current context
+     * @param hookName the name of the hook that receives the event
+     * @param event    the event
+     * @param frame    the frame the event happened in
+     * @return the created event object
+     * @throws IllegalStateException if the game has no unit pool
+     */
+    public @NotNull Scriptable createEvent(@NotNull Context context, @NotNull String hookName, @NotNull SimulationEvent event, int frame) {
+        Scriptable values = ScriptSimulationUtils.createEventValues(context, this.global, this.getUnitPool(), event, frame);
+
+        return this.callBridge(context, CREATE_EVENT_FUNCTION, hookName, values);
+    }
+
+    /**
+     * Creates the script object of a decision: the prelude's decision object of the hook, with the decision's current values.
+     *
+     * @param context  the current context
+     * @param hookName the name of the hook that receives the decision
+     * @param decision the decision
+     * @return the created decision object
+     * @throws IllegalStateException if the game has no unit pool
+     */
+    public @NotNull Scriptable createDecision(@NotNull Context context, @NotNull String hookName, @NotNull SimulationDecision decision) {
+        Scriptable values = ScriptSimulationUtils.createDecisionValues(context, this.global, this.getUnitPool(), decision);
+
+        return this.callBridge(context, CREATE_DECISION_FUNCTION, hookName, values);
+    }
+
+    /**
+     * Copies the values a decision hook left in a decision object ({@link #createDecision}) back into the decision.
+     *
+     * @param object   the decision object
+     * @param decision the decision
+     * @throws IllegalStateException if the game has no unit pool
+     */
+    public void applyDecision(@NotNull Scriptable object, @NotNull SimulationDecision decision) {
+        ScriptSimulationUtils.applyDecision(object, this.getUnitPool(), decision);
+    }
+
+    private @NotNull UnitPool getUnitPool() {
+        return this.game.getUnitSystem().requireUnitPool();
+    }
+
+    /**
+     * Calls a function of the object the prelude returned with a hook name and values.
+     *
+     * @return the object the function returned
+     * @throws IllegalStateException if the prelude has not run or returned no such function
+     */
+    private @NotNull Scriptable callBridge(@NotNull Context context, @NotNull String functionName, @NotNull String hookName,
+                                           @NotNull Scriptable values) {
+        Scriptable prelude = this.bridge;
+
+        if (prelude == null || !(ScriptableObject.getProperty(prelude, functionName) instanceof Function function)) {
+            throw Exceptions.newIllegalStateException("The script game prelude has no function {0}.", functionName);
+        }
+
+        if (!(function.call(context, this.global, prelude, new Object[]{hookName, values}) instanceof Scriptable object)) {
+            throw Exceptions.newIllegalStateException("The script game prelude made no object for {0}.", hookName);
+        }
+
+        return object;
+    }
+
+    /**
      * Writes a text as a trigger text, the way Display Text Message shows it with forced display.
      *
      * @param text the text
@@ -274,7 +357,8 @@ public final class ScriptGame {
     }
 
     /**
-     * Runs the prelude: a script whose value is a function, called with the global scope and {@code core}.
+     * Runs the prelude: a script whose value is a function, called with the global scope and {@code core}, which returns the object of the
+     * functions {@value #CREATE_EVENT_FUNCTION} and {@value #CREATE_DECISION_FUNCTION}, kept outside the scripts' reach.
      */
     private void runPrelude(@NotNull Context context, @NotNull ScriptableObject global, @NotNull Scriptable core) {
         String source;
@@ -295,6 +379,10 @@ public final class ScriptGame {
             throw Exceptions.newIllegalStateException("The script game prelude {0} is not a function.", PRELUDE_RESOURCE);
         }
 
-        prelude.call(context, global, global, new Object[]{global, core});
+        if (!(prelude.call(context, global, global, new Object[]{global, core}) instanceof Scriptable functions)) {
+            throw Exceptions.newIllegalStateException("The script game prelude {0} returned no functions.", PRELUDE_RESOURCE);
+        }
+
+        this.bridge = functions;
     }
 }

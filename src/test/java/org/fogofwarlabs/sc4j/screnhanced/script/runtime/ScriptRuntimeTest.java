@@ -1,5 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerResultEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.WeaponDamageDecision;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -220,7 +222,7 @@ final class ScriptRuntimeTest {
     @Test
     void unknown_hook_names_log_one_warning_each() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function onUnitDied() { log.info('called'); }
+                function onUnitDance() { log.info('called'); }
                 function onstart() { log.info('called'); }
                 function on() { log.info('called'); }
                 var onCount = 3;
@@ -230,10 +232,28 @@ final class ScriptRuntimeTest {
         scenario.getRuntime().runFrame(0);
         scenario.getRuntime().runFrame(1);
 
-        Assertions.assertEquals(List.of("WARN main.js: onUnitDied is not a known hook and is not called.", "INFO main.js: start"),
+        Assertions.assertEquals(List.of("WARN main.js: onUnitDance is not a known hook and is not called.", "INFO main.js: start"),
                                 scenario.getLines());
         Assertions.assertTrue(scenario.getRuntime().hasHook(ScriptHook.START));
         Assertions.assertFalse(scenario.getRuntime().hasHook(ScriptHook.FRAME));
+    }
+
+    @Test
+    void event_and_decision_hooks_are_known_hooks() throws IOException {
+        ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
+                function onUnitDied(event) {}
+                function onPlayerResult(event) {}
+                function onBeforeDamage(damage) {}
+                function onBeforeTargetAcquired(target) {}
+                """);
+
+        Assertions.assertEquals(List.of(), scenario.getLines());
+        Assertions.assertTrue(scenario.getRuntime().hasHook(ScriptHook.UNIT_DIED));
+        Assertions.assertTrue(scenario.getRuntime().hasHook(ScriptHook.BEFORE_TARGET_ACQUIRED));
+        Assertions.assertFalse(scenario.getRuntime().hasHook(ScriptHook.BEFORE_ORDER));
+        Assertions.assertEquals(ScriptHook.BEFORE_DAMAGE, ScriptHook.findByKind(WeaponDamageDecision.class));
+        Assertions.assertEquals(ScriptHook.PLAYER_RESULT, ScriptHook.findByKind(PlayerResultEvent.class));
+        Assertions.assertNull(ScriptHook.findByKind(String.class));
     }
 
     @Test

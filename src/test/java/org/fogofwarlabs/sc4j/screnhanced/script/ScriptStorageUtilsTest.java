@@ -230,4 +230,19 @@ final class ScriptStorageUtilsTest {
 
         Assertions.assertNull(ScriptStorageUtils.readPackage(ScriptMapScenario.createMap(scenario), MAP_NAME));
     }
+
+    @Test
+    void read_scripts_should_read_the_scenario_section_without_the_resources() throws IOException {
+        byte[] map = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME,
+                                                     createPackage("Scripts", Map.of(MAIN_SCRIPT, "main;", MODULE_SCRIPT, "module;"),
+                                                                   Map.of(RESOURCE_NAME, "image")));
+        ScriptPackage scripts = ScriptStorageUtils.readScripts(ChkFile.parseTolerant(readScenario(map)), MAP_NAME);
+        byte[] withoutSection = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
+
+        Assertions.assertNotNull(scripts);
+        Assertions.assertEquals("Scripts", scripts.getManifest().getName());
+        Assertions.assertEquals(Map.of(MAIN_SCRIPT, "main;", MODULE_SCRIPT, "module;"), toTexts(scripts.getScripts()));
+        Assertions.assertTrue(scripts.getResources().isEmpty());
+        Assertions.assertNull(ScriptStorageUtils.readScripts(ChkFile.parseTolerant(withoutSection), MAP_NAME));
+    }
 }
