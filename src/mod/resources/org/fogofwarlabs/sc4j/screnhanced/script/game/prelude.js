@@ -166,6 +166,11 @@
         return WeaponType.get(core.unitType.getAirWeapon(this.id));
     };
 
+    // The image type whose HD anim this image type draws (images.rel), this image type for one with its own anim.
+    imageTypePrototype.getAnimImageType = function () {
+        return ImageType.get(core.imageType.getAnimImageType(this.id));
+    };
+
     weaponTypePrototype.getDamage = function () {
         return core.weaponType.getDamage(this.id);
     };

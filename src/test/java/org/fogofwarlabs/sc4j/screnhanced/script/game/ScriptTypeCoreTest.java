@@ -15,7 +15,8 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Tests the {@code ImageType} names that {@code core.imageType} builds from the installed GRP paths and drawing functions.
+ * Tests the {@code ImageType} names that {@code core.imageType} builds from the installed GRP paths and drawing functions, and the image types
+ * whose HD anims the image types draw after the installed {@code images.rel}.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -49,6 +50,29 @@ final class ScriptTypeCoreTest {
         Assertions.assertEquals(List.of("999 999 999",
                                         "UnitTerranMarine UnitProtossArbiter UnitProtossArbiterShadow UnitProtossArbiterWarpFlash " +
                                         "UnitNeutralGeyser UnitNeutralGeyser_2 UnitZergZLurker UnitZergZlurker_2"),
+                                scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void an_image_type_draws_the_hd_anim_that_the_installed_image_relations_name(@NotNull InstallationTestResources resources) throws IOException {
+        GameMap map = new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]);
+        ScriptGameScenario scenario = new ScriptGameScenario(Game.create(resources.getGameData(), map, new LcgRandom(0)), """
+                var shared = 0;
+                for (var id = 0; id < ImageType.getCount(); id++) {
+                    var animImageType = ImageType.get(id).getAnimImageType();
+                    if (animImageType.getId() !== core.imageType.getAnimImageType(id) || animImageType.getAnimImageType() !== animImageType) {
+                        throw new Error('image type ' + id);
+                    }
+                    if (animImageType !== ImageType.get(id)) {
+                        shared++;
+                    }
+                }
+                log.info(shared > 0, [239, 275, 172].map(function (id) { return ImageType.get(id).getAnimImageType().getName(); }).join(' '));
+                """);
+
+        scenario.getRuntime().start();
+
+        Assertions.assertEquals(List.of("true UnitTerranMarine UnitTerranControl UnitProtossGateway"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 }

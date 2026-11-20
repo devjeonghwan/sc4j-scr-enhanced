@@ -30,8 +30,9 @@ import java.util.Map;
  * and the manifest; a package without resources has no such file.
  * <p>
  * Reading takes the last {@value #SECTION_NAME} section. Writing needs a plain CHK file, where each section starts where the previous one
- * ends, no size is negative and the last section ends at the end of the file; it removes every {@value #SECTION_NAME} section, appends
- * the new one and keeps every other section and every other MPQ file as it is.
+ * ends and only the last section may end outside the file (after its end, or before its start with a negative size); it removes every
+ * {@value #SECTION_NAME} section, adds the new one after the last complete section and keeps every other section and every other MPQ file
+ * as it is.
  */
 public final class ScriptStorageUtils {
     /**
@@ -173,8 +174,8 @@ public final class ScriptStorageUtils {
     /**
      * Replaces the {@value #SECTION_NAME} sections of a plain CHK file with one section after the last complete section.
      * <p>
-     * The tail of the file, a last section that ends after the end of the file or bytes too short for a section header, stays after the new
-     * section.
+     * The tail of the file, a last section that ends after the end of the file or whose negative size leads before its start, or bytes too
+     * short for a section header, stays after the new section, as long as reading still stops at the tail section in the new file.
      *
      * @param scenario    the CHK file content
      * @param payload     the payload of the new section
@@ -184,14 +185,13 @@ public final class ScriptStorageUtils {
      */
     private static byte @NotNull [] replaceSection(byte @NotNull [] scenario, byte @NotNull [] payload, @NotNull String description) throws IOException {
         List<ChkSection> keptSections = new ArrayList<>();
+        List<ChkSection> sections = ChkFile.parseTolerant(scenario).getSections();
         long keptSize = 0;
         long sectionEnd = 0;
+        ChkSection tailSection = null;
 
-        for (ChkSection section : ChkFile.parseTolerant(scenario).getSections()) {
-            if (section.getDeclaredSize() < 0) {
-                throw Exceptions.newIOException("The scenario of {0} is not a plain CHK file: the section {1} at offset {2} has the negative size {3}.",
-                                                description, section.getName(), section.getHeaderOffset(), section.getDeclaredSize());
-            }
+        for (int index = 0; index < sections.size(); index++) {
+            ChkSection section = sections.get(index);
 
             if (section.getHeaderOffset() != sectionEnd) {
                 throw Exceptions.newIOException("The scenario of {0} is not a plain CHK file: the section {1} at offset {2} does not follow the " +
@@ -199,9 +199,18 @@ public final class ScriptStorageUtils {
                                                 description, section.getName(), section.getHeaderOffset());
             }
 
-            // Only the last section can end after the end of the file; it is part of the tail.
+            // Only the last section can end outside the file, after its end or, with a negative size, before its start; it is part of the tail.
             if (!section.hasCompletePayload()) {
-                break;
+                long jump = section.getPayloadOffset() + (long) section.getDeclaredSize();
+
+                if (index == sections.size() - 1 && (jump < 0 || jump + SECTION_HEADER_SIZE > scenario.length)) {
+                    tailSection = section;
+
+                    break;
+                }
+
+                throw Exceptions.newIOException("The scenario of {0} is not a plain CHK file: the section {1} at offset {2} has the negative size {3}.",
+                                                description, section.getName(), section.getHeaderOffset(), section.getDeclaredSize());
             }
 
             sectionEnd = section.getPayloadOffset() + (long) section.getDeclaredSize();
@@ -219,6 +228,17 @@ public final class ScriptStorageUtils {
         if (scenarioSize > ScrDataExtensionUtils.getMaximumScenarioSize()) {
             throw Exceptions.newIOException("The scenario of {0} with the script section has {1} bytes, more than the {2} bytes a map may hold.",
                                             description, scenarioSize, ScrDataExtensionUtils.getMaximumScenarioSize());
+        }
+
+        // The tail section moves with the new section; where it jumps to must stay outside the new file, so that reading still stops there.
+        if (tailSection != null) {
+            long newJump = tailSection.getPayloadOffset() + (long) tailSection.getDeclaredSize() - tailOffset + (scenarioSize - tailSize);
+
+            if (newJump >= 0 && newJump + SECTION_HEADER_SIZE <= scenarioSize) {
+                throw Exceptions.newIOException("The scenario of {0} with the script section would be read differently: the size {1} of the last " +
+                                                "section {2} then leads into the file.",
+                                                description, tailSection.getDeclaredSize(), tailSection.getName());
+            }
         }
 
         ByteBuffer newScenario = ByteBuffer.allocate((int) scenarioSize).order(ByteOrder.LITTLE_ENDIAN);

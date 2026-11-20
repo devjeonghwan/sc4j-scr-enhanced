@@ -684,6 +684,10 @@ interface Order extends GameType {
  * An image type (images.dat), named after its GRP path in images.tbl ("unit\terran\marine.grp" is UnitTerranMarine).
  */
 interface ImageType extends GameType {
+    /**
+     * @returns the image type whose HD anim this image type draws (images.rel), this image type for one with its own anim
+     */
+    getAnimImageType(): ImageType;
 }
 
 /**
@@ -2429,6 +2433,13 @@ interface CoreTypes {
     getName(id: number): string;
 }
 
+interface CoreImageTypes extends CoreTypes {
+    /**
+     * @returns the image type whose HD anim the image type draws (images.rel), the image type itself for one with its own anim
+     */
+    getAnimImageType(imageType: number): number;
+}
+
 interface CoreUnitTypes extends CoreTypes {
     getMaxHp(unitType: number): number;
     setMaxHp(unitType: number, hp: number): void;
@@ -2499,7 +2510,7 @@ interface Core {
     readonly upgradeType: CoreTypes;
     readonly techType: CoreTypes;
     readonly orderType: CoreTypes;
-    readonly imageType: CoreTypes;
+    readonly imageType: CoreImageTypes;
     readonly resources: CoreResources;
     readonly graphics: CoreGraphics;
     readonly input: CoreInput;

@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.scr.content.ScrWeapons;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.DatTable;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.UnitsDat;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.WeaponsDat;
+import org.fogofwarlabs.sc4j.scr.data.format.image.ImageRelations;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.jetbrains.annotations.NotNull;
@@ -39,6 +40,10 @@ import java.util.function.Function;
  * {@code _3} and so on in entry order ({@code UnitNeutralGeyser_2}). An image without a valid GRP path, and every image of a game without
  * game data, is named {@code Image<entry>}.
  * <p>
+ * {@code imageType} also has {@code getAnimImageType(id)}: the image type whose HD anim the image type draws, after the installed
+ * {@code images.rel} ({@code UnitTerranControl} for {@code UnitTerranControl_2}); the image type itself for one with its own anim, for every
+ * image type of a game without game data and when {@code images.rel} cannot be read.
+ * <p>
  * {@code unitType} also has {@code getMaxHp} and {@code setMaxHp} (raw {@code 1/256} units), {@code getMaxShields}, {@code setMaxShields},
  * {@code getArmor}, {@code setArmor}, {@code getGroundWeapon} and {@code getAirWeapon} ({@code -1} for none); {@code weaponType} has
  * {@code getDamage}, {@code setDamage}, {@code getDamageBonus} and {@code setDamageBonus}. A write changes the data table of the current game, which the map
@@ -48,6 +53,10 @@ final class ScriptTypeCore {
     private static final @NotNull String GRP_EXTENSION = ".grp";
     private static final @NotNull String GRP_PATH_SEPARATORS = "[/\\\\]";
     private static final @NotNull String IMAGE_NAME_PREFIX = "Image";
+    /**
+     * The installed file of the image relations, which shares one HD anim among several image types.
+     */
+    private static final @NotNull String IMAGE_RELATIONS_PATH = "images.rel";
     /**
      * The number the second image with a taken name gets.
      */
@@ -93,8 +102,10 @@ final class ScriptTypeCore {
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "upgradeType"), global, "upgrade type", getNames(ScrUpgrades.getTypes()));
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "techType"), global, "tech type", getNames(ScrTechs.getTypes()));
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "orderType"), global, "order type", getNames(ScrOrders.getTypes()));
-        defineNames(ScriptCoreUtils.createNamespace(context, global, core, "imageType"), global, "image type",
-                    createImageNames(scriptGame.getGame().getGameData()));
+        Scriptable imageTypes = defineNames(ScriptCoreUtils.createNamespace(context, global, core, "imageType"), global, "image type",
+                                            createImageNames(scriptGame.getGame().getGameData()));
+
+        defineAnimImageTypes(imageTypes, global, createAnimImageTypes(scriptGame.getGame().getGameData()));
 
         defineField(scriptGame, unitTypes, global, "MaxHp", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.HIT_POINTS);
         defineField(scriptGame, unitTypes, global, "MaxShields", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.SHIELD_AMOUNT);
@@ -187,6 +198,54 @@ final class ScriptTypeCore {
         }
 
         return List.of(names);
+    }
+
+    /**
+     * Defines {@code getAnimImageType(id)} of the image type namespace.
+     *
+     * @param animImageTypes the image type whose HD anim each image type draws, by image type
+     */
+    private static void defineAnimImageTypes(@NotNull Scriptable namespace, @NotNull Scriptable global, int @NotNull [] animImageTypes) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getAnimImageType", 1, (context, scope, thisObject, arguments) -> {
+            int id = ScriptCoreUtils.requireId("image type", ScriptCoreUtils.readInteger(arguments, 0), ScrImages.COUNT);
+
+            return (double) animImageTypes[id];
+        });
+    }
+
+    /**
+     * Resolves the image type whose HD anim each {@code images.dat} entry draws, after the installed {@code images.rel}.
+     *
+     * @param gameData the game data, or {@code null} for a game without game data
+     * @return the image types, by entry: the entry itself for an entry with its own anim, for a game without game data and when
+     *         {@code images.rel} cannot be read
+     */
+    private static int @NotNull [] createAnimImageTypes(@Nullable GameData gameData) {
+        int[] animImageTypes = new int[ScrImages.COUNT];
+        ImageRelations relations = readImageRelations(gameData);
+
+        for (int id = 0; id < ScrImages.COUNT; id++) {
+            int animImageType = relations == null ? id : relations.getAnimationImage(id);
+
+            animImageTypes[id] = animImageType >= 0 && animImageType < ScrImages.COUNT ? animImageType : id;
+        }
+
+        return animImageTypes;
+    }
+
+    /**
+     * @return the installed image relations, or {@code null} if there is no game data or {@code images.rel} cannot be read
+     */
+    private static @Nullable ImageRelations readImageRelations(@Nullable GameData gameData) {
+        if (gameData == null) {
+            return null;
+        }
+
+        try {
+            return ImageRelations.parse(gameData.readInstalledFile(IMAGE_RELATIONS_PATH));
+        } catch (IOException exception) {
+            return null;
+        }
     }
 
     /**

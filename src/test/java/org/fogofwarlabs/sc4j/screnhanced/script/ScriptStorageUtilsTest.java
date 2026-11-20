@@ -186,9 +186,22 @@ final class ScriptStorageUtilsTest {
     }
 
     @Test
+    void write_package_should_refuse_a_tail_section_that_would_lead_into_the_new_scenario() throws IOException {
+        byte[] version = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
+        // The size leads two bytes before the start of the scenario, and into it once the script section moves the tail.
+        byte[] tail = ScriptMapScenario.createSection("BACK", -(version.length + 8 + 2), new byte[0]);
+        byte[] map = ScriptMapScenario.createMap(ScriptMapScenario.join(version, tail));
+        ScriptPackage scriptPackage = createPackage("Refused", Map.of(MAIN_SCRIPT, "1;"), Map.of());
+        IOException refusal = Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.writePackage(map, MAP_NAME, scriptPackage));
+
+        Assertions.assertTrue(refusal.getMessage().contains("would be read differently"), refusal.getMessage());
+    }
+
+    @Test
     void write_package_keeps_the_scenario_tail_after_the_script_section() throws IOException {
         byte[] version = ScriptMapScenario.createSection(ChkFile.VERSION_SECTION, VERSION_PAYLOAD);
-        List<byte[]> tails = List.of(new byte[]{1, 2, 3}, ScriptMapScenario.createSection("LONG", 64, new byte[4]));
+        List<byte[]> tails = List.of(new byte[]{1, 2, 3}, ScriptMapScenario.createSection("LONG", 64, new byte[4]),
+                                     ScriptMapScenario.createSection("BACK", Integer.MIN_VALUE, new byte[]{1, 2, 3, 4, 5}));
         ScriptPackage scriptPackage = createPackage("Tail", Map.of(MAIN_SCRIPT, "1;"), Map.of());
 
         for (byte[] tail : tails) {
