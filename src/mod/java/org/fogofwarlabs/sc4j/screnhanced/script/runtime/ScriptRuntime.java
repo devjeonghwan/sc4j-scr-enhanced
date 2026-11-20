@@ -3,11 +3,16 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.base.log.Logger;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptGame;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.RhinoException;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.TopLevel;
 
 /**
@@ -18,6 +23,10 @@ import org.mozilla.javascript.TopLevel;
  * {@code exports}. No Java class, no {@code eval}, no function constructor from strings, no {@code Date} and no timer is available.
  * {@link #start()} loads the manifest's main script, which loads the others through {@code require}, and calls the {@link ScriptHook#START}
  * hooks; {@link #runFrame(int)} calls the {@link ScriptHook#FRAME} hooks. A hook runs in every module that has it, in load order.
+ * <p>
+ * A runtime created with a game also has the game API ({@link ScriptGame}): the global {@code core} and the globals of the prelude, which
+ * runs when the runtime is created. {@link #runFrame(int)} then first calls the due timers of {@code game.every}, one call each, then the
+ * hooks; {@link #setReadOnly(boolean)} makes the functions that change the game state throw.
  * <p>
  * Each call of {@link #start()} and {@link #runFrame(int)} has an instruction budget. A call that exceeds it, or overflows the Java stack,
  * stops the script: the runtime calls no hook for the rest of the game. An uncaught script error ends only the hook call (or the module
@@ -33,6 +42,7 @@ public final class ScriptRuntime {
 
     private static final @NotNull Logger LOGGER = Logger.of(ScriptRuntime.class);
     private static final @NotNull String LOAD_CALL_NAME = "Loading";
+    private static final @NotNull String TIMER_CALL_NAME = "Timer";
 
     /**
      * Creates a {@link ScriptRuntime} instance with the {@link #INSTRUCTION_BUDGET} that writes to the SC:R Enhanced log.
@@ -42,11 +52,24 @@ public final class ScriptRuntime {
      * @return the created {@link ScriptRuntime} instance
      */
     public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, long seed) {
-        return create(scriptPackage, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
+        return create(scriptPackage, null, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
     }
 
     /**
-     * Creates a {@link ScriptRuntime} instance.
+     * Creates a {@link ScriptRuntime} instance with the game API of a game and the {@link #INSTRUCTION_BUDGET}, which writes to the SC:R
+     * Enhanced log.
+     *
+     * @param scriptPackage the script package
+     * @param game          the game
+     * @param seed          the seed of the script RNG, derived from the game seed
+     * @return the created {@link ScriptRuntime} instance
+     */
+    public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, @NotNull Game game, long seed) {
+        return create(scriptPackage, game, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
+    }
+
+    /**
+     * Creates a {@link ScriptRuntime} instance without a game.
      *
      * @param scriptPackage     the script package
      * @param seed              the seed of the script RNG, derived from the game seed
@@ -57,19 +80,41 @@ public final class ScriptRuntime {
      */
     public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, long seed, int instructionBudget,
                                                 @NotNull ScriptLogOutput logOutput) {
+        return create(scriptPackage, null, seed, instructionBudget, logOutput);
+    }
+
+    /**
+     * Creates a {@link ScriptRuntime} instance, with the game API of a game when one is given; the prelude of the game API runs before the
+     * first call and outside its instruction budget.
+     *
+     * @param scriptPackage     the script package
+     * @param game              the game, or {@code null} for a runtime without the game API
+     * @param seed              the seed of the script RNG, derived from the game seed
+     * @param instructionBudget the instruction budget of one call
+     * @param logOutput         the output of the scripts' {@code log} and of the runtime's warnings and errors
+     * @return the created {@link ScriptRuntime} instance
+     * @throws IllegalArgumentException if the instruction budget is not positive
+     */
+    public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, @Nullable Game game, long seed, int instructionBudget,
+                                                @NotNull ScriptLogOutput logOutput) {
         if (instructionBudget <= 0) {
             throw Exceptions.newIllegalArgumentException("The instruction budget {0} is not positive.", instructionBudget);
         }
 
         ScriptContextFactory contextFactory = new ScriptContextFactory(instructionBudget);
         TopLevel global;
+        ScriptGame scriptGame = null;
 
         try (Context context = contextFactory.enterOwnContext()) {
             global = ScriptGlobalUtils.createGlobal(context, new ScriptRandom(seed));
+
+            if (game != null) {
+                scriptGame = ScriptGame.install(context, global, game);
+            }
         }
 
         return new ScriptRuntime(scriptPackage.getManifest().getMain(), logOutput, contextFactory,
-                                 new ScriptModuleLoader(scriptPackage.getScripts(), global, logOutput));
+                                 new ScriptModuleLoader(scriptPackage.getScripts(), global, logOutput), scriptGame);
     }
 
     private static void writeToLogger(@NotNull LogLevel level, @NotNull String moduleName, @NotNull String message) {
@@ -82,6 +127,7 @@ public final class ScriptRuntime {
 
     private final @NotNull ScriptContextFactory contextFactory;
     private final @NotNull ScriptModuleLoader moduleLoader;
+    private final @Nullable ScriptGame scriptGame;
 
     private boolean started;
     private boolean stopped;
@@ -94,14 +140,16 @@ public final class ScriptRuntime {
      * @param logOutput      the output of the runtime's warnings and errors
      * @param contextFactory the factory of the runtime's contexts
      * @param moduleLoader   the module loader
+     * @param scriptGame     the game API, or {@code null} without a game
      */
     private ScriptRuntime(@NotNull String mainName, @NotNull ScriptLogOutput logOutput, @NotNull ScriptContextFactory contextFactory,
-                          @NotNull ScriptModuleLoader moduleLoader) {
+                          @NotNull ScriptModuleLoader moduleLoader, @Nullable ScriptGame scriptGame) {
         this.mainName  = mainName;
         this.logOutput = logOutput;
 
         this.contextFactory = contextFactory;
         this.moduleLoader   = moduleLoader;
+        this.scriptGame     = scriptGame;
 
         this.started  = false;
         this.stopped  = false;
@@ -113,6 +161,24 @@ public final class ScriptRuntime {
      */
     public boolean isStopped() {
         return this.stopped;
+    }
+
+    /**
+     * @return {@code true} if the game API's functions that change the game state throw, {@code false} otherwise
+     * @throws IllegalStateException if the runtime has no game
+     */
+    public boolean isReadOnly() {
+        return this.requireScriptGame().isReadOnly();
+    }
+
+    /**
+     * Sets whether the game API's functions that change the game state throw a {@code TypeError}, as they must while a decision runs.
+     *
+     * @param readOnly {@code true} to make the game read-only
+     * @throws IllegalStateException if the runtime has no game
+     */
+    public void setReadOnly(boolean readOnly) {
+        this.requireScriptGame().setReadOnly(readOnly);
     }
 
     /**
@@ -150,7 +216,8 @@ public final class ScriptRuntime {
     }
 
     /**
-     * Calls the {@link ScriptHook#FRAME} hooks with the frame number, within one instruction budget; does nothing once the script stopped.
+     * Calls the due timers of the frame, then the {@link ScriptHook#FRAME} hooks with the frame number, within one instruction budget; does
+     * nothing once the script stopped.
      *
      * @param frame the frame number
      * @throws IllegalStateException if the runtime has not started or is disposed
@@ -162,14 +229,60 @@ public final class ScriptRuntime {
             throw Exceptions.newIllegalStateException("The script runtime has not started.");
         }
 
-        if (!this.hasHook(ScriptHook.FRAME)) {
+        boolean timers = this.scriptGame != null && this.scriptGame.hasTimers();
+
+        if (this.stopped || !timers && !this.hasHook(ScriptHook.FRAME)) {
             return;
         }
 
         try (Context context = this.contextFactory.enterOwnContext()) {
             this.contextFactory.resetInstructionCount();
+
+            if (timers && !this.callTimers(context, frame)) {
+                return;
+            }
+
             this.callHook(context, ScriptHook.FRAME, frame);
         }
+    }
+
+    /**
+     * Calls the due timers of a frame one by one until none is due or the script stops. A timer that a call cancels or adds is seen by the
+     * next pick.
+     *
+     * @return {@code true} if the script has not stopped, {@code false} otherwise
+     */
+    private boolean callTimers(@NotNull Context context, int frame) {
+        ScriptGame game = this.requireScriptGame();
+        Function timer = game.pollDueTimer(frame);
+
+        while (timer != null) {
+            Scriptable scope = ScriptableObject.getTopLevelScope(timer);
+            Function function = timer;
+
+            if (!this.runCall(context, this.findModuleName(scope), TIMER_CALL_NAME, () -> function.call(context, scope, scope, new Object[0]))) {
+                return false;
+            }
+
+            timer = game.pollDueTimer(frame);
+        }
+
+        return true;
+    }
+
+    /**
+     * Finds the module of a top-level scope.
+     *
+     * @return the module name, or the main script's name if no module has the scope
+     */
+    private @NotNull String findModuleName(@NotNull Scriptable scope) {
+        for (ScriptModule module : this.moduleLoader.getModules()) {
+            if (module.getScope() == scope) {
+                return module.getName();
+            }
+        }
+
+        return this.mainName;
     }
 
     /**
@@ -241,6 +354,14 @@ public final class ScriptRuntime {
         this.logOutput.write(LogLevel.ERROR, moduleName, message);
     }
 
+    private @NotNull ScriptGame requireScriptGame() {
+        if (this.scriptGame == null) {
+            throw Exceptions.newIllegalStateException("The script runtime has no game.");
+        }
+
+        return this.scriptGame;
+    }
+
     private void checkNotDisposed() {
         if (this.disposed) {
             throw Exceptions.newIllegalStateException("The script runtime is disposed.");
@@ -250,12 +371,16 @@ public final class ScriptRuntime {
     /**
      * Disposes resources.
      * <p>
-     * The runtime forgets its modules; later calls of {@link #start()} and {@link #runFrame(int)} fail.
+     * The runtime forgets its modules and timers; later calls of {@link #start()} and {@link #runFrame(int)} fail.
      */
     public void dispose() {
         this.disposed = true;
         this.stopped  = true;
 
         this.moduleLoader.clear();
+
+        if (this.scriptGame != null) {
+            this.scriptGame.clearTimers();
+        }
     }
 }
