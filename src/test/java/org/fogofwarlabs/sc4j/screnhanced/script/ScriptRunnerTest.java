@@ -22,7 +22,8 @@ import java.util.Map;
 
 /**
  * Tests that {@link ScriptRunner} packs into the mod's storage of the install, builds the runtime command line of the launcher with the
- * packed map, starts it through its starter and packs again after a change of the script folder; no process is started.
+ * packed map as a Use Map Settings or a melee game, starts it through its starter and packs again after a change of the script folder; no
+ * process is started.
  */
 final class ScriptRunnerTest {
     private static final byte @NotNull [] VERSION_PAYLOAD = {(byte) 0xCD, 0x00};
@@ -131,7 +132,7 @@ final class ScriptRunnerTest {
 
         ScriptMapScenario.writeFolder(scriptFolder, SCRIPT_FOLDER);
 
-        ScriptRunner runner = new ScriptRunner(install, map, scriptFolder, new RecordingStarter(0));
+        ScriptRunner runner = new ScriptRunner(install, map, scriptFolder, false, new RecordingStarter(0));
         ScriptPackage packed = runner.pack();
         ScriptPackage read = readPackedPackage(runner.getPackedMap());
 
@@ -151,7 +152,7 @@ final class ScriptRunnerTest {
 
         ScriptMapScenario.writeFolder(scriptFolder, SCRIPT_FOLDER);
 
-        ScriptRunner runner = new ScriptRunner(install, map, scriptFolder, starter);
+        ScriptRunner runner = new ScriptRunner(install, map, scriptFolder, false, starter);
 
         runner.pack();
         runner.start(java);
@@ -167,9 +168,29 @@ final class ScriptRunnerTest {
     }
 
     @Test
+    void start_should_run_the_packed_map_as_a_melee_game_against_one_random_computer(@TempDir @NotNull Path folder) throws IOException {
+        Path install = writeInstall(folder).toAbsolutePath();
+        Path scriptFolder = folder.resolve("script");
+        RecordingStarter starter = new RecordingStarter(0);
+
+        ScriptMapScenario.writeFolder(scriptFolder, SCRIPT_FOLDER);
+
+        ScriptRunner runner = new ScriptRunner(install, writeMap(folder), scriptFolder, true, starter);
+
+        runner.pack();
+        runner.start(Path.of("java"));
+
+        List<String> command = starter.builders.getFirst().command();
+
+        Assertions.assertEquals(install.resolve("userdata/mods/scr-enhanced/script-run").resolve(MAP_NAME), runner.getPackedMap());
+        Assertions.assertEquals(List.of("--", "--melee", runner.getPackedMap().toString(), "--computer", "random"),
+                                command.subList(command.size() - 5, command.size()));
+    }
+
+    @Test
     void create_command_should_fail_without_runtime_or_mod(@TempDir @NotNull Path folder) throws IOException {
         Path install = writeInstall(folder);
-        ScriptRunner runner = new ScriptRunner(install, writeMap(folder), folder.resolve("script"), new RecordingStarter(0));
+        ScriptRunner runner = new ScriptRunner(install, writeMap(folder), folder.resolve("script"), false, new RecordingStarter(0));
 
         Files.delete(install.resolve("mods/scr-enhanced.jar"));
         Assertions.assertThrows(IOException.class, () -> runner.createCommand(Path.of("java")));
@@ -187,7 +208,7 @@ final class ScriptRunnerTest {
         ScriptMapScenario.writeFolder(scriptFolder, SCRIPT_FOLDER);
         Files.setLastModifiedTime(main, FileTime.fromMillis(MODIFIED_TIME));
 
-        ScriptRunner runner = new ScriptRunner(install, writeMap(folder), scriptFolder, new RecordingStarter(0));
+        ScriptRunner runner = new ScriptRunner(install, writeMap(folder), scriptFolder, false, new RecordingStarter(0));
 
         runner.pack();
 
@@ -231,6 +252,18 @@ final class ScriptRunnerTest {
         Assertions.assertEquals(1, starter.builders.size());
         Assertions.assertEquals("--ums", starter.builders.getFirst().command().get(starter.builders.getFirst().command().size() - 2));
         Assertions.assertTrue(Files.isRegularFile(install.resolve("userdata/mods/scr-enhanced/script-run").resolve(MAP_NAME)));
+        Assertions.assertEquals(0, ScriptTool.run(new String[]{ScriptTool.RUN_COMMAND, map.toString(), ScriptTool.SCRIPT_OPTION,
+                                                               scriptFolder.toString(), ScriptTool.MELEE_OPTION, ScriptTool.INSTALL_OPTION,
+                                                               install.toString()},
+                                                  new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8),
+                                                  new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8), starter));
+
+        List<String> meleeCommand = starter.builders.getLast().command();
+        Path packedMap = install.toAbsolutePath().resolve("userdata/mods/scr-enhanced/script-run").resolve(MAP_NAME);
+
+        Assertions.assertEquals(2, starter.builders.size());
+        Assertions.assertEquals(List.of("--melee", packedMap.toString(), "--computer", "random"),
+                                meleeCommand.subList(meleeCommand.size() - 4, meleeCommand.size()));
         Assertions.assertEquals(1, ScriptTool.run(new String[]{ScriptTool.RUN_COMMAND, map.toString(), ScriptTool.SCRIPT_OPTION,
                                                                scriptFolder.toString(), ScriptTool.INSTALL_OPTION, install.toString()},
                                                   new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8),

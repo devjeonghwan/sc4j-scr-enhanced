@@ -24,7 +24,8 @@ import java.util.stream.Stream;
  * <java> <the lines of <install>/runtime/bin/sc4j-runtime.launch, ${APP_HOME} being <install>/runtime>
  *     --install <install> --mod <install>/mods/scr-enhanced.jar -- --ums <packed map>
  *}
- * The runtime takes the settings, storage and log folders of the mod from the install. The packed map is
+ * A melee run ends the command line with {@code --melee <packed map> --computer random} instead: one computer player of a random race against
+ * the human of the client's default race, name and slot. The runtime takes the settings, storage and log folders of the mod from the install. The packed map is
  * {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside its map folders; the source map
  * stays as it is.
  * <p>
@@ -61,6 +62,9 @@ public final class ScriptRunner {
     private static final @NotNull String MOD_OPTION = "--mod";
     private static final @NotNull String MOD_ARGUMENTS_SEPARATOR = "--";
     private static final @NotNull String MAP_SETTINGS_OPTION = "--ums";
+    private static final @NotNull String MELEE_OPTION = "--melee";
+    private static final @NotNull String COMPUTER_OPTION = "--computer";
+    private static final @NotNull String MELEE_COMPUTER_RACES = "random";
     private static final @NotNull String TEMPORARY_SUFFIX = ".tmp";
     private static final @NotNull String RESOURCE_PREFIX = ScriptPackage.RESOURCE_FOLDER + "/";
 
@@ -127,6 +131,7 @@ public final class ScriptRunner {
     private final @NotNull Path install;
     private final @NotNull Path map;
     private final @NotNull Path scriptFolder;
+    private final boolean melee;
     private final @NotNull ProcessStarter starter;
 
     private final @NotNull Path packedMap;
@@ -138,12 +143,14 @@ public final class ScriptRunner {
      * @param install      the SC4J install
      * @param map          the map to pack the scripts into
      * @param scriptFolder the script folder
+     * @param melee        whether the packed map starts as a melee game instead of a Use Map Settings game
      * @param starter      starts the runtime process
      */
-    public ScriptRunner(@NotNull Path install, @NotNull Path map, @NotNull Path scriptFolder, @NotNull ProcessStarter starter) {
+    public ScriptRunner(@NotNull Path install, @NotNull Path map, @NotNull Path scriptFolder, boolean melee, @NotNull ProcessStarter starter) {
         this.install      = install.toAbsolutePath().normalize();
         this.map          = map.toAbsolutePath().normalize();
         this.scriptFolder = scriptFolder.toAbsolutePath().normalize();
+        this.melee        = melee;
         this.starter      = starter;
 
         Path mapName = this.map.getFileName();
@@ -218,7 +225,7 @@ public final class ScriptRunner {
     }
 
     /**
-     * Creates the command line that starts SC:R Enhanced on the packed map.
+     * Creates the command line that starts SC:R Enhanced on the packed map, as a melee or a Use Map Settings game.
      *
      * @param javaProgram the Java program
      * @return the command line, one argument per element
@@ -247,8 +254,13 @@ public final class ScriptRunner {
             }
         }
 
-        command.addAll(List.of(INSTALL_OPTION, this.install.toString(), MOD_OPTION, modJar.toString(), MOD_ARGUMENTS_SEPARATOR,
-                               MAP_SETTINGS_OPTION, this.packedMap.toString()));
+        command.addAll(List.of(INSTALL_OPTION, this.install.toString(), MOD_OPTION, modJar.toString(), MOD_ARGUMENTS_SEPARATOR));
+
+        if (this.melee) {
+            command.addAll(List.of(MELEE_OPTION, this.packedMap.toString(), COMPUTER_OPTION, MELEE_COMPUTER_RACES));
+        } else {
+            command.addAll(List.of(MAP_SETTINGS_OPTION, this.packedMap.toString()));
+        }
 
         return command;
     }

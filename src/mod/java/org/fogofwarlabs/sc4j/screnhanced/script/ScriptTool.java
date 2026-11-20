@@ -18,9 +18,9 @@ import java.util.concurrent.TimeUnit;
  * Commands: {@code init <folder>} writes a new script folder ({@link ScriptProjectUtils}); {@code check <folder>} prints one line per
  * finding of a script folder ({@link ScriptCheckUtils}); {@code pack <map> --script <folder> -o <output>} writes the map with the package of
  * the script folder to the output file; {@code unpack <map> -o <folder>} writes the package of the map to the folder, which must be absent or
- * empty; {@code run <map> --script <folder> [--watch] [--install <folder>]} packs the script folder into a copy of the map and runs SC:R
- * Enhanced of an SC4J install on it until the game ends ({@link ScriptRunner}), packing again on every change of the folder with
- * {@code --watch}. The install is the one {@code --install} names, else {@link ScriptRunner#findInstall()}.
+ * empty; {@code run <map> --script <folder> [--melee] [--watch] [--install <folder>]} packs the script folder into a copy of the map and
+ * runs SC:R Enhanced of an SC4J install on it until the game ends ({@link ScriptRunner}), as a melee game with {@code --melee}, else as a
+ * Use Map Settings game, packing again on every change of the folder with {@code --watch}. The install is the one {@code --install} names, else {@link ScriptRunner#findInstall()}.
  */
 public final class ScriptTool {
     /**
@@ -52,6 +52,10 @@ public final class ScriptTool {
      */
     public static final @NotNull String OUTPUT_OPTION = "-o";
     /**
+     * The option of {@value #RUN_COMMAND} that starts the map as a melee game instead of a Use Map Settings game.
+     */
+    public static final @NotNull String MELEE_OPTION = "--melee";
+    /**
      * The option of {@value #RUN_COMMAND} that packs again on every change of the script folder.
      */
     public static final @NotNull String WATCH_OPTION = "--watch";
@@ -63,7 +67,8 @@ public final class ScriptTool {
      * The usage line.
      */
     public static final @NotNull String USAGE = "Usage: init <folder> | check <folder> | pack <map> --script <folder> -o <output> | " +
-                                                "unpack <map> -o <folder> | run <map> --script <folder> [--watch] [--install <folder>]";
+                                                "unpack <map> -o <folder> | run <map> --script <folder> [--melee] [--watch] " +
+                                                "[--install <folder>]";
 
     private static final int COMMAND_ARGUMENT = 0;
     private static final int PATH_ARGUMENT = 1;
@@ -204,19 +209,20 @@ public final class ScriptTool {
     }
 
     /**
-     * Packs the script folder into a copy of the map, starts SC:R Enhanced on it and waits for the game to end; with {@value #WATCH_OPTION}
-     * it packs again on every change of the script folder meanwhile.
+     * Packs the script folder into a copy of the map, starts SC:R Enhanced on it, as a melee game with {@value #MELEE_OPTION}, and waits for
+     * the game to end; with {@value #WATCH_OPTION} it packs again on every change of the script folder meanwhile.
      */
     private static int runGame(@NotNull String @NotNull [] arguments, @NotNull Path map, @NotNull PrintStream output, @NotNull PrintStream errors,
                                @NotNull ScriptRunner.ProcessStarter starter) throws IOException, InterruptedException {
-        Map<String, String> values = readOptions(arguments, List.of(SCRIPT_OPTION, INSTALL_OPTION), List.of(WATCH_OPTION), List.of(SCRIPT_OPTION));
+        Map<String, String> values = readOptions(arguments, List.of(SCRIPT_OPTION, INSTALL_OPTION), List.of(MELEE_OPTION, WATCH_OPTION),
+                                                 List.of(SCRIPT_OPTION));
         Path install = values.containsKey(INSTALL_OPTION) ? Path.of(values.get(INSTALL_OPTION)) : ScriptRunner.findInstall();
 
         if (install == null) {
             throw Exceptions.newIllegalArgumentException("No SC4J install is known: name one with {0}.", INSTALL_OPTION);
         }
 
-        ScriptRunner runner = new ScriptRunner(install, map, Path.of(values.get(SCRIPT_OPTION)), starter);
+        ScriptRunner runner = new ScriptRunner(install, map, Path.of(values.get(SCRIPT_OPTION)), values.containsKey(MELEE_OPTION), starter);
         boolean watching = values.containsKey(WATCH_OPTION);
 
         printPacked(output, runner.pack(), runner.getPackedMap());
