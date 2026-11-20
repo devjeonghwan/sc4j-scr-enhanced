@@ -6,7 +6,9 @@ import org.fogofwarlabs.sc4j.base.log.Logger;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptGame;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -95,7 +97,7 @@ public final class ScriptRuntime {
      * @return the created {@link ScriptRuntime} instance
      */
     public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, long seed) {
-        return create(scriptPackage, null, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
+        return create(scriptPackage, null, ScriptResources.EMPTY, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
     }
 
     /**
@@ -104,11 +106,13 @@ public final class ScriptRuntime {
      *
      * @param scriptPackage the script package
      * @param game          the game
+     * @param resources     the resource file of the map
      * @param seed          the seed of the script RNG, derived from the game seed
      * @return the created {@link ScriptRuntime} instance
      */
-    public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, @NotNull Game game, long seed) {
-        return create(scriptPackage, game, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
+    public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, @NotNull Game game, @NotNull ScriptResources resources,
+                                                long seed) {
+        return create(scriptPackage, game, resources, seed, INSTRUCTION_BUDGET, ScriptRuntime::writeToLogger);
     }
 
     /**
@@ -123,7 +127,7 @@ public final class ScriptRuntime {
      */
     public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, long seed, int instructionBudget,
                                                 @NotNull ScriptLogOutput logOutput) {
-        return create(scriptPackage, null, seed, instructionBudget, logOutput);
+        return create(scriptPackage, null, ScriptResources.EMPTY, seed, instructionBudget, logOutput);
     }
 
     /**
@@ -132,14 +136,15 @@ public final class ScriptRuntime {
      *
      * @param scriptPackage     the script package
      * @param game              the game, or {@code null} for a runtime without the game API
+     * @param resources         the resource file of the map, which the game API reads
      * @param seed              the seed of the script RNG, derived from the game seed
      * @param instructionBudget the instruction budget of one call
      * @param logOutput         the output of the scripts' {@code log} and of the runtime's warnings and errors
      * @return the created {@link ScriptRuntime} instance
      * @throws IllegalArgumentException if the instruction budget is not positive
      */
-    public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, @Nullable Game game, long seed, int instructionBudget,
-                                                @NotNull ScriptLogOutput logOutput) {
+    public static @NotNull ScriptRuntime create(@NotNull ScriptPackage scriptPackage, @Nullable Game game, @NotNull ScriptResources resources,
+                                                long seed, int instructionBudget, @NotNull ScriptLogOutput logOutput) {
         if (instructionBudget <= 0) {
             throw Exceptions.newIllegalArgumentException("The instruction budget {0} is not positive.", instructionBudget);
         }
@@ -152,7 +157,7 @@ public final class ScriptRuntime {
             global = ScriptGlobalUtils.createGlobal(context, new ScriptRandom(seed));
 
             if (game != null) {
-                scriptGame = ScriptGame.install(context, global, game);
+                scriptGame = ScriptGame.install(context, global, game, resources);
             }
         }
 
@@ -232,6 +237,14 @@ public final class ScriptRuntime {
      */
     public void setReadOnly(boolean readOnly) {
         this.requireScriptGame().setReadOnly(readOnly);
+    }
+
+    /**
+     * @return the image graphics the script replaces, the same instance for the whole game
+     * @throws IllegalStateException if the runtime has no game
+     */
+    public @NotNull ImageReplacements getImageReplacements() {
+        return this.requireScriptGame().getImageReplacements();
     }
 
     /**

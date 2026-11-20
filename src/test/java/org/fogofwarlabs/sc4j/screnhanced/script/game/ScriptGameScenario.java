@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptManifest;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptLogOutput;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
@@ -28,14 +29,21 @@ final class ScriptGameScenario implements ScriptLogOutput {
     private final @NotNull ScriptRuntime runtime;
 
     /**
-     * Creates a {@link ScriptGameScenario} instance with a runtime that is not started.
+     * Creates a {@link ScriptGameScenario} instance without resources, with a runtime that is not started.
      */
     ScriptGameScenario(@NotNull Game game, @NotNull String mainSource) throws IOException {
+        this(game, mainSource, ScriptResources.EMPTY);
+    }
+
+    /**
+     * Creates a {@link ScriptGameScenario} instance with a runtime that is not started.
+     */
+    ScriptGameScenario(@NotNull Game game, @NotNull String mainSource, @NotNull ScriptResources resources) throws IOException {
         ScriptPackage scriptPackage = ScriptPackage.create(ScriptManifest.parse(MANIFEST.getBytes(StandardCharsets.UTF_8)),
                                                            Map.of(MAIN_NAME, mainSource.getBytes(StandardCharsets.UTF_8)), Map.of());
 
         this.lines   = new ArrayList<>();
-        this.runtime = ScriptRuntime.create(scriptPackage, game, SEED, ScriptRuntime.INSTRUCTION_BUDGET, this);
+        this.runtime = ScriptRuntime.create(scriptPackage, game, resources, SEED, ScriptRuntime.INSTRUCTION_BUDGET, this);
     }
 
     @NotNull ScriptRuntime getRuntime() {

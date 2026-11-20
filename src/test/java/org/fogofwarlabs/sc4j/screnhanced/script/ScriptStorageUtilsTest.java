@@ -245,4 +245,43 @@ final class ScriptStorageUtilsTest {
         Assertions.assertTrue(scripts.getResources().isEmpty());
         Assertions.assertNull(ScriptStorageUtils.readScripts(ChkFile.parseTolerant(withoutSection), MAP_NAME));
     }
+
+    @Test
+    void read_resources_should_index_the_resources_in_the_file_bytes() throws IOException {
+        byte[] map = ScriptStorageUtils.writePackage(ScriptMapScenario.createMap(createScenario()), MAP_NAME,
+                                                     createPackage("Resources", Map.of(MAIN_SCRIPT, "main;"),
+                                                                   Map.of(RESOURCE_NAME, "image", OTHER_RESOURCE_NAME, "sound")));
+        byte[] resourceFile = MpqArchive.open(map, MAP_NAME, false).readFile(ScriptStorageUtils.RESOURCE_FILE_NAME);
+        ScriptResources resources = ScriptStorageUtils.readResources(resourceFile, ScriptStorageUtils.RESOURCE_FILE_NAME);
+        ScriptResources.Entry image = resources.findEntry(RESOURCE_NAME);
+
+        Assertions.assertSame(resourceFile, resources.getData(), "the resources stay in the file bytes");
+        Assertions.assertNotNull(image);
+        Assertions.assertEquals("image", new String(resourceFile, image.getOffset(), image.getSize(), StandardCharsets.UTF_8));
+        Assertions.assertEquals(2, resources.getEntries().size());
+        Assertions.assertNull(resources.findEntry("images/missing.grp"));
+        Assertions.assertTrue(ScriptResources.EMPTY.getEntries().isEmpty());
+    }
+
+    @Test
+    void read_resources_should_reject_a_malformed_file() {
+        ByteBuffer truncated = ByteBuffer.allocate(LAYOUT_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer repeated = ByteBuffer.allocate(LAYOUT_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
+        byte[] otherVersion = {2, 0, 0, 0, 0, 0, 0, 0};
+
+        truncated.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(1);
+        writeEntry(truncated, RESOURCE_NAME, "image");
+        repeated.putShort((short) ScriptStorageUtils.FORMAT_VERSION).putShort((short) 0).putInt(2);
+        writeEntry(repeated, RESOURCE_NAME, "image");
+        writeEntry(repeated, RESOURCE_NAME, "again");
+
+        byte[] truncatedFile = Arrays.copyOf(truncated.array(), truncated.position() - 1);
+        byte[] repeatedFile = Arrays.copyOf(repeated.array(), repeated.position());
+        byte[] trailingFile = Arrays.copyOf(truncated.array(), truncated.position() + 1);
+
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(truncatedFile, MAP_NAME));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(repeatedFile, MAP_NAME));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(trailingFile, MAP_NAME));
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readResources(otherVersion, MAP_NAME));
+    }
 }

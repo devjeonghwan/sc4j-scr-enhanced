@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.engine.content.type.ContentType;
+import org.fogofwarlabs.sc4j.scr.content.ScrImages;
 import org.fogofwarlabs.sc4j.scr.content.ScrOrders;
 import org.fogofwarlabs.sc4j.scr.content.ScrTechs;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnits;
@@ -18,11 +19,12 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * Defines the type namespaces of {@code core}: {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType} and
- * {@code orderType}, the entries of {@code units.dat}, {@code weapons.dat}, {@code upgrades.dat}, {@code techdata.dat} and
- * {@code orders.dat} by their index.
+ * Defines the type namespaces of {@code core}: {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType},
+ * {@code orderType} and {@code imageType}, the entries of {@code units.dat}, {@code weapons.dat}, {@code upgrades.dat}, {@code techdata.dat},
+ * {@code orders.dat} and {@code images.dat} by their index.
  * <p>
- * Each has {@code getCount()} and {@code getName(id)}, the original data name of the entry ({@code "Terran Marine"}). {@code unitType} also
+ * Each has {@code getCount()} and {@code getName(id)}, the original data name of the entry ({@code "Terran Marine"}); an {@code images.dat}
+ * entry without a name in the SC:R mod's image types is named {@code "image <entry>"}. {@code unitType} also
  * has {@code getMaxHp} and {@code setMaxHp} (raw {@code 1/256} units), {@code getMaxShields}, {@code setMaxShields}, {@code getArmor},
  * {@code setArmor}, {@code getGroundWeapon} and {@code getAirWeapon} ({@code -1} for none); {@code weaponType} has {@code getDamage},
  * {@code setDamage}, {@code getDamageBonus} and {@code setDamageBonus}. A write changes the data table of the current game, which the map
@@ -46,6 +48,7 @@ final class ScriptTypeCore {
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "upgradeType"), global, "upgrade type", ScrUpgrades.getTypes());
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "techType"), global, "tech type", ScrTechs.getTypes());
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "orderType"), global, "order type", ScrOrders.getTypes());
+        defineNames(ScriptCoreUtils.createNamespace(context, global, core, "imageType"), global, "image type", ScrImages.getTypes());
 
         defineField(scriptGame, unitTypes, global, "MaxHp", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.HIT_POINTS);
         defineField(scriptGame, unitTypes, global, "MaxShields", "unit type", ScrUnits.COUNT, GameData::getUnits, UnitsDat.SHIELD_AMOUNT);

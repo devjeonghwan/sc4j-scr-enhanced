@@ -7,6 +7,8 @@ import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
@@ -27,10 +29,11 @@ import java.util.List;
  * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the prelude, the timers and the read-only mode.
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
- * {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType} and {@code orderType} take and return ids and raw values (hit
- * points, shields and energy in {@code 1/256} units, supply in half units); a write takes the routine that the trigger action or the order
- * system runs for it. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as
- * read-only globals over {@code core}.
+ * {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType}, {@code imageType}, {@code resources} and
+ * {@code graphics} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units); a write
+ * takes the routine that the trigger action or the order system runs for it. The graphics replacements ({@link ScriptGraphicsCore}) change
+ * only what is drawn and count as writes. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the
+ * upper layer as read-only globals over {@code core}.
  * <p>
  * A timer of {@code core.game.every} runs first at the frame its interval after the current game frame, then every interval; the timers of a
  * frame run in the order of their due frames, then of their registration. While the game is read-only, every {@code core} function that
@@ -84,21 +87,27 @@ public final class ScriptGame {
     /**
      * Creates the {@code core} global of a game, then runs the prelude.
      *
-     * @param context the current context
-     * @param global  the global scope
-     * @param game    the game
+     * @param context   the current context
+     * @param global    the global scope
+     * @param game      the game
+     * @param resources the resource file of the map
      * @return the created {@link ScriptGame} instance
      * @throws IllegalStateException if the prelude cannot be read or fails
      */
-    public static @NotNull ScriptGame install(@NotNull Context context, @NotNull ScriptableObject global, @NotNull Game game) {
+    public static @NotNull ScriptGame install(@NotNull Context context, @NotNull ScriptableObject global, @NotNull Game game,
+                                              @NotNull ScriptResources resources) {
         ScriptGame scriptGame = new ScriptGame(game, global);
         ScriptableObject core = (ScriptableObject) context.newObject(global);
+        ScriptUnitCore unitCore = new ScriptUnitCore(scriptGame);
+        ScriptGraphicsCore graphicsCore = new ScriptGraphicsCore(scriptGame, unitCore, resources);
 
         scriptGame.defineGameFunctions(ScriptCoreUtils.createNamespace(context, global, core, "game"), global);
         new ScriptPlayerCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "player"), global);
-        new ScriptUnitCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "unit"), global);
+        unitCore.define(ScriptCoreUtils.createNamespace(context, global, core, "unit"), global);
         new ScriptLocationCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "location"), global);
         ScriptTypeCore.define(context, scriptGame, core, global);
+        graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
+        graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
 
         for (Object name : core.getAllIds()) {
             ((ScriptableObject) core.get((String) name, core)).preventExtensions();
@@ -116,13 +125,15 @@ public final class ScriptGame {
     private final @NotNull Scriptable global;
     private @Nullable Scriptable bridge;
 
+    private final @NotNull ImageReplacements imageReplacements;
+
     private final @NotNull List<Timer> timers;
     private int nextTimerId;
 
     private boolean readOnly;
 
     /**
-     * Creates a {@link ScriptGame} instance without timers, not read-only, whose prelude has not run.
+     * Creates a {@link ScriptGame} instance without timers and image replacements, not read-only, whose prelude has not run.
      *
      * @param game   the game
      * @param global the global scope
@@ -131,6 +142,8 @@ public final class ScriptGame {
         this.game   = game;
         this.global = global;
         this.bridge = null;
+
+        this.imageReplacements = new ImageReplacements(() -> game.getUnitSystem().getUnitPool());
 
         this.timers      = new ArrayList<>();
         this.nextTimerId = 1;
@@ -143,6 +156,13 @@ public final class ScriptGame {
      */
     @NotNull Game getGame() {
         return this.game;
+    }
+
+    /**
+     * @return the image graphics the script replaces ({@code core.graphics}), the same instance for the whole game
+     */
+    public @NotNull ImageReplacements getImageReplacements() {
+        return this.imageReplacements;
     }
 
     /**

@@ -57,11 +57,25 @@ final class ScriptMapGameScenario {
      * @return the started scenario
      */
     static @NotNull ScriptMapGameScenario startMelee(@NotNull GameData gameData, @NotNull Path folder, @Nullable String mainSource) throws IOException {
+        return startMelee(gameData, folder, mainSource, Map.of());
+    }
+
+    /**
+     * Starts a melee game on the installed map with a packed main script and resources, or on the installed map itself.
+     *
+     * @param gameData   the installed game data
+     * @param folder     the folder of the packed map
+     * @param mainSource the text of the main script, or {@code null} for the installed map without a script
+     * @param resources  the resource contents by name
+     * @return the started scenario
+     */
+    static @NotNull ScriptMapGameScenario startMelee(@NotNull GameData gameData, @NotNull Path folder, @Nullable String mainSource,
+                                                     @NotNull Map<String, byte[]> resources) throws IOException {
         Path map = ExternalInput.INSTALLATION.getPath().resolve(MAP_PATH);
 
         if (mainSource != null) {
             ScriptPackage scriptPackage = ScriptPackage.create(ScriptManifest.parse(MANIFEST.getBytes(StandardCharsets.UTF_8)),
-                                                               Map.of(MAIN_NAME, mainSource.getBytes(StandardCharsets.UTF_8)), Map.of());
+                                                               Map.of(MAIN_NAME, mainSource.getBytes(StandardCharsets.UTF_8)), resources);
             byte[] packed = ScriptStorageUtils.writePackage(Files.readAllBytes(map), MAP_PATH, scriptPackage);
 
             map = folder.resolve(PACKED_MAP_NAME);
@@ -69,6 +83,28 @@ final class ScriptMapGameScenario {
         }
 
         return new ScriptMapGameScenario(gameData, map);
+    }
+
+    /**
+     * Finds the script plugin of a game.
+     *
+     * @param game the game
+     * @return the game's script plugin, or {@code null} if the game has none
+     */
+    static @Nullable ScriptSimulationPlugin findPlugin(@NotNull Game game) {
+        ScrSimulationPlugins plugins = game.getSimulationPlugins();
+
+        if (plugins == null) {
+            return null;
+        }
+
+        for (ScrSimulationPlugin plugin : plugins.getPlugins()) {
+            if (plugin instanceof ScriptSimulationPlugin scriptPlugin) {
+                return scriptPlugin;
+            }
+        }
+
+        return null;
     }
 
 
@@ -91,23 +127,14 @@ final class ScriptMapGameScenario {
         return this.gameRuntime.getGame();
     }
 
+
     /**
-     * @return the game's script plugin, or {@code null} if the game has none
+     * Writes the replay of the frames played so far.
+     *
+     * @return the replay file bytes
      */
-    @Nullable ScriptSimulationPlugin findPlugin() {
-        ScrSimulationPlugins plugins = this.getGame().getSimulationPlugins();
-
-        if (plugins == null) {
-            return null;
-        }
-
-        for (ScrSimulationPlugin plugin : plugins.getPlugins()) {
-            if (plugin instanceof ScriptSimulationPlugin scriptPlugin) {
-                return scriptPlugin;
-            }
-        }
-
-        return null;
+    byte @NotNull [] writeReplay() {
+        return this.live.writeReplay(this.getGame().getCurrentFrame(), 0);
     }
 
     /**

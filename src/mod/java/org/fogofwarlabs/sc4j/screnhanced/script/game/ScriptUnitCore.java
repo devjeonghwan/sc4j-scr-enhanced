@@ -6,6 +6,8 @@ import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
+import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerUnitActions;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
@@ -31,8 +33,8 @@ import java.util.function.ToIntFunction;
  * <p>
  * Reads: {@code getType}, {@code getOwner}, {@code getX}, {@code getY}, {@code getHp}, {@code getMaxHp}, {@code getShields},
  * {@code getMaxShields}, {@code getEnergy}, {@code getMaxEnergy} (raw {@code 1/256} units), {@code getOrder}, {@code getTarget} ({@code -1}
- * without a target unit), {@code getTargetX}, {@code getTargetY}, {@code getStatus} (the status flags), {@code isCompleted},
- * {@code isCloaked}, {@code isBurrowed} and {@code isInvincible}.
+ * without a target unit), {@code getTargetX}, {@code getTargetY}, {@code getStatus} (the status flags), {@code getImageType} (the image type
+ * of the main image of the unit's sprite), {@code isCompleted}, {@code isCloaked}, {@code isBurrowed} and {@code isInvincible}.
  * <p>
  * Writes of raw amounts: {@code setHp} (the hit point routine, at least {@code 1} and at most the maximum), {@code setShields} and
  * {@code setEnergy} (at most the maximum, {@code false} for a unit without shields or energy). Writes through the routines of the trigger
@@ -138,6 +140,12 @@ final class ScriptUnitCore {
         this.defineRead(namespace, global, "getTargetX", Unit::getOrderTargetX);
         this.defineRead(namespace, global, "getTargetY", Unit::getOrderTargetY);
         this.defineRead(namespace, global, "getStatus", Unit::getStatus);
+        this.defineRead(namespace, global, "getImageType", unit -> {
+            Sprite sprite = unit.getSpriteOrNull();
+            SpriteImage image = sprite == null ? null : sprite.getMainImage();
+
+            return image == null ? ScriptCoreUtils.NO_ID : image.getImageTypeId();
+        });
 
         this.defineStatusRead(namespace, global, "isCompleted", UnitStatusFlags.COMPLETED);
         this.defineStatusRead(namespace, global, "isCloaked", UnitStatusFlags.CLOAKED | UnitStatusFlags.PASSIVELY_CLOAKED);
@@ -289,9 +297,12 @@ final class ScriptUnitCore {
     /**
      * Reads a unit argument.
      *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the live unit the argument names
      * @throws EcmaError if the argument is not an integer or names no live unit
      */
-    private @NotNull Unit readUnit(@NotNull Object @NotNull [] arguments, int index) {
+    @NotNull Unit readUnit(@NotNull Object @NotNull [] arguments, int index) {
         int id = ScriptCoreUtils.readInteger(arguments, index);
         UnitPool pool = this.getPool();
 

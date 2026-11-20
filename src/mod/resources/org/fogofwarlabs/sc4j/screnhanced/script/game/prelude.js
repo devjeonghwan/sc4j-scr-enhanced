@@ -1,5 +1,5 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, WeaponType,
-// UpgradeType, TechType and Order, and the Unit, Player and Location objects they return. One unit, player or location is always the same
+// UpgradeType, TechType, Order, ImageType, resources and graphics, and the Unit, Player and Location objects they return. One unit, player or location is always the same
 // object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
 // values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply (core's half units
 // divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object also has the
@@ -116,6 +116,7 @@
     var upgradeTypePrototype = create(typePrototype);
     var techTypePrototype = create(typePrototype);
     var orderPrototype = create(typePrototype);
+    var imageTypePrototype = create(typePrototype);
 
     unitTypePrototype.getMaxHp = function () {
         return core.unitType.getMaxHp(this.id) / RAW_SCALE;
@@ -160,6 +161,7 @@
     var UpgradeType = createTypeTable(core.upgradeType, upgradeTypePrototype);
     var TechType = createTypeTable(core.techType, techTypePrototype);
     var Order = createTypeTable(core.orderType, orderPrototype);
+    var ImageType = createTypeTable(core.imageType, imageTypePrototype);
 
     var positionPrototype = {
         getX: function () {
@@ -379,6 +381,10 @@
         isInvincible: function () {
             return core.unit.isInvincible(requireUnitId(this));
         },
+        // The image type of the unit's main image.
+        getImageType: function () {
+            return ImageType.get(core.unit.getImageType(requireUnitId(this)));
+        },
         setInvincible: function (invincible) {
             core.unit.setInvincible(requireUnitId(this), invincible);
         },
@@ -526,6 +532,96 @@
             return core.game.cancelTimer(this.id);
         }
     };
+
+    var resourcePrototype = {
+        getId: function () {
+            return this.id;
+        },
+        getName: function () {
+            return this.name;
+        },
+        toString: function () {
+            return this.name;
+        }
+    };
+    var grpPrototype = create(resourcePrototype);
+    var animPrototype = create(resourcePrototype);
+    var resourceHandles = [];
+
+    // Returns the object of a resource handle: one object per handle id.
+    function getResource(id, name, prototype) {
+        var resource = resourceHandles[id];
+
+        if (resource === undefined) {
+            resource = freeze(createObject(prototype, {id: id, name: name}));
+            resourceHandles[id] = resource;
+        }
+
+        return resource;
+    }
+
+    function readResourceId(resource, prototype, kind) {
+        return resource === undefined || resource === null ? NONE : requireObject(resource, prototype, kind).id;
+    }
+
+    // Returns the handle ids of the graphics {sd, hd, hd2}: a GRP, an HD anim and an HD2 anim, each optional.
+    function readGraphicsIds(images) {
+        if (images === null || typeof images !== 'object') {
+            throw new TypeError('The graphics {sd, hd, hd2} are needed, not ' + images + '.');
+        }
+
+        return [readResourceId(images.sd, grpPrototype, 'A GRP'), readResourceId(images.hd, animPrototype, 'An anim'),
+                readResourceId(images.hd2, animPrototype, 'An anim')];
+    }
+
+    // The image type of a unit's images: the given one, else the image type of the unit's main image.
+    function readUnitImageType(unit, imageType) {
+        if (imageType === undefined) {
+            return core.unit.getImageType(requireUnitId(unit));
+        }
+
+        return requireObject(imageType, imageTypePrototype, 'An image type').id;
+    }
+
+    var resources = freeze({
+        has: function (name) {
+            return core.resources.has(String(name));
+        },
+        getGrp: function (name) {
+            var text = String(name);
+
+            return getResource(core.resources.getGrp(text), text, grpPrototype);
+        },
+        getAnim: function (name) {
+            var text = String(name);
+
+            return getResource(core.resources.getAnim(text), text, animPrototype);
+        }
+    });
+
+    var graphics = freeze({
+        // Replaces the graphics of every image of an image type with {sd: a GRP, hd: an HD anim, hd2: an HD2 anim}.
+        replaceImage: function (imageType, images) {
+            var imageTypeId = requireObject(imageType, imageTypePrototype, 'An image type').id;
+            var ids = readGraphicsIds(images);
+
+            core.graphics.replaceImage(imageTypeId, ids[0], ids[1], ids[2]);
+        },
+        restoreImage: function (imageType) {
+            core.graphics.restoreImage(requireObject(imageType, imageTypePrototype, 'An image type').id);
+        },
+        // Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
+        replaceUnitImage: function (unit, images, imageType) {
+            var id = requireUnitId(unit);
+            var imageTypeId = readUnitImageType(unit, imageType);
+            var ids = readGraphicsIds(images);
+
+            core.graphics.replaceUnitImage(id, imageTypeId, ids[0], ids[1], ids[2]);
+        },
+        restoreUnitImage: function (unit, imageType) {
+            core.graphics.restoreUnitImage(requireUnitId(unit), readUnitImageType(unit, imageType));
+        }
+    });
 
     // Returns the object of a unit that an event or a decision captured: the unit's own object while its slot holds the same unit,
     // otherwise an object of the gone unit whose exists() is false.
@@ -917,11 +1013,15 @@
     freeze(upgradeTypePrototype);
     freeze(techTypePrototype);
     freeze(orderPrototype);
+    freeze(imageTypePrototype);
     freeze(positionPrototype);
     freeze(unitPrototype);
     freeze(playerPrototype);
     freeze(locationPrototype);
     freeze(timerPrototype);
+    freeze(resourcePrototype);
+    freeze(grpPrototype);
+    freeze(animPrototype);
 
     for (var eventName in eventKinds) {
         freeze(eventKinds[eventName].prototype);
@@ -939,6 +1039,9 @@
     defineGlobal('UpgradeType', UpgradeType);
     defineGlobal('TechType', TechType);
     defineGlobal('Order', Order);
+    defineGlobal('ImageType', ImageType);
+    defineGlobal('resources', resources);
+    defineGlobal('graphics', graphics);
 
     return gameFunctions;
 });

@@ -15,15 +15,10 @@ import java.util.function.ToIntFunction;
  * {@code getCount()}, {@code getName(id)} (the map string of the location, {@code null} without one), {@code findByName(name)} (the first
  * location with the name, {@code -1} for none), {@code getLeft}, {@code getTop}, {@code getRight}, {@code getBottom}, {@code getCenterX},
  * {@code getCenterY}, {@code setBounds(id, left, top, right, bottom)} and {@code setCenter(id, x, y)}. The bounds are map pixels;
- * {@code setBounds} writes the four bound DWORDs of the location record through the trigger state's game-data bytes, the way an EUD write of
- * the location table does; {@code setCenter} moves the location as Move Location moves its destination, kept inside the map.
+ * {@code setBounds} sets the four bound DWORDs of the location as given, without masking or clamping, as an EUD write of the location
+ * table does; {@code setCenter} moves the location as Move Location moves its destination, kept inside the map.
  */
 final class ScriptLocationCore {
-    /**
-     * The offsets of the four bound DWORDs in a location record, in record order: left, top, right, bottom.
-     */
-    private static final int @NotNull [] BOUND_OFFSETS = {0, 4, 8, 12};
-
     private final @NotNull ScriptGame scriptGame;
 
     /**
@@ -69,16 +64,12 @@ final class ScriptLocationCore {
             this.scriptGame.checkWritable();
 
             int id = this.readLocationId(arguments, 0);
-            TriggerContext triggers = this.scriptGame.requireTriggerContext();
-            int record = TriggerContext.LOCATIONS_OFFSET + id * TriggerContext.LOCATION_RECORD_SIZE;
+            int left = ScriptCoreUtils.readInteger(arguments, 1);
+            int top = ScriptCoreUtils.readInteger(arguments, 2);
+            int right = ScriptCoreUtils.readInteger(arguments, 3);
+            int bottom = ScriptCoreUtils.readInteger(arguments, 4);
 
-            for (int bound = 0; bound < BOUND_OFFSETS.length; bound++) {
-                int value = ScriptCoreUtils.readInteger(arguments, bound + 1);
-
-                for (int byteIndex = 0; byteIndex < Integer.BYTES; byteIndex++) {
-                    triggers.writeGameDataByte(record + BOUND_OFFSETS[bound] + byteIndex, value >>> byteIndex * Byte.SIZE);
-                }
-            }
+            this.scriptGame.requireTriggerContext().getLocation(id).setBounds(left, top, right, bottom);
 
             return Context.getUndefinedValue();
         });

@@ -79,14 +79,14 @@ final class ScriptSimulationPluginTest {
 
         scenario.stepFrames(4);
 
-        ScriptSimulationPlugin plugin = scenario.findPlugin();
+        ScriptSimulationPlugin plugin = ScriptMapGameScenario.findPlugin(scenario.getGame());
 
         Assertions.assertNotNull(plugin);
 
         ScriptRuntime runtime = plugin.getRuntime();
 
-        Assertions.assertNotNull(runtime);
         Assertions.assertFalse(runtime.isStopped());
+        Assertions.assertFalse(scenario.getGame().isSaveAllowed(), "a script game cannot be saved");
         Assertions.assertEquals(List.of("frames start 1 1 2 3, center true true true 0"), scenario.getPrints());
     }
 
@@ -227,16 +227,14 @@ final class ScriptSimulationPluginTest {
     }
 
     @Test
-    void a_map_without_a_script_package_runs_no_script(@NotNull InstallationTestResources resources,
+    void a_map_without_a_script_package_gets_no_plugin(@NotNull InstallationTestResources resources,
                                                        @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, null);
 
         scenario.stepFrames(3);
 
-        ScriptSimulationPlugin plugin = scenario.findPlugin();
-
-        Assertions.assertNotNull(plugin);
-        Assertions.assertNull(plugin.getRuntime());
+        Assertions.assertNull(ScriptMapGameScenario.findPlugin(scenario.getGame()));
+        Assertions.assertNull(scenario.getGame().getSimulationPlugins(), "a map without a script package gets no simulation plugin");
         Assertions.assertEquals(List.of(), scenario.getPrints());
     }
 }

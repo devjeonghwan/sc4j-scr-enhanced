@@ -15,6 +15,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,10 @@ public final class ScriptStorageUtils {
      * The name of the resource file in the map archive.
      */
     public static final @NotNull String RESOURCE_FILE_NAME = "sces\\resources";
+    /**
+     * The tag of the replay section that holds the resource file in the replays of SC:R Enhanced.
+     */
+    public static final @NotNull String RESOURCE_REPLAY_SECTION = "SCER";
     /**
      * The format version of the script section and the resource file.
      */
@@ -72,16 +77,35 @@ public final class ScriptStorageUtils {
             return scripts;
         }
 
-        ByteBuffer resourceFile = ByteBuffer.wrap(archive.readFile(RESOURCE_FILE_NAME)).order(ByteOrder.LITTLE_ENDIAN);
-        String resourceDescription = RESOURCE_FILE_NAME + " of " + description;
+        ScriptResources resourceFile = readResources(archive.readFile(RESOURCE_FILE_NAME), RESOURCE_FILE_NAME + " of " + description);
+        Map<String, byte[]> resources = new LinkedHashMap<>();
 
-        readFormatHeader(resourceFile, resourceDescription);
-
-        Map<String, byte[]> resources = readEntries(resourceFile, resourceDescription);
-
-        requireEnd(resourceFile, resourceDescription);
+        for (ScriptResources.Entry entry : resourceFile.getEntries()) {
+            resources.put(entry.getName(), Arrays.copyOfRange(resourceFile.getData(), entry.getOffset(), entry.getOffset() + entry.getSize()));
+        }
 
         return ScriptPackage.create(scripts.getManifest(), scripts.getScripts(), resources);
+    }
+
+    /**
+     * Reads the resource file of a map archive ({@value #RESOURCE_FILE_NAME}) without copying its resources: the resources stay in the file's
+     * bytes, which the result keeps.
+     *
+     * @param resourceFile the content of the resource file, kept and not to be changed
+     * @param description  the resource file name used in messages
+     * @return the resources of the file
+     * @throws IOException if the content is not a resource file
+     */
+    public static @NotNull ScriptResources readResources(byte @NotNull [] resourceFile, @NotNull String description) throws IOException {
+        ByteBuffer payload = ByteBuffer.wrap(resourceFile).order(ByteOrder.LITTLE_ENDIAN);
+
+        readFormatHeader(payload, description);
+
+        Map<String, ScriptResources.Entry> entries = readEntryIndex(payload, description);
+
+        requireEnd(payload, description);
+
+        return new ScriptResources(resourceFile, entries);
     }
 
     /**
@@ -268,8 +292,26 @@ public final class ScriptStorageUtils {
     }
 
     private static @NotNull Map<String, byte[]> readEntries(@NotNull ByteBuffer payload, @NotNull String description) throws IOException {
-        int fileCount = readUnsigned(payload, Integer.BYTES, description);
         Map<String, byte[]> files = new LinkedHashMap<>();
+
+        for (ScriptResources.Entry entry : readEntryIndex(payload, description).values()) {
+            files.put(entry.getName(), Arrays.copyOfRange(payload.array(), entry.getOffset(), entry.getOffset() + entry.getSize()));
+        }
+
+        return files;
+    }
+
+    /**
+     * Reads the file count and the files that follow it, without copying their contents.
+     *
+     * @param payload     the payload at the file count, backed by an array from its first byte
+     * @param description the payload name used in messages
+     * @return the files by name in the stored order, with the range of each content in the payload's array
+     * @throws IOException if the payload ends inside a file, a name is not UTF-8 or a name repeats
+     */
+    private static @NotNull Map<String, ScriptResources.Entry> readEntryIndex(@NotNull ByteBuffer payload, @NotNull String description) throws IOException {
+        int fileCount = readUnsigned(payload, Integer.BYTES, description);
+        Map<String, ScriptResources.Entry> files = new LinkedHashMap<>();
 
         for (int fileIndex = 0; fileIndex < fileCount; fileIndex++) {
             byte[] nameBytes = readBytes(payload, readUnsigned(payload, Short.BYTES, description), description);
@@ -282,9 +324,13 @@ public final class ScriptStorageUtils {
                                                 payload.position() - nameBytes.length);
             }
 
-            byte[] content = readBytes(payload, readUnsigned(payload, Integer.BYTES, description), description);
+            int size = readUnsigned(payload, Integer.BYTES, description);
+            int offset = payload.position();
 
-            if (files.put(name, content) != null) {
+            requireRemaining(payload, size, description);
+            payload.position(offset + size);
+
+            if (files.put(name, new ScriptResources.Entry(name, offset, size)) != null) {
                 throw Exceptions.newIOException("The {0} holds the file name {1} twice.", description, name);
             }
         }
@@ -317,16 +363,20 @@ public final class ScriptStorageUtils {
     }
 
     private static byte @NotNull [] readBytes(@NotNull ByteBuffer payload, int size, @NotNull String description) throws IOException {
-        if (payload.remaining() < size) {
-            throw Exceptions.newIOException("The {0} ends {1} bytes before the end of the data at offset {2}.", description,
-                                            size - payload.remaining(), payload.position());
-        }
+        requireRemaining(payload, size, description);
 
         byte[] data = new byte[size];
 
         payload.get(data);
 
         return data;
+    }
+
+    private static void requireRemaining(@NotNull ByteBuffer payload, int size, @NotNull String description) throws IOException {
+        if (payload.remaining() < size) {
+            throw Exceptions.newIOException("The {0} ends {1} bytes before the end of the data at offset {2}.", description,
+                                            size - payload.remaining(), payload.position());
+        }
     }
 
     private static void requireEnd(@NotNull ByteBuffer payload, @NotNull String description) throws IOException {
