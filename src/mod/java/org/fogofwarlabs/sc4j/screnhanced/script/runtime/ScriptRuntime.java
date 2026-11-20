@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptGame;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputCommand;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputEvent;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
 import org.jetbrains.annotations.NotNull;
@@ -34,9 +35,10 @@ import java.util.List;
  * hooks; {@link #runFrame(int)} calls the {@link ScriptHook#FRAME} hooks. A hook runs in every module that has it, in load order.
  * <p>
  * A runtime created with a game also has the game API ({@link ScriptGame}): the global {@code core} and the globals of the prelude, which
- * runs when the runtime is created. {@link #runFrame(int)} then first calls the event hooks of the queued events ({@link #queueEvent},
- * {@link #queueInputEvent}) in the order they happened, then the due timers of {@code game.every}, one call each, then the hooks; an event
- * that happens during these calls waits for the next frame. {@link #decide} calls the decision hooks at once with the game read-only and
+ * runs when the runtime is created. {@link #runFrame(int)} then first delivers the queued events and input commands ({@link #queueEvent},
+ * {@link #queueInputCommand}) in the order they happened, then calls the due timers of {@code game.every}, one call each, then the hooks; an
+ * event that happens during these calls waits for the next frame. An input command changes the players' input state when it is delivered,
+ * so the hook of each event sees the input state as of that event. {@link #decide} calls the decision hooks at once with the game read-only and
  * copies what a hook decided back into the decision; {@link #setReadOnly(boolean)} makes the functions that change the game state throw.
  * <p>
  * Each call of {@link #start()}, {@link #runFrame(int)} and {@link #decide} has an instruction budget; a decision that a running call
@@ -76,7 +78,20 @@ public final class ScriptRuntime {
     }
 
     /**
-     * One queued event, a {@link SimulationEvent} or a {@link ScriptInputEvent}, with its hook and the frame it happened in.
+     * One queued input command of a player, which changes the input state when it is delivered.
+     */
+    private static final class QueuedInput {
+        private final int player;
+        private final @NotNull ScriptInputCommand command;
+
+        private QueuedInput(int player, @NotNull ScriptInputCommand command) {
+            this.player  = player;
+            this.command = command;
+        }
+    }
+
+    /**
+     * One queued event, a {@link SimulationEvent} or a {@link QueuedInput}, with its hook and the frame it happened in.
      */
     private static final class QueuedEvent {
         private final @NotNull ScriptHook hook;
@@ -313,31 +328,28 @@ public final class ScriptRuntime {
 
         ScriptHook hook = ScriptHook.findByKind(event.getClass());
 
-        if (hook != null) {
-            this.queue(hook, event, frame);
+        if (hook != null && !this.stopped && (!this.loaded || this.moduleLoader.hasHook(hook))) {
+            this.queuedEvents.add(new QueuedEvent(hook, event, frame));
         }
     }
 
     /**
-     * Queues an input event for its hook ({@link ScriptHook#findByInput}), to be called at the next {@link #runFrame(int)} in the order of
-     * all queued events. An event is not queued once the script stopped, or when the main script has loaded and no module has its hook.
+     * Queues an input command of a player, to be delivered at the next {@link #runFrame(int)} in the order of all queued events: it then
+     * changes the player's input state ({@link ScriptInputState#apply}), and the event of a change goes to its hook
+     * ({@link ScriptHook#findByInput}) when a module has it. A command is not queued once the script stopped.
      *
-     * @param event the input event, whose values were captured when its command ran
-     * @param frame the frame its command ran in
+     * @param player  the player slot id
+     * @param command the input command
+     * @param frame   the frame the command ran in
      * @throws IllegalStateException if the runtime has no game or is disposed
      */
-    public void queueInputEvent(@NotNull ScriptInputEvent event, int frame) {
+    public void queueInputCommand(int player, @NotNull ScriptInputCommand command, int frame) {
         this.checkNotDisposed();
         this.requireScriptGame();
-        this.queue(ScriptHook.findByInput(event.getCommand()), event, frame);
-    }
 
-    private void queue(@NotNull ScriptHook hook, @NotNull Object event, int frame) {
-        if (this.stopped || this.loaded && !this.moduleLoader.hasHook(hook)) {
-            return;
+        if (!this.stopped) {
+            this.queuedEvents.add(new QueuedEvent(ScriptHook.findByInput(command), new QueuedInput(player, command), frame));
         }
-
-        this.queuedEvents.add(new QueuedEvent(hook, event, frame));
     }
 
     /**
@@ -448,7 +460,8 @@ public final class ScriptRuntime {
     }
 
     /**
-     * Calls the hook of every queued event in order with its event object; the events queued during the calls wait for the next frame.
+     * Delivers the queued events in order: an input command first changes the input state, then the hook of the event, or of the input
+     * command's change, is called with its event object. The events queued during the calls wait for the next frame.
      *
      * @return {@code true} if the script has not stopped, {@code false} otherwise
      */
@@ -466,15 +479,17 @@ public final class ScriptRuntime {
 
         try {
             for (QueuedEvent queued : events) {
-                if (!this.moduleLoader.hasHook(queued.hook)) {
+                Object event = queued.event instanceof QueuedInput input ? game.getInputState().apply(input.player, input.command) : queued.event;
+
+                if (event == null || !this.moduleLoader.hasHook(queued.hook)) {
                     continue;
                 }
 
                 String hookName = queued.hook.getFunctionName();
-                CallResult result = this.runGuarded(this.mainName, hookName, () -> argument[0] = switch (queued.event) {
+                CallResult result = this.runGuarded(this.mainName, hookName, () -> argument[0] = switch (event) {
                     case ScriptInputEvent input -> game.createInputEvent(context, hookName, input, queued.frame);
                     case SimulationEvent simulation -> game.createEvent(context, hookName, simulation, queued.frame);
-                    default -> throw Exceptions.newIllegalStateException("The queued event {0} has no kind.", queued.event);
+                    default -> throw Exceptions.newIllegalStateException("The queued event {0} has no kind.", event);
                 });
 
                 if (result == CallResult.STOPPED || result == CallResult.COMPLETED && !this.callHook(context, queued.hook, argument[0])) {
@@ -636,8 +651,8 @@ public final class ScriptRuntime {
     /**
      * Disposes resources.
      * <p>
-     * The runtime forgets its modules, events and timers; later calls of {@link #start()}, {@link #runFrame(int)}, {@link #queueEvent} and
-     * {@link #decide} fail.
+     * The runtime forgets its modules, events and timers; later calls of {@link #start()}, {@link #runFrame(int)}, {@link #queueEvent},
+     * {@link #queueInputCommand} and {@link #decide} fail.
      */
     public void dispose() {
         this.disposed = true;

@@ -271,14 +271,18 @@ final class ScriptSimulationPluginTest {
         Assertions.assertFalse(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.LEFT, true, 0, 1, 1)), "an untracked button");
         Assertions.assertTrue(plugin.onKeyInput(new ScrKeyInput(KEY_Q, true, ScrInputModifiers.SHIFT)));
         Assertions.assertFalse(plugin.onKeyInput(new ScrKeyInput(KEY_Q, false, ScrInputModifiers.ALT)));
+        Assertions.assertFalse(plugin.onMouseInput(new ScrMouseInput(ScrMouseInput.Button.RIGHT, false, 0, 310, 210)));
+        Assertions.assertTrue(plugin.onKeyInput(new ScrKeyInput(KEY_Q, true, 0)));
 
         scenario.stepUntilPrinted("key up", FIGHT_FRAMES);
 
-        // The commands of one turn run before the events of their frame are delivered, so the hooks see the state after all of them.
+        // Each command changes the input state when its event is delivered, so every hook sees the state as of its own event; the mouse
+        // release, which no hook receives, still releases the button.
         Assertions.assertEquals(List.of("tracked",
-                                        "mouse down Right true false true (300, 200) (740, 370) false false",
-                                        "key down Q true false true (740, 370) (740, 370) true false",
-                                        "key up Q true false true (740, 370) (740, 370) false true"), scenario.getPrints());
+                                        "mouse down Right true false true (300, 200) (300, 200) false false",
+                                        "key down Q true true true (740, 370) (740, 370) true false",
+                                        "key up Q true false true (740, 370) (740, 370) false true",
+                                        "key down Q true true false (740, 370) (740, 370) false false"), scenario.getPrints());
     }
 
     @Test

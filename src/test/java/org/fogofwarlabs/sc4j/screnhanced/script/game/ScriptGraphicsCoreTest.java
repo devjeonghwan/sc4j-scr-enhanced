@@ -111,7 +111,7 @@ final class ScriptGraphicsCoreTest {
                          error(function () { graphics.replaceImage(ImageType.get(240), {sd: hd}); }),
                          error(function () { graphics.replaceImage(239, {sd: grp}); }),
                          error(function () { core.graphics.replaceImage(240, 99, -1, -1); }));
-                log.info(ImageType.getCount(), ImageType.get(211) === ImageType.WarpAnchor, ImageType.Image239 === ImageType.get(239),
+                log.info(ImageType.getCount(), ImageType.get(211) === ImageType.Image211, ImageType.Image239 === ImageType.get(239),
                          ImageType.get(239).getName());
                 """, createResources());
 
@@ -120,7 +120,7 @@ final class ScriptGraphicsCoreTest {
         ImageReplacements replacements = scenario.getRuntime().getImageReplacements();
         ImageGraphics replaced = replacements.findImageGraphics(REPLACED_IMAGE_TYPE);
 
-        Assertions.assertEquals(List.of("RangeError RangeError TypeError TypeError RangeError", "999 true true image 239"),
+        Assertions.assertEquals(List.of("RangeError RangeError TypeError TypeError RangeError", "999 true true Image239"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
         Assertions.assertNotNull(replaced);
         Assertions.assertNotNull(replaced.getGrp());

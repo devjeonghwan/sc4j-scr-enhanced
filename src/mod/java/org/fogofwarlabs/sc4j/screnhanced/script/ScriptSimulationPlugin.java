@@ -10,7 +10,6 @@ import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputCommand;
-import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputEvent;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputState;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
@@ -24,8 +23,8 @@ import org.jetbrains.annotations.NotNull;
  * The events of the game go into the runtime's queue with their frame, the events from before the first frame (the units the map and the
  * game start create) as well, and the runtime delivers them at the next frame start, before the triggers. A frame start whose frame number
  * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. The input commands of the players
- * ({@link ScriptInputCommand}), which the game's {@link ScriptInputPlugin} of each peer sends, change the players' input state when they run
- * and queue their events like the other events.
+ * ({@link ScriptInputCommand}), which the game's {@link ScriptInputPlugin} of each peer sends, go into the queue like the other events and
+ * change the players' input state when the runtime delivers them.
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
  * forgets the replacements of units whose slot was freed. A game the plugin runs cannot be saved: a saved game would lose the script's state.
@@ -132,8 +131,8 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
      * live game queues the mod commands of the local player through the game's mod command submitter
      * ({@link InterfaceLink#getModCommandSubmitter()}).
      * <p>
-     * An input command ({@link ScriptInputCommand}) changes the input state of the player's slot, and the event of a change goes into the
-     * runtime's queue with the current frame; any other data is ignored.
+     * An input command ({@link ScriptInputCommand}) of the player's slot goes into the runtime's queue with the current frame, and changes the
+     * slot's input state when the runtime delivers it; any other data is ignored.
      *
      * @param player the issuing player's record
      * @param data   the command data, which every plugin of the game receives; the plugin does not change it
@@ -147,11 +146,7 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
             return;
         }
 
-        ScriptInputEvent event = this.runtime.getInputState().apply(slot, command);
-
-        if (event != null) {
-            this.runtime.queueInputEvent(event, this.game.getCurrentFrame());
-        }
+        this.runtime.queueInputCommand(slot, command, this.game.getCurrentFrame());
     }
 
     /**
