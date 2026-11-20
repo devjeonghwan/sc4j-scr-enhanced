@@ -1125,6 +1125,71 @@ interface Graphics {
 declare const graphics: Graphics;
 
 /**
+ * A tile of the map's tileset: a CV5 group and an index in it from 0 to 15. One tile is always the same object.
+ */
+interface Tile {
+    /**
+     * @returns the MTXM value, group << 4 | index, the value core.terrain takes
+     */
+    getId(): number;
+    getGroup(): number;
+    getIndex(): number;
+    /**
+     * @returns true when more than 12 of its 16 mini-tiles are walkable
+     */
+    isWalkable(): boolean;
+    /**
+     * @returns true when some but not all of its mini-tiles are walkable
+     */
+    isPartiallyWalkable(): boolean;
+    isBuildable(): boolean;
+    hasCreep(): boolean;
+    /**
+     * @returns 0 low, 1 middle or 2 high ground
+     */
+    getElevation(): number;
+    /**
+     * @returns true when ground units see past it from no elevation
+     */
+    isBlockingSight(): boolean;
+}
+
+interface Tileset {
+    getId(): number;
+    getGroupCount(): number;
+    /**
+     * @returns the tile of a CV5 group and an index from 0 to 15; a RangeError for a tile the tileset does not have
+     */
+    getTile(group: number, index: number): Tile;
+}
+
+declare const tileset: Tileset;
+
+/**
+ * The tiles of the map, by tile coordinates (32 pixels). The changes apply together at the next trigger step, after the frame start hooks
+ * (onFrame, the events, the timers) and before the triggers, as on a map that had the tiles from the start: walkability, pathing regions,
+ * buildability, sight and the minimap follow, and ground units on tiles that became unwalkable move to walkable ground nearby. Reads see the
+ * changes made so far.
+ */
+interface Terrain {
+    /**
+     * @returns the tile, the one below creep for a tile with creep
+     */
+    getTile(tileX: number, tileY: number): Tile;
+    setTile(tileX: number, tileY: number, tile: Tile): void;
+    /**
+     * Sets every tile the location covers.
+     */
+    fillTiles(location: Location, tile: Tile): void;
+    /**
+     * Copies the tiles one location covers onto the tiles of another location; both cover the same number of tiles across and down.
+     */
+    copyTiles(fromLocation: Location, toLocation: Location): void;
+}
+
+declare const terrain: Terrain;
+
+/**
  * The tracked input: the keys, the mouse buttons (true for all) and whether the tracked local presses stay out of the game.
  */
 interface InputTracking {
@@ -2332,6 +2397,25 @@ interface CoreLocation {
     setCenter(location: number, x: number, y: number): void;
 }
 
+/**
+ * The tiles of the map as MTXM values, group << 4 | index, by tile coordinates.
+ */
+interface CoreTerrain {
+    getTile(tileX: number, tileY: number): number;
+    /**
+     * Queues the change, which applies at the next trigger step, after the frame start hooks and before the triggers.
+     */
+    setTile(tileX: number, tileY: number, value: number): void;
+    getTileGroupCount(): number;
+    isValidTile(value: number): boolean;
+    isTileWalkable(value: number): boolean;
+    isTilePartiallyWalkable(value: number): boolean;
+    isTileBuildable(value: number): boolean;
+    hasTileCreep(value: number): boolean;
+    getTileElevation(value: number): number;
+    isTileBlockingSight(value: number): boolean;
+}
+
 interface CoreLeaderboard {
     show(type: number, operand: number, goal: number, label: string): void;
     showAt(type: number, location: number, unitType: number, goal: number, label: string): void;
@@ -2408,6 +2492,7 @@ interface Core {
     readonly player: CorePlayer;
     readonly unit: CoreUnit;
     readonly location: CoreLocation;
+    readonly terrain: CoreTerrain;
     readonly leaderboard: CoreLeaderboard;
     readonly unitType: CoreUnitTypes;
     readonly weaponType: CoreWeaponTypes;

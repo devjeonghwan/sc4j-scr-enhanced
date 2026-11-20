@@ -67,6 +67,7 @@ final class ScriptProjectUtilsTest {
     private static final @NotNull Map<String, String> INSTANCES = Map.ofEntries(
             Map.entry("Player", "game.getPlayer(0)"),
             Map.entry("Location", "game.getLocation(0)"),
+            Map.entry("Tile", "tileset.getTile(0, 0)"),
             Map.entry("Timer", "game.every(1, function () {})"),
             Map.entry("Grp", "resources.getGrp('a.grp')"),
             Map.entry("Anim", "resources.getAnim('a.anim')"),
@@ -86,8 +87,8 @@ final class ScriptProjectUtilsTest {
             Map.entry("Alliance", "Alliance.get(0)")
     );
     /**
-     * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player and one
-     * location, no live unit.
+     * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player, one location
+     * and every tile, no live unit.
      */
     private static final @NotNull String STUB_CORE = """
             (function () {
@@ -99,6 +100,7 @@ final class ScriptProjectUtilsTest {
                     player: {getCount: function () { return 1; }},
                     unit: {exists: function () { return false; }},
                     location: {getCount: function () { return 1; }},
+                    terrain: {isValidTile: function () { return true; }},
                     game: {every: function () { return 1; }, getFrameDuration: function () { return 42; }},
                     resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }}
                 };

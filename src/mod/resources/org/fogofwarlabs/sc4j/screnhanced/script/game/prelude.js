@@ -1,6 +1,6 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, UnitGroup,
-// WeaponType, UpgradeType, TechType, Order, ImageType, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier, resources, graphics and
-// input, and the Unit, Player and Location objects they return. One unit, player or location is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
+// WeaponType, UpgradeType, TechType, Order, ImageType, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier, resources, graphics,
+// tileset, terrain and input, and the Unit, Player, Location and Tile objects they return. One unit, player, location or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields and energy are the shown
 // values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply (core's half units
 // divided by 2). The event and decision objects of the hooks have getters for their captured values; a decision object also has the
 // methods that decide. The prelude returns the functions that make these objects to the game.
@@ -41,6 +41,10 @@
     var LAST_SCRIPT_CHARACTER = 0xFF;
 
     var round = Math.round;
+    var floor = Math.floor;
+    var ceil = Math.ceil;
+    var min = Math.min;
+    var max = Math.max;
     var create = Object.create;
     var freeze = Object.freeze;
     var defineProperty = Object.defineProperty;
@@ -1017,6 +1021,138 @@
         }
     });
 
+    var TILES_PER_GROUP = 16;
+    var TILE_GROUP_SHIFT = 4;
+
+    var tilePrototype = {
+        getId: function () {
+            return this.id;
+        },
+        getGroup: function () {
+            return this.id >> TILE_GROUP_SHIFT;
+        },
+        getIndex: function () {
+            return this.id & (TILES_PER_GROUP - 1);
+        },
+        isWalkable: function () {
+            return core.terrain.isTileWalkable(this.id);
+        },
+        isPartiallyWalkable: function () {
+            return core.terrain.isTilePartiallyWalkable(this.id);
+        },
+        isBuildable: function () {
+            return core.terrain.isTileBuildable(this.id);
+        },
+        hasCreep: function () {
+            return core.terrain.hasTileCreep(this.id);
+        },
+        getElevation: function () {
+            return core.terrain.getTileElevation(this.id);
+        },
+        isBlockingSight: function () {
+            return core.terrain.isTileBlockingSight(this.id);
+        },
+        toString: function () {
+            return 'Tile ' + this.getGroup() + ':' + this.getIndex();
+        }
+    };
+    var tiles = [];
+
+    // Returns the object of a tile value: one object per value.
+    function getTileObject(id) {
+        var tile = tiles[id];
+
+        if (tile === undefined) {
+            tile = freeze(createObject(tilePrototype, {id: id}));
+            tiles[id] = tile;
+        }
+
+        return tile;
+    }
+
+    // The tiles a location covers, clipped to the map: {left, top, right, bottom}, right and bottom exclusive.
+    function readLocationTiles(location) {
+        var id = requireObject(location, locationPrototype, 'A location').id;
+        var left = core.location.getLeft(id);
+        var top = core.location.getTop(id);
+        var right = core.location.getRight(id);
+        var bottom = core.location.getBottom(id);
+
+        return {
+            left: max(0, floor(min(left, right) / TILE_SIZE)),
+            top: max(0, floor(min(top, bottom) / TILE_SIZE)),
+            right: min(core.game.getMapTileWidth(), ceil(max(left, right) / TILE_SIZE)),
+            bottom: min(core.game.getMapTileHeight(), ceil(max(top, bottom) / TILE_SIZE))
+        };
+    }
+
+    var tileset = freeze({
+        getId: function () {
+            return core.game.getTileset();
+        },
+        getGroupCount: function () {
+            return core.terrain.getTileGroupCount();
+        },
+        // Returns the tile of a CV5 group and an index in it from 0 to 15.
+        getTile: function (group, index) {
+            if (index !== (index | 0) || index < 0 || index >= TILES_PER_GROUP) {
+                throw new RangeError('The tile index ' + index + ' is not from 0 to ' + (TILES_PER_GROUP - 1) + '.');
+            }
+
+            if (group !== (group | 0) || group < 0 || !core.terrain.isValidTile(group << TILE_GROUP_SHIFT | index)) {
+                throw new RangeError('The tile ' + group + ':' + index + ' is not a tile of the tileset of the map.');
+            }
+
+            return getTileObject(group << TILE_GROUP_SHIFT | index);
+        }
+    });
+
+    // The tiles of the map. The changes apply at the next trigger step, after the frame start hooks and before the triggers; reads see the
+    // changes made so far.
+    var terrain = freeze({
+        getTile: function (tileX, tileY) {
+            return getTileObject(core.terrain.getTile(tileX, tileY));
+        },
+        setTile: function (tileX, tileY, tile) {
+            core.terrain.setTile(tileX, tileY, requireObject(tile, tilePrototype, 'A tile').id);
+        },
+        // Sets every tile a location covers.
+        fillTiles: function (location, tile) {
+            var id = requireObject(tile, tilePrototype, 'A tile').id;
+            var area = readLocationTiles(location);
+
+            for (var tileY = area.top; tileY < area.bottom; tileY++) {
+                for (var tileX = area.left; tileX < area.right; tileX++) {
+                    core.terrain.setTile(tileX, tileY, id);
+                }
+            }
+        },
+        // Copies the tiles one location covers onto the tiles another location of the same size in tiles covers.
+        copyTiles: function (fromLocation, toLocation) {
+            var source = readLocationTiles(fromLocation);
+            var target = readLocationTiles(toLocation);
+            var width = source.right - source.left;
+            var height = source.bottom - source.top;
+
+            if (width !== target.right - target.left || height !== target.bottom - target.top) {
+                throw new RangeError('The locations cover ' + width + 'x' + height + ' and ' + (target.right - target.left) + 'x' +
+                                     (target.bottom - target.top) + ' tiles, not the same size.');
+            }
+
+            var values = [];
+
+            for (var row = 0; row < height; row++) {
+                for (var column = 0; column < width; column++) {
+                    values.push(core.terrain.getTile(source.left + column, source.top + row));
+                }
+            }
+
+            for (var index = 0; index < values.length; index++) {
+                core.terrain.setTile(target.left + index % width, target.top + floor(index / width), values[index]);
+            }
+        }
+    });
+
     // Returns the object of a unit that an event or a decision captured: the unit's own object while its slot holds the same unit,
     // otherwise an object of the gone unit whose exists() is false.
     function getCapturedUnit(id, generation) {
@@ -1542,6 +1678,7 @@
     freeze(unitPrototype);
     freeze(playerPrototype);
     freeze(locationPrototype);
+    freeze(tilePrototype);
     freeze(timerPrototype);
     freeze(resourcePrototype);
     freeze(grpPrototype);
@@ -1573,6 +1710,8 @@
     defineGlobal('Modifier', Modifier);
     defineGlobal('resources', resources);
     defineGlobal('graphics', graphics);
+    defineGlobal('tileset', tileset);
+    defineGlobal('terrain', terrain);
     defineGlobal('input', input);
 
     return gameFunctions;

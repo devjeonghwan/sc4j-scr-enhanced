@@ -35,8 +35,9 @@ import java.util.Map;
  * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the prelude, the timers and the read-only mode.
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
- * {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType}, {@code imageType},
- * {@code resources}, {@code graphics} and {@code input} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units,
+ * {@code terrain}, {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code upgradeType}, {@code techType}, {@code orderType},
+ * {@code imageType}, {@code resources}, {@code graphics} and {@code input} take and return ids and raw values (hit points, shields and energy
+ * in {@code 1/256} units,
  * supply in half units); a write takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a
  * map string takes a registered map string ({@link #findStringIndex}). The graphics replacements
  * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes, as does the input tracking ({@link ScriptInputCore}). The
@@ -116,6 +117,7 @@ public final class ScriptGame {
         new ScriptPlayerCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "player"), global);
         unitCore.define(ScriptCoreUtils.createNamespace(context, global, core, "unit"), global);
         new ScriptLocationCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "location"), global);
+        new ScriptTerrainCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "terrain"), global);
         new ScriptLeaderboardCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "leaderboard"), global);
         ScriptTypeCore.define(context, scriptGame, core, global);
         graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
