@@ -200,13 +200,19 @@ tasks.named('processModResources') {
     dependsOn cloneScrMod
 }
 
-// The script tool (ScriptTool) with the mod's classes and libraries: --args="pack <map> --script <folder> -o <output>" or
-// --args="unpack <map> -o <folder>", relative paths from the repository root.
+// The script tool (ScriptTool) with the mod's classes and libraries, relative paths from the repository root: --args="init <folder>",
+// "check <folder>", "pack <map> --script <folder> -o <output>", "unpack <map> -o <folder>" or
+// "run <map> --script <folder> [--watch] [--install <folder>]". run starts SC:R Enhanced of the install that installMod uses (sc4jMod.install)
+// unless --install names another; run installMod first.
 tasks.register('runScriptTool', JavaExec) {
-    description = 'Packs a script folder into a map or unpacks the script package of a map (--args passes the command).'
+    description = 'Runs the script tool: init, check, pack, unpack or run (--args passes the command).'
     group = 'sc4j'
     classpath = sourceSets.mod.runtimeClasspath
     mainClass = 'org.fogofwarlabs.sc4j.screnhanced.script.ScriptTool'
+    def install = sc4jMod.install
+    jvmArgumentProviders.add({
+        install.isPresent() ? ['-Dsc4j.install=' + install.get().asFile.absolutePath] : []
+    } as CommandLineArgumentProvider)
 }
 
 def modJar = tasks.named('jar') {

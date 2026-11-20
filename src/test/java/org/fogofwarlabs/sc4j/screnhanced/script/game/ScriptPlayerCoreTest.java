@@ -139,7 +139,7 @@ final class ScriptPlayerCoreTest {
                     human.addScore(ScoreType.Custom, 5);
                     human.subtractScore(ScoreType.Kills, 1);
                     log.info(human.getScore(ScoreType.Custom), human.getScore(ScoreType.Kills), human.getKills(UnitGroup.Men),
-                             human.getResources(ResourceType.Ore) === human.getMinerals(), human.getResources(ResourceType.OreAndGas));
+                             human.getResources(ResourceType.Minerals) === human.getMinerals(), human.getResources(ResourceType.MineralsAndGas));
                     var everywhere = game.getLocation(0);
                     everywhere.setBounds(0, 0, game.getMapWidth(), game.getMapHeight());
                     log.info(human.countUnits(UnitType.TerranSCV), human.countUnits(UnitGroup.Buildings, {completed: true}),

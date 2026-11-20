@@ -87,10 +87,11 @@ final class ScriptGameTest {
 
         ScriptGameScenario scenario = start(game, """
                 log.info(game.getFrame(), game.getMapTileWidth(), game.getMapTileHeight(), game.getMapWidth(), game.getMapHeight(),
-                         game.getTileset(), Time.seconds(10), Time.minutes(1), core.game.getFrameDuration());
+                         game.getTileset(), Time.fromSeconds(10), Time.fromMinutes(1), Time.fromSeconds(0.53), Time.fromMilliseconds(1000),
+                         Time.fromMilliseconds(21), core.game.getFrameDuration());
                 """);
 
-        Assertions.assertEquals(List.of("7 4 3 128 96 2 238 1429 42"), scenario.getInfoMessages(), scenario.getLines()::toString);
+        Assertions.assertEquals(List.of("7 4 3 128 96 2 160 960 8 24 1 42"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 
     @Test

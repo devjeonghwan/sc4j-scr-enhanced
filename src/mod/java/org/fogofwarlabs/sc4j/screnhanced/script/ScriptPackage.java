@@ -53,18 +53,7 @@ public final class ScriptPackage {
      */
     public static @NotNull ScriptPackage create(@NotNull ScriptManifest manifest, @NotNull Map<String, byte[]> scripts,
                                                 @NotNull Map<String, byte[]> resources) throws IOException {
-        for (String scriptName : scripts.keySet()) {
-            if (!scriptName.endsWith(SCRIPT_EXTENSION)) {
-                throw Exceptions.newIOException("The script name {0} does not end with {1}.", scriptName, SCRIPT_EXTENSION);
-            }
-
-            if (scriptName.startsWith(RESOURCE_FOLDER + NAME_SEPARATOR)) {
-                throw Exceptions.newIOException("The script name {0} lies under the resource folder {1}.", scriptName, RESOURCE_FOLDER);
-            }
-        }
-
-        checkNames(scripts.keySet(), "script");
-        checkNames(resources.keySet(), "resource");
+        checkNames(scripts.keySet(), resources.keySet());
 
         if (!scripts.containsKey(manifest.getMain())) {
             throw Exceptions.newIOException("The script manifest names the main script {0}, which the package does not hold.", manifest.getMain());
@@ -92,6 +81,21 @@ public final class ScriptPackage {
         ScriptManifest manifest = ScriptManifest.parse(Files.readAllBytes(manifestFile));
         Map<String, byte[]> scripts = new TreeMap<>();
         Map<String, byte[]> resources = new TreeMap<>();
+
+        readFolderFiles(folder, scripts, resources);
+
+        return create(manifest, scripts, resources);
+    }
+
+    /**
+     * Reads the scripts and the resources of a script folder, without the manifest and without checking the names.
+     *
+     * @param folder    the script folder
+     * @param scripts   receives the script contents by name
+     * @param resources receives the resource contents by name
+     * @throws IOException if the folder or a file cannot be read
+     */
+    static void readFolderFiles(@NotNull Path folder, @NotNull Map<String, byte[]> scripts, @NotNull Map<String, byte[]> resources) throws IOException {
         String resourcePrefix = RESOURCE_FOLDER + NAME_SEPARATOR;
 
         try (Stream<Path> files = Files.walk(folder)) {
@@ -105,8 +109,6 @@ public final class ScriptPackage {
                 }
             }
         }
-
-        return create(manifest, scripts, resources);
     }
 
     private static @NotNull String toName(@NotNull Path relativePath) {
@@ -124,13 +126,37 @@ public final class ScriptPackage {
     }
 
     /**
+     * Checks the names of a package: the script and resource names are valid, unique ignoring letter case and none the folder of another
+     * name of its kind, and every script name ends with {@value #SCRIPT_EXTENSION} and lies outside {@value #RESOURCE_FOLDER}.
+     *
+     * @param scriptNames   the script names
+     * @param resourceNames the resource names
+     * @throws IOException if a name is not valid, two names of one kind are equal ignoring letter case or one is the folder of another, or a
+     *                     script name does not end with {@value #SCRIPT_EXTENSION} or lies under {@value #RESOURCE_FOLDER}
+     */
+    static void checkNames(@NotNull Set<String> scriptNames, @NotNull Set<String> resourceNames) throws IOException {
+        for (String scriptName : scriptNames) {
+            if (!scriptName.endsWith(SCRIPT_EXTENSION)) {
+                throw Exceptions.newIOException("The script name {0} does not end with {1}.", scriptName, SCRIPT_EXTENSION);
+            }
+
+            if (scriptName.startsWith(RESOURCE_FOLDER + NAME_SEPARATOR)) {
+                throw Exceptions.newIOException("The script name {0} lies under the resource folder {1}.", scriptName, RESOURCE_FOLDER);
+            }
+        }
+
+        checkKindNames(scriptNames, "script");
+        checkKindNames(resourceNames, "resource");
+    }
+
+    /**
      * Checks the names of one kind of file: each name is valid, no two are equal ignoring letter case and none is the folder of another.
      *
      * @param names the names
      * @param kind  the kind of file for messages
      * @throws IOException if a name is not valid, two names are equal ignoring letter case or one is the folder of another
      */
-    private static void checkNames(@NotNull Set<String> names, @NotNull String kind) throws IOException {
+    private static void checkKindNames(@NotNull Set<String> names, @NotNull String kind) throws IOException {
         Set<String> nameKeys = new HashSet<>();
 
         for (String name : names) {

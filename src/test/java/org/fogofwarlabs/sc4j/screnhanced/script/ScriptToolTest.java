@@ -82,7 +82,8 @@ final class ScriptToolTest {
 
         Assertions.assertEquals(1, runTool(ScriptTool.PACK_COMMAND, map.toString(), ScriptTool.SCRIPT_OPTION, folder.toString()));
         Assertions.assertEquals(1, runTool(ScriptTool.UNPACK_COMMAND, map.toString(), "--output", folder.toString()));
-        Assertions.assertEquals(1, runTool("check", map.toString()));
+        Assertions.assertEquals(1, runTool("verify", map.toString()));
+        Assertions.assertEquals(1, runTool(ScriptTool.RUN_COMMAND, map.toString(), ScriptTool.WATCH_OPTION));
         Assertions.assertEquals(1, runTool(ScriptTool.PACK_COMMAND));
     }
 }

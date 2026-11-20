@@ -36,7 +36,7 @@ final class ScriptLeaderboardCoreTest {
                     game.showControlLeaderboard('Marines', UnitType.TerranMarine, {goal: 10});
                     game.showControlLeaderboard('Here', UnitGroup.Men, {location: anywhere});
                     game.showControlLeaderboard('Here', UnitGroup.Men, {location: anywhere, goal: 5});
-                    game.showResourcesLeaderboard('Ore', ResourceType.OreAndGas);
+                    game.showResourcesLeaderboard('Ore', ResourceType.MineralsAndGas);
                     game.showPointsLeaderboard('Points', ScoreType.KillsAndRazings, {goal: 1000});
                     game.setLeaderboardComputersIncluded(false);
                     log.info(game.areLeaderboardComputersIncluded());

@@ -11,7 +11,8 @@
     var SUPPLY_SCALE = 2;
     var NONE = -1;
     var TILE_SIZE = 32;
-    var MILLISECONDS_PER_SECOND = 1000;
+    // The frames of one second of the trigger clock.
+    var FRAMES_PER_CLOCK_SECOND = 16;
     var SECONDS_PER_MINUTE = 60;
     var MAXIMUM_RAW_AMOUNT = 2147483647;
     // The results of core.player.endGame and of the result events: the victory states.
@@ -203,12 +204,18 @@
         }
     });
 
+    // The frames of a duration, rounded to the nearest frame (halves up). Seconds and minutes are those of the trigger clock, which the
+    // countdown timer and the elapsed time count: sixteen frames a second. Milliseconds are real time at the fastest speed: the frames of the
+    // game's frame duration.
     var Time = freeze({
-        seconds: function (seconds) {
-            return round(seconds * MILLISECONDS_PER_SECOND / core.game.getFrameDuration());
+        fromSeconds: function (seconds) {
+            return round(seconds * FRAMES_PER_CLOCK_SECOND);
         },
-        minutes: function (minutes) {
-            return Time.seconds(minutes * SECONDS_PER_MINUTE);
+        fromMinutes: function (minutes) {
+            return round(minutes * SECONDS_PER_MINUTE * FRAMES_PER_CLOCK_SECOND);
+        },
+        fromMilliseconds: function (milliseconds) {
+            return round(milliseconds / core.game.getFrameDuration());
         }
     });
 
@@ -313,7 +320,7 @@
 
     var UnitGroup = createUnitGroups();
     var SCORE_TYPE_NAMES = ['Total', 'Units', 'Buildings', 'UnitsAndBuildings', 'Kills', 'Razings', 'KillsAndRazings', 'Custom'];
-    var RESOURCE_TYPE_NAMES = ['Ore', 'Gas', 'OreAndGas'];
+    var RESOURCE_TYPE_NAMES = ['Minerals', 'Gas', 'MineralsAndGas'];
     var ALLIANCE_NAMES = ['Enemy', 'Ally', 'AlliedVictory'];
     var ScoreType = createConstantTable(scoreTypePrototype, SCORE_TYPE_NAMES, SCORE_TYPE_NAMES.length, 'Score ');
     var ResourceType = createConstantTable(resourceTypePrototype, RESOURCE_TYPE_NAMES, RESOURCE_TYPE_NAMES.length, 'Resource ');
@@ -762,7 +769,7 @@
 
             core.player.setAlliance(this.id, other, requireObject(alliance, alliancePrototype, 'An alliance').id);
         },
-        // Ore, gas, or ore and gas, as the Accumulate condition reads them.
+        // Minerals, gas, or minerals and gas, as the Accumulate condition reads them.
         getResources: function (resourceType) {
             return core.player.getResources(this.id, requireObject(resourceType, resourceTypePrototype, 'A resource type').id);
         },

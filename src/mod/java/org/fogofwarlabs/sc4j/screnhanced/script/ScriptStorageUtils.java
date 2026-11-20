@@ -234,6 +234,43 @@ public final class ScriptStorageUtils {
     }
 
     /**
+     * Computes the size of the script section with its header, as {@link #writePackage} writes it into the scenario.
+     *
+     * @param scriptPackage the script package
+     * @return the size in bytes
+     */
+    static long getSectionSize(@NotNull ScriptPackage scriptPackage) {
+        return SECTION_HEADER_SIZE + getPayloadSize(scriptPackage.getManifest().getContent(), scriptPackage.getScripts());
+    }
+
+    /**
+     * Computes the size of the resource file, as {@link #writePackage} writes it into the map archive.
+     *
+     * @param scriptPackage the script package
+     * @return the size in bytes, {@code 0} for a package without resources
+     */
+    static long getResourceFileSize(@NotNull ScriptPackage scriptPackage) {
+        return scriptPackage.getResources().isEmpty() ? 0 : getPayloadSize(null, scriptPackage.getResources());
+    }
+
+    /**
+     * Computes the size of the payload of the script section or the resource file.
+     *
+     * @param manifest the manifest of the script section, or {@code null} for the resource file
+     * @param files    the file contents by name
+     * @return the size in bytes
+     */
+    private static long getPayloadSize(byte @Nullable [] manifest, @NotNull Map<String, byte[]> files) {
+        long size = FORMAT_HEADER_SIZE + (manifest == null ? 0 : Integer.BYTES + (long) manifest.length) + Integer.BYTES;
+
+        for (Map.Entry<String, byte[]> file : files.entrySet()) {
+            size += ENTRY_HEADER_SIZE + file.getKey().getBytes(StandardCharsets.UTF_8).length + (long) file.getValue().length;
+        }
+
+        return size;
+    }
+
+    /**
      * Creates the payload of the script section or the resource file.
      *
      * @param manifest the manifest of the script section, or {@code null} for the resource file
@@ -243,7 +280,7 @@ public final class ScriptStorageUtils {
      */
     private static byte @NotNull [] createPayload(byte @Nullable [] manifest, @NotNull Map<String, byte[]> files) throws IOException {
         List<byte[]> names = new ArrayList<>(files.size());
-        long size = FORMAT_HEADER_SIZE + (manifest == null ? 0 : Integer.BYTES + (long) manifest.length) + Integer.BYTES;
+        long size = getPayloadSize(manifest, files);
 
         for (Map.Entry<String, byte[]> file : files.entrySet()) {
             byte[] name = file.getKey().getBytes(StandardCharsets.UTF_8);
@@ -253,7 +290,6 @@ public final class ScriptStorageUtils {
             }
 
             names.add(name);
-            size += ENTRY_HEADER_SIZE + name.length + (long) file.getValue().length;
         }
 
         if (size > MpqArchive.MAXIMUM_FILE_SIZE) {

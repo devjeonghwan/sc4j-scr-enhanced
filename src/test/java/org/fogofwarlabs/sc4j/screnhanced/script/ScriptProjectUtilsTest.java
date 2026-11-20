@@ -1,0 +1,464 @@
+package org.fogofwarlabs.sc4j.screnhanced.script;
+
+import org.fogofwarlabs.sc4j.base.json.JsonReader;
+import org.fogofwarlabs.sc4j.base.log.LogLevel;
+import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
+import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptHook;
+import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptLogOutput;
+import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ContextFactory;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.TopLevel;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Stream;
+
+/**
+ * Tests the new script folder of {@link ScriptProjectUtils} and that its declarations name exactly what a script sees: every global, every
+ * member of the game API objects, the hooks and their event and decision objects, and the type constants; declared standard objects exist.
+ */
+final class ScriptProjectUtilsTest {
+    private static final @NotNull String PRELUDE_RESOURCE = "/org/fogofwarlabs/sc4j/screnhanced/script/game/prelude.js";
+    private static final int MAP_TILE_SIZE = 4;
+    private static final int MAP_TILESET = 0;
+    private static final long SEED = 1;
+    /**
+     * The deepest property path the declarations are followed to.
+     */
+    private static final int MAXIMUM_PATH_DEPTH = 3;
+    /**
+     * The runtime globals the declarations leave to TypeScript (the CommonJS names of a module) or leave out (the generator function
+     * replacement, which only throws).
+     */
+    private static final @NotNull Set<String> UNDECLARED_GLOBALS = Set.of("module", "exports", "require", "GeneratorFunction");
+    /**
+     * The globals that Rhino's standard objects have and the runtime replaces.
+     */
+    private static final @NotNull Set<String> REPLACED_GLOBALS = Set.of("Math");
+    /**
+     * The constant tables whose members come from the game's type data: a mismatch prints the members to declare.
+     */
+    private static final @NotNull List<String> GENERATED_TABLES = List.of("UnitType", "WeaponType", "UpgradeType", "TechType", "Order", "Key");
+    private static final @NotNull String GENERATED_COMMENT = "    // GENERATED ";
+    /**
+     * The instances of the upper layer that the prelude makes over a stub {@code core}, by their interface.
+     */
+    private static final @NotNull Map<String, String> INSTANCES = Map.ofEntries(
+            Map.entry("Player", "game.getPlayer(0)"),
+            Map.entry("Location", "game.getLocation(0)"),
+            Map.entry("Timer", "game.every(1, function () {})"),
+            Map.entry("Grp", "resources.getGrp('a.grp')"),
+            Map.entry("Anim", "resources.getAnim('a.anim')"),
+            Map.entry("Position", "Position.of(1, 2)"),
+            Map.entry("Unit", "bridge.createEvent('onUnitCreated', values).getUnit()"),
+            Map.entry("UnitType", "UnitType.get(0)"),
+            Map.entry("WeaponType", "WeaponType.get(0)"),
+            Map.entry("UpgradeType", "UpgradeType.get(0)"),
+            Map.entry("TechType", "TechType.get(0)"),
+            Map.entry("Order", "Order.get(0)"),
+            Map.entry("ImageType", "ImageType.get(0)"),
+            Map.entry("Key", "Key.get(65)"),
+            Map.entry("MouseButton", "MouseButton.get(0)"),
+            Map.entry("UnitGroup", "UnitGroup.Men"),
+            Map.entry("ScoreType", "ScoreType.get(0)"),
+            Map.entry("ResourceType", "ResourceType.get(0)"),
+            Map.entry("Alliance", "Alliance.get(0)")
+    );
+    /**
+     * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player and one
+     * location, no live unit.
+     */
+    private static final @NotNull String STUB_CORE = """
+            (function () {
+                function types() {
+                    return {getCount: function () { return 1; }, getName: function () { return 'Stub Type'; }};
+                }
+                return {
+                    unitType: types(), weaponType: types(), upgradeType: types(), techType: types(), orderType: types(), imageType: types(),
+                    player: {getCount: function () { return 1; }},
+                    unit: {exists: function () { return false; }},
+                    location: {getCount: function () { return 1; }},
+                    game: {every: function () { return 1; }, getFrameDuration: function () { return 42; }},
+                    resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }}
+                };
+            })()
+            """;
+    /**
+     * The captured values of every event and decision: one unit that no longer exists, no other unit.
+     */
+    private static final @NotNull String EVENT_VALUES = """
+            var values = {frame: 0, unit: 1, unitGeneration: 0, unitType: 0, owner: 0, player: 0, weapon: 0, amount: 0, order: 0, target: -1,
+                          targetGeneration: -1, targetX: 0, targetY: 0, buildType: 0, queued: false, tech: 0, upgrade: 0, level: 1, source: -1,
+                          sourceGeneration: -1, killer: -1, killerGeneration: -1, killerPlayer: 0, sourcePlayer: 0, producer: -1,
+                          producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
+                          key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, cancelled: false, rejected: false};
+            """;
+    /**
+     * Reads the names of the module scope and the global scope, which of the declared globals a script reaches, the own and the prototype
+     * chain property names of property paths from the module scope, and the identifiers of the generated tables by id, as one JSON log line.
+     */
+    private static final @NotNull String RUNTIME_PROBE = """
+            (function (scope, declared, paths, tables) {
+                function chainNames(value) {
+                    var names = [];
+                    for (var object = value; object !== null; object = Object.getPrototypeOf(object)) {
+                        names = names.concat(Object.getOwnPropertyNames(object));
+                    }
+                    return names;
+                }
+                var result = {globals: Object.getOwnPropertyNames(scope).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(scope))),
+                              defined: declared.filter(function (name) { return name in scope; }), own: {}, chain: {}, tables: {}};
+                paths.forEach(function (path) {
+                    var value = scope;
+                    path.forEach(function (name) {
+                        value = value === null || value === undefined ? undefined : value[name];
+                    });
+                    if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
+                        result.own[path.join('.')] = Object.getOwnPropertyNames(value);
+                        result.chain[path.join('.')] = chainNames(value);
+                    }
+                });
+                tables.forEach(function (name) {
+                    var table = scope[name];
+                    var entries = [];
+                    for (var id = 0; id < table.getCount(); id++) {
+                        entries.push([table.get(id).getName()]);
+                    }
+                    Object.getOwnPropertyNames(table).forEach(function (key) {
+                        var constant = table[key];
+                        if (constant !== null && typeof constant === 'object') {
+                            entries[constant.getId()].push(key);
+                        }
+                    });
+                    result.tables[name] = entries;
+                });
+                log.info(JSON.stringify(result));
+            })(this, DECLARED, PATHS, TABLES);
+            """;
+
+    private static @NotNull ScriptDeclarationsCheck readDeclarations() throws IOException {
+        return new ScriptDeclarationsCheck(new String(ScriptProjectUtils.readDeclarations(), StandardCharsets.UTF_8));
+    }
+
+    private static @NotNull String readPrelude() throws IOException {
+        try (InputStream input = ScriptProjectUtilsTest.class.getResourceAsStream(PRELUDE_RESOURCE)) {
+            Assertions.assertNotNull(input, PRELUDE_RESOURCE);
+
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * Lists the property paths to read: each declared global with an interface type, and each property of an interface type below it other
+     * than the instance interfaces, which {@link #readInstanceNames} reads.
+     */
+    private static void collectPaths(@NotNull ScriptDeclarationsCheck declarations, @NotNull List<String> path, @NotNull List<String> interfaces,
+                                     @NotNull Map<List<String>, List<String>> paths) {
+        paths.put(path, interfaces);
+
+        if (path.size() >= MAXIMUM_PATH_DEPTH) {
+            return;
+        }
+
+        for (ScriptDeclarationsCheck.Member member : declarations.getMembers(interfaces).values()) {
+            if (!member.isMethod() && declarations.isInterface(member.getType()) && !INSTANCES.containsKey(member.getType())) {
+                List<String> childPath = new ArrayList<>(path);
+
+                childPath.add(member.getName());
+                collectPaths(declarations, childPath, List.of(member.getType()), paths);
+            }
+        }
+    }
+
+    /**
+     * Runs the probe in a script runtime with the game API of a game without game data and returns its JSON result.
+     */
+    private static @NotNull Map<?, ?> runRuntimeProbe(@NotNull Set<String> declared, @NotNull Set<List<String>> paths) throws IOException {
+        List<String> messages = new ArrayList<>();
+        String source = RUNTIME_PROBE.replace("PATHS", toJsonArray(paths.stream().map(ScriptProjectUtilsTest::toJsonPath).toList(), false))
+                                     .replace("DECLARED", toJsonArray(List.copyOf(declared), true))
+                                     .replace("TABLES", toJsonArray(GENERATED_TABLES, true));
+        ScriptPackage scriptPackage = ScriptPackage.create(
+                ScriptManifest.parse("{\"name\": \"Probe\", \"main\": \"main.js\", \"api\": \"1\"}".getBytes(StandardCharsets.UTF_8)),
+                Map.of("main.js", source.getBytes(StandardCharsets.UTF_8)), Map.of()
+        );
+        Game game = Game.create(null, new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]),
+                                new LcgRandom(0));
+        ScriptLogOutput logOutput = (level, moduleName, message) -> messages.add(level == LogLevel.INFO ? message : level + " " + message);
+        ScriptRuntime runtime = ScriptRuntime.create(scriptPackage, game, ScriptResources.EMPTY, SEED, ScriptRuntime.INSTRUCTION_BUDGET, logOutput);
+
+        runtime.start();
+
+        Assertions.assertEquals(1, messages.size(), messages::toString);
+
+        return (Map<?, ?>) JsonReader.parse(messages.getFirst().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static @NotNull String toJsonArray(@NotNull List<String> values, boolean quoted) {
+        List<String> items = new ArrayList<>();
+
+        for (String value : values) {
+            items.add(quoted ? '"' + value + '"' : value);
+        }
+
+        return '[' + String.join(", ", items) + ']';
+    }
+
+    private static @NotNull String toJsonPath(@NotNull List<String> path) {
+        return toJsonArray(path, true);
+    }
+
+    /**
+     * Runs the prelude over the stub {@code core} and returns the enumerable inherited names of each expression's object, without
+     * {@code toString}.
+     */
+    private static @NotNull Map<String, Set<String>> readInstanceNames(@NotNull Map<String, String> expressions) throws IOException {
+        String prelude = readPrelude();
+        Map<String, Set<String>> names = new LinkedHashMap<>();
+
+        try (Context context = new ContextFactory().enterContext()) {
+            context.setInterpretedMode(true);
+            context.setLanguageVersion(Context.VERSION_ECMASCRIPT);
+
+            TopLevel global = new TopLevel();
+
+            context.initSafeStandardObjects(global, false);
+
+            Function preludeFunction = (Function) context.evaluateString(global, prelude, "prelude.js", 1, null);
+            Object core = context.evaluateString(global, STUB_CORE, "core.js", 1, null);
+            Object bridge = preludeFunction.call(context, global, global, new Object[]{global, core});
+
+            ScriptableObject.putProperty(global, "bridge", bridge);
+            context.evaluateString(global, EVENT_VALUES, "values.js", 1, null);
+
+            for (Map.Entry<String, String> expression : expressions.entrySet()) {
+                String code = "(function (object) { var names = []; for (var name in object) { if (name !== 'toString' && " +
+                              "!Object.prototype.hasOwnProperty.call(object, name)) { names.push(name); } } return names.join(','); })(" +
+                              expression.getValue() + ")";
+                String joined = Context.toString(context.evaluateString(global, code, expression.getKey(), 1, null));
+
+                names.put(expression.getKey(), new TreeSet<>(joined.isEmpty() ? List.of() : List.of(joined.split(","))));
+            }
+        }
+
+        return names;
+    }
+
+    /**
+     * @return the global names of Rhino's safe standard objects
+     */
+    private static @NotNull Set<String> readStandardGlobals() {
+        Set<String> names = new HashSet<>();
+
+        try (Context context = new ContextFactory().enterContext()) {
+            context.setLanguageVersion(Context.VERSION_ECMASCRIPT);
+
+            Scriptable global = context.initSafeStandardObjects(new TopLevel(), false);
+
+            for (Object id : ((ScriptableObject) global).getAllIds()) {
+                names.add(id.toString());
+            }
+        }
+
+        return names;
+    }
+
+    private static @NotNull Set<String> toNames(@NotNull Object value) {
+        Set<String> names = new TreeSet<>();
+
+        for (Object name : (List<?>) value) {
+            names.add(name.toString());
+        }
+
+        return names;
+    }
+
+    /**
+     * Writes the declared members of a generated table, one line per identifier in id order.
+     */
+    private static @NotNull String writeGeneratedMembers(@NotNull String table, @NotNull List<?> entries) {
+        StringBuilder text = new StringBuilder(GENERATED_COMMENT).append(table).append('\n');
+
+        for (int id = 0; id < entries.size(); id++) {
+            List<?> entry = (List<?>) entries.get(id);
+
+            for (Object identifier : entry.subList(1, entry.size())) {
+                String name = identifier.toString().matches("[A-Za-z_$][\\w$]*") ? identifier.toString() : '"' + identifier.toString() + '"';
+
+                text.append("    /** ").append(id).append(' ').append(entry.getFirst()).append(" */ readonly ").append(name).append(": ")
+                    .append(table).append(";\n");
+            }
+        }
+
+        return text.toString();
+    }
+
+    private static void compareNames(@NotNull String subject, @NotNull Set<String> declared, @NotNull Set<String> runtime, boolean exact,
+                                     boolean indexed, @NotNull List<String> problems) {
+        Set<String> missingInRuntime = new TreeSet<>(declared);
+        Set<String> undeclared = new TreeSet<>(runtime);
+
+        missingInRuntime.removeAll(runtime);
+        undeclared.removeAll(declared);
+
+        if (!missingInRuntime.isEmpty()) {
+            problems.add(subject + " declares what the runtime lacks: " + missingInRuntime);
+        }
+
+        if (exact && !indexed && !undeclared.isEmpty()) {
+            problems.add(subject + " does not declare: " + undeclared);
+        }
+    }
+
+    @Test
+    void write_project_should_write_a_folder_that_checks_and_packs(@TempDir @NotNull Path folder) throws IOException {
+        Path project = folder.resolve("Star Map");
+
+        ScriptProjectUtils.writeProject(project);
+
+        ScriptPackage scriptPackage = ScriptPackage.readFolder(project);
+        Map<?, ?> jsconfig = (Map<?, ?>) JsonReader.parse(Files.readAllBytes(project.resolve(ScriptProjectUtils.JSCONFIG_FILE_NAME)));
+        Map<?, ?> options = (Map<?, ?>) jsconfig.get("compilerOptions");
+
+        Assertions.assertEquals("Star Map", scriptPackage.getManifest().getName());
+        Assertions.assertEquals(ScriptProjectUtils.MAIN_FILE_NAME, scriptPackage.getManifest().getMain());
+        Assertions.assertEquals(ScriptProjectUtils.API_VERSION, scriptPackage.getManifest().getApi());
+        Assertions.assertEquals(Set.of(ScriptProjectUtils.MAIN_FILE_NAME), scriptPackage.getScripts().keySet());
+        Assertions.assertTrue(scriptPackage.getResources().isEmpty());
+        Assertions.assertTrue(Files.isDirectory(project.resolve(ScriptPackage.RESOURCE_FOLDER)));
+        Assertions.assertArrayEquals(ScriptProjectUtils.readDeclarations(),
+                                     Files.readAllBytes(project.resolve(ScriptProjectUtils.DECLARATIONS_FILE_NAME)));
+        Assertions.assertEquals(true, options.get("noLib"));
+        Assertions.assertEquals(true, options.get("checkJs"));
+        Assertions.assertEquals(List.of(ScriptProjectUtils.DECLARATIONS_FILE_NAME, "**/*.js"), jsconfig.get("include"));
+        Assertions.assertEquals(List.of(), ScriptCheckUtils.check(project).stream().map(ScriptFinding::toString).toList());
+
+        try (Stream<Path> files = Files.list(project)) {
+            Assertions.assertEquals(Set.of(ScriptManifest.FILE_NAME, ScriptProjectUtils.MAIN_FILE_NAME, ScriptProjectUtils.JSCONFIG_FILE_NAME,
+                                           ScriptProjectUtils.DECLARATIONS_FILE_NAME, ScriptPackage.RESOURCE_FOLDER),
+                                    new HashSet<>(files.map(file -> file.getFileName().toString()).toList()));
+        }
+    }
+
+    @Test
+    void write_project_should_refuse_a_folder_with_files(@TempDir @NotNull Path folder) throws IOException {
+        Files.writeString(folder.resolve("notes.txt"), "keep");
+
+        Assertions.assertThrows(IOException.class, () -> ScriptProjectUtils.writeProject(folder));
+        Assertions.assertFalse(Files.exists(folder.resolve(ScriptManifest.FILE_NAME)));
+    }
+
+    @Test
+    void declarations_name_every_global_and_member_of_the_runtime() throws IOException {
+        ScriptDeclarationsCheck declarations = readDeclarations();
+        Map<List<String>, List<String>> paths = new LinkedHashMap<>();
+
+        for (Map.Entry<String, String> global : declarations.getGlobals().entrySet()) {
+            List<String> interfaces = declarations.getInterfaces(global.getValue());
+
+            if (!interfaces.isEmpty()) {
+                collectPaths(declarations, List.of(global.getKey()), interfaces, paths);
+            }
+        }
+
+        Map<?, ?> probe = runRuntimeProbe(declarations.getGlobals().keySet(), paths.keySet());
+        Set<String> apiGlobals = toNames(probe.get("globals"));
+        List<String> problems = new ArrayList<>();
+
+        apiGlobals.removeAll(readStandardGlobals());
+        apiGlobals.addAll(REPLACED_GLOBALS);
+        apiGlobals.removeAll(UNDECLARED_GLOBALS);
+        compareNames("The globals", declarations.getGlobals().keySet(), toNames(probe.get("defined")), false, false, problems);
+
+        if (!declarations.getGlobals().keySet().containsAll(apiGlobals)) {
+            Set<String> undeclared = new TreeSet<>(apiGlobals);
+
+            undeclared.removeAll(declarations.getGlobals().keySet());
+            problems.add("The globals do not declare: " + undeclared);
+        }
+
+        for (Map.Entry<List<String>, List<String>> path : paths.entrySet()) {
+            String key = String.join(".", path.getKey());
+            boolean exact = apiGlobals.contains(path.getKey().getFirst());
+            Object names = ((Map<?, ?>) probe.get(exact ? "own" : "chain")).get(key);
+
+            if (names == null) {
+                problems.add(key + " is no object in the runtime");
+                continue;
+            }
+
+            List<String> problemsBefore = new ArrayList<>(problems);
+
+            compareNames(key + " (" + path.getValue() + ")", declarations.getMembers(path.getValue()).keySet(), toNames(names), exact,
+                         declarations.isIndexed(path.getValue()), problems);
+
+            if (!problems.equals(problemsBefore) && GENERATED_TABLES.contains(key)) {
+                problems.add(writeGeneratedMembers(key, (List<?>) ((Map<?, ?>) probe.get("tables")).get(key)));
+            }
+        }
+
+        Assertions.assertEquals(List.of(), problems, () -> String.join("\n", problems));
+    }
+
+    @Test
+    void declarations_name_every_hook_and_the_members_of_its_object() throws IOException {
+        ScriptDeclarationsCheck declarations = readDeclarations();
+        Map<String, ScriptDeclarationsCheck.Member> hooks = declarations.getMembers(List.of("Hooks"));
+        Set<String> hookNames = new LinkedHashSet<>();
+        Map<String, String> expressions = new LinkedHashMap<>();
+        Map<String, String> interfaces = new LinkedHashMap<>();
+        List<String> problems = new ArrayList<>();
+
+        for (ScriptHook hook : ScriptHook.values()) {
+            String name = hook.getFunctionName();
+
+            hookNames.add(name);
+
+            ScriptDeclarationsCheck.Member member = hooks.get(name);
+
+            if (member != null && declarations.isInterface(member.getType())) {
+                String factory = name.startsWith("onBefore") ? "createDecision" : "createEvent";
+
+                expressions.put(name, "bridge." + factory + "('" + name + "', values)");
+                interfaces.put(name, member.getType());
+            }
+        }
+
+        for (Map.Entry<String, String> instance : INSTANCES.entrySet()) {
+            expressions.put(instance.getKey(), instance.getValue());
+            interfaces.put(instance.getKey(), instance.getKey());
+        }
+
+        compareNames("Hooks", hooks.keySet(), hookNames, true, false, problems);
+
+        for (Map.Entry<String, Set<String>> names : readInstanceNames(expressions).entrySet()) {
+            String declared = interfaces.get(names.getKey());
+
+            compareNames(names.getKey() + " (" + declared + ")", declarations.getMembers(List.of(declared)).keySet(), names.getValue(), true,
+                         false, problems);
+        }
+
+        Assertions.assertEquals(List.of(), problems, () -> String.join("\n", problems));
+    }
+}
