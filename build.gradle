@@ -178,6 +178,15 @@ tasks.named('processModResources') {
     dependsOn cloneScrMod
 }
 
+// The script tool (ScriptTool) with the mod's classes and libraries: --args="pack <map> --script <folder> -o <output>" or
+// --args="unpack <map> -o <folder>", relative paths from the repository root.
+tasks.register('runScriptTool', JavaExec) {
+    description = 'Packs a script folder into a map or unpacks the script package of a map (--args passes the command).'
+    group = 'sc4j'
+    classpath = sourceSets.mod.runtimeClasspath
+    mainClass = 'org.fogofwarlabs.sc4j.screnhanced.script.ScriptTool'
+}
+
 def modJar = tasks.named('jar')
 
 // The tests read scr-enhanced.jar and scr.jar as a user's mods/ folder has them.
