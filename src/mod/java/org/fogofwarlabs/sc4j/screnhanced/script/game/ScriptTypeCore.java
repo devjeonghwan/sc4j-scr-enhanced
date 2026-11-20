@@ -35,9 +35,9 @@ import java.util.function.Function;
  * entries have no names, so an image type is named after its GRP path in {@code images.tbl} when the game starts: the path without the
  * {@code .grp} extension, each part between {@code /} and {@code \} with its first letter in upper case ({@code unit/terran/marine.grp} is
  * {@code UnitTerranMarine}). An image that shares its GRP path with another image and has a drawing function other than the normal one gets
- * the drawing function's name ({@code UnitProtossArbiterShadow}); a name that is still taken gets {@code 2}, {@code 3} and so on in entry
- * order ({@code UnitNeutralGeyser2}). An image without a valid GRP path, and every image of a game without game data, is named
- * {@code Image<entry>}.
+ * the drawing function's name ({@code UnitProtossArbiterShadow}); a name that is still taken, ignoring letter case, gets {@code _2},
+ * {@code _3} and so on in entry order ({@code UnitNeutralGeyser_2}). An image without a valid GRP path, and every image of a game without
+ * game data, is named {@code Image<entry>}.
  * <p>
  * {@code unitType} also has {@code getMaxHp} and {@code setMaxHp} (raw {@code 1/256} units), {@code getMaxShields}, {@code setMaxShields},
  * {@code getArmor}, {@code setArmor}, {@code getGroundWeapon} and {@code getAirWeapon} ({@code -1} for none); {@code weaponType} has
@@ -52,6 +52,10 @@ final class ScriptTypeCore {
      * The number the second image with a taken name gets.
      */
     private static final int FIRST_NAME_NUMBER = 2;
+    /**
+     * The separator between a taken name and its number.
+     */
+    private static final @NotNull String NAME_NUMBER_SEPARATOR = "_";
     /**
      * The name suffixes of the drawing functions, for an image that shares its GRP path.
      */
@@ -157,27 +161,29 @@ final class ScriptTypeCore {
             }
 
             baseNames[id] = name;
-            baseNameSet.add(name);
+            baseNameSet.add(name.toLowerCase(Locale.ROOT));
         }
 
         String[] names = new String[ScrImages.COUNT];
         Set<String> takenNames = new HashSet<>();
 
+        // Names that differ only in letter case count as taken.
         for (int id = 0; id < ScrImages.COUNT; id++) {
             String name = baseNames[id];
 
-            if (takenNames.contains(name)) {
+            if (takenNames.contains(name.toLowerCase(Locale.ROOT))) {
                 int number = FIRST_NAME_NUMBER;
 
-                while (takenNames.contains(name + number) || baseNameSet.contains(name + number)) {
+                while (takenNames.contains((name + NAME_NUMBER_SEPARATOR + number).toLowerCase(Locale.ROOT)) ||
+                       baseNameSet.contains((name + NAME_NUMBER_SEPARATOR + number).toLowerCase(Locale.ROOT))) {
                     number++;
                 }
 
-                name += number;
+                name += NAME_NUMBER_SEPARATOR + number;
             }
 
             names[id] = name;
-            takenNames.add(name);
+            takenNames.add(name.toLowerCase(Locale.ROOT));
         }
 
         return List.of(names);

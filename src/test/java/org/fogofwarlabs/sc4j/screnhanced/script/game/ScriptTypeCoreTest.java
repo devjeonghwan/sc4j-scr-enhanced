@@ -32,8 +32,8 @@ final class ScriptTypeCoreTest {
                 var valid = 0;
                 for (var id = 0; id < ImageType.getCount(); id++) {
                     var name = ImageType.get(id).getName();
-                    if (names[name] === undefined) {
-                        names[name] = id;
+                    if (names[name.toLowerCase()] === undefined) {
+                        names[name.toLowerCase()] = id;
                         unique++;
                     }
                     if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && ImageType[name] === ImageType.get(id) && core.imageType.getName(id) === name) {
@@ -41,13 +41,14 @@ final class ScriptTypeCoreTest {
                     }
                 }
                 log.info(ImageType.getCount(), unique, valid);
-                log.info([239, 130, 131, 133, 344, 345].map(function (id) { return ImageType.get(id).getName(); }).join(' '));
+                log.info([239, 130, 131, 133, 344, 345, 920, 921].map(function (id) { return ImageType.get(id).getName(); }).join(' '));
                 """);
 
         scenario.getRuntime().start();
 
         Assertions.assertEquals(List.of("999 999 999",
                                         "UnitTerranMarine UnitProtossArbiter UnitProtossArbiterShadow UnitProtossArbiterWarpFlash " +
-                                        "UnitNeutralGeyser UnitNeutralGeyser2"), scenario.getInfoMessages(), scenario.getLines()::toString);
+                                        "UnitNeutralGeyser UnitNeutralGeyser_2 UnitZergZLurker UnitZergZlurker_2"),
+                                scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 }
