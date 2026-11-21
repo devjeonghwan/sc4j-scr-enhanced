@@ -2034,6 +2034,7 @@ interface OrderData {
 
     setObscuredOrder(order: Order | null): void;
 }
+
 // END GENERATED DAT
 
 /**
@@ -4112,6 +4113,7 @@ interface GameCombat {
      */
     setFleeDistances(distances: number[]): void;
 }
+
 /**
  * The game: its map, players, units, trigger state and timers.
  */

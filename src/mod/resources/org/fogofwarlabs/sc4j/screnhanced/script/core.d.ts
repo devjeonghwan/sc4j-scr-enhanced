@@ -1071,6 +1071,7 @@ interface CoreDat {
     /** The orders.dat values. */
     readonly orders: CoreDatOrders;
 }
+
 // END GENERATED CORE DAT
 
 // ---------------------------------------------------------------------------------------------------------------------------------------

@@ -1812,7 +1812,7 @@
                                   return core.game.isMultiplayer();
                               },
                               // The raw game options: the victory condition, the resource setting, the starting minerals, the starting units and the
-                             // tournament mode.
+                              // tournament mode.
                               getVictoryCondition: function () {
                                   return core.game.getVictoryCondition();
                               },
