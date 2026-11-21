@@ -6,6 +6,7 @@ import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.ScriptRuntime;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -210,13 +211,13 @@ final class ScriptModuleLoader {
 
     private @Nullable Object require(@NotNull Context context, @NotNull ScriptModule requiring, @NotNull Object @NotNull [] arguments) {
         if (arguments.length == 0 || !(arguments[0] instanceof CharSequence id)) {
-            throw org.mozilla.javascript.ScriptRuntime.typeError("require needs a script name.");
+            throw ScriptRuntime.typeError("require needs a script name.");
         }
 
         String name = resolveName(requiring.getName(), id.toString());
 
         if (name == null) {
-            throw org.mozilla.javascript.ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The script name {0} is not valid.", id));
+            throw ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The script name {0} is not valid.", id));
         }
 
         ScriptModule module = this.modulesByName.get(name);
@@ -226,13 +227,13 @@ final class ScriptModuleLoader {
         }
 
         if (this.local) {
-            throw org.mozilla.javascript.ScriptRuntime.typeError(Exceptions.format("Local code cannot load the module {0}.", name));
+            throw ScriptRuntime.typeError(Exceptions.format("Local code cannot load the module {0}.", name));
         }
 
         byte[] source = this.scripts.get(name);
 
         if (source == null) {
-            throw org.mozilla.javascript.ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The script package has no script {0}.", name));
+            throw ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The script package has no script {0}.", name));
         }
 
         return this.loadModule(context, name, source).getExports();
