@@ -144,7 +144,7 @@ final class ScriptMath extends ScriptableObject {
         this.defineUnary("cbrt", StrictMath::cbrt);
         this.defineUnary("ceil", StrictMath::ceil);
         this.defineFunction("clz32", 1, (context, scope, thisObject, arguments) -> {
-            long value = ScriptRuntime.toUint32(arguments.length > 0 ? arguments[0] : Context.getUndefinedValue());
+            long value = org.mozilla.javascript.ScriptRuntime.toUint32(arguments.length > 0 ? arguments[0] : Context.getUndefinedValue());
 
             return (double) Integer.numberOfLeadingZeros((int) value);
         });
@@ -164,8 +164,8 @@ final class ScriptMath extends ScriptableObject {
             return result;
         });
         this.defineFunction("imul", 2, (context, scope, thisObject, arguments) -> {
-            int first = ScriptRuntime.toInt32(arguments, 0);
-            int second = ScriptRuntime.toInt32(arguments, 1);
+            int first = org.mozilla.javascript.ScriptRuntime.toInt32(arguments, 0);
+            int second = org.mozilla.javascript.ScriptRuntime.toInt32(arguments, 1);
 
             return (double) (first * second);
         });

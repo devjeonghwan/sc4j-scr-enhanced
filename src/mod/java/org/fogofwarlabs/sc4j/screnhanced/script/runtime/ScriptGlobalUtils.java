@@ -91,7 +91,7 @@ final class ScriptGlobalUtils {
         }
 
         LambdaFunction replacement = new LambdaFunction(global, FUNCTION_NAME, 1, (context, scope, thisObject, arguments) -> {
-            throw ScriptRuntime.typeError("Creating functions from strings is not supported.");
+            throw org.mozilla.javascript.ScriptRuntime.typeError("Creating functions from strings is not supported.");
         });
 
         replacement.setImmunePrototypeProperty(prototypeObject);
@@ -127,7 +127,7 @@ final class ScriptGlobalUtils {
             double bound = arguments.length > 0 ? Context.toNumber(arguments[0]) : Double.NaN;
 
             if (!(bound >= 1 && bound <= LARGEST_RANDOM_BOUND) || bound != StrictMath.floor(bound)) {
-                throw ScriptRuntime.rangeError("random.nextInt needs an integer bound from 1 to 2^53.");
+                throw org.mozilla.javascript.ScriptRuntime.rangeError("random.nextInt needs an integer bound from 1 to 2^53.");
             }
 
             return (double) random.nextLong((long) bound);

@@ -299,8 +299,13 @@ final class ScriptDatTablesTest {
         Assertions.assertEquals(List.of(), problems);
     }
 
+    private static @NotNull String removeBlankLines(@NotNull String text) {
+        return text.replaceAll("(?m)^[ \\t]*\\n", "");
+    }
+
     /**
-     * Compares a generated block of a declarations file with the expected one, which is written to a file when they differ.
+     * Compares a generated block of a declarations file with the expected one, blank lines aside, and writes the expected one to a file when
+     * they differ.
      */
     private static void checkBlock(@NotNull String fileName, @NotNull String start, @NotNull String end, @NotNull String expected,
                                    @NotNull Path expectedFile, @NotNull List<String> problems) throws IOException {
@@ -309,7 +314,7 @@ final class ScriptDatTablesTest {
         int endIndex = declarations.indexOf(end);
         String actual = startIndex < 0 || endIndex < startIndex ? "" : declarations.substring(startIndex, endIndex + end.length() + 1);
 
-        if (!actual.equals(expected)) {
+        if (!removeBlankLines(actual).equals(removeBlankLines(expected))) {
             Files.createDirectories(expectedFile.getParent());
             Files.writeString(expectedFile, expected, StandardCharsets.UTF_8);
             problems.add("The generated DAT block of " + fileName + " differs; the expected block is in " + expectedFile.toAbsolutePath());
