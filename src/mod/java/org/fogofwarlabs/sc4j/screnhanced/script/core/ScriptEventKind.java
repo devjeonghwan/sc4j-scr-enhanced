@@ -1,23 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.BulletCreatedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.BulletHitEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OrderIssuedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OwnerChangedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerLeftEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerResultEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.ResearchCompletedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SpellCastEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.TargetAcquiredEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitCompletedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitCreatedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDamagedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDiedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitLoadedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitTrainedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitUnloadedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UpgradeCompletedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

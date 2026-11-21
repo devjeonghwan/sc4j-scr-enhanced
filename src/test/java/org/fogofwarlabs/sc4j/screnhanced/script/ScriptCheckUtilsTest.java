@@ -53,25 +53,25 @@ final class ScriptCheckUtilsTest {
     void check_should_find_nothing_in_a_clean_folder(@TempDir @NotNull Path folder) throws IOException {
         Assertions.assertEquals(List.of(), check(folder, withManifest(
                 "main.js", """
-                        const util = require('./lib/util.js');
-                        const SIZE = 32;
-                        function onStart() {
-                            var total = 0;
-                            for (let i = 0; i < 3; i++) {
-                                let copy = i;
-                                total += copy;
-                                game.every(SIZE, function () { log.info(copy); });
-                            }
-                            [1, 2].forEach(function (value) {
-                                const doubled = value * 2;
-                                util.greet(doubled, Math.max(total, doubled));
-                            });
-                        }
-                        function onUnitDied(event) {
-                            var record = {Date: event.getFrame()};
-                            log.info(record.Date);
-                        }
-                        """,
+                           const util = require('./lib/util.js');
+                           const SIZE = 32;
+                           function onStart() {
+                               var total = 0;
+                               for (let i = 0; i < 3; i++) {
+                                   let copy = i;
+                                   total += copy;
+                                   game.every(SIZE, function () { log.info(copy); });
+                               }
+                               [1, 2].forEach(function (value) {
+                                   const doubled = value * 2;
+                                   util.greet(doubled, Math.max(total, doubled));
+                               });
+                           }
+                           function onUnitDied(event) {
+                               var record = {Date: event.getFrame()};
+                               log.info(record.Date);
+                           }
+                           """,
                 "lib/util.js", "exports.greet = function (value) {\n    log.info(value);\n};\n",
                 "resources/sounds/hit.wav", "RIFF data"
         )));
@@ -107,14 +107,14 @@ final class ScriptCheckUtilsTest {
         Assertions.assertEquals(List.of("main.js:1: warning: onUnitDeath is not a known hook and is not called.",
                                         "main.js:3: warning: onTick is not a known hook and is not called."),
                                 check(folder, withManifest("main.js", """
-                                        function onUnitDeath(event) {
-                                        }
-                                        var onTick = function () {};
-                                        function onStart() {
-                                            function onInner() {}
-                                        }
-                                        var onValue = 1;
-                                        """)));
+                                                                      function onUnitDeath(event) {
+                                                                      }
+                                                                      var onTick = function () {};
+                                                                      function onStart() {
+                                                                          function onInner() {}
+                                                                      }
+                                                                      var onValue = 1;
+                                                                      """)));
         Assertions.assertEquals(0, runCheckCommand(folder));
     }
 
@@ -127,17 +127,17 @@ final class ScriptCheckUtilsTest {
                                         "main.js:6: error: The Function constructor throws: scripts cannot create functions from strings.",
                                         "main.js:7: error: The Function constructor throws: scripts cannot create functions from strings."),
                                 check(folder, withManifest("main.js", """
-                                        function onStart() {
-                                            eval('1');
-                                            log.info(Date.now());
-                                            var system = java.lang.System;
-                                            var packages = Packages.java;
-                                            var add = new Function('a', 'return a;');
-                                            var subtract = Function('a', 'return -a;');
-                                            var record = {Date: 1, eval: 2};
-                                            log.info(record.Date, record.eval, typeof add === 'function' instanceof Function);
-                                        }
-                                        """, "own.js", "var Date = {now: function () { return 0; }};\nlog.info(Date.now());\n")));
+                                                                      function onStart() {
+                                                                          eval('1');
+                                                                          log.info(Date.now());
+                                                                          var system = java.lang.System;
+                                                                          var packages = Packages.java;
+                                                                          var add = new Function('a', 'return a;');
+                                                                          var subtract = Function('a', 'return -a;');
+                                                                          var record = {Date: 1, eval: 2};
+                                                                          log.info(record.Date, record.eval, typeof add === 'function' instanceof Function);
+                                                                      }
+                                                                      """, "own.js", "var Date = {now: function () { return 0; }};\nlog.info(Date.now());\n")));
     }
 
     @Test
@@ -146,14 +146,14 @@ final class ScriptCheckUtilsTest {
                                         "main.js:3: error: core.dat.units has no function getMineralCosts.",
                                         "main.js:4: error: core.dat.sprites has no function setHealthBarWidth."),
                                 check(folder, withManifest("main.js", """
-                                        function onStart() {
-                                            core.dat.unit.getMineralCost(0);
-                                            core.dat.units.getMineralCosts(0);
-                                            core.dat.sprites.setHealthBarWidth(130, 1);
-                                            core.dat.units.setMineralCost(0, core.dat.units.getMineralCost(0) + 1);
-                                            core.dat.weapons.getTargetFlags(0);
-                                        }
-                                        """, "own.js", "var core = {dat: {unit: 1}};\nlog.info(core.dat.unit);\n")));
+                                                                      function onStart() {
+                                                                          core.dat.unit.getMineralCost(0);
+                                                                          core.dat.units.getMineralCosts(0);
+                                                                          core.dat.sprites.setHealthBarWidth(130, 1);
+                                                                          core.dat.units.setMineralCost(0, core.dat.units.getMineralCost(0) + 1);
+                                                                          core.dat.weapons.getTargetFlags(0);
+                                                                      }
+                                                                      """, "own.js", "var core = {dat: {unit: 1}};\nlog.info(core.dat.unit);\n")));
     }
 
     @Test
@@ -163,21 +163,21 @@ final class ScriptCheckUtilsTest {
                                         "main.js:3: error: local.getSelection throws in onFrame, which is shared code: read it in a local hook " +
                                         "(onLocal*, onRender)."),
                                 check(folder, withManifest("main.js", """
-                                        var first = local.getPlayer();
-                                        function onFrame(frame) {
-                                            log.info(local.getSelection());
-                                            game.every(1, function () { log.info(local.isReplay()); });
-                                        }
-                                        function onLocalFrame(frame) {
-                                            log.info(local.getMousePosition());
-                                        }
-                                        function onRender(screen) {
-                                            log.info(local.getPlayer());
-                                        }
-                                        function helper() {
-                                            return local.getScreenPosition();
-                                        }
-                                        """, "own.js", "var local = {getPlayer: function () { return 1; }};\nlog.info(local.getPlayer());\n")));
+                                                                      var first = local.getPlayer();
+                                                                      function onFrame(frame) {
+                                                                          log.info(local.getSelection());
+                                                                          game.every(1, function () { log.info(local.isReplay()); });
+                                                                      }
+                                                                      function onLocalFrame(frame) {
+                                                                          log.info(local.getMousePosition());
+                                                                      }
+                                                                      function onRender(screen) {
+                                                                          log.info(local.getPlayer());
+                                                                      }
+                                                                      function helper() {
+                                                                          return local.getScreenPosition();
+                                                                      }
+                                                                      """, "own.js", "var local = {getPlayer: function () { return 1; }};\nlog.info(local.getPlayer());\n")));
     }
 
     @Test
@@ -185,21 +185,21 @@ final class ScriptCheckUtilsTest {
         Assertions.assertEquals(List.of("main.js:4: warning: The const value in a loop keeps its first value in Rhino 1.8.1; use let.",
                                         "main.js:8: warning: The const next in a loop keeps its first value in Rhino 1.8.1; use let."),
                                 check(folder, withManifest("main.js", """
-                                        const LIMIT = 3;
-                                        function onStart() {
-                                            for (var index = 0; index < LIMIT; index++) {
-                                                const value = index * 2;
-                                                log.info(value);
-                                            }
-                                            while (game.getFrame() < 0) {
-                                                { const next = 1; log.info(next); }
-                                            }
-                                            game.units.getAll().forEach(function (unit) {
-                                                const hp = unit.getHp();
-                                                log.info(hp);
-                                            });
-                                        }
-                                        """)));
+                                                                      const LIMIT = 3;
+                                                                      function onStart() {
+                                                                          for (var index = 0; index < LIMIT; index++) {
+                                                                              const value = index * 2;
+                                                                              log.info(value);
+                                                                          }
+                                                                          while (game.getFrame() < 0) {
+                                                                              { const next = 1; log.info(next); }
+                                                                          }
+                                                                          game.units.getAll().forEach(function (unit) {
+                                                                              const hp = unit.getHp();
+                                                                              log.info(hp);
+                                                                          });
+                                                                      }
+                                                                      """)));
     }
 
     @Test
@@ -209,20 +209,20 @@ final class ScriptCheckUtilsTest {
                                         "main.js:6: warning: The function uses unit of the for (let ...) loop at line 5, which all iterations " +
                                         "share in Rhino 1.8.1; copy it into a let inside the loop body."),
                                 check(folder, withManifest("main.js", """
-                                        function onStart() {
-                                            for (let index = 0; index < 3; index++) {
-                                                game.every(1, function () { log.info(index); });
-                                            }
-                                            for (let unit of game.units.getAll()) {
-                                                game.every(1, () => unit.kill());
-                                            }
-                                            for (let other = 0; other < 3; other++) {
-                                                let copy = other;
-                                                game.every(1, function () { log.info(copy); });
-                                                game.every(1, function (other) { log.info(other); });
-                                            }
-                                        }
-                                        """)));
+                                                                      function onStart() {
+                                                                          for (let index = 0; index < 3; index++) {
+                                                                              game.every(1, function () { log.info(index); });
+                                                                          }
+                                                                          for (let unit of game.units.getAll()) {
+                                                                              game.every(1, () => unit.kill());
+                                                                          }
+                                                                          for (let other = 0; other < 3; other++) {
+                                                                              let copy = other;
+                                                                              game.every(1, function () { log.info(copy); });
+                                                                              game.every(1, function (other) { log.info(other); });
+                                                                          }
+                                                                      }
+                                                                      """)));
     }
 
     @Test

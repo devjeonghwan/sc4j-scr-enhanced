@@ -74,7 +74,7 @@ public final class ConsoleSettings {
         this.tops          = new int[DIALOG_COUNT];
         this.controls      = new EnumMap<>(ScrConsolePlacement.Dialog.class);
 
-        this.arts         = new Picture[ART_COUNT];
+        this.arts          = new Picture[ART_COUNT];
         this.resourceIcons = new Picture[RESOURCE_ICON_COUNT];
 
         this.changeCount = 0;

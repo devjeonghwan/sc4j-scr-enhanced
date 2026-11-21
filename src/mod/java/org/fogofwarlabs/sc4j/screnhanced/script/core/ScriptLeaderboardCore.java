@@ -112,7 +112,8 @@ final class ScriptLeaderboardCore {
         return switch (type) {
             case TriggerActionIds.LEADERBOARD_CONTROL, TriggerActionIds.LEADERBOARD_GOAL_CONTROL, TriggerActionIds.LEADERBOARD_KILLS,
                  TriggerActionIds.LEADERBOARD_GOAL_KILLS -> ScriptCoreUtils.readUnitOperand(arguments, 1);
-            case TriggerActionIds.LEADERBOARD_RESOURCES, TriggerActionIds.LEADERBOARD_GOAL_RESOURCES -> ScriptCoreUtils.readResourceType(arguments, 1);
+            case TriggerActionIds.LEADERBOARD_RESOURCES,
+                 TriggerActionIds.LEADERBOARD_GOAL_RESOURCES -> ScriptCoreUtils.readResourceType(arguments, 1);
             case TriggerActionIds.LEADERBOARD_POINTS, TriggerActionIds.LEADERBOARD_GOAL_POINTS -> ScriptCoreUtils.readScoreType(arguments, 1);
             default -> throw ScriptRuntime.rangeError(Exceptions.format("The leaderboard type {0} is not a leaderboard without a location.", type));
         };

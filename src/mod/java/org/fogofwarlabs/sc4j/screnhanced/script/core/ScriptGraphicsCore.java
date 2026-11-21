@@ -5,13 +5,9 @@ import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.scr.content.ScrImages;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.ClassicDatRegion;
-import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageAnim;
-import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGraphics;
-import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGrp;
-import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
-import org.fogofwarlabs.sc4j.screnhanced.graphics.PictureFileUtils;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.*;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
@@ -148,7 +144,7 @@ final class ScriptGraphicsCore {
             String name = ScriptCoreUtils.readString(arguments, 0);
 
             return (double) this.findHandle(this.imageIds, name, "image", () -> PictureFileUtils.read(this.resources.read(this.requireEntry(name)),
-                                                                                                     name));
+                                                                                                      name));
         });
         ScriptCoreUtils.defineFunction(global, namespace, "getImageWidth", 1,
                                        (context, scope, thisObject, arguments) -> (double) this.readPicture(arguments, 0).getWidth());
@@ -321,7 +317,7 @@ final class ScriptGraphicsCore {
             handle = read.read();
         } catch (IOException exception) {
             throw ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The resource {0} is no valid {1}: {2}", name, kindName,
-                                                                              exception.getMessage()));
+                                                                             exception.getMessage()));
         }
 
         int newId = this.handles.size();

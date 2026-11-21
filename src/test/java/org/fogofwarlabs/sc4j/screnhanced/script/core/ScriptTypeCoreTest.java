@@ -28,22 +28,22 @@ final class ScriptTypeCoreTest {
     void image_type_names_are_unique_identifiers_from_the_grp_paths(@NotNull InstallationTestResources resources) throws IOException {
         GameMap map = new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]);
         ScriptGameScenario scenario = new ScriptGameScenario(Game.create(resources.getGameData(), map, new LcgRandom(0)), """
-                var names = {};
-                var unique = 0;
-                var valid = 0;
-                for (var id = 0; id < ImageType.getCount(); id++) {
-                    var name = ImageType.get(id).getName();
-                    if (names[name.toLowerCase()] === undefined) {
-                        names[name.toLowerCase()] = id;
-                        unique++;
-                    }
-                    if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && ImageType[name] === ImageType.get(id) && core.imageType.getName(id) === name) {
-                        valid++;
-                    }
-                }
-                log.info(ImageType.getCount(), unique, valid);
-                log.info([239, 130, 131, 133, 344, 345, 920, 921].map(function (id) { return ImageType.get(id).getName(); }).join(' '));
-                """);
+                                                                                                                          var names = {};
+                                                                                                                          var unique = 0;
+                                                                                                                          var valid = 0;
+                                                                                                                          for (var id = 0; id < ImageType.getCount(); id++) {
+                                                                                                                              var name = ImageType.get(id).getName();
+                                                                                                                              if (names[name.toLowerCase()] === undefined) {
+                                                                                                                                  names[name.toLowerCase()] = id;
+                                                                                                                                  unique++;
+                                                                                                                              }
+                                                                                                                              if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && ImageType[name] === ImageType.get(id) && core.imageType.getName(id) === name) {
+                                                                                                                                  valid++;
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          log.info(ImageType.getCount(), unique, valid);
+                                                                                                                          log.info([239, 130, 131, 133, 344, 345, 920, 921].map(function (id) { return ImageType.get(id).getName(); }).join(' '));
+                                                                                                                          """);
 
         scenario.getRuntime().start();
 
@@ -57,22 +57,22 @@ final class ScriptTypeCoreTest {
     void sprite_and_flingy_type_names_are_unique_identifiers_from_their_images(@NotNull InstallationTestResources resources) throws IOException {
         GameMap map = new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]);
         ScriptGameScenario scenario = new ScriptGameScenario(Game.create(resources.getGameData(), map, new LcgRandom(0)), """
-                function count(table) {
-                    var names = {};
-                    var valid = 0;
-                    for (var id = 0; id < table.getCount(); id++) {
-                        var name = table.get(id).getName();
-                        if (names[name.toLowerCase()] === undefined && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && table[name] === table.get(id)) {
-                            names[name.toLowerCase()] = id;
-                            valid++;
-                        }
-                    }
-                    return table.getCount() + ' ' + valid;
-                }
-                var flingy = UnitType.TerranMarine.getFlingyType();
-                log.info(count(SpriteType), count(FlingyType));
-                log.info(flingy.getName(), flingy.getSprite().getName(), core.spriteType.getName(flingy.getSprite().getId()));
-                """);
+                                                                                                                          function count(table) {
+                                                                                                                              var names = {};
+                                                                                                                              var valid = 0;
+                                                                                                                              for (var id = 0; id < table.getCount(); id++) {
+                                                                                                                                  var name = table.get(id).getName();
+                                                                                                                                  if (names[name.toLowerCase()] === undefined && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && table[name] === table.get(id)) {
+                                                                                                                                      names[name.toLowerCase()] = id;
+                                                                                                                                      valid++;
+                                                                                                                                  }
+                                                                                                                              }
+                                                                                                                              return table.getCount() + ' ' + valid;
+                                                                                                                          }
+                                                                                                                          var flingy = UnitType.TerranMarine.getFlingyType();
+                                                                                                                          log.info(count(SpriteType), count(FlingyType));
+                                                                                                                          log.info(flingy.getName(), flingy.getSprite().getName(), core.spriteType.getName(flingy.getSprite().getId()));
+                                                                                                                          """);
 
         scenario.getRuntime().start();
 
@@ -84,18 +84,18 @@ final class ScriptTypeCoreTest {
     void an_image_type_draws_the_hd_anim_that_the_installed_image_relations_name(@NotNull InstallationTestResources resources) throws IOException {
         GameMap map = new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]);
         ScriptGameScenario scenario = new ScriptGameScenario(Game.create(resources.getGameData(), map, new LcgRandom(0)), """
-                var shared = 0;
-                for (var id = 0; id < ImageType.getCount(); id++) {
-                    var animImageType = ImageType.get(id).getAnimImageType();
-                    if (animImageType.getId() !== core.imageType.getAnimImageType(id) || animImageType.getAnimImageType() !== animImageType) {
-                        throw new Error('image type ' + id);
-                    }
-                    if (animImageType !== ImageType.get(id)) {
-                        shared++;
-                    }
-                }
-                log.info(shared > 0, [239, 275, 172].map(function (id) { return ImageType.get(id).getAnimImageType().getName(); }).join(' '));
-                """);
+                                                                                                                          var shared = 0;
+                                                                                                                          for (var id = 0; id < ImageType.getCount(); id++) {
+                                                                                                                              var animImageType = ImageType.get(id).getAnimImageType();
+                                                                                                                              if (animImageType.getId() !== core.imageType.getAnimImageType(id) || animImageType.getAnimImageType() !== animImageType) {
+                                                                                                                                  throw new Error('image type ' + id);
+                                                                                                                              }
+                                                                                                                              if (animImageType !== ImageType.get(id)) {
+                                                                                                                                  shared++;
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          log.info(shared > 0, [239, 275, 172].map(function (id) { return ImageType.get(id).getAnimImageType().getName(); }).join(' '));
+                                                                                                                          """);
 
         scenario.getRuntime().start();
 

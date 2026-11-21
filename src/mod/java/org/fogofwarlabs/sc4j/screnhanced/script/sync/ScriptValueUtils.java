@@ -3,13 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.sync;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.EcmaError;
-import org.mozilla.javascript.NativeArray;
-import org.mozilla.javascript.NativeObject;
-import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.*;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;

@@ -469,11 +469,11 @@
         getOrderQueue: function () {
             return core.unit.getOrderQueue(requireUnitId(this)).map(function (record) {
                 return freeze({
-                    order: Order.get(record.order),
-                    target: getUnit(record.target),
-                    position: createPosition(record.x, record.y),
-                    unitType: UnitType.get(record.unitType)
-                });
+                                  order: Order.get(record.order),
+                                  target: getUnit(record.target),
+                                  position: createPosition(record.x, record.y),
+                                  unitType: UnitType.get(record.unitType)
+                              });
             });
         },
         getSecondaryOrder: function () {
@@ -1192,25 +1192,25 @@
     }
 
     var tileset = freeze({
-        getId: function () {
-            return core.game.getTileset();
-        },
-        getGroupCount: function () {
-            return core.terrain.getTileGroupCount();
-        },
-        // Returns the tile of a CV5 group and an index in it from 0 to 15.
-        getTile: function (group, index) {
-            if (index !== (index | 0) || index < 0 || index >= TILES_PER_GROUP) {
-                throw new RangeError('The tile index ' + index + ' is not from 0 to ' + (TILES_PER_GROUP - 1) + '.');
-            }
+                             getId: function () {
+                                 return core.game.getTileset();
+                             },
+                             getGroupCount: function () {
+                                 return core.terrain.getTileGroupCount();
+                             },
+                             // Returns the tile of a CV5 group and an index in it from 0 to 15.
+                             getTile: function (group, index) {
+                                 if (index !== (index | 0) || index < 0 || index >= TILES_PER_GROUP) {
+                                     throw new RangeError('The tile index ' + index + ' is not from 0 to ' + (TILES_PER_GROUP - 1) + '.');
+                                 }
 
-            if (group !== (group | 0) || group < 0 || !core.terrain.isValidTile(group << TILE_GROUP_SHIFT | index)) {
-                throw new RangeError('The tile ' + group + ':' + index + ' is not a tile of the tileset of the map.');
-            }
+                                 if (group !== (group | 0) || group < 0 || !core.terrain.isValidTile(group << TILE_GROUP_SHIFT | index)) {
+                                     throw new RangeError('The tile ' + group + ':' + index + ' is not a tile of the tileset of the map.');
+                                 }
 
-            return getTileObject(group << TILE_GROUP_SHIFT | index);
-        }
-    });
+                                 return getTileObject(group << TILE_GROUP_SHIFT | index);
+                             }
+                         });
 
     // A sprite of the sprite pool. The pools of sprites and images also hold the buildings the local player remembers in the fog of war, so
     // the slots can differ from peer to peer: shared code may show them but should not let them decide the game.
@@ -1380,88 +1380,88 @@
 
     // The creep of the map, by tile coordinates. Creep that these functions add has no source: it stays until it is removed or recedes.
     var creep = freeze({
-        // Whether a tile has creep, by the creep flag the rules of the game read.
-        has: function (tileX, tileY) {
-            return core.terrain.hasCreep(tileX, tileY);
-        },
-        // Covers the footprint of a building of a UnitType at a position with creep and grows it until no tile is added, as the game does
-        // for a building that needs creep; only in shared code.
-        fill: function (unitType, position) {
-            requireObject(position, positionPrototype, 'A position');
-            core.creep.fill(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y);
-        },
-        // Runs one spread step of a creep source of a UnitType at a position: true when it added a tile; only in shared code.
-        spread: function (unitType, position) {
-            requireObject(position, positionPrototype, 'A position');
+                           // Whether a tile has creep, by the creep flag the rules of the game read.
+                           has: function (tileX, tileY) {
+                               return core.terrain.hasCreep(tileX, tileY);
+                           },
+                           // Covers the footprint of a building of a UnitType at a position with creep and grows it until no tile is added, as the game does
+                           // for a building that needs creep; only in shared code.
+                           fill: function (unitType, position) {
+                               requireObject(position, positionPrototype, 'A position');
+                               core.creep.fill(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y);
+                           },
+                           // Runs one spread step of a creep source of a UnitType at a position: true when it added a tile; only in shared code.
+                           spread: function (unitType, position) {
+                               requireObject(position, positionPrototype, 'A position');
 
-            return core.creep.spread(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y) === 1;
-        },
-        // Removes the creep of a tile at once; only in shared code.
-        remove: function (tileX, tileY) {
-            core.creep.removeTile(tileX, tileY);
-        },
-        // Makes a creep tile recede later, as the creep of a removed building does: false for a tile that is not creep, already recedes, lies
-        // under a building or that a Zerg building sustains, and when the recession is full; only in shared code.
-        recede: function (tileX, tileY) {
-            return core.creep.recede(tileX, tileY);
-        }
-    });
+                               return core.creep.spread(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y) === 1;
+                           },
+                           // Removes the creep of a tile at once; only in shared code.
+                           remove: function (tileX, tileY) {
+                               core.creep.removeTile(tileX, tileY);
+                           },
+                           // Makes a creep tile recede later, as the creep of a removed building does: false for a tile that is not creep, already recedes, lies
+                           // under a building or that a Zerg building sustains, and when the recession is full; only in shared code.
+                           recede: function (tileX, tileY) {
+                               return core.creep.recede(tileX, tileY);
+                           }
+                       });
 
     // The tiles of the map. The changes apply at the next trigger step, after the frame start hooks and before the triggers; reads see the
     // changes made so far.
     var terrain = freeze({
-        creep: creep,
-        getTile: function (tileX, tileY) {
-            return getTileObject(core.terrain.getTile(tileX, tileY));
-        },
-        setTile: function (tileX, tileY, tile) {
-            core.terrain.setTile(tileX, tileY, requireObject(tile, tilePrototype, 'A tile').id);
-        },
-        // Sets every tile a location covers.
-        fillTiles: function (location, tile) {
-            var id = requireObject(tile, tilePrototype, 'A tile').id;
-            var area = readLocationTiles(location);
+                             creep: creep,
+                             getTile: function (tileX, tileY) {
+                                 return getTileObject(core.terrain.getTile(tileX, tileY));
+                             },
+                             setTile: function (tileX, tileY, tile) {
+                                 core.terrain.setTile(tileX, tileY, requireObject(tile, tilePrototype, 'A tile').id);
+                             },
+                             // Sets every tile a location covers.
+                             fillTiles: function (location, tile) {
+                                 var id = requireObject(tile, tilePrototype, 'A tile').id;
+                                 var area = readLocationTiles(location);
 
-            for (var tileY = area.top; tileY < area.bottom; tileY++) {
-                for (var tileX = area.left; tileX < area.right; tileX++) {
-                    core.terrain.setTile(tileX, tileY, id);
-                }
-            }
-        },
-        // Copies the tiles one location covers onto the tiles another location of the same size in tiles covers.
-        copyTiles: function (fromLocation, toLocation) {
-            var source = readLocationTiles(fromLocation);
-            var target = readLocationTiles(toLocation);
-            var width = source.right - source.left;
-            var height = source.bottom - source.top;
+                                 for (var tileY = area.top; tileY < area.bottom; tileY++) {
+                                     for (var tileX = area.left; tileX < area.right; tileX++) {
+                                         core.terrain.setTile(tileX, tileY, id);
+                                     }
+                                 }
+                             },
+                             // Copies the tiles one location covers onto the tiles another location of the same size in tiles covers.
+                             copyTiles: function (fromLocation, toLocation) {
+                                 var source = readLocationTiles(fromLocation);
+                                 var target = readLocationTiles(toLocation);
+                                 var width = source.right - source.left;
+                                 var height = source.bottom - source.top;
 
-            if (width !== target.right - target.left || height !== target.bottom - target.top) {
-                throw new RangeError('The locations cover ' + width + 'x' + height + ' and ' + (target.right - target.left) + 'x' +
-                                     (target.bottom - target.top) + ' tiles, not the same size.');
-            }
+                                 if (width !== target.right - target.left || height !== target.bottom - target.top) {
+                                     throw new RangeError('The locations cover ' + width + 'x' + height + ' and ' + (target.right - target.left) + 'x' +
+                                                          (target.bottom - target.top) + ' tiles, not the same size.');
+                                 }
 
-            var values = [];
+                                 var values = [];
 
-            for (var row = 0; row < height; row++) {
-                for (var column = 0; column < width; column++) {
-                    values.push(core.terrain.getTile(source.left + column, source.top + row));
-                }
-            }
+                                 for (var row = 0; row < height; row++) {
+                                     for (var column = 0; column < width; column++) {
+                                         values.push(core.terrain.getTile(source.left + column, source.top + row));
+                                     }
+                                 }
 
-            for (var index = 0; index < values.length; index++) {
-                core.terrain.setTile(target.left + index % width, target.top + floor(index / width), values[index]);
-            }
-        }
-    });
+                                 for (var index = 0; index < values.length; index++) {
+                                     core.terrain.setTile(target.left + index % width, target.top + floor(index / width), values[index]);
+                                 }
+                             }
+                         });
 
     var locations = freeze({
-        get: function (id) {
-            return getLocation(id);
-        },
-        findByName: function (name) {
-            return getLocation(core.location.findByName(String(name)));
-        }
-    });
+                               get: function (id) {
+                                   return getLocation(id);
+                               },
+                               findByName: function (name) {
+                                   return getLocation(core.location.findByName(String(name)));
+                               }
+                           });
 
     // The files of the map's resource folder.
     var resourcePrototype = {
@@ -1492,6 +1492,7 @@
         return [readResourceId(images.sd, grpPrototype, 'A GRP'), readResourceId(images.hd, animPrototype, 'An anim'),
                 readResourceId(images.hd2, animPrototype, 'An anim')];
     }
+
     var resourceObjects = [];
 
     // The pixel size of an image.
@@ -1515,200 +1516,200 @@
     }
 
     var resources = freeze({
-        has: function (name) {
-            return core.resources.has(String(name));
-        },
-        getGrp: function (name) {
-            var text = String(name);
+                               has: function (name) {
+                                   return core.resources.has(String(name));
+                               },
+                               getGrp: function (name) {
+                                   var text = String(name);
 
-            return getResource(core.resources.getGrp(text), text, grpPrototype);
-        },
-        getAnim: function (name) {
-            var text = String(name);
+                                   return getResource(core.resources.getGrp(text), text, grpPrototype);
+                               },
+                               getAnim: function (name) {
+                                   var text = String(name);
 
-            return getResource(core.resources.getAnim(text), text, animPrototype);
-        },
-        // A PNG or DDS picture to draw (screen.drawImage) or to show on the console.
-        getImage: function (name) {
-            var text = String(name);
+                                   return getResource(core.resources.getAnim(text), text, animPrototype);
+                               },
+                               // A PNG or DDS picture to draw (screen.drawImage) or to show on the console.
+                               getImage: function (name) {
+                                   var text = String(name);
 
-            return getResource(core.resources.getImage(text), text, imagePrototype);
-        }
-    });
+                                   return getResource(core.resources.getImage(text), text, imagePrototype);
+                               }
+                           });
 
     var gameMap = freeze({
-        getWidth: function () {
-            return core.game.getMapTileWidth() * TILE_SIZE;
-        },
-        getHeight: function () {
-            return core.game.getMapTileHeight() * TILE_SIZE;
-        },
-        getTileWidth: function () {
-            return core.game.getMapTileWidth();
-        },
-        getTileHeight: function () {
-            return core.game.getMapTileHeight();
-        },
-        tileset: tileset,
-        terrain: terrain,
-        locations: locations,
-        resources: resources
-    });
+                             getWidth: function () {
+                                 return core.game.getMapTileWidth() * TILE_SIZE;
+                             },
+                             getHeight: function () {
+                                 return core.game.getMapTileHeight() * TILE_SIZE;
+                             },
+                             getTileWidth: function () {
+                                 return core.game.getMapTileWidth();
+                             },
+                             getTileHeight: function () {
+                                 return core.game.getMapTileHeight();
+                             },
+                             tileset: tileset,
+                             terrain: terrain,
+                             locations: locations,
+                             resources: resources
+                         });
 
     var players = freeze({
-        get: function (id) {
-            return getPlayer(id);
-        },
-        getAll: function () {
-            var all = [];
+                             get: function (id) {
+                                 return getPlayer(id);
+                             },
+                             getAll: function () {
+                                 var all = [];
 
-            for (var id = 0; id < playerCount; id++) {
-                all.push(getPlayer(id));
-            }
+                                 for (var id = 0; id < playerCount; id++) {
+                                     all.push(getPlayer(id));
+                                 }
 
-            return all;
-        },
-        getHumans: function () {
-            return players.getAll().filter(function (player) {
-                return player.isHuman();
-            });
-        }
-    });
+                                 return all;
+                             },
+                             getHumans: function () {
+                                 return players.getAll().filter(function (player) {
+                                     return player.isHuman();
+                                 });
+                             }
+                         });
 
     var units = freeze({
-        get: function (id) {
-            return getUnit(id);
-        },
-        getAll: function () {
-            return filterUnits(undefined, Infinity);
-        },
-        find: function (filter) {
-            return filterUnits(filter, Infinity);
-        },
-        findOne: function (filter) {
-            var found = filterUnits(filter, 1);
+                           get: function (id) {
+                               return getUnit(id);
+                           },
+                           getAll: function () {
+                               return filterUnits(undefined, Infinity);
+                           },
+                           find: function (filter) {
+                               return filterUnits(filter, Infinity);
+                           },
+                           findOne: function (filter) {
+                               var found = filterUnits(filter, 1);
 
-            return found.length > 0 ? found[0] : null;
-        },
-        count: function (filter) {
-            return filterUnits(filter, Infinity).length;
-        },
-        // The live units whose bounds meet the rectangle of two corners, in the unit finder's order, that pass the filter; only in shared code.
-        findInRectangle: function (corner, otherCorner, filter) {
-            requireObject(corner, positionPrototype, 'A position');
-            requireObject(otherCorner, positionPrototype, 'A position');
+                               return found.length > 0 ? found[0] : null;
+                           },
+                           count: function (filter) {
+                               return filterUnits(filter, Infinity).length;
+                           },
+                           // The live units whose bounds meet the rectangle of two corners, in the unit finder's order, that pass the filter; only in shared code.
+                           findInRectangle: function (corner, otherCorner, filter) {
+                               requireObject(corner, positionPrototype, 'A position');
+                               requireObject(otherCorner, positionPrototype, 'A position');
 
-            var ids = core.unit.findInRectangle(min(corner.x, otherCorner.x), min(corner.y, otherCorner.y), max(corner.x, otherCorner.x),
-                                                max(corner.y, otherCorner.y));
+                               var ids = core.unit.findInRectangle(min(corner.x, otherCorner.x), min(corner.y, otherCorner.y), max(corner.x, otherCorner.x),
+                                                                   max(corner.y, otherCorner.y));
 
-            return filterIds(ids, filter, Infinity);
-        },
-        // The live units whose bounds meet the square around a position and whose position lies within the radius of it, that pass the
-        // filter; only in shared code.
-        findInRadius: function (position, radius, filter) {
-            requireObject(position, positionPrototype, 'A position');
+                               return filterIds(ids, filter, Infinity);
+                           },
+                           // The live units whose bounds meet the square around a position and whose position lies within the radius of it, that pass the
+                           // filter; only in shared code.
+                           findInRadius: function (position, radius, filter) {
+                               requireObject(position, positionPrototype, 'A position');
 
-            if (!(radius >= 0)) {
-                throw new RangeError('The radius ' + radius + ' is not a number of at least 0.');
-            }
+                               if (!(radius >= 0)) {
+                                   throw new RangeError('The radius ' + radius + ' is not a number of at least 0.');
+                               }
 
-            var test = createUnitTest(filter);
-            var ids = core.unit.findInRectangle(floor(position.x - radius), floor(position.y - radius), ceil(position.x + radius),
-                                                ceil(position.y + radius));
+                               var test = createUnitTest(filter);
+                               var ids = core.unit.findInRectangle(floor(position.x - radius), floor(position.y - radius), ceil(position.x + radius),
+                                                                   ceil(position.y + radius));
 
-            return filterIds(ids, function (unit) {
-                var dx = core.unit.getX(unit.id) - position.x;
-                var dy = core.unit.getY(unit.id) - position.y;
+                               return filterIds(ids, function (unit) {
+                                   var dx = core.unit.getX(unit.id) - position.x;
+                                   var dy = core.unit.getY(unit.id) - position.y;
 
-                return dx * dx + dy * dy <= radius * radius && test(unit);
-            }, Infinity);
-        },
-        create: function (type, player, position) {
-            requireObject(type, unitTypePrototype, 'A unit type');
-            requireObject(player, playerPrototype, 'A player');
-            requireObject(position, positionPrototype, 'A position');
+                                   return dx * dx + dy * dy <= radius * radius && test(unit);
+                               }, Infinity);
+                           },
+                           create: function (type, player, position) {
+                               requireObject(type, unitTypePrototype, 'A unit type');
+                               requireObject(player, playerPrototype, 'A player');
+                               requireObject(position, positionPrototype, 'A position');
 
-            return getUnit(core.unit.create(type.id, player.id, position.x, position.y));
-        }
-    });
+                               return getUnit(core.unit.create(type.id, player.id, position.x, position.y));
+                           }
+                       });
 
     // The switches 0 to 255 of the trigger state.
     var switches = freeze({
-        isSet: function (index) {
-            return core.game.isSwitchSet(index);
-        },
-        set: function (index, set) {
-            core.game.setSwitch(index, set);
-        },
-        toggle: function (index) {
-            core.game.toggleSwitch(index);
-        }
-    });
+                              isSet: function (index) {
+                                  return core.game.isSwitchSet(index);
+                              },
+                              set: function (index, set) {
+                                  core.game.setSwitch(index, set);
+                              },
+                              toggle: function (index) {
+                                  core.game.toggleSwitch(index);
+                              }
+                          });
 
     // The countdown timer counts game seconds of the trigger clock, one every sixteen frames, not frames.
     var countdown = freeze({
-        get: function () {
-            return core.game.getCountdownTimer();
-        },
-        set: function (seconds) {
-            core.game.setCountdownTimer(seconds);
-        },
-        add: function (seconds) {
-            core.game.addCountdownTimer(seconds);
-        },
-        subtract: function (seconds) {
-            core.game.subtractCountdownTimer(seconds);
-        },
-        isPaused: function () {
-            return core.game.isCountdownTimerPaused();
-        },
-        pause: function () {
-            core.game.setCountdownTimerPaused(true);
-        },
-        resume: function () {
-            core.game.setCountdownTimerPaused(false);
-        }
-    });
+                               get: function () {
+                                   return core.game.getCountdownTimer();
+                               },
+                               set: function (seconds) {
+                                   core.game.setCountdownTimer(seconds);
+                               },
+                               add: function (seconds) {
+                                   core.game.addCountdownTimer(seconds);
+                               },
+                               subtract: function (seconds) {
+                                   core.game.subtractCountdownTimer(seconds);
+                               },
+                               isPaused: function () {
+                                   return core.game.isCountdownTimerPaused();
+                               },
+                               pause: function () {
+                                   core.game.setCountdownTimerPaused(true);
+                               },
+                               resume: function () {
+                                   core.game.setCountdownTimerPaused(false);
+                               }
+                           });
 
     // The leaderboards of the leaderboard actions with a text label: the goal form with {goal: amount}, Control also {location: a Location}.
     var leaderboard = freeze({
-        showControl: function (label, unit, options) {
-            var operand = readUnitOperand(unit);
-            var values = readOptions(options);
-            var location = readLocationOption(values);
+                                 showControl: function (label, unit, options) {
+                                     var operand = readUnitOperand(unit);
+                                     var values = readOptions(options);
+                                     var location = readLocationOption(values);
 
-            if (location === NONE) {
-                showLeaderboard(LEADERBOARD_CONTROL, LEADERBOARD_GOAL_CONTROL, operand, label, values);
-            } else if (values.goal === undefined) {
-                core.leaderboard.showAt(LEADERBOARD_CONTROL_AT_LOCATION, location, operand, 0, String(label));
-            } else {
-                core.leaderboard.showAt(LEADERBOARD_GOAL_CONTROL_AT_LOCATION, location, operand, values.goal, String(label));
-            }
-        },
-        showResources: function (label, resourceType, options) {
-            var operand = requireObject(resourceType, resourceTypePrototype, 'A resource type').id;
+                                     if (location === NONE) {
+                                         showLeaderboard(LEADERBOARD_CONTROL, LEADERBOARD_GOAL_CONTROL, operand, label, values);
+                                     } else if (values.goal === undefined) {
+                                         core.leaderboard.showAt(LEADERBOARD_CONTROL_AT_LOCATION, location, operand, 0, String(label));
+                                     } else {
+                                         core.leaderboard.showAt(LEADERBOARD_GOAL_CONTROL_AT_LOCATION, location, operand, values.goal, String(label));
+                                     }
+                                 },
+                                 showResources: function (label, resourceType, options) {
+                                     var operand = requireObject(resourceType, resourceTypePrototype, 'A resource type').id;
 
-            showLeaderboard(LEADERBOARD_RESOURCES, LEADERBOARD_GOAL_RESOURCES, operand, label, options);
-        },
-        showKills: function (label, unit, options) {
-            showLeaderboard(LEADERBOARD_KILLS, LEADERBOARD_GOAL_KILLS, readUnitOperand(unit), label, options);
-        },
-        showPoints: function (label, scoreType, options) {
-            var operand = requireObject(scoreType, scoreTypePrototype, 'A score type').id;
+                                     showLeaderboard(LEADERBOARD_RESOURCES, LEADERBOARD_GOAL_RESOURCES, operand, label, options);
+                                 },
+                                 showKills: function (label, unit, options) {
+                                     showLeaderboard(LEADERBOARD_KILLS, LEADERBOARD_GOAL_KILLS, readUnitOperand(unit), label, options);
+                                 },
+                                 showPoints: function (label, scoreType, options) {
+                                     var operand = requireObject(scoreType, scoreTypePrototype, 'A score type').id;
 
-            showLeaderboard(LEADERBOARD_POINTS, LEADERBOARD_GOAL_POINTS, operand, label, options);
-        },
-        // The Greed leaderboard of the ore and gas of every player, toward a goal.
-        showGreed: function (goal) {
-            core.leaderboard.showGreed(goal);
-        },
-        areComputersIncluded: function () {
-            return core.leaderboard.areComputersIncluded();
-        },
-        setComputersIncluded: function (included) {
-            core.leaderboard.setComputersIncluded(included);
-        }
-    });
+                                     showLeaderboard(LEADERBOARD_POINTS, LEADERBOARD_GOAL_POINTS, operand, label, options);
+                                 },
+                                 // The Greed leaderboard of the ore and gas of every player, toward a goal.
+                                 showGreed: function (goal) {
+                                     core.leaderboard.showGreed(goal);
+                                 },
+                                 areComputersIncluded: function () {
+                                     return core.leaderboard.areComputersIncluded();
+                                 },
+                                 setComputersIncluded: function (included) {
+                                     core.leaderboard.setComputersIncluded(included);
+                                 }
+                             });
 
     // The timers of game.every and game.after: a timer runs first at the frame its interval after the game frame it was added at, then every
     // interval or, for game.after, never again; the timers of a frame run in the order of their due frames, then of their adding. Only shared
@@ -1788,177 +1789,177 @@
 
     // The game settings the game started with, and the expansion byte.
     var settings = freeze({
-        // The game type of the game header, a GameMode.
-        getMode: function () {
-            return GameMode.get(core.game.getGameType());
-        },
-        getSubtype: function () {
-            return core.game.getGameSubtype();
-        },
-        isMultiplayer: function () {
-            return core.game.isMultiplayer();
-        },
-        // The raw game options: the victory condition, the resource setting, the starting minerals, the starting units and the tournament mode.
-        getVictoryCondition: function () {
-            return core.game.getVictoryCondition();
-        },
-        getResourceType: function () {
-            return core.game.getResourceType();
-        },
-        getStartingMinerals: function () {
-            return core.game.getStartingMinerals();
-        },
-        getStartingUnits: function () {
-            return core.game.getStartingUnits();
-        },
-        getTournamentMode: function () {
-            return core.game.getTournamentMode();
-        },
-        // Whether the game options permit the cheat command.
-        areCheatsAllowed: function () {
-            return core.game.areCheatsEnabled();
-        },
-        // Whether Brood War content is on: the expansion byte is not 0.
-        isExpansion: function () {
-            return core.game.getExpansion() !== 0;
-        },
-        setExpansion: function (expansion) {
-            core.game.setExpansion(expansion ? 1 : 0);
-        }
-    });
+                              // The game type of the game header, a GameMode.
+                              getMode: function () {
+                                  return GameMode.get(core.game.getGameType());
+                              },
+                              getSubtype: function () {
+                                  return core.game.getGameSubtype();
+                              },
+                              isMultiplayer: function () {
+                                  return core.game.isMultiplayer();
+                              },
+                              // The raw game options: the victory condition, the resource setting, the starting minerals, the starting units and the tournament mode.
+                              getVictoryCondition: function () {
+                                  return core.game.getVictoryCondition();
+                              },
+                              getResourceType: function () {
+                                  return core.game.getResourceType();
+                              },
+                              getStartingMinerals: function () {
+                                  return core.game.getStartingMinerals();
+                              },
+                              getStartingUnits: function () {
+                                  return core.game.getStartingUnits();
+                              },
+                              getTournamentMode: function () {
+                                  return core.game.getTournamentMode();
+                              },
+                              // Whether the game options permit the cheat command.
+                              areCheatsAllowed: function () {
+                                  return core.game.areCheatsEnabled();
+                              },
+                              // Whether Brood War content is on: the expansion byte is not 0.
+                              isExpansion: function () {
+                                  return core.game.getExpansion() !== 0;
+                              },
+                              setExpansion: function (expansion) {
+                                  core.game.setExpansion(expansion ? 1 : 0);
+                              }
+                          });
 
     // The sight of the players.
     var vision = freeze({
-        // Reveals the tiles around a position to a Player or an array of players from 0 to 7 as a unit's sight with a sight range from 0 to
-        // 11 does, until the game marks the tiles unseen again; {air: true} sees over higher ground.
-        reveal: function (players, position, sightRange, options) {
-            requireObject(position, positionPrototype, 'A position');
-            core.vision.reveal(readPlayerMask(players), position.x, position.y, sightRange, readOptions(options).air === true);
-        },
-        // The fog brightness of visible tiles (default 31): the world's fog draws visible tiles at this level, explored tiles at half of it.
-        getFogBrightness: function () {
-            return core.vision.getFogBrightness();
-        },
-        setFogBrightness: function (level) {
-            core.vision.setFogBrightness(level);
-        }
-    });
+                            // Reveals the tiles around a position to a Player or an array of players from 0 to 7 as a unit's sight with a sight range from 0 to
+                            // 11 does, until the game marks the tiles unseen again; {air: true} sees over higher ground.
+                            reveal: function (players, position, sightRange, options) {
+                                requireObject(position, positionPrototype, 'A position');
+                                core.vision.reveal(readPlayerMask(players), position.x, position.y, sightRange, readOptions(options).air === true);
+                            },
+                            // The fog brightness of visible tiles (default 31): the world's fog draws visible tiles at this level, explored tiles at half of it.
+                            getFogBrightness: function () {
+                                return core.vision.getFogBrightness();
+                            },
+                            setFogBrightness: function (level) {
+                                core.vision.setFogBrightness(level);
+                            }
+                        });
 
     // The combat tables; the damage multipliers are on DamageType.
     var combat = freeze({
-        // The distances in pixels a fleeing unit tries, in order.
-        getFleeDistances: function () {
-            var distances = [];
+                            // The distances in pixels a fleeing unit tries, in order.
+                            getFleeDistances: function () {
+                                var distances = [];
 
-            for (var index = 0; index < core.combat.getFleeDistanceCount(); index++) {
-                distances.push(core.combat.getFleeDistance(index));
-            }
+                                for (var index = 0; index < core.combat.getFleeDistanceCount(); index++) {
+                                    distances.push(core.combat.getFleeDistance(index));
+                                }
 
-            return distances;
-        },
-        setFleeDistances: function (distances) {
-            var count = core.combat.getFleeDistanceCount();
+                                return distances;
+                            },
+                            setFleeDistances: function (distances) {
+                                var count = core.combat.getFleeDistanceCount();
 
-            if (!Array.isArray(distances) || distances.length !== count) {
-                throw new TypeError('An array of ' + count + ' distances is needed, not ' + distances + '.');
-            }
+                                if (!Array.isArray(distances) || distances.length !== count) {
+                                    throw new TypeError('An array of ' + count + ' distances is needed, not ' + distances + '.');
+                                }
 
-            for (var index = 0; index < count; index++) {
-                core.combat.setFleeDistance(index, distances[index]);
-            }
-        }
-    });
+                                for (var index = 0; index < count; index++) {
+                                    core.combat.setFleeDistance(index, distances[index]);
+                                }
+                            }
+                        });
 
     var game = freeze({
-        getFrame: function () {
-            return core.game.getFrame();
-        },
-        // The game seconds of the trigger clock, one every sixteen frames, that the Elapsed Time condition compares.
-        getElapsedTime: function () {
-            return core.game.getElapsedTime();
-        },
-        isReadOnly: function () {
-            return core.game.isReadOnly();
-        },
-        print: function (text) {
-            core.game.print(String(text));
-        },
-        // Whether the game is paused, by pause() or Pause Game or by the pause of the game menu.
-        isPaused: function () {
-            return core.game.isPaused();
-        },
-        // Pauses and resumes the game as Pause Game and Unpause Game do, at this frame's trigger step: nothing in a multiplayer session. While
-        // paused, onFrame runs at every trigger step with the frame number unchanged. Only in shared code.
-        pause: function () {
-            core.game.pause();
-        },
-        resume: function () {
-            core.game.resume();
-        },
-        // Calls a function every given number of frames, first that many frames from now; only in shared code.
-        every: function (frames, callback) {
-            return addTimer(frames, callback, false);
-        },
-        // Calls a function once, the given number of frames from now; only in shared code.
-        after: function (frames, callback) {
-            return addTimer(frames, callback, true);
-        },
-        // The game speed, a GameSpeed.
-        getSpeed: function () {
-            return GameSpeed.get(core.game.getSpeed());
-        },
-        isCheatEnabled: function (cheat) {
-            return (core.game.getCheatFlags() & requireObject(cheat, cheatPrototype, 'A cheat').id) !== 0;
-        },
-        // Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags, as an EUD write of the flags does, also in a
-        // network game and where the game options forbid cheats, and writes the bit again at the start of every frame, as the always-running
-        // trigger of an EUD map does.
-        setCheatEnabled: function (cheat, enabled) {
-            var bit = requireObject(cheat, cheatPrototype, 'A cheat').id;
-            var flags = core.game.getCheatFlags();
+                          getFrame: function () {
+                              return core.game.getFrame();
+                          },
+                          // The game seconds of the trigger clock, one every sixteen frames, that the Elapsed Time condition compares.
+                          getElapsedTime: function () {
+                              return core.game.getElapsedTime();
+                          },
+                          isReadOnly: function () {
+                              return core.game.isReadOnly();
+                          },
+                          print: function (text) {
+                              core.game.print(String(text));
+                          },
+                          // Whether the game is paused, by pause() or Pause Game or by the pause of the game menu.
+                          isPaused: function () {
+                              return core.game.isPaused();
+                          },
+                          // Pauses and resumes the game as Pause Game and Unpause Game do, at this frame's trigger step: nothing in a multiplayer session. While
+                          // paused, onFrame runs at every trigger step with the frame number unchanged. Only in shared code.
+                          pause: function () {
+                              core.game.pause();
+                          },
+                          resume: function () {
+                              core.game.resume();
+                          },
+                          // Calls a function every given number of frames, first that many frames from now; only in shared code.
+                          every: function (frames, callback) {
+                              return addTimer(frames, callback, false);
+                          },
+                          // Calls a function once, the given number of frames from now; only in shared code.
+                          after: function (frames, callback) {
+                              return addTimer(frames, callback, true);
+                          },
+                          // The game speed, a GameSpeed.
+                          getSpeed: function () {
+                              return GameSpeed.get(core.game.getSpeed());
+                          },
+                          isCheatEnabled: function (cheat) {
+                              return (core.game.getCheatFlags() & requireObject(cheat, cheatPrototype, 'A cheat').id) !== 0;
+                          },
+                          // Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags, as an EUD write of the flags does, also in a
+                          // network game and where the game options forbid cheats, and writes the bit again at the start of every frame, as the always-running
+                          // trigger of an EUD map does.
+                          setCheatEnabled: function (cheat, enabled) {
+                              var bit = requireObject(cheat, cheatPrototype, 'A cheat').id;
+                              var flags = core.game.getCheatFlags();
 
-            core.game.setCheatFlags((enabled ? flags | bit : flags & ~bit) >>> 0);
+                              core.game.setCheatFlags((enabled ? flags | bit : flags & ~bit) >>> 0);
 
-            keptCheatsOn = (enabled ? keptCheatsOn | bit : keptCheatsOn & ~bit) >>> 0;
-            keptCheatsOff = (enabled ? keptCheatsOff & ~bit : keptCheatsOff | bit) >>> 0;
-        },
-        // Creates a sprite of a SpriteType at a position that lives as long as its image scripts run, as the game creates the sprite of a spell
-        // or of dust: {owner: a Player, elevation: 0 to 255}; the sprite, or null when the pools are full. Only in shared code.
-        createEffect: function (spriteType, position, options) {
-            var values = readOptions(options);
-            var owner = values.owner === undefined ? DEFAULT_EFFECT_OWNER : requireObject(values.owner, playerPrototype, 'A player').id;
-            var elevation = values.elevation === undefined ? DEFAULT_EFFECT_ELEVATION : values.elevation;
+                              keptCheatsOn = (enabled ? keptCheatsOn | bit : keptCheatsOn & ~bit) >>> 0;
+                              keptCheatsOff = (enabled ? keptCheatsOff & ~bit : keptCheatsOff | bit) >>> 0;
+                          },
+                          // Creates a sprite of a SpriteType at a position that lives as long as its image scripts run, as the game creates the sprite of a spell
+                          // or of dust: {owner: a Player, elevation: 0 to 255}; the sprite, or null when the pools are full. Only in shared code.
+                          createEffect: function (spriteType, position, options) {
+                              var values = readOptions(options);
+                              var owner = values.owner === undefined ? DEFAULT_EFFECT_OWNER : requireObject(values.owner, playerPrototype, 'A player').id;
+                              var elevation = values.elevation === undefined ? DEFAULT_EFFECT_ELEVATION : values.elevation;
 
-            requireObject(position, positionPrototype, 'A position');
+                              requireObject(position, positionPrototype, 'A position');
 
-            return sprites.get(core.sprite.createEffect(requireObject(spriteType, spriteTypePrototype, 'A sprite type').id, position.x,
-                                                        position.y, owner, elevation));
-        },
-        // The active bullets, in the order of the active list.
-        getBullets: function () {
-            return core.bullet.getIds().map(function (id) {
-                return bullets.get(id);
-            });
-        },
-        // Creates a bullet of a WeaponType at a position for a unit, aimed at the unit's order target, as the game creates one: the bullet,
-        // or null when the game creates none. Only in shared code.
-        createBullet: function (weaponType, source, position) {
-            var weapon = requireObject(weaponType, weaponTypePrototype, 'A weapon type').id;
+                              return sprites.get(core.sprite.createEffect(requireObject(spriteType, spriteTypePrototype, 'A sprite type').id, position.x,
+                                                                          position.y, owner, elevation));
+                          },
+                          // The active bullets, in the order of the active list.
+                          getBullets: function () {
+                              return core.bullet.getIds().map(function (id) {
+                                  return bullets.get(id);
+                              });
+                          },
+                          // Creates a bullet of a WeaponType at a position for a unit, aimed at the unit's order target, as the game creates one: the bullet,
+                          // or null when the game creates none. Only in shared code.
+                          createBullet: function (weaponType, source, position) {
+                              var weapon = requireObject(weaponType, weaponTypePrototype, 'A weapon type').id;
 
-            requireObject(position, positionPrototype, 'A position');
+                              requireObject(position, positionPrototype, 'A position');
 
-            return bullets.get(core.bullet.create(weapon, requireUnitId(source), position.x, position.y));
-        },
-        map: gameMap,
-        players: players,
-        units: units,
-        switches: switches,
-        countdown: countdown,
-        leaderboard: leaderboard,
-        settings: settings,
-        vision: vision,
-        combat: combat
-    });
+                              return bullets.get(core.bullet.create(weapon, requireUnitId(source), position.x, position.y));
+                          },
+                          map: gameMap,
+                          players: players,
+                          units: units,
+                          switches: switches,
+                          countdown: countdown,
+                          leaderboard: leaderboard,
+                          settings: settings,
+                          vision: vision,
+                          combat: combat
+                      });
 
     // Writes the cheat bits game.setCheatEnabled keeps again, at the start of every frame in shared code.
     function applyKeptCheats() {

@@ -86,7 +86,7 @@ final class ImageReplacementsTest {
         byte[] zeros = new byte[ImageFileScenario.createGrp(0).length];
         byte[] outside = ImageFileScenario.createGrp(0);
 
-        outside[SECOND_FRAME_DATA_OFFSET] = (byte) OUTSIDE_ADDRESS;
+        outside[SECOND_FRAME_DATA_OFFSET]     = (byte) OUTSIDE_ADDRESS;
         outside[SECOND_FRAME_DATA_OFFSET + 1] = (byte) (OUTSIDE_ADDRESS >>> Byte.SIZE);
 
         Assertions.assertThrows(IOException.class, () -> replacements.readGrp(zeros, 0, zeros.length, "zeros.grp"));

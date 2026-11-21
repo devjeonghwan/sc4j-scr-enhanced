@@ -120,7 +120,7 @@ public final class ScriptTool {
      * @param output    the stream of the result lines
      * @param errors    the stream of the failure messages
      * @return {@code 0} if the command ran ({@value #CHECK_COMMAND}: found no error; {@value #RUN_COMMAND}: the game ended normally),
-     *         {@code 1} otherwise
+     * {@code 1} otherwise
      */
     public static int run(@NotNull String @NotNull [] arguments, @NotNull PrintStream output, @NotNull PrintStream errors) {
         return run(arguments, output, errors, ProcessBuilder::start);
@@ -134,7 +134,7 @@ public final class ScriptTool {
      * @param errors    the stream of the failure messages
      * @param starter   starts the runtime process of {@value #RUN_COMMAND}
      * @return {@code 0} if the command ran ({@value #CHECK_COMMAND}: found no error; {@value #RUN_COMMAND}: the game ended normally),
-     *         {@code 1} otherwise
+     * {@code 1} otherwise
      */
     public static int run(@NotNull String @NotNull [] arguments, @NotNull PrintStream output, @NotNull PrintStream errors,
                           @NotNull ScriptRunner.ProcessStarter starter) {

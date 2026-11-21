@@ -18,12 +18,7 @@ import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
 import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommandMessage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.Function;
-import org.mozilla.javascript.RhinoException;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.TopLevel;
+import org.mozilla.javascript.*;
 
 import java.io.Serial;
 import java.util.function.Consumer;

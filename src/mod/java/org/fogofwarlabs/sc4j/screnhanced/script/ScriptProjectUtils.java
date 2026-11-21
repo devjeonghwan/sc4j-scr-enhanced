@@ -50,29 +50,29 @@ public final class ScriptProjectUtils {
     public static final @NotNull String API_VERSION = "1";
 
     private static final @NotNull String MAIN_SCRIPT = """
-            // The main script of the map: SC:R Enhanced runs it when the map starts; require('./other.js') loads another script.
-            // scr-enhanced.d.ts and core.d.ts declare the script API, and jsconfig.json makes the editor check the scripts against them.
-            // Hooks are top-level functions with known names. Type the event of a hook with JSDoc, such as
-            // /** @param {UnitDiedEvent} event */ before function onUnitDied(event).
-
-            /**
-             * Called once at the first frame, before the other hooks of the frame.
-             */
-            function onStart() {
-                game.print('The script runs.');
-            }
-
-            /**
-             * Called every game frame, before the triggers.
-             *
-             * @param {number} frame the frame number
-             */
-            function onFrame(frame) {
-                if (frame % Time.fromMinutes(1) === 0) {
-                    log.info('Minute', frame / Time.fromMinutes(1));
-                }
-            }
-            """;
+                                                       // The main script of the map: SC:R Enhanced runs it when the map starts; require('./other.js') loads another script.
+                                                       // scr-enhanced.d.ts and core.d.ts declare the script API, and jsconfig.json makes the editor check the scripts against them.
+                                                       // Hooks are top-level functions with known names. Type the event of a hook with JSDoc, such as
+                                                       // /** @param {UnitDiedEvent} event */ before function onUnitDied(event).
+                                                       
+                                                       /**
+                                                        * Called once at the first frame, before the other hooks of the frame.
+                                                        */
+                                                       function onStart() {
+                                                           game.print('The script runs.');
+                                                       }
+                                                       
+                                                       /**
+                                                        * Called every game frame, before the triggers.
+                                                        *
+                                                        * @param {number} frame the frame number
+                                                        */
+                                                       function onFrame(frame) {
+                                                           if (frame % Time.fromMinutes(1) === 0) {
+                                                               log.info('Minute', frame / Time.fromMinutes(1));
+                                                           }
+                                                       }
+                                                       """;
 
     /**
      * Writes a new script folder.

@@ -24,61 +24,61 @@ final class ScriptCombatCoreTest {
      */
     private static final int CHANGE_FRAMES = 4;
     private static final @NotNull String CHANGES = """
-            function onStart() {
-                DamageType.Concussive.setMultiplier(UnitSize.Large, 1);
-                game.combat.setFleeDistances([96, 64, 48, 32, 16]);
-                UnitType.TerranMarine.setAiStrength(false, 1000);
-                ImageType.get(core.unit.getImageType(game.units.findOne({type: UnitType.TerranCommandCenter}).getId())).setDamageOverlayCount(0);
-            }
-            """;
+                                                   function onStart() {
+                                                       DamageType.Concussive.setMultiplier(UnitSize.Large, 1);
+                                                       game.combat.setFleeDistances([96, 64, 48, 32, 16]);
+                                                       UnitType.TerranMarine.setAiStrength(false, 1000);
+                                                       ImageType.get(core.unit.getImageType(game.units.findOne({type: UnitType.TerranCommandCenter}).getId())).setDamageOverlayCount(0);
+                                                   }
+                                                   """;
 
     @Test
     void the_combat_tables_hold_the_native_values_and_take_writes(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var commandCenter;
-                function onStart() {
-                    commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter});
-                    log.info(DamageType.Concussive.getMultiplier(UnitSize.Small), DamageType.Concussive.getMultiplier(UnitSize.Large),
-                             DamageType.Explosive.getMultiplier(UnitSize.Medium), DamageType.Independent.getMultiplier(UnitSize.Large),
-                             core.combat.getDamageMultiplier(3, 3), JSON.stringify(game.combat.getFleeDistances()));
-                    DamageType.Concussive.setMultiplier(UnitSize.Large, 1);
-                    game.combat.setFleeDistances([96, 64, 48, 32, 16]);
-                    log.info(core.combat.getDamageMultiplier(2, 3), core.combat.getFleeDistance(0), core.combat.getFleeDistanceCount());
-                    var strength = UnitType.TerranMarine.getAiStrength(false);
-                    UnitType.TerranMarine.setAiStrength(false, strength + 1);
-                    log.info(core.ai.getUnitStrength(UnitType.TerranMarine.getId(), false) - strength, UnitType.TerranMarine.getAiStrength(true) > 0);
-                    var image = commandCenter.getImageType();
-                    var count = image.getDamageOverlayCount();
-                    image.setDamageOverlayCount(2);
-                    log.info(count > 0, count % 2, core.imageType.getDamageOverlayCount(image.getId()));
-                    [function () { core.combat.getDamageMultiplier(5, 0); }, function () { core.combat.getDamageMultiplier(0, 4); },
-                     function () { core.combat.getFleeDistance(5); }, function () { core.ai.getUnitStrength(228, true); },
-                     function () { core.imageType.setDamageOverlayCount(0, 256); }].forEach(function (action) {
-                        try {
-                            action();
-                        } catch (error) {
-                            log.info(error.name);
-                        }
-                    });
-                    try {
-                        game.combat.setFleeDistances([1]);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                }
-                function onLocalFrame() {
-                    [function () { DamageType.Normal.setMultiplier(UnitSize.Small, 0); }, function () { core.combat.setFleeDistance(0, 1); },
-                     function () { UnitType.TerranMarine.setAiStrength(true, 0); }, function () { commandCenter.getImageType().setDamageOverlayCount(0); }]
-                            .forEach(function (action) {
-                        try {
-                            action();
-                        } catch (error) {
-                            log.info('local ' + error.name);
-                        }
-                    });
-                    log.info('local ' + DamageType.Normal.getMultiplier(UnitSize.Small) + ' ' + game.combat.getFleeDistances()[0]);
-                }
-                """);
+                                                                                                     var commandCenter;
+                                                                                                     function onStart() {
+                                                                                                         commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter});
+                                                                                                         log.info(DamageType.Concussive.getMultiplier(UnitSize.Small), DamageType.Concussive.getMultiplier(UnitSize.Large),
+                                                                                                                  DamageType.Explosive.getMultiplier(UnitSize.Medium), DamageType.Independent.getMultiplier(UnitSize.Large),
+                                                                                                                  core.combat.getDamageMultiplier(3, 3), JSON.stringify(game.combat.getFleeDistances()));
+                                                                                                         DamageType.Concussive.setMultiplier(UnitSize.Large, 1);
+                                                                                                         game.combat.setFleeDistances([96, 64, 48, 32, 16]);
+                                                                                                         log.info(core.combat.getDamageMultiplier(2, 3), core.combat.getFleeDistance(0), core.combat.getFleeDistanceCount());
+                                                                                                         var strength = UnitType.TerranMarine.getAiStrength(false);
+                                                                                                         UnitType.TerranMarine.setAiStrength(false, strength + 1);
+                                                                                                         log.info(core.ai.getUnitStrength(UnitType.TerranMarine.getId(), false) - strength, UnitType.TerranMarine.getAiStrength(true) > 0);
+                                                                                                         var image = commandCenter.getImageType();
+                                                                                                         var count = image.getDamageOverlayCount();
+                                                                                                         image.setDamageOverlayCount(2);
+                                                                                                         log.info(count > 0, count % 2, core.imageType.getDamageOverlayCount(image.getId()));
+                                                                                                         [function () { core.combat.getDamageMultiplier(5, 0); }, function () { core.combat.getDamageMultiplier(0, 4); },
+                                                                                                          function () { core.combat.getFleeDistance(5); }, function () { core.ai.getUnitStrength(228, true); },
+                                                                                                          function () { core.imageType.setDamageOverlayCount(0, 256); }].forEach(function (action) {
+                                                                                                             try {
+                                                                                                                 action();
+                                                                                                             } catch (error) {
+                                                                                                                 log.info(error.name);
+                                                                                                             }
+                                                                                                         });
+                                                                                                         try {
+                                                                                                             game.combat.setFleeDistances([1]);
+                                                                                                         } catch (error) {
+                                                                                                             log.info(error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         [function () { DamageType.Normal.setMultiplier(UnitSize.Small, 0); }, function () { core.combat.setFleeDistance(0, 1); },
+                                                                                                          function () { UnitType.TerranMarine.setAiStrength(true, 0); }, function () { commandCenter.getImageType().setDamageOverlayCount(0); }]
+                                                                                                                 .forEach(function (action) {
+                                                                                                             try {
+                                                                                                                 action();
+                                                                                                             } catch (error) {
+                                                                                                                 log.info('local ' + error.name);
+                                                                                                             }
+                                                                                                         });
+                                                                                                         log.info('local ' + DamageType.Normal.getMultiplier(UnitSize.Small) + ' ' + game.combat.getFleeDistances()[0]);
+                                                                                                     }
+                                                                                                     """);
 
         scenario.runLocalFrame();
 

@@ -30,33 +30,33 @@ final class ScriptButtonGameTest {
     private static final int BUTTON_POSITION = 9;
     private static final int BUTTON_ICON = 236;
     private static final @NotNull String SCRIPT = """
-            var go = display.commandCard.createButton({
-                unitType: UnitType.TerranSCV, position: 9, icon: 236, text: 'Go', hotkey: 'G',
-                isEnabled: function (unit) {
-                    return unit.getId() % 2 === 0;
-                },
-                onPressed: function (player, units, target) {
-                    log.info('pressed ' + player.getId() + ' ' + units.map(function (unit) { return unit.getId(); }).join(',') + ' ' + target);
-                }
-            });
-            var start;
-            var scvs;
-            function onStart() {
-                start = game.getFrame();
-                scvs = game.units.find({type: UnitType.TerranSCV}).map(function (unit) { return unit.getId(); });
-                scvs.sort(function (a, b) { return a - b; });
-                core.player.setSelection(0, scvs.slice(0, 2));
-                log.info('scvs ' + scvs.join(',') + ' ' + go.getButton().getIndex());
-            }
-            function onFrame(frame) {
-                if (frame === start + 1) {
-                    core.player.setSelection(0, scvs);
-                }
-            }
-            function onLocalFrame() {
-                log.info('state ' + core.local.getButtonState(go.getId()));
-            }
-            """;
+                                                  var go = display.commandCard.createButton({
+                                                      unitType: UnitType.TerranSCV, position: 9, icon: 236, text: 'Go', hotkey: 'G',
+                                                      isEnabled: function (unit) {
+                                                          return unit.getId() % 2 === 0;
+                                                      },
+                                                      onPressed: function (player, units, target) {
+                                                          log.info('pressed ' + player.getId() + ' ' + units.map(function (unit) { return unit.getId(); }).join(',') + ' ' + target);
+                                                      }
+                                                  });
+                                                  var start;
+                                                  var scvs;
+                                                  function onStart() {
+                                                      start = game.getFrame();
+                                                      scvs = game.units.find({type: UnitType.TerranSCV}).map(function (unit) { return unit.getId(); });
+                                                      scvs.sort(function (a, b) { return a - b; });
+                                                      core.player.setSelection(0, scvs.slice(0, 2));
+                                                      log.info('scvs ' + scvs.join(',') + ' ' + go.getButton().getIndex());
+                                                  }
+                                                  function onFrame(frame) {
+                                                      if (frame === start + 1) {
+                                                          core.player.setSelection(0, scvs);
+                                                      }
+                                                  }
+                                                  function onLocalFrame() {
+                                                      log.info('state ' + core.local.getButtonState(go.getId()));
+                                                  }
+                                                  """;
 
     private static int @NotNull [] readIds(@NotNull String text) {
         return Arrays.stream(text.split(",")).mapToInt(Integer::parseInt).toArray();

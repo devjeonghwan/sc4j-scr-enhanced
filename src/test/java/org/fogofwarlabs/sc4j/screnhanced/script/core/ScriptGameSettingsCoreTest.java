@@ -40,49 +40,49 @@ final class ScriptGameSettingsCoreTest {
      */
     private static final int CHANGE_FRAMES = 4;
     private static final @NotNull String CHANGES = """
-            function onStart() {
-                game.setCheatEnabled(Cheat.OperationCwal, true);
-                game.setCheatEnabled(Cheat.BlackSheepWall, true);
-                core.game.applyCheats(core.game.getCheatFlags() | Cheat.ShowMeTheMoney.getId());
-                GameSpeed.Fastest.setFrameDuration(30);
-            }
-            """;
+                                                   function onStart() {
+                                                       game.setCheatEnabled(Cheat.OperationCwal, true);
+                                                       game.setCheatEnabled(Cheat.BlackSheepWall, true);
+                                                       core.game.applyCheats(core.game.getCheatFlags() | Cheat.ShowMeTheMoney.getId());
+                                                       GameSpeed.Fastest.setFrameDuration(30);
+                                                   }
+                                                   """;
 
     @Test
     void the_speed_table_and_the_settings_read_the_game(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario melee = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                function onStart() {
-                    var settings = game.settings;
-                    log.info(game.getSpeed() === GameSpeed.Fastest, core.game.getSpeed(), GameSpeed.Fastest.getFrameDuration(),
-                             GameSpeed.Normal.getFrameDuration(), core.game.getSpeedDuration(0), GameSpeed.getCount());
-                    GameSpeed.Fastest.setFrameDuration(30);
-                    log.info(core.game.getSpeedDuration(6), GameSpeed.Fastest.getFrameDuration());
-                    log.info(settings.getMode() === GameMode.Melee, core.game.getGameType(), settings.isMultiplayer(), settings.getVictoryCondition(),
-                             settings.getResourceType(), settings.getStartingUnits(), settings.getTournamentMode(), settings.areCheatsAllowed(),
-                             settings.isExpansion(), core.game.getExpansion());
-                    settings.setExpansion(false);
-                    log.info(settings.isExpansion(), core.game.getExpansion());
-                    core.game.setExpansion(1);
-                    try {
-                        core.game.getSpeedDuration(7);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                    try {
-                        core.game.setExpansion(256);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                }
-                function onLocalFrame() {
-                    log.info('local ' + game.getSpeed().getName() + ' ' + game.settings.getMode().getName());
-                    try {
-                        GameSpeed.Fastest.setFrameDuration(42);
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + core.game.getSpeedDuration(6));
-                    }
-                }
-                """);
+                                                                                                  function onStart() {
+                                                                                                      var settings = game.settings;
+                                                                                                      log.info(game.getSpeed() === GameSpeed.Fastest, core.game.getSpeed(), GameSpeed.Fastest.getFrameDuration(),
+                                                                                                               GameSpeed.Normal.getFrameDuration(), core.game.getSpeedDuration(0), GameSpeed.getCount());
+                                                                                                      GameSpeed.Fastest.setFrameDuration(30);
+                                                                                                      log.info(core.game.getSpeedDuration(6), GameSpeed.Fastest.getFrameDuration());
+                                                                                                      log.info(settings.getMode() === GameMode.Melee, core.game.getGameType(), settings.isMultiplayer(), settings.getVictoryCondition(),
+                                                                                                               settings.getResourceType(), settings.getStartingUnits(), settings.getTournamentMode(), settings.areCheatsAllowed(),
+                                                                                                               settings.isExpansion(), core.game.getExpansion());
+                                                                                                      settings.setExpansion(false);
+                                                                                                      log.info(settings.isExpansion(), core.game.getExpansion());
+                                                                                                      core.game.setExpansion(1);
+                                                                                                      try {
+                                                                                                          core.game.getSpeedDuration(7);
+                                                                                                      } catch (error) {
+                                                                                                          log.info(error.name);
+                                                                                                      }
+                                                                                                      try {
+                                                                                                          core.game.setExpansion(256);
+                                                                                                      } catch (error) {
+                                                                                                          log.info(error.name);
+                                                                                                      }
+                                                                                                  }
+                                                                                                  function onLocalFrame() {
+                                                                                                      log.info('local ' + game.getSpeed().getName() + ' ' + game.settings.getMode().getName());
+                                                                                                      try {
+                                                                                                          GameSpeed.Fastest.setFrameDuration(42);
+                                                                                                      } catch (error) {
+                                                                                                          log.info('local ' + error.name + ' ' + core.game.getSpeedDuration(6));
+                                                                                                      }
+                                                                                                  }
+                                                                                                  """);
 
         melee.runLocalFrame();
 
@@ -96,10 +96,10 @@ final class ScriptGameSettingsCoreTest {
                                         "local TypeError 30"), melee.getInfoMessages(), melee.getLines()::toString);
 
         LiveScriptGameScenario useMapSettings = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
-                function onStart() {
-                    log.info(game.settings.getMode() === GameMode.UseMapSettings, game.settings.getMode().getId(), GameMode.get(1).getName());
-                }
-                """);
+                                                                                                                    function onStart() {
+                                                                                                                        log.info(game.settings.getMode() === GameMode.UseMapSettings, game.settings.getMode().getId(), GameMode.get(1).getName());
+                                                                                                                    }
+                                                                                                                    """);
 
         Assertions.assertEquals(List.of("true 10 Game mode 1"), useMapSettings.getInfoMessages(), useMapSettings.getLines()::toString);
     }
@@ -111,31 +111,31 @@ final class ScriptGameSettingsCoreTest {
     @Test
     void cheats_are_stored_as_flags_or_run_through_the_cheat_routine(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                function onStart() {
-                    var human = game.players.getHumans()[0];
-                    var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
-                    log.info(core.game.getCheatFlags(), game.isCheatEnabled(Cheat.OperationCwal), Cheat.BlackSheepWall.getId(),
-                             Cheat.Noglues.getId(), human.vision.canSee(hatchery.getPosition()));
-                    game.setCheatEnabled(Cheat.OperationCwal, true);
-                    game.setCheatEnabled(Cheat.ShowMeTheMoney, true);
-                    log.info(game.isCheatEnabled(Cheat.OperationCwal), game.isCheatEnabled(Cheat.ShowMeTheMoney), core.game.getCheatFlags(),
-                             human.getMinerals());
-                    game.setCheatEnabled(Cheat.ShowMeTheMoney, false);
-                    game.setCheatEnabled(Cheat.BlackSheepWall, true);
-                    log.info(game.isCheatEnabled(Cheat.BlackSheepWall), human.vision.canSee(hatchery.getPosition()));
-                    core.game.applyCheats(core.game.getCheatFlags() | Cheat.ShowMeTheMoney.getId());
-                    log.info(game.isCheatEnabled(Cheat.ShowMeTheMoney), human.getMinerals(), core.game.getCheatFlags());
-                    core.game.setCheatFlags(0);
-                    log.info(core.game.getCheatFlags(), game.isCheatEnabled(Cheat.BlackSheepWall));
-                }
-                function onLocalFrame() {
-                    try {
-                        game.setCheatEnabled(Cheat.OperationCwal, true);
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + game.isCheatEnabled(Cheat.OperationCwal));
-                    }
-                }
-                """);
+                                                                                                     function onStart() {
+                                                                                                         var human = game.players.getHumans()[0];
+                                                                                                         var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
+                                                                                                         log.info(core.game.getCheatFlags(), game.isCheatEnabled(Cheat.OperationCwal), Cheat.BlackSheepWall.getId(),
+                                                                                                                  Cheat.Noglues.getId(), human.vision.canSee(hatchery.getPosition()));
+                                                                                                         game.setCheatEnabled(Cheat.OperationCwal, true);
+                                                                                                         game.setCheatEnabled(Cheat.ShowMeTheMoney, true);
+                                                                                                         log.info(game.isCheatEnabled(Cheat.OperationCwal), game.isCheatEnabled(Cheat.ShowMeTheMoney), core.game.getCheatFlags(),
+                                                                                                                  human.getMinerals());
+                                                                                                         game.setCheatEnabled(Cheat.ShowMeTheMoney, false);
+                                                                                                         game.setCheatEnabled(Cheat.BlackSheepWall, true);
+                                                                                                         log.info(game.isCheatEnabled(Cheat.BlackSheepWall), human.vision.canSee(hatchery.getPosition()));
+                                                                                                         core.game.applyCheats(core.game.getCheatFlags() | Cheat.ShowMeTheMoney.getId());
+                                                                                                         log.info(game.isCheatEnabled(Cheat.ShowMeTheMoney), human.getMinerals(), core.game.getCheatFlags());
+                                                                                                         core.game.setCheatFlags(0);
+                                                                                                         log.info(core.game.getCheatFlags(), game.isCheatEnabled(Cheat.BlackSheepWall));
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         try {
+                                                                                                             game.setCheatEnabled(Cheat.OperationCwal, true);
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name + ' ' + game.isCheatEnabled(Cheat.OperationCwal));
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         scenario.runLocalFrame();
 
@@ -154,23 +154,23 @@ final class ScriptGameSettingsCoreTest {
     @Test
     void set_cheat_enabled_writes_its_bits_again_every_frame(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var step = 0;
-                function onStart() {
-                    game.setCheatEnabled(Cheat.WarAintWhatItUsedToBe, true);
-                    game.setCheatEnabled(Cheat.OperationCwal, false);
-                    core.game.setCheatFlags(Cheat.OperationCwal.getId());
-                }
-                function onFrame() {
-                    log.info(step, game.isCheatEnabled(Cheat.WarAintWhatItUsedToBe), game.isCheatEnabled(Cheat.OperationCwal));
-                    if (step === 1) {
-                        core.game.setCheatFlags(0);
-                    } else if (step === 2) {
-                        game.setCheatEnabled(Cheat.WarAintWhatItUsedToBe, false);
-                        core.game.setCheatFlags(Cheat.WarAintWhatItUsedToBe.getId() | Cheat.PowerOverwhelming.getId());
-                    }
-                    step++;
-                }
-                """);
+                                                                                                     var step = 0;
+                                                                                                     function onStart() {
+                                                                                                         game.setCheatEnabled(Cheat.WarAintWhatItUsedToBe, true);
+                                                                                                         game.setCheatEnabled(Cheat.OperationCwal, false);
+                                                                                                         core.game.setCheatFlags(Cheat.OperationCwal.getId());
+                                                                                                     }
+                                                                                                     function onFrame() {
+                                                                                                         log.info(step, game.isCheatEnabled(Cheat.WarAintWhatItUsedToBe), game.isCheatEnabled(Cheat.OperationCwal));
+                                                                                                         if (step === 1) {
+                                                                                                             core.game.setCheatFlags(0);
+                                                                                                         } else if (step === 2) {
+                                                                                                             game.setCheatEnabled(Cheat.WarAintWhatItUsedToBe, false);
+                                                                                                             core.game.setCheatFlags(Cheat.WarAintWhatItUsedToBe.getId() | Cheat.PowerOverwhelming.getId());
+                                                                                                         }
+                                                                                                         step++;
+                                                                                                     }
+                                                                                                     """);
 
         for (int frame = 0; frame < KEPT_CHEAT_FRAMES; frame++) {
             scenario.stepFrame();
@@ -184,28 +184,28 @@ final class ScriptGameSettingsCoreTest {
     @Test
     void a_one_shot_timer_runs_once(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var start;
-                var once;
-                var cancelled;
-                function onStart() {
-                    start = game.getFrame();
-                    once = game.after(2, function () { log.info('once ' + (game.getFrame() - start)); });
-                    cancelled = game.after(1, function () { log.info('cancelled'); });
-                    log.info(cancelled.cancel(), once.getId() !== cancelled.getId());
-                }
-                function onFrame(frame) {
-                    if (frame - start === 3) {
-                        log.info('cancel ' + once.cancel());
-                    }
-                }
-                function onLocalFrame() {
-                    try {
-                        game.after(1, function () {});
-                    } catch (error) {
-                        log.info('local ' + error.name);
-                    }
-                }
-                """);
+                                                                                                     var start;
+                                                                                                     var once;
+                                                                                                     var cancelled;
+                                                                                                     function onStart() {
+                                                                                                         start = game.getFrame();
+                                                                                                         once = game.after(2, function () { log.info('once ' + (game.getFrame() - start)); });
+                                                                                                         cancelled = game.after(1, function () { log.info('cancelled'); });
+                                                                                                         log.info(cancelled.cancel(), once.getId() !== cancelled.getId());
+                                                                                                     }
+                                                                                                     function onFrame(frame) {
+                                                                                                         if (frame - start === 3) {
+                                                                                                             log.info('cancel ' + once.cancel());
+                                                                                                         }
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         try {
+                                                                                                             game.after(1, function () {});
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         for (int frame = 0; frame < TIMER_FRAMES; frame++) {
             scenario.stepFrame();
@@ -220,37 +220,37 @@ final class ScriptGameSettingsCoreTest {
     @Test
     void pause_and_resume_run_the_pause_game_rule_at_the_next_trigger_step(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var paused = 0;
-                var pausedFrame = -1;
-                function onStart() {
-                    log.info(game.isPaused());
-                    game.pause();
-                    log.info(game.isPaused());
-                }
-                function onFrame(frame) {
-                    if (game.isPaused()) {
-                        paused++;
-                        if (pausedFrame < 0) {
-                            pausedFrame = frame;
-                        }
-                        if (paused === 3) {
-                            game.pause();
-                            game.resume();
-                            log.info('resume ' + game.isPaused() + ' ' + (frame === pausedFrame));
-                        }
-                    } else if (paused > 0) {
-                        log.info('running ' + paused + ' ' + (frame === pausedFrame));
-                        paused = -1;
-                    }
-                }
-                function onLocalFrame() {
-                    try {
-                        game.pause();
-                    } catch (error) {
-                        log.info('local ' + error.name);
-                    }
-                }
-                """);
+                                                                                                     var paused = 0;
+                                                                                                     var pausedFrame = -1;
+                                                                                                     function onStart() {
+                                                                                                         log.info(game.isPaused());
+                                                                                                         game.pause();
+                                                                                                         log.info(game.isPaused());
+                                                                                                     }
+                                                                                                     function onFrame(frame) {
+                                                                                                         if (game.isPaused()) {
+                                                                                                             paused++;
+                                                                                                             if (pausedFrame < 0) {
+                                                                                                                 pausedFrame = frame;
+                                                                                                             }
+                                                                                                             if (paused === 3) {
+                                                                                                                 game.pause();
+                                                                                                                 game.resume();
+                                                                                                                 log.info('resume ' + game.isPaused() + ' ' + (frame === pausedFrame));
+                                                                                                             }
+                                                                                                         } else if (paused > 0) {
+                                                                                                             log.info('running ' + paused + ' ' + (frame === pausedFrame));
+                                                                                                             paused = -1;
+                                                                                                         }
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         try {
+                                                                                                             game.pause();
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
         int start = scenario.getGame().getCurrentFrame();
 
         for (int frame = 0; frame < PAUSE_STEPS; frame++) {
@@ -267,22 +267,22 @@ final class ScriptGameSettingsCoreTest {
     @Test
     void local_pause_requests_send_the_pause_and_resume_commands(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                function onLocalFrame() {
-                    if (game.isPaused()) {
-                        local.requestResume();
-                    } else {
-                        local.requestPause();
-                    }
-                    log.info('local ' + game.isPaused());
-                }
-                function onStart() {
-                    try {
-                        local.requestPause();
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                }
-                """);
+                                                                                                     function onLocalFrame() {
+                                                                                                         if (game.isPaused()) {
+                                                                                                             local.requestResume();
+                                                                                                         } else {
+                                                                                                             local.requestPause();
+                                                                                                         }
+                                                                                                         log.info('local ' + game.isPaused());
+                                                                                                     }
+                                                                                                     function onStart() {
+                                                                                                         try {
+                                                                                                             local.requestPause();
+                                                                                                         } catch (error) {
+                                                                                                             log.info(error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         scenario.runLocalFrame();
         stepWhilePaused(scenario, false);
@@ -305,10 +305,10 @@ final class ScriptGameSettingsCoreTest {
     @Test
     void the_same_pause_gives_the_same_game_state(@NotNull InstallationTestResources resources) throws IOException {
         String pause = """
-                function onStart() {
-                    game.pause();
-                }
-                """;
+                       function onStart() {
+                           game.pause();
+                       }
+                       """;
         long first = runChanges(resources, pause);
         long second = runChanges(resources, pause);
         long unchanged = runChanges(resources, "");

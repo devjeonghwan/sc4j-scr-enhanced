@@ -85,70 +85,70 @@
     };
 
     var commandCard = freeze({
-        // The button set of a set id or a unit type, null for an id outside the table.
-        getButtonSet: function (set) {
-            return getButtonSet(readButtonSetId(set));
-        },
-        // Creates a script button, only in shared code: {unitType or buttonSet, position, icon, text, hotkey, kind, disabledText, target,
-        // isEnabled(unit), onLocalPressed(event), onPressed(player, units, target)}. The button goes after the set's buttons up to its position.
-        createButton: function (options) {
-            var values = readOptions(options);
+                                 // The button set of a set id or a unit type, null for an id outside the table.
+                                 getButtonSet: function (set) {
+                                     return getButtonSet(readButtonSetId(set));
+                                 },
+                                 // Creates a script button, only in shared code: {unitType or buttonSet, position, icon, text, hotkey, kind, disabledText, target,
+                                 // isEnabled(unit), onLocalPressed(event), onPressed(player, units, target)}. The button goes after the set's buttons up to its position.
+                                 createButton: function (options) {
+                                     var values = readOptions(options);
 
-            requireShared('Local code cannot create a button.');
+                                     requireShared('Local code cannot create a button.');
 
-            if (scriptButtons.length >= MAXIMUM_SCRIPT_BUTTONS) {
-                throw new RangeError('A game has at most ' + MAXIMUM_SCRIPT_BUTTONS + ' script buttons.');
-            }
+                                     if (scriptButtons.length >= MAXIMUM_SCRIPT_BUTTONS) {
+                                         throw new RangeError('A game has at most ' + MAXIMUM_SCRIPT_BUTTONS + ' script buttons.');
+                                     }
 
-            var set = readButtonSetId(values.buttonSet !== undefined ? values.buttonSet : values.unitType);
-            var target = values.target === true;
-            var button = {
-                id: scriptButtons.length,
-                set: set,
-                target: target,
-                isEnabled: readCallback(values.isEnabled, 'isEnabled'),
-                onLocalPressed: readCallback(values.onLocalPressed, 'onLocalPressed'),
-                onPressed: readCallback(values.onPressed, 'onPressed'),
-                channel: null
-            };
-            var index = 0;
+                                     var set = readButtonSetId(values.buttonSet !== undefined ? values.buttonSet : values.unitType);
+                                     var target = values.target === true;
+                                     var button = {
+                                         id: scriptButtons.length,
+                                         set: set,
+                                         target: target,
+                                         isEnabled: readCallback(values.isEnabled, 'isEnabled'),
+                                         onLocalPressed: readCallback(values.onLocalPressed, 'onLocalPressed'),
+                                         onPressed: readCallback(values.onPressed, 'onPressed'),
+                                         channel: null
+                                     };
+                                     var index = 0;
 
-            while (index < core.buttons.getButtonCount(set) && core.buttons.getPosition(set, index) <= values.position) {
-                index++;
-            }
+                                     while (index < core.buttons.getButtonCount(set) && core.buttons.getPosition(set, index) <= values.position) {
+                                         index++;
+                                     }
 
-            insertButton(set, index, {
-                position: values.position,
-                icon: values.icon,
-                condition: ButtonCondition.Script,
-                conditionValue: button.id,
-                action: target ? ButtonAction.ScriptTarget : ButtonAction.Script,
-                actionValue: button.id,
-                text: values.text,
-                hotkey: values.hotkey,
-                kind: values.kind,
-                disabledText: values.disabledText
-            });
+                                     insertButton(set, index, {
+                                         position: values.position,
+                                         icon: values.icon,
+                                         condition: ButtonCondition.Script,
+                                         conditionValue: button.id,
+                                         action: target ? ButtonAction.ScriptTarget : ButtonAction.Script,
+                                         actionValue: button.id,
+                                         text: values.text,
+                                         hotkey: values.hotkey,
+                                         kind: values.kind,
+                                         disabledText: values.disabledText
+                                     });
 
-            if (button.onPressed !== undefined) {
-                button.channel = sync.createChannel(function (player, value, units) {
-                    var pressedTarget = target ? readTarget(value) : null;
+                                     if (button.onPressed !== undefined) {
+                                         button.channel = sync.createChannel(function (player, value, units) {
+                                             var pressedTarget = target ? readTarget(value) : null;
 
-                    if (target && pressedTarget === null) {
-                        return;
-                    }
+                                             if (target && pressedTarget === null) {
+                                                 return;
+                                             }
 
-                    button.onPressed(player, units.filter(function (unit) {
-                        return isPassing(button, unit);
-                    }), pressedTarget);
-                });
-            }
+                                             button.onPressed(player, units.filter(function (unit) {
+                                                 return isPassing(button, unit);
+                                             }), pressedTarget);
+                                         });
+                                     }
 
-            scriptButtons.push(button);
+                                     scriptButtons.push(button);
 
-            return freeze(createObject(scriptButtonPrototype, {id: button.id, set: set}));
-        }
-    });
+                                     return freeze(createObject(scriptButtonPrototype, {id: button.id, set: set}));
+                                 }
+                             });
 
     // Sets the local state of every script button from its isEnabled over the local selection: enabled when it returns true for a unit,
     // else disabled when it returns false for one, else hidden; enabled without isEnabled. callForValue(name, function, arguments) runs a

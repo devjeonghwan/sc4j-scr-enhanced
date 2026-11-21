@@ -30,31 +30,31 @@ final class ScriptLeaderboardCoreTest {
     @Test
     void leaderboards_register_each_label_once(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                function onStart() {
-                    var anywhere = game.map.locations.get(0);
-                    game.leaderboard.showControl('Marines', UnitType.TerranMarine);
-                    game.leaderboard.showControl('Marines', UnitType.TerranMarine, {goal: 10});
-                    game.leaderboard.showControl('Here', UnitGroup.Men, {location: anywhere});
-                    game.leaderboard.showControl('Here', UnitGroup.Men, {location: anywhere, goal: 5});
-                    game.leaderboard.showResources('Ore', ResourceType.MineralsAndGas);
-                    game.leaderboard.showPoints('Points', ScoreType.KillsAndRazings, {goal: 1000});
-                    game.leaderboard.setComputersIncluded(false);
-                    log.info(game.leaderboard.areComputersIncluded());
-                    game.leaderboard.setComputersIncluded(true);
-                    log.info(game.leaderboard.areComputersIncluded());
-                    game.leaderboard.showKills('Kills', UnitGroup.AnyUnit, {goal: 20});
-                    try {
-                        game.leaderboard.showKills('Kills', ScoreType.Total);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                    try {
-                        core.leaderboard.show(18, 0, 0, 'Wrong');
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                }
-                """);
+                                                                                                     function onStart() {
+                                                                                                         var anywhere = game.map.locations.get(0);
+                                                                                                         game.leaderboard.showControl('Marines', UnitType.TerranMarine);
+                                                                                                         game.leaderboard.showControl('Marines', UnitType.TerranMarine, {goal: 10});
+                                                                                                         game.leaderboard.showControl('Here', UnitGroup.Men, {location: anywhere});
+                                                                                                         game.leaderboard.showControl('Here', UnitGroup.Men, {location: anywhere, goal: 5});
+                                                                                                         game.leaderboard.showResources('Ore', ResourceType.MineralsAndGas);
+                                                                                                         game.leaderboard.showPoints('Points', ScoreType.KillsAndRazings, {goal: 1000});
+                                                                                                         game.leaderboard.setComputersIncluded(false);
+                                                                                                         log.info(game.leaderboard.areComputersIncluded());
+                                                                                                         game.leaderboard.setComputersIncluded(true);
+                                                                                                         log.info(game.leaderboard.areComputersIncluded());
+                                                                                                         game.leaderboard.showKills('Kills', UnitGroup.AnyUnit, {goal: 20});
+                                                                                                         try {
+                                                                                                             game.leaderboard.showKills('Kills', ScoreType.Total);
+                                                                                                         } catch (error) {
+                                                                                                             log.info(error.name);
+                                                                                                         }
+                                                                                                         try {
+                                                                                                             core.leaderboard.show(18, 0, 0, 'Wrong');
+                                                                                                         } catch (error) {
+                                                                                                             log.info(error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
         TriggerContext triggers = scenario.getGame().getTriggerContext();
         MapStringSection strings = scenario.getGame().getInterfaceLink().getMessageLines().getMapStringSection();
 
@@ -70,29 +70,29 @@ final class ScriptLeaderboardCoreTest {
     @Test
     void each_leaderboard_form_takes_its_action_type(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                function onStart() {
-                    var anywhere = game.map.locations.get(0);
-                    var forms = [
-                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine); },
-                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {location: anywhere}); },
-                        function () { game.leaderboard.showResources('A', ResourceType.Gas); },
-                        function () { game.leaderboard.showKills('A', UnitGroup.Factories); },
-                        function () { game.leaderboard.showPoints('A', ScoreType.Custom); },
-                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {goal: 1}); },
-                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {location: anywhere, goal: 1}); },
-                        function () { game.leaderboard.showResources('A', ResourceType.Gas, {goal: 1}); },
-                        function () { game.leaderboard.showKills('A', UnitGroup.Factories, {goal: 1}); },
-                        function () { game.leaderboard.showPoints('A', ScoreType.Custom, {goal: 1}); },
-                        function () { game.leaderboard.showGreed(500); }
-                    ];
-                    game.every(1, function () {
-                        var form = forms.shift();
-                        if (form !== undefined) {
-                            form();
-                        }
-                    });
-                }
-                """);
+                                                                                                     function onStart() {
+                                                                                                         var anywhere = game.map.locations.get(0);
+                                                                                                         var forms = [
+                                                                                                             function () { game.leaderboard.showControl('A', UnitType.TerranMarine); },
+                                                                                                             function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {location: anywhere}); },
+                                                                                                             function () { game.leaderboard.showResources('A', ResourceType.Gas); },
+                                                                                                             function () { game.leaderboard.showKills('A', UnitGroup.Factories); },
+                                                                                                             function () { game.leaderboard.showPoints('A', ScoreType.Custom); },
+                                                                                                             function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {goal: 1}); },
+                                                                                                             function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {location: anywhere, goal: 1}); },
+                                                                                                             function () { game.leaderboard.showResources('A', ResourceType.Gas, {goal: 1}); },
+                                                                                                             function () { game.leaderboard.showKills('A', UnitGroup.Factories, {goal: 1}); },
+                                                                                                             function () { game.leaderboard.showPoints('A', ScoreType.Custom, {goal: 1}); },
+                                                                                                             function () { game.leaderboard.showGreed(500); }
+                                                                                                         ];
+                                                                                                         game.every(1, function () {
+                                                                                                             var form = forms.shift();
+                                                                                                             if (form !== undefined) {
+                                                                                                                 form();
+                                                                                                             }
+                                                                                                         });
+                                                                                                     }
+                                                                                                     """);
         TriggerContext triggers = scenario.getGame().getTriggerContext();
 
         Assertions.assertNotNull(triggers);

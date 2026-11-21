@@ -25,11 +25,7 @@ import org.fogofwarlabs.sc4j.scr.game.unit.UnitTypeTraitsUtils;
 import org.fogofwarlabs.sc4j.scr.game.unit.finder.UnitSpatialIndex;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.EcmaError;
-import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -446,7 +442,7 @@ final class ScriptUnitCore {
                                (unit, instructionLimit) -> spells.removePlague(unit));
         this.defineStatusTimer(namespace, global, "IrradiateTimer", Unit::getIrradiateTimer, Unit::setIrradiateTimer,
                                (unit, instructionLimit) -> spells.applyIrradiation(unit.getIrradiatedBy(), unit.getIrradiateOwner(), unit,
-                                                                                    instructionLimit),
+                                                                                   instructionLimit),
                                (unit, instructionLimit) -> spells.removeIrradiate(unit));
 
         ScriptCoreUtils.defineFunction(global, namespace, "getDefensiveMatrixTimer", 1,
@@ -763,7 +759,7 @@ final class ScriptUnitCore {
      * sprite and status overlays.
      *
      * @return {@code true} if the routine took the unit, {@code false} for a subunit, a subunit type, or a type with a turret for a unit
-     *         without one or the reverse
+     * without one or the reverse
      */
     private boolean changeType(@NotNull Unit unit, int type) {
         ScrUnitTypeView units = this.getUnitTypes();

@@ -34,65 +34,65 @@ final class ScriptVisionCoreTest {
      */
     private static final int LOCAL_FOG_BRIGHTNESS = 25;
     private static final @NotNull String CHANGES = """
-            function onStart() {
-                var human = game.players.getHumans()[0];
-                var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
-                game.vision.reveal(human, hatchery.getPosition(), 10, {air: true});
-                human.vision.shareWith(hatchery.getOwner(), true);
-            }
-            """;
+                                                   function onStart() {
+                                                       var human = game.players.getHumans()[0];
+                                                       var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
+                                                       game.vision.reveal(human, hatchery.getPosition(), 10, {air: true});
+                                                       human.vision.shareWith(hatchery.getOwner(), true);
+                                                   }
+                                                   """;
     private static final @NotNull String TILE_CHANGES = """
-            function onStart() {
-                var human = game.players.getHumans()[0];
-                human.vision.setExplored(game.units.findOne({type: UnitType.ZergHatchery}).getPosition(), true);
-            }
-            """;
+                                                        function onStart() {
+                                                            var human = game.players.getHumans()[0];
+                                                            human.vision.setExplored(game.units.findOne({type: UnitType.ZergHatchery}).getPosition(), true);
+                                                        }
+                                                        """;
 
     @Test
     void players_see_their_own_units_and_a_reveal(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var human;
-                var hatchery;
-                function onStart() {
-                    human = game.players.getHumans()[0];
-                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
-                    hatchery = game.units.findOne({type: UnitType.ZergHatchery});
-                    var own = commandCenter.getPosition();
-                    var other = hatchery.getPosition();
-                    var tileX = Math.floor(own.getX() / 32);
-                    var tileY = Math.floor(own.getY() / 32);
-                    var bit = 1 << human.getId();
-                    log.info(human.vision.canSee(own), human.vision.hasExplored(own), human.vision.canSee(other), human.vision.hasExplored(other),
-                             core.vision.isVisible(human.getId(), own.getX(), own.getY()), (core.vision.getTileVisibility(tileX, tileY) & bit) === 0,
-                             (core.terrain.getTileFlags(tileX, tileY) & 0xFFFF) === core.vision.getTileVisibility(tileX, tileY));
-                    log.info(commandCenter.isVisibleTo(human), commandCenter.isDetectedBy(human), hatchery.isVisibleTo(human),
-                             (core.unit.getVisibilityFlags(commandCenter.getId()) & bit) !== 0, commandCenter.getVisibleTo().indexOf(human) >= 0,
-                             core.unit.getDetectionFlags(commandCenter.getId()) >= 0);
-                    game.vision.reveal(human, other, 10, {air: true});
-                    log.info(human.vision.canSee(other), human.vision.hasExplored(other));
-                    try {
-                        core.vision.reveal(0x100, 0, 0, 1, true);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                    try {
-                        core.vision.reveal(1, 0, 0, 12, true);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                }
-                function onFrame() {
-                    log.info('frame ' + hatchery.isVisibleTo(human));
-                }
-                function onLocalFrame() {
-                    log.info('local ' + human.vision.canSee(hatchery.getPosition()));
-                    try {
-                        game.vision.reveal(human, hatchery.getPosition(), 10);
-                    } catch (error) {
-                        log.info('local ' + error.name);
-                    }
-                }
-                """);
+                                                                                                     var human;
+                                                                                                     var hatchery;
+                                                                                                     function onStart() {
+                                                                                                         human = game.players.getHumans()[0];
+                                                                                                         var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                                                                         hatchery = game.units.findOne({type: UnitType.ZergHatchery});
+                                                                                                         var own = commandCenter.getPosition();
+                                                                                                         var other = hatchery.getPosition();
+                                                                                                         var tileX = Math.floor(own.getX() / 32);
+                                                                                                         var tileY = Math.floor(own.getY() / 32);
+                                                                                                         var bit = 1 << human.getId();
+                                                                                                         log.info(human.vision.canSee(own), human.vision.hasExplored(own), human.vision.canSee(other), human.vision.hasExplored(other),
+                                                                                                                  core.vision.isVisible(human.getId(), own.getX(), own.getY()), (core.vision.getTileVisibility(tileX, tileY) & bit) === 0,
+                                                                                                                  (core.terrain.getTileFlags(tileX, tileY) & 0xFFFF) === core.vision.getTileVisibility(tileX, tileY));
+                                                                                                         log.info(commandCenter.isVisibleTo(human), commandCenter.isDetectedBy(human), hatchery.isVisibleTo(human),
+                                                                                                                  (core.unit.getVisibilityFlags(commandCenter.getId()) & bit) !== 0, commandCenter.getVisibleTo().indexOf(human) >= 0,
+                                                                                                                  core.unit.getDetectionFlags(commandCenter.getId()) >= 0);
+                                                                                                         game.vision.reveal(human, other, 10, {air: true});
+                                                                                                         log.info(human.vision.canSee(other), human.vision.hasExplored(other));
+                                                                                                         try {
+                                                                                                             core.vision.reveal(0x100, 0, 0, 1, true);
+                                                                                                         } catch (error) {
+                                                                                                             log.info(error.name);
+                                                                                                         }
+                                                                                                         try {
+                                                                                                             core.vision.reveal(1, 0, 0, 12, true);
+                                                                                                         } catch (error) {
+                                                                                                             log.info(error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     function onFrame() {
+                                                                                                         log.info('frame ' + hatchery.isVisibleTo(human));
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         log.info('local ' + human.vision.canSee(hatchery.getPosition()));
+                                                                                                         try {
+                                                                                                             game.vision.reveal(human, hatchery.getPosition(), 10);
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         scenario.stepFrame();
         scenario.runLocalFrame();
@@ -111,35 +111,35 @@ final class ScriptVisionCoreTest {
     @Test
     void shared_vision_sets_the_relations_and_the_sight_coverage(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var human;
-                var computer;
-                function ids(players) {
-                    return players.map(function (player) { return player.getId(); }).join(',');
-                }
-                function onStart() {
-                    human = game.players.getHumans()[0];
-                    computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
-                    log.info(ids(human.vision.getSharedWith()) === String(human.getId()), core.player.getSharedVision(human.getId()) === 1 << human.getId(),
-                             human.vision.isSharedWith(computer));
-                    human.vision.shareWith(computer, true);
-                    log.info(ids(human.vision.getSharedWith()) === ids([human, computer].sort(function (a, b) { return a.getId() - b.getId(); })),
-                             human.vision.isSharedWith(computer), computer.vision.isSharedWith(human));
-                    computer.vision.setSharedWith([computer, human]);
-                    log.info(computer.vision.isSharedWith(human));
-                }
-                var seen = false;
-                function onFrame() {
-                    seen = seen || game.units.findOne({type: UnitType.ZergHatchery}).isVisibleTo(human);
-                }
-                function onLocalFrame() {
-                    log.info('local seen ' + seen);
-                    try {
-                        human.vision.shareWith(computer, false);
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + human.vision.isSharedWith(computer));
-                    }
-                }
-                """);
+                                                                                                     var human;
+                                                                                                     var computer;
+                                                                                                     function ids(players) {
+                                                                                                         return players.map(function (player) { return player.getId(); }).join(',');
+                                                                                                     }
+                                                                                                     function onStart() {
+                                                                                                         human = game.players.getHumans()[0];
+                                                                                                         computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
+                                                                                                         log.info(ids(human.vision.getSharedWith()) === String(human.getId()), core.player.getSharedVision(human.getId()) === 1 << human.getId(),
+                                                                                                                  human.vision.isSharedWith(computer));
+                                                                                                         human.vision.shareWith(computer, true);
+                                                                                                         log.info(ids(human.vision.getSharedWith()) === ids([human, computer].sort(function (a, b) { return a.getId() - b.getId(); })),
+                                                                                                                  human.vision.isSharedWith(computer), computer.vision.isSharedWith(human));
+                                                                                                         computer.vision.setSharedWith([computer, human]);
+                                                                                                         log.info(computer.vision.isSharedWith(human));
+                                                                                                     }
+                                                                                                     var seen = false;
+                                                                                                     function onFrame() {
+                                                                                                         seen = seen || game.units.findOne({type: UnitType.ZergHatchery}).isVisibleTo(human);
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         log.info('local seen ' + seen);
+                                                                                                         try {
+                                                                                                             human.vision.shareWith(computer, false);
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name + ' ' + human.vision.isSharedWith(computer));
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         for (int frame = 0; frame < VISIBILITY_RESET_FRAMES; frame++) {
             scenario.stepFrame();
@@ -157,46 +157,46 @@ final class ScriptVisionCoreTest {
     @Test
     void tile_visibility_writes_and_the_fog_brightness_reach_the_tiles_and_the_display(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var human;
-                var other;
-                function onStart() {
-                    human = game.players.getHumans()[0];
-                    other = game.units.findOne({type: UnitType.ZergHatchery}).getPosition();
-                    var tileX = Math.floor(other.getX() / 32);
-                    var tileY = Math.floor(other.getY() / 32);
-                    var bit = 1 << human.getId();
-                    var flags = core.terrain.getTileFlags(tileX, tileY);
-                    log.info(human.vision.hasExplored(other));
-                    human.vision.setExplored(other, true);
-                    log.info(human.vision.hasExplored(other), human.vision.canSee(other));
-                    human.vision.setExplored(other, false);
-                    log.info(human.vision.hasExplored(other), (core.vision.getTileVisibility(tileX, tileY) & (bit | bit << 8)) === (bit | bit << 8));
-                    core.vision.setTileVisibility(tileX, tileY, core.vision.getTileVisibility(tileX, tileY) & ~(bit | bit << 8));
-                    log.info(human.vision.canSee(other), human.vision.hasExplored(other),
-                             (core.terrain.getTileFlags(tileX, tileY) & ~0xFFFF) === (flags & ~0xFFFF));
-                    log.info(game.vision.getFogBrightness());
-                    game.vision.setFogBrightness(20);
-                    log.info(core.vision.getFogBrightness());
-                    [function () { core.vision.setTileVisibility(0, 0, 0x10000); }, function () { core.vision.setTileVisibility(-1, 0, 0); },
-                     function () { game.players.get(8).vision.setExplored(other, true); },
-                     function () { core.vision.setFogBrightness(256); }].forEach(function (call) {
-                        try {
-                            call();
-                        } catch (error) {
-                            log.info(error.name);
-                        }
-                    });
-                }
-                function onLocalFrame() {
-                    game.vision.setFogBrightness(25);
-                    log.info('local ' + game.vision.getFogBrightness());
-                    try {
-                        human.vision.setExplored(other, false);
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + human.vision.hasExplored(other));
-                    }
-                }
-                """);
+                                                                                                     var human;
+                                                                                                     var other;
+                                                                                                     function onStart() {
+                                                                                                         human = game.players.getHumans()[0];
+                                                                                                         other = game.units.findOne({type: UnitType.ZergHatchery}).getPosition();
+                                                                                                         var tileX = Math.floor(other.getX() / 32);
+                                                                                                         var tileY = Math.floor(other.getY() / 32);
+                                                                                                         var bit = 1 << human.getId();
+                                                                                                         var flags = core.terrain.getTileFlags(tileX, tileY);
+                                                                                                         log.info(human.vision.hasExplored(other));
+                                                                                                         human.vision.setExplored(other, true);
+                                                                                                         log.info(human.vision.hasExplored(other), human.vision.canSee(other));
+                                                                                                         human.vision.setExplored(other, false);
+                                                                                                         log.info(human.vision.hasExplored(other), (core.vision.getTileVisibility(tileX, tileY) & (bit | bit << 8)) === (bit | bit << 8));
+                                                                                                         core.vision.setTileVisibility(tileX, tileY, core.vision.getTileVisibility(tileX, tileY) & ~(bit | bit << 8));
+                                                                                                         log.info(human.vision.canSee(other), human.vision.hasExplored(other),
+                                                                                                                  (core.terrain.getTileFlags(tileX, tileY) & ~0xFFFF) === (flags & ~0xFFFF));
+                                                                                                         log.info(game.vision.getFogBrightness());
+                                                                                                         game.vision.setFogBrightness(20);
+                                                                                                         log.info(core.vision.getFogBrightness());
+                                                                                                         [function () { core.vision.setTileVisibility(0, 0, 0x10000); }, function () { core.vision.setTileVisibility(-1, 0, 0); },
+                                                                                                          function () { game.players.get(8).vision.setExplored(other, true); },
+                                                                                                          function () { core.vision.setFogBrightness(256); }].forEach(function (call) {
+                                                                                                             try {
+                                                                                                                 call();
+                                                                                                             } catch (error) {
+                                                                                                                 log.info(error.name);
+                                                                                                             }
+                                                                                                         });
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         game.vision.setFogBrightness(25);
+                                                                                                         log.info('local ' + game.vision.getFogBrightness());
+                                                                                                         try {
+                                                                                                             human.vision.setExplored(other, false);
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name + ' ' + human.vision.hasExplored(other));
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         scenario.runLocalFrame();
 

@@ -23,11 +23,7 @@ import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommandOutbox;
 import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptValueUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.EcmaError;
-import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -121,7 +117,7 @@ public final class ScriptGame {
         screenCore.defineDrawing(ScriptCoreUtils.createNamespace(context, global, core, "world"), global, ScrDrawList.Space.WORLD);
         screenCore.defineDrawing(ScriptCoreUtils.createNamespace(context, global, core, "minimap"), global, ScrDrawList.Space.MINIMAP);
         new ScriptConsoleCore(scriptGame.consoleSettings, graphicsCore).define(ScriptCoreUtils.createNamespace(context, global, core, "console"),
-                                                                              global);
+                                                                               global);
         textCore.defineStrings(ScriptCoreUtils.createNamespace(context, global, core, "strings"), global);
         textCore.defineMessages(ScriptCoreUtils.createNamespace(context, global, core, "messages"), global);
         scriptGame.soundCore.define(ScriptCoreUtils.createNamespace(context, global, core, "sound"), global);

@@ -10,12 +10,7 @@ import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ClassicScreenGraphics;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageFileScenario;
-import org.fogofwarlabs.sc4j.screnhanced.script.DrawListCheck;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptInputPlugin;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptManifest;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptMapScenario;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
+import org.fogofwarlabs.sc4j.screnhanced.script.*;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -43,15 +38,15 @@ final class ScriptScreenCoreTest {
      * Defines {@code error(fn)}, which returns the name of the error {@code fn} throws, or {@code "none"}.
      */
     private static final @NotNull String ERROR_FUNCTION = """
-            function error(fn) {
-                try {
-                    fn();
-                    return 'none';
-                } catch (e) {
-                    return e.name;
-                }
-            }
-            """;
+                                                          function error(fn) {
+                                                              try {
+                                                                  fn();
+                                                                  return 'none';
+                                                              } catch (e) {
+                                                                  return e.name;
+                                                              }
+                                                          }
+                                                          """;
 
     private static @NotNull Game createGame() {
         return Game.create(null, new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, 0, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]), new LcgRandom(0));
@@ -81,20 +76,20 @@ final class ScriptScreenCoreTest {
     @Test
     void render_should_draw_each_space_in_call_order() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), """
-                var image = game.map.resources.getImage('ui/skull.png');
-                function onRender(screen) {
-                    screen.fillRectangle(1.5, 2.25, 10, 20, Color.fromRgba(1, 2, 3, 0.2));
-                    screen.world.drawCircle(100.5, 200, 16, {color: Color.Red, thickness: 2});
-                    screen.drawText('\\x04Hi\\nthere', 320, 10, {font: Font.Large, align: Align.Center});
-                    screen.minimap.fillCircle(64, 64, 8, Color.Green);
-                    screen.drawImage(image, 5, 6, {opacity: 0.5});
-                    screen.world.drawLine(0, 0, 32, 32.5);
-                    screen.drawPoint(3, 4, Color.Black);
-                    screen.minimap.drawRectangle(0, 0, 32, 32);
-                    screen.drawRectangle(1, 1, 2, 2, {thickness: 0.5, color: Color.Blue});
-                    screen.world.drawImage(image, 1, 2, {width: 64, height: 32});
-                }
-                """, createResources());
+                                                                           var image = game.map.resources.getImage('ui/skull.png');
+                                                                           function onRender(screen) {
+                                                                               screen.fillRectangle(1.5, 2.25, 10, 20, Color.fromRgba(1, 2, 3, 0.2));
+                                                                               screen.world.drawCircle(100.5, 200, 16, {color: Color.Red, thickness: 2});
+                                                                               screen.drawText('\\x04Hi\\nthere', 320, 10, {font: Font.Large, align: Align.Center});
+                                                                               screen.minimap.fillCircle(64, 64, 8, Color.Green);
+                                                                               screen.drawImage(image, 5, 6, {opacity: 0.5});
+                                                                               screen.world.drawLine(0, 0, 32, 32.5);
+                                                                               screen.drawPoint(3, 4, Color.Black);
+                                                                               screen.minimap.drawRectangle(0, 0, 32, 32);
+                                                                               screen.drawRectangle(1, 1, 2, 2, {thickness: 0.5, color: Color.Blue});
+                                                                               screen.world.drawImage(image, 1, 2, {width: 64, height: 32});
+                                                                           }
+                                                                           """, createResources());
         ScriptRuntime runtime = scenario.getRuntime();
 
         runtime.start();
@@ -126,25 +121,25 @@ final class ScriptScreenCoreTest {
     @Test
     void drawing_throws_outside_on_render() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                var saved = null;
-                var results = [error(function () { core.screen.fillRectangle(0, 0, 1, 1, 0xFFFFFFFF); })];
-                function onStart() {
-                    results.push(error(function () { core.world.drawPoint(0, 0, 0xFFFFFFFF); }));
-                }
-                function onFrame(frame) {
-                    results.push(error(function () { core.minimap.drawLine(0, 0, 1, 1, 0xFFFFFFFF, 1); }));
-                }
-                function onLocalFrame(frame) {
-                    results.push(error(function () { saved.drawPoint(0, 0); }));
-                    log.info(results.join(' '));
-                }
-                function onRender(screen) {
-                    saved = screen;
-                    results.push(error(function () { screen.drawPoint(0, 0, -1); }), error(function () { screen.drawText('x', 0, 0, {font: 1}); }),
-                                 error(function () { core.screen.drawText(0, 0, 'x', 9, 0xFFFFFFFF, 0); }),
-                                 error(function () { screen.fillRectangle(0, 0, -1, 1); }), error(function () { screen.drawLine(0, 0, NaN, 1); }));
-                }
-                """);
+                                                                                            var saved = null;
+                                                                                            var results = [error(function () { core.screen.fillRectangle(0, 0, 1, 1, 0xFFFFFFFF); })];
+                                                                                            function onStart() {
+                                                                                                results.push(error(function () { core.world.drawPoint(0, 0, 0xFFFFFFFF); }));
+                                                                                            }
+                                                                                            function onFrame(frame) {
+                                                                                                results.push(error(function () { core.minimap.drawLine(0, 0, 1, 1, 0xFFFFFFFF, 1); }));
+                                                                                            }
+                                                                                            function onLocalFrame(frame) {
+                                                                                                results.push(error(function () { saved.drawPoint(0, 0); }));
+                                                                                                log.info(results.join(' '));
+                                                                                            }
+                                                                                            function onRender(screen) {
+                                                                                                saved = screen;
+                                                                                                results.push(error(function () { screen.drawPoint(0, 0, -1); }), error(function () { screen.drawText('x', 0, 0, {font: 1}); }),
+                                                                                                             error(function () { core.screen.drawText(0, 0, 'x', 9, 0xFFFFFFFF, 0); }),
+                                                                                                             error(function () { screen.fillRectangle(0, 0, -1, 1); }), error(function () { screen.drawLine(0, 0, NaN, 1); }));
+                                                                                            }
+                                                                                            """);
         ScriptRuntime runtime = scenario.getRuntime();
 
         runtime.start();
@@ -160,22 +155,22 @@ final class ScriptScreenCoreTest {
     void a_render_call_over_its_budget_draws_nothing() throws IOException {
         List<String> lines = new ArrayList<>();
         ScriptRuntime runtime = createRuntime(createGame(), """
-                var mode = 'draw';
-                function onLocalFrame(frame) {
-                    mode = frame === 2 ? 'loop' : frame === 3 ? 'throw' : 'draw';
-                }
-                function onRender(screen) {
-                    screen.fillRectangle(0, 0, 1, 1);
-                    if (mode === 'loop') {
-                        while (true) {
-                        }
-                    }
-                    if (mode === 'throw') {
-                        throw new Error('stop');
-                    }
-                    screen.fillRectangle(1, 1, 1, 1);
-                }
-                """, lines);
+                                                            var mode = 'draw';
+                                                            function onLocalFrame(frame) {
+                                                                mode = frame === 2 ? 'loop' : frame === 3 ? 'throw' : 'draw';
+                                                            }
+                                                            function onRender(screen) {
+                                                                screen.fillRectangle(0, 0, 1, 1);
+                                                                if (mode === 'loop') {
+                                                                    while (true) {
+                                                                    }
+                                                                }
+                                                                if (mode === 'throw') {
+                                                                    throw new Error('stop');
+                                                                }
+                                                                screen.fillRectangle(1, 1, 1, 1);
+                                                            }
+                                                            """, lines);
 
         runtime.start();
         runtime.callLocalFrame(1);
@@ -205,14 +200,14 @@ final class ScriptScreenCoreTest {
     void screen_reports_the_local_display_and_snaps_to_its_pixels() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
-                function onFrame(frame) {
-                    log.info(error(function () { core.screen.getWidth(); }), error(function () { core.screen.measureText('x', 0); }));
-                }
-                function onRender(screen) {
-                    log.info(screen.getWidth(), screen.getHeight(), screen.getScale(), screen.getGraphics() === Graphics.HD, screen.snap(1.3),
-                             screen.snap(4), screen.measureText('abc', Font.Large), screen.world.measureText('ab'));
-                }
-                """);
+                                                                                    function onFrame(frame) {
+                                                                                        log.info(error(function () { core.screen.getWidth(); }), error(function () { core.screen.measureText('x', 0); }));
+                                                                                    }
+                                                                                    function onRender(screen) {
+                                                                                        log.info(screen.getWidth(), screen.getHeight(), screen.getScale(), screen.getGraphics() === Graphics.HD, screen.snap(1.3),
+                                                                                                 screen.snap(4), screen.measureText('abc', Font.Large), screen.world.measureText('ab'));
+                                                                                    }
+                                                                                    """);
         ScriptRuntime runtime = scenario.getRuntime();
 
         runtime.start();
@@ -229,13 +224,13 @@ final class ScriptScreenCoreTest {
     @Test
     void colors_fonts_alignments_and_console_constants_have_their_values() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                log.info(Color.White === 0xFFFFFFFF, Color.fromRgba(1, 2, 3, 0.2) === 0x33010203, Color.fromRgb(255, 0, 0) === Color.Red,
-                         Color.Transparent, error(function () { Color.fromRgb(256, 0, 0); }), error(function () { Color.fromRgb(0.5, 0, 0); }),
-                         error(function () { Color.fromPalette(1); }));
-                log.info(Font.Small.getId(), Font.Huge.getId(), Font.getCount(), Align.Left.getId(), Align.Right.getId(), Graphics.SD.getId(),
-                         Graphics.HD2.getId(), ConsoleControl.CommandCard.getId(), ConsoleControl.TextBox.getId(), ConsoleImage.Console.getId(),
-                         ResourceType.Supply.getId());
-                """);
+                                                                                            log.info(Color.White === 0xFFFFFFFF, Color.fromRgba(1, 2, 3, 0.2) === 0x33010203, Color.fromRgb(255, 0, 0) === Color.Red,
+                                                                                                     Color.Transparent, error(function () { Color.fromRgb(256, 0, 0); }), error(function () { Color.fromRgb(0.5, 0, 0); }),
+                                                                                                     error(function () { Color.fromPalette(1); }));
+                                                                                            log.info(Font.Small.getId(), Font.Huge.getId(), Font.getCount(), Align.Left.getId(), Align.Right.getId(), Graphics.SD.getId(),
+                                                                                                     Graphics.HD2.getId(), ConsoleControl.CommandCard.getId(), ConsoleControl.TextBox.getId(), ConsoleImage.Console.getId(),
+                                                                                                     ResourceType.Supply.getId());
+                                                                                            """);
 
         scenario.getRuntime().start();
 
@@ -246,12 +241,12 @@ final class ScriptScreenCoreTest {
     @Test
     void images_decode_once_and_know_their_size() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                var png = game.map.resources.getImage('ui/skull.png');
-                var dds = game.map.resources.getImage('ui/skull.dds');
-                log.info(png === game.map.resources.getImage('ui/skull.png'), png.getWidth(), png.getHeight(), dds.getWidth(), dds.getHeight(), png.getName());
-                log.info(error(function () { game.map.resources.getImage('ui/none.png'); }), error(function () { game.map.resources.getImage('ui/text.txt'); }),
-                         error(function () { core.resources.getImageWidth(-1); }));
-                """, createResources());
+                                                                                            var png = game.map.resources.getImage('ui/skull.png');
+                                                                                            var dds = game.map.resources.getImage('ui/skull.dds');
+                                                                                            log.info(png === game.map.resources.getImage('ui/skull.png'), png.getWidth(), png.getHeight(), dds.getWidth(), dds.getHeight(), png.getName());
+                                                                                            log.info(error(function () { game.map.resources.getImage('ui/none.png'); }), error(function () { game.map.resources.getImage('ui/text.txt'); }),
+                                                                                                     error(function () { core.resources.getImageWidth(-1); }));
+                                                                                            """, createResources());
 
         scenario.getRuntime().start();
 
@@ -263,15 +258,15 @@ final class ScriptScreenCoreTest {
     void pixel_writes_land_in_the_classic_screen() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
-                function onStart() {
-                    core.screen.setPixel(1, 2, 5);
-                    core.screen.fillPixels(638, 479, 4, 4, 6);
-                    log.info(error(function () { core.screen.setPixel(0, 0, 256); }));
-                }
-                function onLocalFrame(frame) {
-                    core.screen.setPixel(3, 2, 7);
-                }
-                """);
+                                                                                    function onStart() {
+                                                                                        core.screen.setPixel(1, 2, 5);
+                                                                                        core.screen.fillPixels(638, 479, 4, 4, 6);
+                                                                                        log.info(error(function () { core.screen.setPixel(0, 0, 256); }));
+                                                                                    }
+                                                                                    function onLocalFrame(frame) {
+                                                                                        core.screen.setPixel(3, 2, 7);
+                                                                                    }
+                                                                                    """);
         ClassicScreenGraphics screen = null;
 
         for (ScrGamePlugin plugin : game.getPlugins()) {
@@ -300,10 +295,10 @@ final class ScriptScreenCoreTest {
     void render_runs_without_a_submitter_and_the_plugin_hands_out_its_list() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
-                function onRender(screen) {
-                    screen.world.drawPoint(local.isReplay() ? 1 : 0, 0, Color.White);
-                }
-                """);
+                                                                   function onRender(screen) {
+                                                                       screen.world.drawPoint(local.isReplay() ? 1 : 0, 0, Color.White);
+                                                                   }
+                                                                   """);
         ScriptRuntime runtime = scenario.getRuntime();
         ScriptInputPlugin plugin = new ScriptInputPlugin(() -> runtime, () -> null, game.getInterfaceLink().getLocalView());
 

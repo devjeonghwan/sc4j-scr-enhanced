@@ -38,77 +38,77 @@ final class ScriptInputPluginTest {
      * sends on a channel.
      */
     private static final @NotNull String SCRIPT = """
-            var channel = sync.createChannel(function () {});
-            function describe(event) {
-                return event.getMousePosition() + ' ' + event.isShift() + ' ' + event.isControl() + ' ' + event.isAlt();
-            }
-            function onLocalKeyDown(event) {
-                log.info('key down ' + event.getKey().getName() + ' ' + describe(event));
-                if (event.getKey() === Key.Q) {
-                    event.consume();
-                }
-            }
-            function onLocalKeyUp(event) {
-                log.info('key up ' + event.getKey().getName() + ' ' + describe(event));
-                event.consume();
-            }
-            function onLocalMouseDown(event) {
-                log.info('mouse down ' + event.getButton().getName() + ' ' + describe(event));
-                if (event.getButton() === MouseButton.Right) {
-                    event.consume();
-                }
-            }
-            function onLocalChat(event) {
-                log.info('chat ' + event.getText() + ' ' + event.isConsumed());
-                if (event.getText().charAt(0) === '!') {
-                    event.consume();
-                    channel.send(event.getText());
-                }
-            }
-            """;
+                                                  var channel = sync.createChannel(function () {});
+                                                  function describe(event) {
+                                                      return event.getMousePosition() + ' ' + event.isShift() + ' ' + event.isControl() + ' ' + event.isAlt();
+                                                  }
+                                                  function onLocalKeyDown(event) {
+                                                      log.info('key down ' + event.getKey().getName() + ' ' + describe(event));
+                                                      if (event.getKey() === Key.Q) {
+                                                          event.consume();
+                                                      }
+                                                  }
+                                                  function onLocalKeyUp(event) {
+                                                      log.info('key up ' + event.getKey().getName() + ' ' + describe(event));
+                                                      event.consume();
+                                                  }
+                                                  function onLocalMouseDown(event) {
+                                                      log.info('mouse down ' + event.getButton().getName() + ' ' + describe(event));
+                                                      if (event.getButton() === MouseButton.Right) {
+                                                          event.consume();
+                                                      }
+                                                  }
+                                                  function onLocalChat(event) {
+                                                      log.info('chat ' + event.getText() + ' ' + event.isConsumed());
+                                                      if (event.getText().charAt(0) === '!') {
+                                                          event.consume();
+                                                          channel.send(event.getText());
+                                                      }
+                                                  }
+                                                  """;
 
     /**
      * Logs the local information on every played frame; at frame 2 it moves the local screen and sends the frame on a channel.
      */
     private static final @NotNull String FRAME_SCRIPT = """
-            var channel = sync.createChannel(function () {});
-            function onLocalFrame(frame) {
-                log.info('frame ' + frame + ' ' + local.getPlayer() + ' ' + local.isReplay() + ' ' + local.isChatOpen() + ' ' +
-                         local.getScreenPosition() + ' ' + local.getMousePosition() + ' ' + local.getSelection().length);
-                if (frame === 2) {
-                    log.info('moved ' + local.setScreenPosition(Position.of(96, 5000)) + ' ' + local.getScreenPosition());
-                    channel.send(frame);
-                }
-            }
-            """;
+                                                        var channel = sync.createChannel(function () {});
+                                                        function onLocalFrame(frame) {
+                                                            log.info('frame ' + frame + ' ' + local.getPlayer() + ' ' + local.isReplay() + ' ' + local.isChatOpen() + ' ' +
+                                                                     local.getScreenPosition() + ' ' + local.getMousePosition() + ' ' + local.getSelection().length);
+                                                            if (frame === 2) {
+                                                                log.info('moved ' + local.setScreenPosition(Position.of(96, 5000)) + ' ' + local.getScreenPosition());
+                                                                channel.send(frame);
+                                                            }
+                                                        }
+                                                        """;
     /**
      * Reads the local information in shared code (the top level, onStart, onFrame and core) and in onLocalFrame.
      */
     private static final @NotNull String SHARED_SCRIPT = """
-            var results = [];
-            function attempt(name, read) {
-                try {
-                    read();
-                    results.push(name + ' read');
-                } catch (error) {
-                    results.push(name + ' ' + error.name);
-                }
-            }
-            attempt('top', function () { return local.getPlayer(); });
-            function onStart() {
-                attempt('start', function () { return local.isReplay(); });
-                attempt('core', function () { return core.local.getScreenX(); });
-            }
-            function onFrame(frame) {
-                attempt('frame', function () { return local.getSelection(); });
-                attempt('screen', function () { return local.setScreenPosition(Position.of(0, 0)); });
-                log.info(results.join(', '));
-            }
-            function onLocalFrame(frame) {
-                attempt('local frame', function () { return local.getMousePosition(); });
-                log.info(results.join(', '));
-            }
-            """;
+                                                         var results = [];
+                                                         function attempt(name, read) {
+                                                             try {
+                                                                 read();
+                                                                 results.push(name + ' read');
+                                                             } catch (error) {
+                                                                 results.push(name + ' ' + error.name);
+                                                             }
+                                                         }
+                                                         attempt('top', function () { return local.getPlayer(); });
+                                                         function onStart() {
+                                                             attempt('start', function () { return local.isReplay(); });
+                                                             attempt('core', function () { return core.local.getScreenX(); });
+                                                         }
+                                                         function onFrame(frame) {
+                                                             attempt('frame', function () { return local.getSelection(); });
+                                                             attempt('screen', function () { return local.setScreenPosition(Position.of(0, 0)); });
+                                                             log.info(results.join(', '));
+                                                         }
+                                                         function onLocalFrame(frame) {
+                                                             attempt('local frame', function () { return local.getMousePosition(); });
+                                                             log.info(results.join(', '));
+                                                         }
+                                                         """;
 
     /**
      * Records the submitted commands.

@@ -52,16 +52,16 @@ final class ScriptPreludeTest {
         game.getUnitSystem().initializeUnitPool(UNIT_CAPACITY);
 
         ScriptRuntimeScenario scenario = start(game, ScriptRuntimeScenario.MAIN_NAME, """
-                var channel = sync.createChannel(function (player, value) { log.info('channel ' + player.getId() + ' ' + value); });
-                game.every(1, function () { log.info('timer'); });
-                function onStart() { log.info('start'); }
-                function onPlayerLeft(event) {
-                    log.info('left ' + event.getPlayer().getId() + ' ' + (event.getRecord().kind === EventKind.PlayerLeft.id));
-                }
-                function onFrame(frame) { log.info('frame ' + frame); }
-                function onLocalFrame(frame) { log.info('local frame ' + frame); }
-                function onRender(screen) { log.info('render ' + typeof screen.drawText); }
-                """);
+                                                                                      var channel = sync.createChannel(function (player, value) { log.info('channel ' + player.getId() + ' ' + value); });
+                                                                                      game.every(1, function () { log.info('timer'); });
+                                                                                      function onStart() { log.info('start'); }
+                                                                                      function onPlayerLeft(event) {
+                                                                                          log.info('left ' + event.getPlayer().getId() + ' ' + (event.getRecord().kind === EventKind.PlayerLeft.id));
+                                                                                      }
+                                                                                      function onFrame(frame) { log.info('frame ' + frame); }
+                                                                                      function onLocalFrame(frame) { log.info('local frame ' + frame); }
+                                                                                      function onRender(screen) { log.info('render ' + typeof screen.drawText); }
+                                                                                      """);
 
         game.storeCurrentFrame(1);
         scenario.getRuntime().queueEvent(new PlayerLeftEvent(2, 0), 1);
@@ -81,27 +81,27 @@ final class ScriptPreludeTest {
         game.getUnitSystem().initializeUnitPool(UNIT_CAPACITY);
 
         ScriptRuntimeScenario scenario = start(game, ScriptRuntimeScenario.MAIN_NAME, """
-                        require('./second.js');
-                        require('./third.js');
-                        function onBeforeDamage(decision) {
-                            log.info('first', decision.getAmount(), game.isReadOnly(), decision.getRecord().kind === DecisionKind.Damage.id);
-                            decision.setAmount(decision.getAmount() / 2);
-                        }
-                        """,
-                               "second.js", """
-                        function onBeforeDamage(decision) {
-                            log.info('second', decision.getAmount(), decision.getRecord().amount);
-                            decision.getRecord().amount = 1;
-                            decision.cancel();
-                            throw new Error('fails');
-                        }
-                        """,
-                               "third.js", """
-                        function onBeforeDamage(decision) {
-                            log.info('third', decision.getAmount(), decision.isCancelled(), decision.getTarget().exists());
-                            decision.getRecord().cancelled = true;
-                        }
-                        """);
+                                                                                      require('./second.js');
+                                                                                      require('./third.js');
+                                                                                      function onBeforeDamage(decision) {
+                                                                                          log.info('first', decision.getAmount(), game.isReadOnly(), decision.getRecord().kind === DecisionKind.Damage.id);
+                                                                                          decision.setAmount(decision.getAmount() / 2);
+                                                                                      }
+                                                                                      """,
+                                               "second.js", """
+                                                            function onBeforeDamage(decision) {
+                                                                log.info('second', decision.getAmount(), decision.getRecord().amount);
+                                                                decision.getRecord().amount = 1;
+                                                                decision.cancel();
+                                                                throw new Error('fails');
+                                                            }
+                                                            """,
+                                               "third.js", """
+                                                           function onBeforeDamage(decision) {
+                                                               log.info('third', decision.getAmount(), decision.isCancelled(), decision.getTarget().exists());
+                                                               decision.getRecord().cancelled = true;
+                                                           }
+                                                           """);
         UnitPool pool = game.getUnitSystem().requireUnitPool();
         SimulationUnit target = new SimulationUnit(pool.getUnit(TARGET_SLOT), UnitHandle.encode(TARGET_SLOT, 0, pool.getCapacity()), MARINE, 0);
         WeaponDamageDecision decision = new WeaponDamageDecision(0, null, 1, target, DAMAGE);
@@ -120,18 +120,18 @@ final class ScriptPreludeTest {
     @Test
     void local_input_returns_the_consumption_and_core_local_lists_the_inputs_of_the_frame() throws IOException {
         ScriptRuntimeScenario scenario = start(ScriptRuntimeScenario.createGame(), ScriptRuntimeScenario.MAIN_NAME, """
-                function onLocalKeyDown(event) {
-                    if (event.getKey() === Key.Q) {
-                        event.consume();
-                    }
-                }
-                function onLocalChat(event) {
-                    event.getRecord().consumed = event.getText() === 'hide';
-                }
-                function onLocalFrame(frame) {
-                    log.info(frame + ' ' + JSON.stringify(core.local.getInputEvents()));
-                }
-                """);
+                                                                                                                    function onLocalKeyDown(event) {
+                                                                                                                        if (event.getKey() === Key.Q) {
+                                                                                                                            event.consume();
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                    function onLocalChat(event) {
+                                                                                                                        event.getRecord().consumed = event.getText() === 'hide';
+                                                                                                                    }
+                                                                                                                    function onLocalFrame(frame) {
+                                                                                                                        log.info(frame + ' ' + JSON.stringify(core.local.getInputEvents()));
+                                                                                                                    }
+                                                                                                                    """);
         ScriptRuntime runtime = scenario.getRuntime();
 
         Assertions.assertTrue(runtime.callLocalInput(ScriptLocalInput.ofKey(KEY_Q, true, 0, false, 0, 0)));
@@ -150,41 +150,41 @@ final class ScriptPreludeTest {
     @Test
     void lower_functions_refuse_the_wrong_code_with_a_type_error_and_bad_values_with_a_range_error() throws IOException {
         ScriptRuntimeScenario scenario = start(ScriptRuntimeScenario.createGame(), ScriptRuntimeScenario.MAIN_NAME, """
-                function attempt(calls) {
-                    return Object.keys(calls).map(function (name) {
-                        try {
-                            calls[name]();
-                            return name + ' works';
-                        } catch (error) {
-                            return name + ' ' + error.name;
-                        }
-                    }).join(', ');
-                }
-                function onFrame() {
-                    log.info(attempt({
-                        local: function () { core.local.getPlayer(); },
-                        screen: function () { core.screen.getWidth(); },
-                        draw: function () { core.screen.drawPoint(0, 0, 0); },
-                        events: function () { core.events.getFrameEvents(); },
-                        executed: function () { core.command.getExecuted(); },
-                        submit: function () { core.command.submit(1); },
-                        read: function () { core.game.getFrame(); },
-                        kind: function () { core.events.getKindName(99); }
-                    }));
-                }
-                function onLocalFrame() {
-                    log.info(attempt({
-                        local: function () { core.local.isReplay(); },
-                        events: function () { core.events.getFrameEvents(); },
-                        executed: function () { core.command.getExecuted(); },
-                        write: function () { core.player.setMinerals(0, 5); },
-                        print: function () { core.game.print('local'); },
-                        submit: function () { core.command.submit(1); },
-                        read: function () { core.game.getFrame(); },
-                        names: function () { core.events.getKindName(0); }
-                    }));
-                }
-                """);
+                                                                                                                    function attempt(calls) {
+                                                                                                                        return Object.keys(calls).map(function (name) {
+                                                                                                                            try {
+                                                                                                                                calls[name]();
+                                                                                                                                return name + ' works';
+                                                                                                                            } catch (error) {
+                                                                                                                                return name + ' ' + error.name;
+                                                                                                                            }
+                                                                                                                        }).join(', ');
+                                                                                                                    }
+                                                                                                                    function onFrame() {
+                                                                                                                        log.info(attempt({
+                                                                                                                            local: function () { core.local.getPlayer(); },
+                                                                                                                            screen: function () { core.screen.getWidth(); },
+                                                                                                                            draw: function () { core.screen.drawPoint(0, 0, 0); },
+                                                                                                                            events: function () { core.events.getFrameEvents(); },
+                                                                                                                            executed: function () { core.command.getExecuted(); },
+                                                                                                                            submit: function () { core.command.submit(1); },
+                                                                                                                            read: function () { core.game.getFrame(); },
+                                                                                                                            kind: function () { core.events.getKindName(99); }
+                                                                                                                        }));
+                                                                                                                    }
+                                                                                                                    function onLocalFrame() {
+                                                                                                                        log.info(attempt({
+                                                                                                                            local: function () { core.local.isReplay(); },
+                                                                                                                            events: function () { core.events.getFrameEvents(); },
+                                                                                                                            executed: function () { core.command.getExecuted(); },
+                                                                                                                            write: function () { core.player.setMinerals(0, 5); },
+                                                                                                                            print: function () { core.game.print('local'); },
+                                                                                                                            submit: function () { core.command.submit(1); },
+                                                                                                                            read: function () { core.game.getFrame(); },
+                                                                                                                            names: function () { core.events.getKindName(0); }
+                                                                                                                        }));
+                                                                                                                    }
+                                                                                                                    """);
 
         scenario.getRuntime().runFrame(0);
         scenario.getRuntime().callLocalFrame(0);

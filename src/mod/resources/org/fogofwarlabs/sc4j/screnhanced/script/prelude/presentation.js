@@ -37,28 +37,28 @@
 
     // The graphics of the images of the game.
     var imageGraphics = freeze({
-        // Replaces the graphics of every image of an image type with {sd: a GRP, hd: an HD anim, hd2: an HD2 anim}.
-        replace: function (imageType, images) {
-            var imageTypeId = requireObject(imageType, imageTypePrototype, 'An image type').id;
-            var ids = readGraphicsIds(images);
+                                   // Replaces the graphics of every image of an image type with {sd: a GRP, hd: an HD anim, hd2: an HD2 anim}.
+                                   replace: function (imageType, images) {
+                                       var imageTypeId = requireObject(imageType, imageTypePrototype, 'An image type').id;
+                                       var ids = readGraphicsIds(images);
 
-            core.graphics.replaceImage(imageTypeId, ids[0], ids[1], ids[2]);
-        },
-        restore: function (imageType) {
-            core.graphics.restoreImage(requireObject(imageType, imageTypePrototype, 'An image type').id);
-        },
-        // Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
-        replaceUnit: function (unit, images, imageType) {
-            var id = requireUnitId(unit);
-            var imageTypeId = readUnitImageType(unit, imageType);
-            var ids = readGraphicsIds(images);
+                                       core.graphics.replaceImage(imageTypeId, ids[0], ids[1], ids[2]);
+                                   },
+                                   restore: function (imageType) {
+                                       core.graphics.restoreImage(requireObject(imageType, imageTypePrototype, 'An image type').id);
+                                   },
+                                   // Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
+                                   replaceUnit: function (unit, images, imageType) {
+                                       var id = requireUnitId(unit);
+                                       var imageTypeId = readUnitImageType(unit, imageType);
+                                       var ids = readGraphicsIds(images);
 
-            core.graphics.replaceUnitImage(id, imageTypeId, ids[0], ids[1], ids[2]);
-        },
-        restoreUnit: function (unit, imageType) {
-            core.graphics.restoreUnitImage(requireUnitId(unit), readUnitImageType(unit, imageType));
-        }
-    });
+                                       core.graphics.replaceUnitImage(id, imageTypeId, ids[0], ids[1], ids[2]);
+                                   },
+                                   restoreUnit: function (unit, imageType) {
+                                       core.graphics.restoreUnitImage(requireUnitId(unit), readUnitImageType(unit, imageType));
+                                   }
+                               });
 
     var consoleControlPrototype = create(typePrototype);
     var consoleImagePrototype = create(typePrototype);
@@ -118,86 +118,86 @@
 
     // The console. A setting wins over what EUD memory gives for the same item; EUD memory still drives the items the script never set.
     var gameConsole = freeze({
-        setVisible: function (visible) {
-            core.console.setVisible(visible === true);
-        },
-        isVisible: function () {
-            return core.console.isVisible();
-        },
-        getControl: function (control) {
-            var id = requireObject(control, consoleControlPrototype, 'A console control').id;
-            var object = consoleControlObjects[id];
+                                 setVisible: function (visible) {
+                                     core.console.setVisible(visible === true);
+                                 },
+                                 isVisible: function () {
+                                     return core.console.isVisible();
+                                 },
+                                 getControl: function (control) {
+                                     var id = requireObject(control, consoleControlPrototype, 'A console control').id;
+                                     var object = consoleControlObjects[id];
 
-            if (object === undefined) {
-                object = freeze(createObject(consoleControlObjectPrototype, {control: control}));
-                consoleControlObjects[id] = object;
-            }
+                                     if (object === undefined) {
+                                         object = freeze(createObject(consoleControlObjectPrototype, {control: control}));
+                                         consoleControlObjects[id] = object;
+                                     }
 
-            return object;
-        },
-        // Draws an image instead of a console image, null for the installed one.
-        replaceImage: function (consoleImage, image) {
-            var id = requireObject(consoleImage, consoleImagePrototype, 'A console image').id;
+                                     return object;
+                                 },
+                                 // Draws an image instead of a console image, null for the installed one.
+                                 replaceImage: function (consoleImage, image) {
+                                     var id = requireObject(consoleImage, consoleImagePrototype, 'A console image').id;
 
-            core.console.replaceImage(id, image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id);
-        },
-        // Draws an image for the icon of a resource type, null for the icon of EUD memory or the installed one.
-        setResourceIcon: function (resourceType, image) {
-            var icons = readResourceIcons(resourceType);
-            var imageId = image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id;
+                                     core.console.replaceImage(id, image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id);
+                                 },
+                                 // Draws an image for the icon of a resource type, null for the icon of EUD memory or the installed one.
+                                 setResourceIcon: function (resourceType, image) {
+                                     var icons = readResourceIcons(resourceType);
+                                     var imageId = image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id;
 
-            for (var index = 0; index < icons.length; index++) {
-                core.console.setResourceIcon(icons[index], imageId);
-            }
-        }
-    });
+                                     for (var index = 0; index < icons.length; index++) {
+                                         core.console.setResourceIcon(icons[index], imageId);
+                                     }
+                                 }
+                             });
 
     // The stat_txt strings by their one-based ids; a text wins over the game's table, null shows the game's string again.
     var strings = freeze({
-        setStatText: function (id, text) {
-            core.strings.setStatText(id, text === null || text === undefined ? null : String(text));
-        }
-    });
+                             setStatText: function (id, text) {
+                                 core.strings.setStatText(id, text === null || text === undefined ? null : String(text));
+                             }
+                         });
 
     // The message lines on the screen: lines 0 to 10 take the messages in turn from the cursor, line 12 the status texts. A written line keeps
     // the expiry time of the message it held, as an EUD write does.
     var messages = freeze({
-        // Empties the message lines on the screen.
-        clear: function () {
-            core.messages.clear();
-        },
-        getLine: function (line) {
-            return core.messages.getLine(line);
-        },
-        setLine: function (line, text) {
-            core.messages.setLine(line, String(text));
-        },
-        // The line the next message starts at.
-        getCursor: function () {
-            return core.messages.getNextLine();
-        },
-        setCursor: function (line) {
-            core.messages.setNextLine(line);
-        }
-    });
+                              // Empties the message lines on the screen.
+                              clear: function () {
+                                  core.messages.clear();
+                              },
+                              getLine: function (line) {
+                                  return core.messages.getLine(line);
+                              },
+                              setLine: function (line, text) {
+                                  core.messages.setLine(line, String(text));
+                              },
+                              // The line the next message starts at.
+                              getCursor: function () {
+                                  return core.messages.getNextLine();
+                              },
+                              setCursor: function (line) {
+                                  core.messages.setNextLine(line);
+                              }
+                          });
 
     // The game sounds.
     var sound = freeze({
-        // Plays a sound of sfxdata.dat by its id at a position, louder the nearer it is to the screen.
-        playAt: function (soundId, position) {
-            requireObject(position, positionPrototype, 'A position');
-            core.sound.playAt(soundId, position.x, position.y);
-        }
-    });
+                           // Plays a sound of sfxdata.dat by its id at a position, louder the nearer it is to the screen.
+                           playAt: function (soundId, position) {
+                               requireObject(position, positionPrototype, 'A position');
+                               core.sound.playAt(soundId, position.x, position.y);
+                           }
+                       });
 
     var display = freeze({
-        console: gameConsole,
-        strings: strings,
-        messages: messages,
-        sound: sound,
-        images: imageGraphics,
-        commandCard: commandCard
-    });
+                             console: gameConsole,
+                             strings: strings,
+                             messages: messages,
+                             sound: sound,
+                             images: imageGraphics,
+                             commandCard: commandCard
+                         });
 
     [consoleControlPrototype, consoleImagePrototype, consoleControlObjectPrototype].forEach(freeze);
 

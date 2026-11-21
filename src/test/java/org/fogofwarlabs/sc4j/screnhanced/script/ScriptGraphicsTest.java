@@ -37,27 +37,27 @@ final class ScriptGraphicsTest {
      * second Marine three frames later.
      */
     private static final @NotNull String SCRIPT = """
-            var marine, other, spawnFrame;
-            function onFrame(frame) {
-                if (spawnFrame === undefined && game.units.findOne({type: UnitType.TerranCommandCenter}) !== null) {
-                    spawnFrame = frame;
-                    var human = game.players.getHumans()[0];
-                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
-                    var directionX = commandCenter.getX() < game.map.getWidth() / 2 ? 1 : -1;
-                    var directionY = commandCenter.getY() < game.map.getHeight() / 2 ? 1 : -1;
-                    var x = commandCenter.getX() + 160 * directionX;
-                    var y = commandCenter.getY() + 160 * directionY;
-                    marine = game.units.create(UnitType.TerranMarine, human, Position.of(x, y));
-                    other = game.units.create(UnitType.TerranMarine, human, Position.of(x + 48 * directionX, y));
-                    display.images.replace(marine.getImageType(), {sd: game.map.resources.getGrp('units/marine.grp'), hd: game.map.resources.getAnim('units/marine.anim')});
-                    display.images.replaceUnit(other, {hd2: game.map.resources.getAnim('units/marine-hd2.anim')});
-                    game.print('ES replaced ' + marine.getImageType().getId() + ' ' + marine.getId() + ' ' + other.getId());
-                } else if (frame === spawnFrame + 3) {
-                    other.remove();
-                    game.print('ES removed');
-                }
-            }
-            """;
+                                                  var marine, other, spawnFrame;
+                                                  function onFrame(frame) {
+                                                      if (spawnFrame === undefined && game.units.findOne({type: UnitType.TerranCommandCenter}) !== null) {
+                                                          spawnFrame = frame;
+                                                          var human = game.players.getHumans()[0];
+                                                          var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                          var directionX = commandCenter.getX() < game.map.getWidth() / 2 ? 1 : -1;
+                                                          var directionY = commandCenter.getY() < game.map.getHeight() / 2 ? 1 : -1;
+                                                          var x = commandCenter.getX() + 160 * directionX;
+                                                          var y = commandCenter.getY() + 160 * directionY;
+                                                          marine = game.units.create(UnitType.TerranMarine, human, Position.of(x, y));
+                                                          other = game.units.create(UnitType.TerranMarine, human, Position.of(x + 48 * directionX, y));
+                                                          display.images.replace(marine.getImageType(), {sd: game.map.resources.getGrp('units/marine.grp'), hd: game.map.resources.getAnim('units/marine.anim')});
+                                                          display.images.replaceUnit(other, {hd2: game.map.resources.getAnim('units/marine-hd2.anim')});
+                                                          game.print('ES replaced ' + marine.getImageType().getId() + ' ' + marine.getId() + ' ' + other.getId());
+                                                      } else if (frame === spawnFrame + 3) {
+                                                          other.remove();
+                                                          game.print('ES removed');
+                                                      }
+                                                  }
+                                                  """;
     private static final int SPAWN_FRAMES = 200;
     private static final int REMOVAL_FRAMES = 10;
 
@@ -95,7 +95,7 @@ final class ScriptGraphicsTest {
 
     @Test
     void a_script_replaces_the_marine_image_of_every_marine_and_of_one_marine(@NotNull InstallationTestResources resources,
-                                                                               @TempDir @NotNull Path folder) throws IOException {
+                                                                              @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SCRIPT, createResources());
 
         scenario.stepUntilPrinted("replaced", SPAWN_FRAMES);

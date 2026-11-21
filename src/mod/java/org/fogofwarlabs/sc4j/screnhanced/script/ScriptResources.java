@@ -7,12 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HexFormat;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -266,7 +261,7 @@ public final class ScriptResources {
      *
      * @param references the referenced resources, with or without stored bytes
      * @return the resources of the references in their order, with the stored bytes of these resources, or {@code null} if a reference names a
-     *         resource these resources do not hold with the same original size and digest
+     * resource these resources do not hold with the same original size and digest
      */
     public @Nullable ScriptResources select(@NotNull Collection<Entry> references) {
         Map<String, Entry> selected = new LinkedHashMap<>();

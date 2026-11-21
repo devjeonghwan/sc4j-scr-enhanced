@@ -9,11 +9,17 @@
 
 interface Object {
     constructor: Function;
+
     toString(): string;
+
     toLocaleString(): string;
+
     valueOf(): Object;
+
     hasOwnProperty(key: PropertyKey): boolean;
+
     isPrototypeOf(value: Object): boolean;
+
     propertyIsEnumerable(key: PropertyKey): boolean;
 }
 
@@ -22,7 +28,9 @@ interface PropertyDescriptor {
     enumerable?: boolean;
     value?: any;
     writable?: boolean;
+
     get?(): any;
+
     set?(value: any): void;
 }
 
@@ -31,29 +39,52 @@ interface PropertyDescriptorMap {
 }
 
 interface ObjectConstructor {
-    new (value?: any): Object;
+    new(value?: any): Object;
+
     (value?: any): any;
+
     readonly prototype: Object;
+
     getPrototypeOf(value: any): any;
+
     setPrototypeOf(value: any, prototype: object | null): any;
+
     getOwnPropertyNames(value: any): string[];
+
     getOwnPropertyDescriptor(value: any, key: PropertyKey): PropertyDescriptor | undefined;
+
     defineProperty<T>(value: T, key: PropertyKey, attributes: PropertyDescriptor): T;
+
     defineProperties<T>(value: T, properties: PropertyDescriptorMap): T;
+
     create(prototype: object | null, properties?: PropertyDescriptorMap): any;
+
     keys(value: object): string[];
+
     values<T>(value: { [key: string]: T }): T[];
+
     entries<T>(value: { [key: string]: T }): [string, T][];
+
     fromEntries<T>(entries: Iterable<readonly [PropertyKey, T]>): { [key: string]: T };
+
     assign<T, U>(target: T, source: U): T & U;
+
     assign(target: object, ...sources: any[]): any;
+
     freeze<T>(value: T): Readonly<T>;
+
     isFrozen(value: any): boolean;
+
     seal<T>(value: T): T;
+
     isSealed(value: any): boolean;
+
     preventExtensions<T>(value: T): T;
+
     isExtensible(value: any): boolean;
+
     is(first: any, second: any): boolean;
+
     hasOwn(value: object, key: PropertyKey): boolean;
 }
 
@@ -61,9 +92,13 @@ declare var Object: ObjectConstructor;
 
 interface Function {
     apply(this: Function, thisArgument: any, argumentArray?: any): any;
+
     call(this: Function, thisArgument: any, ...argumentList: any[]): any;
+
     bind(this: Function, thisArgument: any, ...argumentList: any[]): any;
+
     toString(): string;
+
     readonly length: number;
     readonly name: string;
 }
@@ -85,49 +120,85 @@ interface NewableFunction extends Function {
 
 interface IArguments {
     [index: number]: any;
+
     length: number;
 }
 
 interface String {
     readonly length: number;
+
     readonly [index: number]: string;
+
     toString(): string;
+
     valueOf(): string;
+
     charAt(position: number): string;
+
     charCodeAt(index: number): number;
+
     codePointAt(position: number): number | undefined;
+
     at(index: number): string | undefined;
+
     concat(...strings: string[]): string;
+
     includes(searchString: string, position?: number): boolean;
+
     startsWith(searchString: string, position?: number): boolean;
+
     endsWith(searchString: string, endPosition?: number): boolean;
+
     indexOf(searchString: string, position?: number): number;
+
     lastIndexOf(searchString: string, position?: number): number;
+
     localeCompare(that: string): number;
+
     match(pattern: string | RegExp): RegExpMatchArray | null;
+
     replace(pattern: string | RegExp, replacement: string | ((substring: string, ...rest: any[]) => string)): string;
+
     replaceAll(pattern: string | RegExp, replacement: string | ((substring: string, ...rest: any[]) => string)): string;
+
     search(pattern: string | RegExp): number;
+
     slice(start?: number, end?: number): string;
+
     split(separator: string | RegExp, limit?: number): string[];
+
     substring(start: number, end?: number): string;
+
     toLowerCase(): string;
+
     toUpperCase(): string;
+
     trim(): string;
+
     trimStart(): string;
+
     trimEnd(): string;
+
     padStart(maximumLength: number, fillString?: string): string;
+
     padEnd(maximumLength: number, fillString?: string): string;
+
     repeat(count: number): string;
+
     normalize(form?: string): string;
+
     [Symbol.iterator](): IterableIterator<string>;
 }
 
 interface StringConstructor {
-    new (value?: any): String;
+    new(value?: any): String;
+
     (value?: any): string;
+
     readonly prototype: String;
+
     fromCharCode(...codes: number[]): string;
+
     fromCodePoint(...codePoints: number[]): string;
 }
 
@@ -138,8 +209,10 @@ interface Boolean {
 }
 
 interface BooleanConstructor {
-    new (value?: any): Boolean;
+    new(value?: any): Boolean;
+
     <T>(value?: T): boolean;
+
     readonly prototype: Boolean;
 }
 
@@ -147,15 +220,21 @@ declare var Boolean: BooleanConstructor;
 
 interface Number {
     toString(radix?: number): string;
+
     toFixed(fractionDigits?: number): string;
+
     toExponential(fractionDigits?: number): string;
+
     toPrecision(precision?: number): string;
+
     valueOf(): number;
 }
 
 interface NumberConstructor {
-    new (value?: any): Number;
+    new(value?: any): Number;
+
     (value?: any): number;
+
     readonly prototype: Number;
     readonly MAX_VALUE: number;
     readonly MIN_VALUE: number;
@@ -165,11 +244,17 @@ interface NumberConstructor {
     readonly MAX_SAFE_INTEGER: number;
     readonly MIN_SAFE_INTEGER: number;
     readonly EPSILON: number;
+
     isFinite(value: unknown): boolean;
+
     isInteger(value: unknown): boolean;
+
     isNaN(value: unknown): boolean;
+
     isSafeInteger(value: unknown): boolean;
+
     parseFloat(text: string): number;
+
     parseInt(text: string, radix?: number): number;
 }
 
@@ -187,7 +272,9 @@ interface RegExpExecArray extends Array<string> {
 
 interface RegExp {
     exec(text: string): RegExpExecArray | null;
+
     test(text: string): boolean;
+
     readonly source: string;
     readonly flags: string;
     readonly global: boolean;
@@ -197,8 +284,10 @@ interface RegExp {
 }
 
 interface RegExpConstructor {
-    new (pattern: RegExp | string, flags?: string): RegExp;
+    new(pattern: RegExp | string, flags?: string): RegExp;
+
     (pattern: RegExp | string, flags?: string): RegExp;
+
     readonly prototype: RegExp;
 }
 
@@ -206,76 +295,135 @@ declare var RegExp: RegExpConstructor;
 
 interface ConcatArray<T> {
     readonly length: number;
+
     readonly [index: number]: T;
+
     join(separator?: string): string;
+
     slice(start?: number, end?: number): T[];
 }
 
 interface ReadonlyArray<T> {
     readonly length: number;
+
     readonly [index: number]: T;
+
     indexOf(searchElement: T, fromIndex?: number): number;
+
     includes(searchElement: T, fromIndex?: number): boolean;
+
     slice(start?: number, end?: number): T[];
+
     join(separator?: string): string;
+
     forEach(callback: (value: T, index: number, array: readonly T[]) => void, thisArgument?: any): void;
+
     map<U>(callback: (value: T, index: number, array: readonly T[]) => U, thisArgument?: any): U[];
+
     filter(predicate: (value: T, index: number, array: readonly T[]) => unknown, thisArgument?: any): T[];
+
     [Symbol.iterator](): IterableIterator<T>;
 }
 
 interface Array<T> {
     length: number;
+
     [index: number]: T;
+
     toString(): string;
+
     at(index: number): T | undefined;
+
     concat(...items: (T | ConcatArray<T>)[]): T[];
+
     copyWithin(target: number, start: number, end?: number): this;
+
     entries(): IterableIterator<[number, T]>;
+
     every(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): boolean;
+
     fill(value: T, start?: number, end?: number): this;
+
     filter(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): T[];
+
     find(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): T | undefined;
+
     findIndex(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): number;
+
     findLast(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): T | undefined;
+
     findLastIndex(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): number;
+
     flat(depth?: number): any[];
+
     flatMap<U>(callback: (value: T, index: number, array: T[]) => U | readonly U[], thisArgument?: any): U[];
+
     forEach(callback: (value: T, index: number, array: T[]) => void, thisArgument?: any): void;
+
     includes(searchElement: T, fromIndex?: number): boolean;
+
     indexOf(searchElement: T, fromIndex?: number): number;
+
     join(separator?: string): string;
+
     keys(): IterableIterator<number>;
+
     lastIndexOf(searchElement: T, fromIndex?: number): number;
+
     map<U>(callback: (value: T, index: number, array: T[]) => U, thisArgument?: any): U[];
+
     pop(): T | undefined;
+
     push(...items: T[]): number;
+
     reduce(callback: (previous: T, current: T, index: number, array: T[]) => T): T;
+
     reduce<U>(callback: (previous: U, current: T, index: number, array: T[]) => U, initialValue: U): U;
+
     reduceRight(callback: (previous: T, current: T, index: number, array: T[]) => T): T;
+
     reduceRight<U>(callback: (previous: U, current: T, index: number, array: T[]) => U, initialValue: U): U;
+
     reverse(): T[];
+
     shift(): T | undefined;
+
     slice(start?: number, end?: number): T[];
+
     some(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): boolean;
+
     sort(compare?: (first: T, second: T) => number): this;
+
     splice(start: number, deleteCount?: number, ...items: T[]): T[];
+
     toReversed(): T[];
+
     toSorted(compare?: (first: T, second: T) => number): T[];
+
     toSpliced(start: number, deleteCount?: number, ...items: T[]): T[];
+
     unshift(...items: T[]): number;
+
     values(): IterableIterator<T>;
+
     with(index: number, value: T): T[];
+
     [Symbol.iterator](): IterableIterator<T>;
 }
 
 interface ArrayConstructor {
-    new <T>(...items: T[]): T[];
+    new<T>(...items: T[]): T[];
+
     <T>(...items: T[]): T[];
+
     readonly prototype: any[];
+
     isArray(value: any): value is any[];
+
     from<T>(items: Iterable<T> | ArrayLike<T>): T[];
+
     from<T, U>(items: Iterable<T> | ArrayLike<T>, mapping: (value: T, index: number) => U): U[];
+
     of<T>(...items: T[]): T[];
 }
 
@@ -283,6 +431,7 @@ declare var Array: ArrayConstructor;
 
 interface ArrayLike<T> {
     readonly length: number;
+
     readonly [index: number]: T;
 }
 
@@ -300,11 +449,13 @@ interface TemplateStringsArray extends ReadonlyArray<string> {
 
 interface Symbol {
     toString(): string;
+
     readonly description: string | undefined;
 }
 
 interface SymbolConstructor {
     (description?: string | number): symbol;
+
     readonly prototype: Symbol;
     readonly iterator: unique symbol;
 }
@@ -330,20 +481,31 @@ interface IterableIterator<T> extends Iterator<T> {
 
 interface Map<K, V> {
     readonly size: number;
+
     clear(): void;
+
     delete(key: K): boolean;
+
     entries(): IterableIterator<[K, V]>;
+
     forEach(callback: (value: V, key: K, map: Map<K, V>) => void, thisArgument?: any): void;
+
     get(key: K): V | undefined;
+
     has(key: K): boolean;
+
     keys(): IterableIterator<K>;
+
     set(key: K, value: V): this;
+
     values(): IterableIterator<V>;
+
     [Symbol.iterator](): IterableIterator<[K, V]>;
 }
 
 interface MapConstructor {
-    new <K, V>(entries?: Iterable<readonly [K, V]> | null): Map<K, V>;
+    new<K, V>(entries?: Iterable<readonly [K, V]> | null): Map<K, V>;
+
     readonly prototype: Map<any, any>;
 }
 
@@ -351,19 +513,29 @@ declare var Map: MapConstructor;
 
 interface Set<T> {
     readonly size: number;
+
     add(value: T): this;
+
     clear(): void;
+
     delete(value: T): boolean;
+
     entries(): IterableIterator<[T, T]>;
+
     forEach(callback: (value: T, key: T, set: Set<T>) => void, thisArgument?: any): void;
+
     has(value: T): boolean;
+
     keys(): IterableIterator<T>;
+
     values(): IterableIterator<T>;
+
     [Symbol.iterator](): IterableIterator<T>;
 }
 
 interface SetConstructor {
-    new <T>(values?: Iterable<T> | null): Set<T>;
+    new<T>(values?: Iterable<T> | null): Set<T>;
+
     readonly prototype: Set<any>;
 }
 
@@ -371,13 +543,17 @@ declare var Set: SetConstructor;
 
 interface WeakMap<K extends object, V> {
     delete(key: K): boolean;
+
     get(key: K): V | undefined;
+
     has(key: K): boolean;
+
     set(key: K, value: V): this;
 }
 
 interface WeakMapConstructor {
-    new <K extends object, V>(entries?: Iterable<readonly [K, V]> | null): WeakMap<K, V>;
+    new<K extends object, V>(entries?: Iterable<readonly [K, V]> | null): WeakMap<K, V>;
+
     readonly prototype: WeakMap<object, any>;
 }
 
@@ -385,12 +561,15 @@ declare var WeakMap: WeakMapConstructor;
 
 interface WeakSet<T extends object> {
     add(value: T): this;
+
     delete(value: T): boolean;
+
     has(value: T): boolean;
 }
 
 interface WeakSetConstructor {
-    new <T extends object>(values?: Iterable<T> | null): WeakSet<T>;
+    new<T extends object>(values?: Iterable<T> | null): WeakSet<T>;
+
     readonly prototype: WeakSet<object>;
 }
 
@@ -398,6 +577,7 @@ declare var WeakSet: WeakSetConstructor;
 
 interface JSON {
     parse(text: string, reviver?: (key: string, value: any) => any): any;
+
     stringify(value: any, replacer?: ((key: string, value: any) => any) | (number | string)[] | null, space?: string | number): string;
 }
 
@@ -409,8 +589,10 @@ interface Error {
 }
 
 interface ErrorConstructor {
-    new (message?: string): Error;
+    new(message?: string): Error;
+
     (message?: string): Error;
+
     readonly prototype: Error;
 }
 
@@ -426,12 +608,19 @@ declare var NaN: number;
 declare var Infinity: number;
 
 declare function parseInt(text: string, radix?: number): number;
+
 declare function parseFloat(text: string): number;
+
 declare function isNaN(value: number): boolean;
+
 declare function isFinite(value: number): boolean;
+
 declare function encodeURI(uri: string): string;
+
 declare function encodeURIComponent(component: string | number | boolean): string;
+
 declare function decodeURI(encodedUri: string): string;
+
 declare function decodeURIComponent(encodedComponent: string): string;
 
 /**
@@ -447,44 +636,80 @@ interface Math {
     readonly PI: number;
     readonly SQRT1_2: number;
     readonly SQRT2: number;
+
     abs(value: number): number;
+
     acos(value: number): number;
+
     acosh(value: number): number;
+
     asin(value: number): number;
+
     asinh(value: number): number;
+
     atan(value: number): number;
+
     atan2(y: number, x: number): number;
+
     atanh(value: number): number;
+
     cbrt(value: number): number;
+
     ceil(value: number): number;
+
     clz32(value: number): number;
+
     cos(value: number): number;
+
     cosh(value: number): number;
+
     exp(value: number): number;
+
     expm1(value: number): number;
+
     floor(value: number): number;
+
     fround(value: number): number;
+
     hypot(...values: number[]): number;
+
     imul(first: number, second: number): number;
+
     log(value: number): number;
+
     log10(value: number): number;
+
     log1p(value: number): number;
+
     log2(value: number): number;
+
     max(...values: number[]): number;
+
     min(...values: number[]): number;
+
     pow(base: number, exponent: number): number;
+
     /**
      * @returns a number from the script RNG, at least 0 and below 1
      */
     random(): number;
+
     round(value: number): number;
+
     sign(value: number): number;
+
     sin(value: number): number;
+
     sinh(value: number): number;
+
     sqrt(value: number): number;
+
     tan(value: number): number;
+
     tanh(value: number): number;
+
     trunc(value: number): number;
+
     toSource(): string;
 }
 
@@ -499,7 +724,9 @@ declare var Math: Math;
  */
 interface Log {
     info(...values: any[]): void;
+
     warn(...values: any[]): void;
+
     error(...values: any[]): void;
 }
 
@@ -516,11 +743,13 @@ interface Random {
      * @returns a number at least 0 and below 1
      */
     next(): number;
+
     /**
      * @param bound a positive integer up to 2^53
      * @returns an integer at least 0 and below the bound
      */
     nextInt(bound: number): number;
+
     /**
      * @returns true with the probability
      */
@@ -552,95 +781,125 @@ interface Hooks {
      * Called once at the first frame, before the timers and the other hooks of the frame.
      */
     onStart?(): void;
+
     /**
      * Called every game frame, before the triggers, after the timers, the channel handlers and the event hooks of the frame.
      */
     onFrame?(frame: number): void;
+
     onUnitCreated?(event: UnitCreatedEvent): void;
+
     onUnitCompleted?(event: UnitCompletedEvent): void;
+
     /**
      * Called for a unit that started to die, with its killer and the weapon when known.
      */
     onUnitDied?(event: UnitDiedEvent): void;
+
     /**
      * Called for hit point damage to a unit.
      */
     onUnitDamaged?(event: UnitDamagedEvent): void;
+
     onOrderIssued?(event: OrderIssuedEvent): void;
+
     /**
      * Called for a target that an automatic target search found.
      */
     onTargetAcquired?(event: TargetAcquiredEvent): void;
+
     onUnitTrained?(event: UnitTrainedEvent): void;
+
     onResearchCompleted?(event: ResearchCompletedEvent): void;
+
     onUpgradeCompleted?(event: UpgradeCompletedEvent): void;
+
     onSpellCast?(event: SpellCastEvent): void;
+
     onBulletCreated?(event: BulletCreatedEvent): void;
+
     onBulletHit?(event: BulletHitEvent): void;
+
     onOwnerChanged?(event: OwnerChangedEvent): void;
+
     /**
      * Called for a unit that entered a transport or a Bunker.
      */
     onUnitLoaded?(event: UnitLoadedEvent): void;
+
     /**
      * Called for a unit that left a transport or a Bunker.
      */
     onUnitUnloaded?(event: UnitUnloadedEvent): void;
+
     /**
      * Called for a player who left the game or was dropped.
      */
     onPlayerLeft?(event: PlayerLeftEvent): void;
+
     /**
      * Called for a player who received a result: the triggers ended the player's game, or the player left.
      */
     onPlayerResult?(event: PlayerResultEvent): void;
+
     /**
      * Local: called for a chat line the local player submitted, before it is sent.
      */
     onLocalChat?(event: LocalChatEvent): void;
+
     /**
      * Local: called for a key the local player pressed while the game takes play keys, before the game's own keys.
      */
     onLocalKeyDown?(event: LocalKeyEvent): void;
+
     /**
      * Local: called for a key the local player released.
      */
     onLocalKeyUp?(event: LocalKeyEvent): void;
+
     /**
      * Local: called for a mouse button the local player pressed over the map, before the game's own handling.
      */
     onLocalMouseDown?(event: LocalMouseButtonEvent): void;
+
     /**
      * Local: called for a mouse button the local player released.
      */
     onLocalMouseUp?(event: LocalMouseButtonEvent): void;
+
     /**
      * Local: called for an enabled command card button the local player pressed, by a click or a hotkey, before its action runs; consuming the
      * press runs no action. Called in a live game only.
      */
     onLocalButtonPressed?(event: LocalButtonPressedEvent): void;
+
     /**
      * Local: called for the unit or map point the local player targeted with a ScriptTarget button; consuming the target keeps the targeting
      * mode, as a refused target of an order does.
      */
     onLocalButtonTargeted?(event: LocalButtonTargetedEvent): void;
+
     /**
      * Local: called after each game frame this machine plays, live or in a replay, with the frame number that onFrame received.
      */
     onLocalFrame?(frame: number): void;
+
     /**
      * Local: called after onLocalFrame to draw; what it draws stays on screen until the next call. It has its own instruction budget: a call
      * over it draws nothing; a call that throws keeps what it drew.
      */
     onRender?(screen: Screen): void;
+
     /**
      * Decides the damage of a weapon hit.
      */
     onBeforeDamage?(decision: DamageDecision): void;
+
     /**
      * Decides an order issued to a unit.
      */
     onBeforeOrder?(decision: OrderDecision): void;
+
     /**
      * Decides the target an automatic target search found.
      */
@@ -659,6 +918,7 @@ interface GameType {
      * @returns the id, which the lower layer {@link core} takes
      */
     getId(): number;
+
     /**
      * @returns the original data name ("Terran Marine") or the constant's name
      */
@@ -673,6 +933,7 @@ interface ConstantTable<T> {
      * @returns the constant of the id, or null for an id outside the table
      */
     get(id: number): T | null;
+
     getCount(): number;
 }
 
@@ -684,291 +945,482 @@ interface ConstantTable<T> {
 interface UnitTypeData {
     /** Graphics (below 209) */
     getFlingyType(): FlingyType;
+
     setFlingyType(flingyType: FlingyType): void;
+
     /** Subunit1 */
     getFirstSubunit(): UnitType | null;
+
     setFirstSubunit(unitType: UnitType | null): void;
+
     /** Subunit2 */
     getSecondSubunit(): UnitType | null;
+
     setSecondSubunit(unitType: UnitType | null): void;
+
     /** Infestation (unit types 106 to 201) */
     getInfestedType(): UnitType | null;
+
     setInfestedType(unitType: UnitType | null): void;
+
     /** Construction Animation */
     getConstructionImage(): ImageType;
+
     setConstructionImage(imageType: ImageType): void;
+
     /** Unit Direction */
     getInitialDirection(): number;
+
     setInitialDirection(value: number): void;
+
     /** Shield Enable */
     getShieldEnabled(): number;
+
     setShieldEnabled(value: number): void;
+
     /** Shield Amount */
     getShieldAmount(): number;
+
     setShieldAmount(value: number): void;
+
     /** Hit Points */
     getHitPoints(): number;
+
     setHitPoints(value: number): void;
+
     /** Elevation Level */
     getElevationLevel(): number;
+
     setElevationLevel(value: number): void;
+
     /** Unknown */
     getUnknownByte(): number;
+
     setUnknownByte(value: number): void;
+
     /** Sublabel */
     getSublabel(): number;
+
     setSublabel(value: number): void;
+
     /** Comp AI Idle */
     getComputerIdleOrder(): Order | null;
+
     setComputerIdleOrder(order: Order | null): void;
+
     /** Human AI Idle */
     getHumanIdleOrder(): Order | null;
+
     setHumanIdleOrder(order: Order | null): void;
+
     /** Return to Idle */
     getReturnToIdleOrder(): Order | null;
+
     setReturnToIdleOrder(order: Order | null): void;
+
     /** Attack Unit */
     getAttackUnitOrder(): Order | null;
+
     setAttackUnitOrder(order: Order | null): void;
+
     /** Attack Move */
     getAttackMoveOrder(): Order | null;
+
     setAttackMoveOrder(order: Order | null): void;
+
     /** Ground Weapon */
     getGroundWeapon(): WeaponType | null;
+
     setGroundWeapon(weaponType: WeaponType | null): void;
+
     /** Max Ground Hits */
     getMaximumGroundHits(): number;
+
     setMaximumGroundHits(value: number): void;
+
     /** Air Weapon */
     getAirWeapon(): WeaponType | null;
+
     setAirWeapon(weaponType: WeaponType | null): void;
+
     /** Max Air Hits */
     getMaximumAirHits(): number;
+
     setMaximumAirHits(value: number): void;
+
     /** AI Internal 0x1 */
     isComputerInternalAttackGroupIgnored(): boolean;
+
     setComputerInternalAttackGroupIgnored(set: boolean): void;
+
     /** AI Internal 0x2 */
     isComputerInternalTownUnit(): boolean;
+
     setComputerInternalTownUnit(set: boolean): void;
+
     /** Special Ability Flags 0x1 */
     isBuilding(): boolean;
+
     setBuilding(set: boolean): void;
+
     /** Special Ability Flags 0x2 */
     isAddon(): boolean;
+
     setAddon(set: boolean): void;
+
     /** Special Ability Flags 0x4 */
     isFlyer(): boolean;
+
     setFlyer(set: boolean): void;
+
     /** Special Ability Flags 0x8 */
     isWorker(): boolean;
+
     setWorker(set: boolean): void;
+
     /** Special Ability Flags 0x10 */
     isSubunit(): boolean;
+
     setSubunit(set: boolean): void;
+
     /** Special Ability Flags 0x20 */
     isFlyingBuilding(): boolean;
+
     setFlyingBuilding(set: boolean): void;
+
     /** Special Ability Flags 0x40 */
     isHero(): boolean;
+
     setHero(set: boolean): void;
+
     /** Special Ability Flags 0x80 */
     isRegeneratesHitPoints(): boolean;
+
     setRegeneratesHitPoints(set: boolean): void;
+
     /** Special Ability Flags 0x200 */
     isCloakable(): boolean;
+
     setCloakable(set: boolean): void;
+
     /** Special Ability Flags 0x400 */
     isTwoUnitsInOneEgg(): boolean;
+
     setTwoUnitsInOneEgg(set: boolean): void;
+
     /** Special Ability Flags 0x800 */
     isPowerup(): boolean;
+
     setPowerup(set: boolean): void;
+
     /** Special Ability Flags 0x1000 */
     isResourceDepot(): boolean;
+
     setResourceDepot(set: boolean): void;
+
     /** Special Ability Flags 0x2000 */
     isResourceContainer(): boolean;
+
     setResourceContainer(set: boolean): void;
+
     /** Special Ability Flags 0x4000 */
     isRobotic(): boolean;
+
     setRobotic(set: boolean): void;
+
     /** Special Ability Flags 0x8000 */
     isDetector(): boolean;
+
     setDetector(set: boolean): void;
+
     /** Special Ability Flags 0x10000 */
     isOrganic(): boolean;
+
     setOrganic(set: boolean): void;
+
     /** Special Ability Flags 0x20000 */
     isRequiresCreep(): boolean;
+
     setRequiresCreep(set: boolean): void;
+
     /** Special Ability Flags 0x80000 */
     isRequiresPsionicMatrix(): boolean;
+
     setRequiresPsionicMatrix(set: boolean): void;
+
     /** Special Ability Flags 0x100000 */
     isBurrowable(): boolean;
+
     setBurrowable(set: boolean): void;
+
     /** Special Ability Flags 0x200000 */
     isSpellcaster(): boolean;
+
     setSpellcaster(set: boolean): void;
+
     /** Special Ability Flags 0x400000 */
     isPermanentCloak(): boolean;
+
     setPermanentCloak(set: boolean): void;
+
     /** Special Ability Flags 0x1000000 */
     isIgnoreSupplyCheck(): boolean;
+
     setIgnoreSupplyCheck(set: boolean): void;
+
     /** Special Ability Flags 0x2000000 */
     isMediumOverlays(): boolean;
+
     setMediumOverlays(set: boolean): void;
+
     /** Special Ability Flags 0x4000000 */
     isLargeOverlays(): boolean;
+
     setLargeOverlays(set: boolean): void;
+
     /** Special Ability Flags 0x8000000 */
     isCanMove(): boolean;
+
     setCanMove(set: boolean): void;
+
     /** Special Ability Flags 0x10000000 */
     isCanTurn(): boolean;
+
     setCanTurn(set: boolean): void;
+
     /** Special Ability Flags 0x20000000 */
     isInvincible(): boolean;
+
     setInvincible(set: boolean): void;
+
     /** Special Ability Flags 0x40000000 */
     isMechanical(): boolean;
+
     setMechanical(set: boolean): void;
+
     /** Target Acquisition Range */
     getTargetAcquisitionRange(): number;
+
     setTargetAcquisitionRange(value: number): void;
+
     /** Sight Range */
     getSightRange(): number;
+
     setSightRange(value: number): void;
+
     /** Armor Upgrade */
     getArmorUpgrade(): UpgradeType | null;
+
     setArmorUpgrade(upgradeType: UpgradeType | null): void;
+
     /** Unit Size */
     getSizeClass(): number;
+
     setSizeClass(value: number): void;
+
     /** Armor */
     getArmor(): number;
+
     setArmor(value: number): void;
+
     /** Right-click Action */
     getRightClickAction(): number;
+
     setRightClickAction(value: number): void;
+
     /** Ready Sound (unit types 0 to 105) */
     getReadySound(): number;
+
     setReadySound(value: number): void;
+
     /** What Sound Start */
     getWhatSoundStart(): number;
+
     setWhatSoundStart(value: number): void;
+
     /** What Sound End */
     getWhatSoundEnd(): number;
+
     setWhatSoundEnd(value: number): void;
+
     /** Piss Sound Start (unit types 0 to 105) */
     getAnnoyedSoundStart(): number;
+
     setAnnoyedSoundStart(value: number): void;
+
     /** Piss Sound End (unit types 0 to 105) */
     getAnnoyedSoundEnd(): number;
+
     setAnnoyedSoundEnd(value: number): void;
+
     /** Yes Sound Start (unit types 0 to 105) */
     getYesSoundStart(): number;
+
     setYesSoundStart(value: number): void;
+
     /** Yes Sound End (unit types 0 to 105) */
     getYesSoundEnd(): number;
+
     setYesSoundEnd(value: number): void;
+
     /** Placement Box Width */
     getPlacementWidth(): number;
+
     setPlacementWidth(value: number): void;
+
     /** Placement Box Height */
     getPlacementHeight(): number;
+
     setPlacementHeight(value: number): void;
+
     /** Addon Horizontal (unit types 106 to 201) */
     getAddonHorizontalOffset(): number;
+
     setAddonHorizontalOffset(value: number): void;
+
     /** Addon Vertical (unit types 106 to 201) */
     getAddonVerticalOffset(): number;
+
     setAddonVerticalOffset(value: number): void;
+
     /** Unit Size Left */
     getDimensionLeft(): number;
+
     setDimensionLeft(value: number): void;
+
     /** Unit Size Up */
     getDimensionUp(): number;
+
     setDimensionUp(value: number): void;
+
     /** Unit Size Right */
     getDimensionRight(): number;
+
     setDimensionRight(value: number): void;
+
     /** Unit Size Down */
     getDimensionDown(): number;
+
     setDimensionDown(value: number): void;
+
     /** Portrait */
     getPortrait(): number;
+
     setPortrait(value: number): void;
+
     /** Mineral Cost */
     getMineralCost(): number;
+
     setMineralCost(value: number): void;
+
     /** Vespene Cost */
     getGasCost(): number;
+
     setGasCost(value: number): void;
+
     /** Build Time */
     getBuildTime(): number;
+
     setBuildTime(value: number): void;
+
     /** Requirement Index */
     getRequirementIndex(): number;
+
     setRequirementIndex(value: number): void;
+
     /** StarEdit Group Flags 0x1 */
     isGroupZerg(): boolean;
+
     setGroupZerg(set: boolean): void;
+
     /** StarEdit Group Flags 0x2 */
     isGroupTerran(): boolean;
+
     setGroupTerran(set: boolean): void;
+
     /** StarEdit Group Flags 0x4 */
     isGroupProtoss(): boolean;
+
     setGroupProtoss(set: boolean): void;
+
     /** StarEdit Group Flags 0x8 */
     isGroupMen(): boolean;
+
     setGroupMen(set: boolean): void;
+
     /** StarEdit Group Flags 0x10 */
     isGroupBuilding(): boolean;
+
     setGroupBuilding(set: boolean): void;
+
     /** StarEdit Group Flags 0x20 */
     isGroupFactory(): boolean;
+
     setGroupFactory(set: boolean): void;
+
     /** StarEdit Group Flags 0x40 */
     isGroupIndependent(): boolean;
+
     setGroupIndependent(set: boolean): void;
+
     /** StarEdit Group Flags 0x80 */
     isGroupNeutral(): boolean;
+
     setGroupNeutral(set: boolean): void;
+
     /** Supply Provided */
     getSupplyProvided(): number;
+
     setSupplyProvided(value: number): void;
+
     /** Supply Required */
     getSupplyRequired(): number;
+
     setSupplyRequired(value: number): void;
+
     /** Space Required */
     getSpaceRequired(): number;
+
     setSpaceRequired(value: number): void;
+
     /** Space Provided */
     getSpaceProvided(): number;
+
     setSpaceProvided(value: number): void;
+
     /** Build Score */
     getBuildScore(): number;
+
     setBuildScore(value: number): void;
+
     /** Destroy Score */
     getDestroyScore(): number;
+
     setDestroyScore(value: number): void;
+
     /** Unit Map String */
     getMapStringIndex(): number;
+
     setMapStringIndex(value: number): void;
+
     /** Broodwar Unit Flag */
     getBroodWarFlag(): number;
+
     setBroodWarFlag(value: number): void;
+
     /** StarEdit Availability Flags 0x1 */
     isAvailabilityNonNeutral(): boolean;
+
     setAvailabilityNonNeutral(set: boolean): void;
+
     /** StarEdit Availability Flags 0x2 */
     isAvailabilityUnitListing(): boolean;
+
     setAvailabilityUnitListing(set: boolean): void;
+
     /** StarEdit Availability Flags 0x200 */
     isAvailabilityExpansionOnly(): boolean;
+
     setAvailabilityExpansionOnly(set: boolean): void;
 }
 
@@ -978,99 +1430,162 @@ interface UnitTypeData {
 interface WeaponTypeData {
     /** Label */
     getLabel(): number;
+
     setLabel(value: number): void;
+
     /** Sprite */
     getFlingyType(): FlingyType;
+
     setFlingyType(flingyType: FlingyType): void;
+
     /** Special Attack */
     getSpecialAttack(): number;
+
     setSpecialAttack(value: number): void;
+
     /** Target Flags 0x1 */
     isTargetAir(): boolean;
+
     setTargetAir(set: boolean): void;
+
     /** Target Flags 0x2 */
     isTargetGround(): boolean;
+
     setTargetGround(set: boolean): void;
+
     /** Target Flags 0x4 */
     isTargetMechanical(): boolean;
+
     setTargetMechanical(set: boolean): void;
+
     /** Target Flags 0x8 */
     isTargetOrganic(): boolean;
+
     setTargetOrganic(set: boolean): void;
+
     /** Target Flags 0x10 */
     isTargetNonBuilding(): boolean;
+
     setTargetNonBuilding(set: boolean): void;
+
     /** Target Flags 0x20 */
     isTargetNonRobotic(): boolean;
+
     setTargetNonRobotic(set: boolean): void;
+
     /** Target Flags 0x40 */
     isTargetTerrain(): boolean;
+
     setTargetTerrain(set: boolean): void;
+
     /** Target Flags 0x80 */
     isTargetOrganicOrMechanical(): boolean;
+
     setTargetOrganicOrMechanical(set: boolean): void;
+
     /** Target Flags 0x100 */
     isTargetOwn(): boolean;
+
     setTargetOwn(set: boolean): void;
+
     /** Minimum Range */
     getMinimumRange(): number;
+
     setMinimumRange(value: number): void;
+
     /** Maximum Range */
     getMaximumRange(): number;
+
     setMaximumRange(value: number): void;
+
     /** Upgrade Group */
     getDamageUpgrade(): UpgradeType | null;
+
     setDamageUpgrade(upgradeType: UpgradeType | null): void;
+
     /** Damage Type */
     getDamageType(): number;
+
     setDamageType(value: number): void;
+
     /** Weapon Behavior */
     getBehavior(): number;
+
     setBehavior(value: number): void;
+
     /** Remove After */
     getLifetime(): number;
+
     setLifetime(value: number): void;
+
     /** Explosion Type */
     getExplosionType(): number;
+
     setExplosionType(value: number): void;
+
     /** Inner Splash Radius */
     getInnerSplashRadius(): number;
+
     setInnerSplashRadius(value: number): void;
+
     /** Medium Splash Radius */
     getMediumSplashRadius(): number;
+
     setMediumSplashRadius(value: number): void;
+
     /** Outer Splash Radius */
     getOuterSplashRadius(): number;
+
     setOuterSplashRadius(value: number): void;
+
     /** Damage Amount */
     getDamageAmount(): number;
+
     setDamageAmount(value: number): void;
+
     /** Damage Bonus */
     getDamageBonus(): number;
+
     setDamageBonus(value: number): void;
+
     /** Weapon Cooldown */
     getCooldown(): number;
+
     setCooldown(value: number): void;
+
     /** Damage Factor */
     getDamageFactor(): number;
+
     setDamageFactor(value: number): void;
+
     /** Attack Angle */
     getAttackAngle(): number;
+
     setAttackAngle(value: number): void;
+
     /** Launch Spin */
     getLaunchSpin(): number;
+
     setLaunchSpin(value: number): void;
+
     /** Forward Offset */
     getForwardOffset(): number;
+
     setForwardOffset(value: number): void;
+
     /** Upward Offset */
     getUpwardOffset(): number;
+
     setUpwardOffset(value: number): void;
+
     /** Target Error Message */
     getTargetErrorMessage(): number;
+
     setTargetErrorMessage(value: number): void;
+
     /** Icon */
     getIcon(): number;
+
     setIcon(value: number): void;
 }
 
@@ -1080,24 +1595,37 @@ interface WeaponTypeData {
 interface FlingyTypeData {
     /** Sprite */
     getSprite(): SpriteType;
+
     setSprite(spriteType: SpriteType): void;
+
     /** Top Speed */
     getTopSpeed(): number;
+
     setTopSpeed(value: number): void;
+
     /** Acceleration */
     getAcceleration(): number;
+
     setAcceleration(value: number): void;
+
     /** Halt Distance */
     getHaltDistance(): number;
+
     setHaltDistance(value: number): void;
+
     /** Turn Rate */
     getTurnRate(): number;
+
     setTurnRate(value: number): void;
+
     /** Unused */
     getUnused(): number;
+
     setUnused(value: number): void;
+
     /** Movement Control */
     getMovementControl(): number;
+
     setMovementControl(value: number): void;
 }
 
@@ -1107,17 +1635,25 @@ interface FlingyTypeData {
 interface SpriteTypeData {
     /** Image (below 999) */
     getImage(): ImageType;
+
     setImage(imageType: ImageType): void;
+
     /** Health Bar (sprite types 130 to 516, read only) */
     getHealthBarWidth(): number;
+
     /** Unused */
     getUnused(): number;
+
     setUnused(value: number): void;
+
     /** Is Visible */
     getVisible(): number;
+
     setVisible(value: number): void;
+
     /** Selection Circle (sprite types 130 to 516, read only) */
     getSelectionCircle(): number;
+
     /** Y Position (sprite types 130 to 516, read only) */
     getSelectionCircleOffset(): number;
 }
@@ -1128,37 +1664,57 @@ interface SpriteTypeData {
 interface ImageTypeData {
     /** GRP File (read only) */
     getGraphicsFile(): number;
+
     /** Graphic Turns */
     getGraphicTurns(): number;
+
     setGraphicTurns(value: number): void;
+
     /** Clickable */
     getClickable(): number;
+
     setClickable(value: number): void;
+
     /** Use Full Iscript */
     getFullIscript(): number;
+
     setFullIscript(value: number): void;
+
     /** Draw If Cloaked */
     getDrawIfCloaked(): number;
+
     setDrawIfCloaked(value: number): void;
+
     /** Draw Function (below 18) */
     getDrawFunction(): number;
+
     setDrawFunction(value: number): void;
+
     /** Color Shift */
     getColorShift(): number;
+
     setColorShift(value: number): void;
+
     /** Iscript (below 411) */
     getIscript(): number;
+
     setIscript(value: number): void;
+
     /** Shield Overlay (read only) */
     getShieldOverlay(): number;
+
     /** Attack Overlay (read only) */
     getAttackOverlay(): number;
+
     /** Damage Overlay (read only) */
     getDamageOverlay(): number;
+
     /** Special Overlay (read only) */
     getSpecialOverlay(): number;
+
     /** Landing Dust Overlay (read only) */
     getLandingDustOverlay(): number;
+
     /** Liftoff Dust Overlay (read only) */
     getLiftoffDustOverlay(): number;
 }
@@ -1169,39 +1725,62 @@ interface ImageTypeData {
 interface UpgradeTypeData {
     /** Ore Cost */
     getMineralCost(): number;
+
     setMineralCost(value: number): void;
+
     /** Ore Cost Factor */
     getMineralCostFactor(): number;
+
     setMineralCostFactor(value: number): void;
+
     /** Gas Cost */
     getGasCost(): number;
+
     setGasCost(value: number): void;
+
     /** Gas Cost Factor */
     getGasCostFactor(): number;
+
     setGasCostFactor(value: number): void;
+
     /** Time Cost */
     getResearchTime(): number;
+
     setResearchTime(value: number): void;
+
     /** Time Cost Factor */
     getResearchTimeFactor(): number;
+
     setResearchTimeFactor(value: number): void;
+
     /** DatReqs Index */
     getRequirementIndex(): number;
+
     setRequirementIndex(value: number): void;
+
     /** Icon */
     getIcon(): number;
+
     setIcon(value: number): void;
+
     /** Label */
     getLabel(): number;
+
     setLabel(value: number): void;
+
     /** Race */
     getRace(): number;
+
     setRace(value: number): void;
+
     /** Max Repeats */
     getMaximumLevel(): number;
+
     setMaximumLevel(value: number): void;
+
     /** BroodWar */
     getBroodWarFlag(): number;
+
     setBroodWarFlag(value: number): void;
 }
 
@@ -1211,36 +1790,57 @@ interface UpgradeTypeData {
 interface TechTypeData {
     /** Ore Cost */
     getMineralCost(): number;
+
     setMineralCost(value: number): void;
+
     /** Gas Cost */
     getGasCost(): number;
+
     setGasCost(value: number): void;
+
     /** Time Cost */
     getResearchTime(): number;
+
     setResearchTime(value: number): void;
+
     /** Energy */
     getEnergyCost(): number;
+
     setEnergyCost(value: number): void;
+
     /** DatReqs Index */
     getResearchRequirementIndex(): number;
+
     setResearchRequirementIndex(value: number): void;
+
     /** UseReqs Index */
     getUseRequirementIndex(): number;
+
     setUseRequirementIndex(value: number): void;
+
     /** Icon */
     getIcon(): number;
+
     setIcon(value: number): void;
+
     /** Label */
     getLabel(): number;
+
     setLabel(value: number): void;
+
     /** Race */
     getRace(): number;
+
     setRace(value: number): void;
+
     /** Researched */
     getResearchedFlag(): number;
+
     setResearchedFlag(value: number): void;
+
     /** BroodWar */
     getBroodWarFlag(): number;
+
     setBroodWarFlag(value: number): void;
 }
 
@@ -1250,62 +1850,100 @@ interface TechTypeData {
 interface OrderData {
     /** Label */
     getLabel(): number;
+
     setLabel(value: number): void;
+
     /** Use Weapon Targeting */
     getUseWeaponTargeting(): number;
+
     setUseWeaponTargeting(value: number): void;
+
     /** Unused1 */
     getUnused1(): number;
+
     setUnused1(value: number): void;
+
     /** Unused2 */
     getUnused2(): number;
+
     setUnused2(value: number): void;
+
     /** Subunit Inheritance */
     getSubunitInheritance(): number;
+
     setSubunitInheritance(value: number): void;
+
     /** Unused3 */
     getUnused3(): number;
+
     setUnused3(value: number): void;
+
     /** Can Be Interrupted */
     getCanBeInterrupted(): number;
+
     setCanBeInterrupted(value: number): void;
+
     /** Can Be Lifted */
     getCanBeLifted(): number;
+
     setCanBeLifted(value: number): void;
+
     /** Can Be Queued */
     getCanBeQueued(): number;
+
     setCanBeQueued(value: number): void;
+
     /** Disabling Keeps Target */
     getDisablingKeepsTarget(): number;
+
     setDisablingKeepsTarget(value: number): void;
+
     /** Can Be Obstructed */
     getCanBeObstructed(): number;
+
     setCanBeObstructed(value: number): void;
+
     /** Fleeable */
     getFleeable(): number;
+
     setFleeable(value: number): void;
+
     /** Unused4 */
     getUnused4(): number;
+
     setUnused4(value: number): void;
+
     /** Weapon */
     getWeapon(): WeaponType | null;
+
     setWeapon(weaponType: WeaponType | null): void;
+
     /** Energy */
     getTechnology(): TechType | null;
+
     setTechnology(techType: TechType | null): void;
+
     /** Animation */
     getAnimation(): number;
+
     setAnimation(value: number): void;
+
     /** Highlight */
     getHighlight(): number;
+
     setHighlight(value: number): void;
+
     /** DatReqs Index */
     getRequirementIndex(): number;
+
     setRequirementIndex(value: number): void;
+
     /** Obscured */
     getObscuredOrder(): Order | null;
+
     setObscuredOrder(order: Order | null): void;
 }
+
 // END GENERATED DAT
 
 /**
@@ -1316,27 +1954,33 @@ interface UnitType extends GameType, UnitTypeData {
      * @returns the shown maximum hit points: {@link UnitTypeData.getHitPoints} / 256
      */
     getMaxHp(): number;
+
     /**
      * Sets the shown maximum hit points: {@link UnitTypeData.setHitPoints} with the value times 256, rounded.
      */
     setMaxHp(hp: number): void;
+
     /**
      * @returns the maximum shields, the same as {@link UnitTypeData.getShieldAmount}
      */
     getMaxShields(): number;
+
     /**
      * Sets the maximum shields, the same as {@link UnitTypeData.setShieldAmount}.
      */
     setMaxShields(shields: number): void;
+
     /**
      * Shows a name instead of the type's stat_txt name (tooltips, the selection, messages), also over the map's name of the type; null shows
      * the game's name again. Shared code sets it on every peer, local code only on this machine.
      */
     setName(text: string | null): void;
+
     /**
      * @returns the strength of the unit type against air or ground targets for the computer players
      */
     getAiStrength(air: boolean): number;
+
     setAiStrength(air: boolean, strength: number): void;
 }
 
@@ -1384,10 +2028,12 @@ interface ImageType extends GameType, ImageTypeData {
      * @returns the image type whose HD anim this image type draws (images.rel), this image type for one with its own anim
      */
     getAnimImageType(): ImageType;
+
     /**
      * @returns the damage overlay byte: twice the flame positions of the image's damage overlay, a unit's damage states
      */
     getDamageOverlayCount(): number;
+
     setDamageOverlayCount(count: number): void;
 }
 
@@ -1423,6 +2069,7 @@ interface GameSpeed extends GameType {
      * @returns the milliseconds of a frame at the speed
      */
     getFrameDuration(): number;
+
     /**
      * Sets the milliseconds of a frame at the speed, as an EUD write does: the game takes it at once unless the game name overrides the
      * speed; the turn timeouts of a network game keep their last durations.
@@ -1456,6 +2103,7 @@ interface DamageType extends GameType {
      * @returns the factor that scales the damage against the size, 1 for full damage
      */
     getMultiplier(size: UnitSize): number;
+
     /**
      * Sets the factor, stored in 1/256.
      */
@@ -1473,6 +2121,7 @@ interface LocationFlag extends GameType {
  */
 interface Position {
     getX(): number;
+
     getY(): number;
 }
 
@@ -1490,10 +2139,12 @@ interface TimeStatic {
      * @returns the frames of seconds of the trigger clock (16 frames a second), the unit of the countdown timer and the elapsed time
      */
     fromSeconds(seconds: number): number;
+
     /**
      * @returns the frames of minutes of the trigger clock
      */
     fromMinutes(minutes: number): number;
+
     /**
      * @returns the frames of real milliseconds at the fastest speed (42 ms a frame)
      */
@@ -1516,211 +2167,304 @@ interface Unit {
      * @returns the unit's slot index, which the lower layer {@link core} takes
      */
     getId(): number;
+
     exists(): boolean;
+
     getType(): UnitType;
+
     getOwner(): Player;
+
     /**
      * Gives the unit to a player as Give Units to Player does.
      */
     setOwner(player: Player): boolean;
+
     getX(): number;
+
     getY(): number;
+
     getPosition(): Position;
+
     /**
      * Moves the unit as Move Unit does.
      */
     setPosition(position: Position): boolean;
+
     getHp(): number;
+
     setHp(hp: number): void;
+
     /**
      * @returns the shown maximum hit points of the unit's type in units.dat
      */
     getMaxHp(): number;
+
     getShields(): number;
+
     /**
      * @returns false for a unit without shields
      */
     setShields(shields: number): boolean;
+
     /**
      * @returns the maximum shields of the unit's type in units.dat, 0 for a type without shields
      */
     getMaxShields(): number;
+
     getEnergy(): number;
+
     /**
      * @returns false for a unit without energy
      */
     setEnergy(energy: number): boolean;
+
     getMaxEnergy(): number;
+
     /**
      * Sets the hit points to a percentage of the maximum, as Modify Unit Hit Points does.
      */
     setHpPercent(percent: number): void;
+
     setShieldsPercent(percent: number): boolean;
+
     setEnergyPercent(percent: number): boolean;
+
     getOrder(): Order;
+
     getTarget(): Unit | null;
+
     getTargetPosition(): Position;
+
     isCompleted(): boolean;
+
     isCloaked(): boolean;
+
     isBurrowed(): boolean;
+
     isInvincible(): boolean;
+
     /**
      * @returns the image type of the unit's main image
      */
     getImageType(): ImageType;
+
     setInvincible(invincible: boolean): void;
+
     /**
      * @returns the disabled status of a doodad, or of a unit under Lockdown, Stasis Field or Maelstrom
      */
     isDisabled(): boolean;
+
     enableDoodad(): void;
+
     disableDoodad(): void;
+
     /**
      * @returns the resource amount of a mineral field or geyser
      */
     getResources(): number;
+
     /**
      * @returns false for a unit that holds no resources
      */
     setResources(amount: number): boolean;
+
     /**
      * @returns the Interceptors or Scarabs of a Carrier or Reaver
      */
     getHangarCount(): number;
+
     /**
      * Builds up to count Interceptors or Scarabs while the hangar takes another one.
      *
      * @returns false for a unit without a hangar
      */
     addHangarCount(count: number): boolean;
+
     kill(): boolean;
+
     remove(): boolean;
+
     /**
      * Issues an order to a target unit or a position; without a target the unit's own position is the target. With {queued: true} the order
      * goes behind the unit's queue when the order takes one, as a queued command does.
      */
     issueOrder(order: Order, target?: Unit | Position | null, options?: IssueOrderOptions): void;
+
     /**
      * @returns the orders waiting behind the current one, first to last
      */
     getOrderQueue(): QueuedOrder[];
+
     getSecondaryOrder(): Order;
+
     getSecondaryOrderState(): number;
+
     /**
      * Sets the secondary order as the native routine does: a changed order starts from its first state.
      */
     setSecondaryOrder(order: Order): void;
+
     /**
      * @returns the unit's command card button set, null for a set outside the table
      */
     getButtonSet(): ButtonSet | null;
+
     /**
      * Sets the unit's button set; the native routines of morphs, completion and burrowing set it again.
      */
     setButtonSet(set: ButtonSet | UnitType | number): void;
+
     /**
      * @returns the shown hit points a unit under construction gains each frame
      */
     getHpGain(): number;
+
     setHpGain(hp: number): void;
+
     /**
      * @returns the shown shields a unit under construction gains each frame
      */
     getShieldGain(): number;
+
     setShieldGain(shields: number): void;
+
     /**
      * @returns the shown hit points the unit had before it morphed, which a cancelled Zerg building gives back
      */
     getPreviousHp(): number;
+
     /**
      * @returns true when the player sees the unit: in the player's sight and, when cloaked or burrowed, detected
      */
     isVisibleTo(player: Player): boolean;
+
     isDetectedBy(player: Player): boolean;
+
     /**
      * @returns the players whose sight covers the unit
      */
     getVisibleTo(): Player[];
+
     /**
      * @returns the unit's strength against air or ground targets for the computer players
      */
     getAiStrength(air: boolean): number;
+
     /**
      * The unit's status timers and its remove timer; one unit always has the same object.
      */
     readonly timers: UnitTimers;
+
     getDefensiveMatrixHp(): number;
+
     setDefensiveMatrixHp(hp: number): void;
+
     /**
      * Setting a count shows its overlay; 0 removes the spores.
      */
     getAcidSporeCount(): number;
+
     setAcidSporeCount(count: number): void;
+
     isParasitedBy(player: Player): boolean;
+
     setParasitedBy(player: Player, parasited: boolean): void;
+
     isBlind(): boolean;
+
     isBlindedBy(player: Player): boolean;
+
     setBlindedBy(player: Player, blinded: boolean): void;
+
     /**
      * The weapon and spell cooldowns in frames.
      */
     getGroundCooldown(): number;
+
     setGroundCooldown(frames: number): void;
+
     getAirCooldown(): number;
+
     setAirCooldown(frames: number): void;
+
     getSpellCooldown(): number;
+
     setSpellCooldown(frames: number): void;
+
     getKillCount(): number;
+
     setKillCount(kills: number): void;
+
     /**
      * @returns the unit types in the build queue from the current one
      */
     getBuildQueue(): UnitType[];
+
     /**
      * The frames left of the current construction or training.
      */
     getRemainingBuildTime(): number;
+
     setRemainingBuildTime(frames: number): void;
+
     /**
      * The frames left of the current research or upgrade.
      */
     getRemainingResearchTime(): number;
+
     setRemainingResearchTime(frames: number): void;
+
     getResearch(): TechType | null;
+
     getUpgrade(): UpgradeType | null;
+
     getAddon(): Unit | null;
+
     getRallyPosition(): Position;
+
     /**
      * @returns false for a unit type without a rally point
      */
     setRallyPosition(position: Position): boolean;
+
     getRallyUnit(): Unit | null;
+
     /**
      * @returns false for a unit type without a rally point
      */
     setRallyUnit(unit: Unit | null): boolean;
+
     /**
      * The direction from 0 to 255; setting it turns the unit at once.
      */
     getDirection(): number;
+
     setDirection(direction: number): void;
+
     /**
      * @returns the speed in 1/256 pixels per frame
      */
     getCurrentSpeed(): number;
+
     getTopSpeed(): number;
+
     getMoveTarget(): Position;
+
     setMoveTarget(position: Position): void;
+
     /**
      * Changes the unit's type through the morph routine, which keeps the unit, scales its hit points and rebuilds its sprite.
      *
      * @returns false for a subunit, a subunit type, or a type whose turret does not match the unit's
      */
     setType(type: UnitType): boolean;
+
     /**
      * @returns the unit's sprite, null for none
      */
     getSprite(): Sprite | null;
+
     /**
      * Runs the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target, two for a weapon of damage
      * factor 2, none for a weapon without a flingy; only in shared code.
@@ -1757,78 +2501,97 @@ interface UnitTimers {
      * @returns the Stim Packs timer in status steps
      */
     getStim(): number;
+
     /**
      * Sets the Stim Packs timer in status steps.
      */
     setStim(timer: number): void;
+
     /**
      * @returns the Ensnare timer in status steps
      */
     getEnsnare(): number;
+
     /**
      * Sets the Ensnare timer in status steps.
      */
     setEnsnare(timer: number): void;
+
     /**
      * @returns the Lockdown timer in status steps
      */
     getLockdown(): number;
+
     /**
      * Sets the Lockdown timer in status steps.
      */
     setLockdown(timer: number): void;
+
     /**
      * @returns the Stasis Field timer in status steps
      */
     getStasis(): number;
+
     /**
      * Sets the Stasis Field timer in status steps.
      */
     setStasis(timer: number): void;
+
     /**
      * @returns the Maelstrom timer in status steps
      */
     getMaelstrom(): number;
+
     /**
      * Sets the Maelstrom timer in status steps.
      */
     setMaelstrom(timer: number): void;
+
     /**
      * @returns the Plague timer in status steps
      */
     getPlague(): number;
+
     /**
      * Sets the Plague timer in status steps.
      */
     setPlague(timer: number): void;
+
     /**
      * @returns the Irradiate timer in status steps
      */
     getIrradiate(): number;
+
     /**
      * Sets the Irradiate timer in status steps.
      */
     setIrradiate(timer: number): void;
+
     /**
      * @returns the Psionic Storm timer in status steps
      */
     getStorm(): number;
+
     /**
      * Sets the Psionic Storm timer in status steps.
      */
     setStorm(timer: number): void;
+
     /**
      * @returns the Defensive Matrix timer in status steps
      */
     getDefensiveMatrix(): number;
+
     /**
      * Sets the Defensive Matrix timer in status steps.
      */
     setDefensiveMatrix(timer: number): void;
+
     /**
      * @returns the frames until a timed unit (a hallucination, a Broodling) is removed, 0 for an untimed unit
      */
     getRemove(): number;
+
     /**
      * Sets the frames until the unit is removed.
      */
@@ -1856,83 +2619,116 @@ interface UnitRemovalOptions {
  */
 interface Player {
     getId(): number;
+
     getName(): string;
+
     /**
      * @returns the race from 0 (Zerg) to 2 (Protoss)
      */
     getRace(): number;
+
     isHuman(): boolean;
+
     getMinerals(): number;
+
     setMinerals(minerals: number): void;
+
     addMinerals(minerals: number): void;
+
     subtractMinerals(minerals: number): void;
+
     getGas(): number;
+
     setGas(gas: number): void;
+
     addGas(gas: number): void;
+
     subtractGas(gas: number): void;
+
     /**
      * Ends the game for the player as Victory does.
      */
     win(): boolean;
+
     /**
      * Ends the game for the player as Defeat does; false after a victory.
      */
     lose(): boolean;
+
     /**
      * Ends the game for the player as Draw does; false after a victory.
      */
     draw(): boolean;
+
     /**
      * @param race the race from 0 (Zerg) to 2 (Protoss), the player's race without one
      */
     getSupplyUsed(race?: number): number;
+
     getSupplyProvided(race?: number): number;
+
     getSupplyMax(race?: number): number;
+
     isAlliedWith(player: Player): boolean;
+
     isEnemyOf(player: Player): boolean;
+
     getAlliance(player: Player): Alliance;
+
     /**
      * Sets the alliance toward another player as Set Alliance Status does.
      */
     setAlliance(player: Player, alliance: Alliance): void;
+
     /**
      * @returns minerals, gas, or minerals and gas, as the Accumulate condition reads them
      */
     getResources(resourceType: ResourceType): number;
+
     /**
      * @returns the opponents the Opponents condition counts
      */
     countOpponents(): number;
+
     /**
      * Starts an AI script by its four-character name ("EnBk"), at a location when one is given.
      *
      * @returns false when the player may not run it
      */
     runAiScript(name: string, location?: Location | null): boolean;
+
     setMissionObjectives(text: string): void;
+
     /**
      * Shows a text on the player's screen; with {forced: false} only when the subtitle option is on.
      */
     print(text: string, options?: { forced?: boolean }): void;
+
     pingMinimap(position: Position): void;
+
     /**
      * Plays a sound file of the map archive by its path.
      */
     playSound(path: string): void;
+
     /**
      * Shows the talking portrait of a unit type for a number of frames.
      */
     showTalkingPortrait(unitType: UnitType, frames: number): void;
+
     setUnitSpeechMuted(muted: boolean): void;
+
     /**
      * Centers the screen on a position when the player is the local player; the screens of the other peers stay.
      */
     centerView(position: Position): void;
+
     /**
      * @returns the player's selection, which the selection commands change and every peer holds: the live units in selection order, empty
      *          for players 8 to 11
      */
     getSelection(): Unit[];
+
     /**
      * Replaces the player's selection as a selection command of the player does, on every peer at the same frame, and shows it as the local
      * selection when the player is the local player. Shared code only. The command's rules may leave units out: a hidden unit, and in a
@@ -1943,6 +2739,7 @@ interface Player {
      * @returns true if every unit was selected, false if the rules left some out
      */
     setSelection(units: Unit[]): boolean;
+
     /**
      * The player's upgrade levels by upgrade type; one player always has the same object.
      */
@@ -1971,40 +2768,52 @@ interface Player {
      * The player's shared vision and the tiles the player sees.
      */
     readonly vision: PlayerVision;
+
     /**
      * @returns the minerals of the gathered total of the score
      */
     getGatheredMinerals(): number;
+
     setGatheredMinerals(minerals: number): void;
+
     getGatheredGas(): number;
+
     setGatheredGas(gas: number): void;
+
     /**
      * @returns the pauses a player from 0 to 7 has left in a network game
      */
     getPausesLeft(): number;
+
     setPausesLeft(pauses: number): void;
+
     /**
      * @returns the start location, which the computer players and the start screen read, or null for a player without one
      */
     getStartLocation(): Position | null;
+
     /**
      * @returns false for a player without a start location
      */
     setStartLocation(position: Position): boolean;
+
     /**
      * @returns the palette indices of the player's unit color row, the eight remapped colors of a unit frame; the first one is also the HD team
      *          color
      */
     getColor(): number[];
+
     /**
      * Sets the eight palette indices (0 to 255) of the player's unit color row, as an EUD write does; the next drawn frame shows them. Shared code
      * sets them on every peer, local code only on this machine. A player shown in a custom color of the game keeps it as its HD team color.
      */
     setColor(paletteIndices: number[]): void;
+
     /**
      * @returns the palette index of the player's minimap dots
      */
     getMinimapColor(): number;
+
     /**
      * Sets the palette index of the player's minimap dots; a player shown in a custom color of the game keeps it on the minimap.
      */
@@ -2019,18 +2828,24 @@ interface PlayerVision {
      * @returns the players that see what this player's units see, this player included
      */
     getSharedWith(): Player[];
+
     /**
      * Sets the players that see what this player's units see, without the vision command's permission test; the player sees its own units'
      * sight only while it is among them.
      */
     setSharedWith(players: Player[]): void;
+
     isSharedWith(player: Player): boolean;
+
     shareWith(player: Player, shared: boolean): void;
+
     /**
      * @returns true while the player sees the position
      */
     canSee(position: Position): boolean;
+
     hasExplored(position: Position): boolean;
+
     /**
      * Marks the tile at a position explored by the player, still unseen until a unit of the player sees it, or unexplored and unseen; for a
      * player from 0 to 7, only in shared code.
@@ -2046,18 +2861,22 @@ interface PlayerUpgrades {
      * @returns the upgrade's current level
      */
     getLevel(upgrade: UpgradeType): number;
+
     /**
      * Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
      */
     setLevel(upgrade: UpgradeType, level: number): void;
+
     /**
      * @returns the highest level the player may research
      */
     getMaxLevel(upgrade: UpgradeType): number;
+
     /**
      * Sets the highest level the player may research.
      */
     setMaxLevel(upgrade: UpgradeType, level: number): void;
+
     /**
      * @returns true while one of the player's buildings researches the upgrade
      */
@@ -2072,18 +2891,22 @@ interface PlayerTechs {
      * @returns true when the player has researched the technology
      */
     isResearched(tech: TechType): boolean;
+
     /**
      * Marks the technology researched or not researched.
      */
     setResearched(tech: TechType, researched: boolean): void;
+
     /**
      * @returns true when the player may research the technology
      */
     isAvailable(tech: TechType): boolean;
+
     /**
      * Allows or forbids researching the technology.
      */
     setAvailable(tech: TechType, available: boolean): void;
+
     /**
      * @returns true while one of the player's buildings researches the technology
      */
@@ -2098,22 +2921,27 @@ interface PlayerUnits {
      * @returns the player's live units
      */
     getAll(): Unit[];
+
     /**
      * Counts the player's units as the Command and Bring conditions do.
      */
     count(unit: UnitType | UnitGroup, options?: UnitCountOptions): number;
+
     /**
      * Kills the player's units as Kill Unit does.
      */
     kill(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
+
     /**
      * Removes the player's units as Remove Unit does.
      */
     remove(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
+
     /**
      * @returns the production availability of the map settings; a game without map settings allows every unit type
      */
     isAvailable(unitType: UnitType): boolean;
+
     /**
      * Sets the production availability of the map settings; a game without map settings throws when a type is made unavailable.
      */
@@ -2128,14 +2956,17 @@ interface PlayerDeaths {
      * @returns the deaths the Deaths condition compares
      */
     get(unit: UnitType | UnitGroup): number;
+
     /**
      * Sets the deaths as Set Deaths does.
      */
     set(unit: UnitType | UnitGroup, amount: number): void;
+
     /**
      * Adds to the deaths as Set Deaths does.
      */
     add(unit: UnitType | UnitGroup, amount: number): void;
+
     /**
      * Subtracts from the deaths as Set Deaths does.
      */
@@ -2160,14 +2991,17 @@ interface PlayerScore {
      * @returns the score the Score condition compares
      */
     get(scoreType: ScoreType): number;
+
     /**
      * Sets the score as Set Score does.
      */
     set(scoreType: ScoreType, amount: number): void;
+
     /**
      * Adds to the score as Set Score does.
      */
     add(scoreType: ScoreType, amount: number): void;
+
     /**
      * Subtracts from the score as Set Score does.
      */
@@ -2179,26 +3013,37 @@ interface PlayerScore {
  */
 interface Location {
     getId(): number;
+
     getName(): string | null;
+
     getLeft(): number;
+
     getTop(): number;
+
     getRight(): number;
+
     getBottom(): number;
+
     getCenter(): Position;
+
     setBounds(left: number, top: number, right: number, bottom: number): void;
+
     /**
      * Moves the location so the position is its center, kept inside the map as Move Location keeps it.
      */
     setCenter(position: Position): void;
+
     /**
      * @returns true when the flag is set, which leaves the units at its elevation out of the location
      */
     hasFlag(flag: LocationFlag): boolean;
+
     setFlag(flag: LocationFlag, set: boolean): void;
 }
 
 interface Timer {
     getId(): number;
+
     /**
      * Cancels the timer; only in shared code, local code throws a TypeError.
      *
@@ -2230,45 +3075,56 @@ interface Game {
      * @returns the number of the current game frame
      */
     getFrame(): number;
+
     /**
      * @returns the seconds of the trigger clock (16 frames a second) that the Elapsed Time condition compares
      */
     getElapsedTime(): number;
+
     /**
      * @returns true inside a decision hook and in local code, where the game state cannot change
      */
     isReadOnly(): boolean;
+
     /**
      * Shows a text to all players.
      */
     print(text: string): void;
+
     /**
      * @returns true while the game is paused, by {@link Game.pause}, Pause Game or the pause of the game menu
      */
     isPaused(): boolean;
+
     /**
      * Pauses the game as the Pause Game action does, at this frame's trigger step: nothing in a multiplayer session or while it is paused so
      * already. The paused game runs no frame, but onFrame keeps running at every trigger step with the frame number unchanged, so that it can
      * call {@link Game.resume}. Only in shared code.
      */
     pause(): void;
+
     /**
      * Resumes the game that {@link Game.pause} or Pause Game paused, as the Unpause Game action does, at this frame's trigger step. Only in shared
      * code.
      */
     resume(): void;
+
     /**
      * Calls a function every given number of frames, first that many frames from now ({@link Time}), at the frame start before the hooks
      * of the frame; only in shared code, local code throws a TypeError.
      */
     every(frames: number, callback: () => void): Timer;
+
     /**
      * Calls a function once, the given number of frames from now ({@link Time}), at the frame start before the hooks of the frame; only in
      * shared code, local code throws a TypeError.
      */
     after(frames: number, callback: () => void): Timer;
+
     getSpeed(): GameSpeed;
+
     isCheatEnabled(cheat: Cheat): boolean;
+
     /**
      * Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags ({@link core.game.setCheatFlags}), as an EUD write of
      * the flags does, and writes the bit again at the start of every frame, as the always-running trigger of an EUD map does. It works in a
@@ -2278,6 +3134,7 @@ interface Game {
      * reveals the map at once, is {@link core.game.applyCheats}.
      */
     setCheatEnabled(cheat: Cheat, enabled: boolean): void;
+
     /**
      * Creates a sprite that lives as long as its image scripts run, as the game creates the sprite of a spell or of dust, with its elevation and
      * its visibility from the tile below it; only in shared code.
@@ -2285,10 +3142,12 @@ interface Game {
      * @returns the sprite, or null when the pools are full
      */
     createEffect(spriteType: SpriteType, position: Position, options?: EffectOptions): Sprite | null;
+
     /**
      * @returns the active bullets, in the order of the active list
      */
     getBullets(): Bullet[];
+
     /**
      * Creates a bullet of a weapon at a position for a unit, aimed at the unit's order target unit, else its order target position, as the game
      * creates one; only in shared code.
@@ -2296,6 +3155,7 @@ interface Game {
      * @returns the bullet, or null when the game creates none (no free entry, no sprite, an attack the unit cannot make)
      */
     createBullet(weaponType: WeaponType, source: Unit, position: Position): Bullet | null;
+
     /**
      * The map: its size, tileset, terrain, locations and resource files.
      */
@@ -2358,16 +3218,24 @@ interface Sprite {
      * @returns the slot in the sprite pool ({@link CoreSprite})
      */
     getId(): number;
+
     exists(): boolean;
+
     getType(): SpriteType;
+
     getPosition(): Position;
+
     getOwner(): Player | null;
+
     getElevation(): number;
+
     /**
      * @returns the images of the sprite, from the one drawn on top; the local selection circles and health bars are not among them
      */
     getImages(): SpriteImage[];
+
     getMainImage(): SpriteImage | null;
+
     isVisibleTo(player: Player): boolean;
 }
 
@@ -2378,34 +3246,46 @@ interface Sprite {
  */
 interface SpriteImage {
     getId(): number;
+
     exists(): boolean;
+
     getType(): ImageType;
+
     getSprite(): Sprite | null;
+
     /**
      * @returns the drawn frame
      */
     getFrame(): number;
+
     /**
      * Draws a frame (0 to 65535) until the image's own frame changes, as an EUD write of the frame does; null draws the image's own frame
      * again.
      */
     setFrame(frame: number | null): void;
+
     /**
      * @returns the frame offset of the image's direction inside its frame group
      */
     getDirection(): number;
+
     getDrawFunction(): DrawFunction;
+
     /**
      * Draws with a draw function until the image's own draw function changes, as an EUD write of the draw function does; null draws with
      * the image's own again.
      */
     setDrawFunction(drawFunction: DrawFunction | null): void;
+
     getOffsetX(): number;
+
     getOffsetY(): number;
+
     /**
      * Replaces the graphics of this image while it lives; they win over those of its unit and of its image type.
      */
     replaceGraphics(images: ImageGraphics): void;
+
     restoreGraphics(): void;
 }
 
@@ -2418,40 +3298,55 @@ interface Bullet {
      * @returns the entry in the bullet table ({@link CoreBullet})
      */
     getId(): number;
+
     exists(): boolean;
+
     getWeapon(): WeaponType;
+
     getFlingyType(): FlingyType;
+
     getPosition(): Position;
+
     getPlayer(): Player | null;
+
     /**
      * @returns the unit that fired the bullet, null once it is gone
      */
     getSource(): Unit | null;
+
     getTarget(): Unit | null;
+
     /**
      * @returns the center of the hit
      */
     getTargetPosition(): Position;
+
     /**
      * Sets the target unit (null for none) or the target position, as an EUD write of the bullet does: a following, bouncing or near-target
      * bullet turns to a new target unit from the next frame, a moving bullet keeps its course; the hit damages the target unit and is centered
      * on the target position. Only in shared code.
      */
     setTarget(target: Unit | Position | null): void;
+
     /**
      * @returns the frames a moving bullet still flies, or a bullet that persists on its target position still hits
      */
     getRemainingTime(): number;
+
     /**
      * Sets the remaining frames, 0 to 255; only in shared code.
      */
     setRemainingTime(frames: number): void;
+
     getRemainingBounces(): number;
+
     getState(): BulletState;
+
     /**
      * @returns the direction from 0 to 255
      */
     getDirection(): number;
+
     /**
      * @returns the sprite, null once its last image ended
      */
@@ -2463,30 +3358,40 @@ interface Bullet {
  */
 interface GameSettings {
     getMode(): GameMode;
+
     getSubtype(): number;
+
     isMultiplayer(): boolean;
+
     /**
      * @returns the raw victory condition of the game options
      */
     getVictoryCondition(): number;
+
     /**
      * @returns the raw resource setting of the game options
      */
     getResourceType(): number;
+
     getStartingMinerals(): number;
+
     /**
      * @returns the raw starting units setting of the game options
      */
     getStartingUnits(): number;
+
     getTournamentMode(): number;
+
     /**
      * @returns true when the game options permit the cheat command
      */
     areCheatsAllowed(): boolean;
+
     /**
      * @returns true when Brood War content is on
      */
     isExpansion(): boolean;
+
     setExpansion(expansion: boolean): void;
 }
 
@@ -2506,11 +3411,13 @@ interface GameVision {
      * the tiles unseen again; {air: true} sees over higher ground.
      */
     reveal(players: Player | Player[], position: Position, sightRange: number, options?: RevealOptions): void;
+
     /**
      * @returns the fog brightness of visible tiles (0 to 255, default 31): the world's fog draws visible tiles at this level, explored tiles at
      *          half of it and unexplored tiles black; the minimap does not use it
      */
     getFogBrightness(): number;
+
     /**
      * Sets the fog brightness of visible tiles; shared code sets it on every peer, local code only on this machine.
      */
@@ -2525,6 +3432,7 @@ interface GameCombat {
      * @returns the distances in pixels a fleeing unit tries, in order
      */
     getFleeDistances(): number[];
+
     setFleeDistances(distances: number[]): void;
 }
 
@@ -2538,18 +3446,22 @@ interface GameMap {
      * @returns the map width in pixels
      */
     getWidth(): number;
+
     /**
      * @returns the map height in pixels
      */
     getHeight(): number;
+
     /**
      * @returns the map width in tiles
      */
     getTileWidth(): number;
+
     /**
      * @returns the map height in tiles
      */
     getTileHeight(): number;
+
     /**
      * The tileset of the map and its tiles.
      */
@@ -2576,6 +3488,7 @@ interface Locations {
      * @returns the location of an id, or null for an id outside the map's locations
      */
     get(id: number): Location | null;
+
     /**
      * @returns the first location with the name, or null when no location has it
      */
@@ -2590,10 +3503,12 @@ interface Players {
      * @returns the player of a slot, or null for a slot outside 0 to 11
      */
     get(id: number): Player | null;
+
     /**
      * @returns the players of every slot, from 0
      */
     getAll(): Player[];
+
     /**
      * @returns the human players
      */
@@ -2608,34 +3523,41 @@ interface Units {
      * @returns the unit in a slot, or null for an empty slot
      */
     get(id: number): Unit | null;
+
     /**
      * @returns every live unit
      */
     getAll(): Unit[];
+
     /**
      * @returns the live units that pass the filter, every live unit without one
      */
     find(filter?: UnitFilter): Unit[];
+
     /**
      * @returns the first live unit that passes the filter, or null
      */
     findOne(filter?: UnitFilter): Unit | null;
+
     /**
      * @returns the number of live units that pass the filter
      */
     count(filter?: UnitFilter): number;
+
     /**
      * Searches the unit finder; only in shared code, local code throws a TypeError.
      *
      * @returns the live units whose bounds meet the rectangle of the two corners, in the finder's order, that pass the filter
      */
     findInRectangle(corner: Position, otherCorner: Position, filter?: UnitFilter): Unit[];
+
     /**
      * Searches the unit finder; only in shared code, local code throws a TypeError.
      *
      * @returns the live units near the position whose position lies within the radius, in the finder's order, that pass the filter
      */
     findInRadius(position: Position, radius: number, filter?: UnitFilter): Unit[];
+
     /**
      * Creates a unit as Create Unit does.
      *
@@ -2653,10 +3575,12 @@ interface Switches {
      * @returns true when the switch is set
      */
     isSet(index: number): boolean;
+
     /**
      * Sets or clears a switch as Set Switch does.
      */
     set(index: number, set: boolean): void;
+
     /**
      * Toggles a switch as Set Switch does.
      */
@@ -2671,26 +3595,32 @@ interface Countdown {
      * @returns the countdown timer in seconds of the trigger clock
      */
     get(): number;
+
     /**
      * Sets the countdown timer as Set Countdown Timer does.
      */
     set(seconds: number): void;
+
     /**
      * Adds seconds to the countdown timer.
      */
     add(seconds: number): void;
+
     /**
      * Subtracts seconds from the countdown timer.
      */
     subtract(seconds: number): void;
+
     /**
      * @returns true while the countdown timer is paused
      */
     isPaused(): boolean;
+
     /**
      * Pauses the countdown timer as Pause Timer does.
      */
     pause(): void;
+
     /**
      * Resumes the countdown timer as Unpause Timer does.
      */
@@ -2705,26 +3635,32 @@ interface Leaderboard {
      * Shows the Control leaderboard of a unit type or group: the goal form with a goal, Control At Location with a location.
      */
     showControl(label: string, unit: UnitType | UnitGroup, options?: ControlLeaderboardOptions): void;
+
     /**
      * Shows the Resources leaderboard of a resource type.
      */
     showResources(label: string, resourceType: ResourceType, options?: LeaderboardOptions): void;
+
     /**
      * Shows the Kills leaderboard of a unit type or group.
      */
     showKills(label: string, unit: UnitType | UnitGroup, options?: LeaderboardOptions): void;
+
     /**
      * Shows the Points leaderboard of a score type.
      */
     showPoints(label: string, scoreType: ScoreType, options?: LeaderboardOptions): void;
+
     /**
      * Shows the Greed leaderboard of the minerals and gas of every player, toward a goal.
      */
     showGreed(goal: number): void;
+
     /**
      * @returns true when the leaderboards include computer players
      */
     areComputersIncluded(): boolean;
+
     /**
      * Includes or leaves out computer players, as Leaderboard Computer Players does.
      */
@@ -2736,6 +3672,7 @@ interface Leaderboard {
  */
 interface Resource {
     getId(): number;
+
     getName(): string;
 }
 
@@ -2753,6 +3690,7 @@ interface Image extends Resource {
      * @returns the width in pixels
      */
     getWidth(): number;
+
     /**
      * @returns the height in pixels
      */
@@ -2767,14 +3705,17 @@ interface Resources {
      * @returns true when the resource folder has a file of the name
      */
     has(name: string): boolean;
+
     /**
      * Reads a GRP; a missing or invalid one throws.
      */
     getGrp(name: string): Grp;
+
     /**
      * Reads a single-entry HD or HD2 anim; a missing or invalid one throws.
      */
     getAnim(name: string): Anim;
+
     /**
      * Reads a PNG or DDS picture once; a missing or invalid one throws.
      */
@@ -2798,22 +3739,30 @@ interface Tile {
      * @returns the MTXM value, group << 4 | index, the value core.terrain takes
      */
     getId(): number;
+
     getGroup(): number;
+
     getIndex(): number;
+
     /**
      * @returns true when more than 12 of its 16 mini-tiles are walkable
      */
     isWalkable(): boolean;
+
     /**
      * @returns true when some but not all of its mini-tiles are walkable
      */
     isPartiallyWalkable(): boolean;
+
     isBuildable(): boolean;
+
     hasCreep(): boolean;
+
     /**
      * @returns 0 low, 1 middle or 2 high ground
      */
     getElevation(): number;
+
     /**
      * @returns true when ground units see past it from no elevation
      */
@@ -2828,10 +3777,12 @@ interface Tileset {
      * @returns the tileset id from 0 (Badlands) to 7 (Ice)
      */
     getId(): number;
+
     /**
      * @returns the number of CV5 tile groups
      */
     getGroupCount(): number;
+
     /**
      * @returns the tile of a CV5 group and an index from 0 to 15; a RangeError for a tile the tileset does not have
      */
@@ -2849,18 +3800,22 @@ interface Terrain {
      * @returns the tile, the one below creep for a tile with creep
      */
     getTile(tileX: number, tileY: number): Tile;
+
     /**
      * Sets a tile.
      */
     setTile(tileX: number, tileY: number, tile: Tile): void;
+
     /**
      * Sets every tile the location covers.
      */
     fillTiles(location: Location, tile: Tile): void;
+
     /**
      * Copies the tiles one location covers onto the tiles of another location; both cover the same number of tiles across and down.
      */
     copyTiles(fromLocation: Location, toLocation: Location): void;
+
     /**
      * The creep of the map.
      */
@@ -2876,21 +3831,25 @@ interface Creep {
      * @returns whether the tile has creep, by the creep flag the rules of the game read
      */
     has(tileX: number, tileY: number): boolean;
+
     /**
      * Covers the footprint of a building of the unit type at the position with creep and grows it until no tile is added, as the game does
      * for a building that needs creep.
      */
     fill(unitType: UnitType, position: Position): void;
+
     /**
      * Runs one spread step of a creep source of the unit type at the position; a type that spreads creep keeps to its ellipse.
      *
      * @returns true when it added a tile
      */
     spread(unitType: UnitType, position: Position): boolean;
+
     /**
      * Removes the creep of the tile at once and gives back the terrain below it.
      */
     remove(tileX: number, tileY: number): void;
+
     /**
      * Makes the creep tile recede later, at the pace of the recession, as the creep of a removed building does.
      *
@@ -2909,6 +3868,7 @@ interface Channel<T> {
      * @returns the channel's id, the number of channels created before it
      */
     getId(): number;
+
     /**
      * Sends a value: null, a boolean, a number, a string, an array or a plain object of these; anything else throws a TypeError. The handler
      * receives a copy. Shared code and local code may send; shared code sends once from every human peer, so the handler runs once per such
@@ -2925,10 +3885,12 @@ interface PlayerValue<T> {
      * @returns the player's value, the initial value until one was set
      */
     get(player: Player): T;
+
     /**
      * Sets the value of the sending player.
      */
     set(value: T): void;
+
     /**
      * Sets the value of a player.
      */
@@ -2945,6 +3907,7 @@ interface Sync {
      * when the command ran.
      */
     createChannel<T>(handler: (player: Player, value: T, units: Unit[]) => void): Channel<T>;
+
     /**
      * Creates a value per player over a new channel.
      */
@@ -2962,48 +3925,60 @@ interface Local {
      * @returns the local player, null in a replay and for an observer
      */
     getPlayer(): Player | null;
+
     isReplay(): boolean;
+
     /**
      * @returns true while the chat box is open
      */
     isChatOpen(): boolean;
+
     /**
      * @returns the map position of the local screen's top left, null while the client has not supplied it
      */
     getScreenPosition(): Position | null;
+
     /**
      * Moves only the local screen's top left to a map position at once, kept inside the map.
      *
      * @returns false while the screen is unknown
      */
     setScreenPosition(position: Position): boolean;
+
     /**
      * @returns the map position under the pointer, null while the client has not supplied it
      */
     getMousePosition(): Position | null;
+
     /**
      * @returns the units of the local interface's selection; it may differ from the local player's {@link Player.getSelection} until the
      *          selection command runs
      */
     getSelection(): Unit[];
+
     /**
      * @returns the button set the local command card shows, null for none
      */
     getDisplayedButtonSet(): ButtonSet | null;
+
     /**
      * Shows a button set on the local command card at its next refresh, as the Change Buttons action does, until the selection changes.
      */
     changeButtons(set: ButtonSet | UnitType | number): void;
+
     /**
      * @returns the local state of a condition value (0 to 255) of the Script button condition; every state starts Hidden, the native zero value
      */
     getButtonState(conditionValue: number): ButtonState;
+
     setButtonState(conditionValue: number, state: ButtonState): void;
+
     /**
      * Pauses the game as the game menu does: the local player's Pause command runs in a later turn on every peer, and a network pause takes one
      * of the player's pauses left ({@link Player.getPausesLeft}). Nothing in a replay or while the game is paused.
      */
     requestPause(): void;
+
     /**
      * Resumes the game as the game menu does, with the local player's Resume command. Nothing in a replay or while the game runs.
      */
@@ -3033,14 +4008,17 @@ interface ColorStatic {
     readonly Cyan: Color;
     readonly Magenta: Color;
     readonly Orange: Color;
+
     /**
      * @returns the opaque colour; a channel is an integer from 0 to 255, else it throws a RangeError
      */
     fromRgb(red: number, green: number, blue: number): Color;
+
     /**
      * @returns the colour; red, green and blue are integers from 0 to 255 and alpha is the opacity from 0 to 1, else it throws a RangeError
      */
     fromRgba(red: number, green: number, blue: number, alpha: number): Color;
+
     /**
      * @returns the opaque colour of a palette index of the map's tileset palette
      */
@@ -3148,25 +4126,33 @@ interface ImageOptions {
  */
 interface Drawing {
     fillRectangle(x: number, y: number, width: number, height: number, color?: Color): void;
+
     /**
      * The outline lies inside the rectangle.
      */
     drawRectangle(x: number, y: number, width: number, height: number, options?: LineOptions): void;
+
     fillCircle(x: number, y: number, radius: number, color?: Color): void;
+
     /**
      * The outline is centered on the circle.
      */
     drawCircle(x: number, y: number, radius: number, options?: LineOptions): void;
+
     drawLine(x1: number, y1: number, x2: number, y2: number, options?: LineOptions): void;
+
     /**
      * A square of one unit of line thickness with its top left at the position.
      */
     drawPoint(x: number, y: number, color?: Color): void;
+
     /**
      * Draws the lines, broken at \n, from the top at y, each aligned on x.
      */
     drawText(text: string, x: number, y: number, options?: TextOptions): void;
+
     drawImage(image: Image, x: number, y: number, options?: ImageOptions): void;
+
     /**
      * @returns the width of the widest line in interface units in this machine's fonts, 0 before the client drew a frame; only in local code
      */
@@ -3181,16 +4167,21 @@ interface Drawing {
  */
 interface Screen extends Drawing {
     getWidth(): number;
+
     getHeight(): number;
+
     /**
      * @returns the real pixels per interface unit
      */
     getScale(): number;
+
     getGraphics(): GraphicsKind;
+
     /**
      * @returns the interface coordinate rounded to the real pixel grid
      */
     snap(value: number): number;
+
     readonly world: Drawing;
     readonly minimap: Drawing;
 }
@@ -3259,19 +4250,25 @@ declare const ConsoleImage: ConsoleImageTable;
  */
 interface ConsoleControlHandle {
     getControl(): ConsoleControl;
+
     setPosition(x: number, y: number): void;
+
     setVisible(visible: boolean): void;
+
     isVisible(): boolean;
+
     /**
      * Shows or hides a control of the dialog by its identifier in the dialog's definition; it wins over EUD memory until
      * {@link ConsoleControlHandle.restoreChild}.
      */
     setChildVisible(id: number, visible: boolean): void;
+
     /**
      * Places a control of the dialog by its top left in the classic 640 by 480 screen; it wins over EUD memory until
      * {@link ConsoleControlHandle.restoreChild}.
      */
     setChildPosition(id: number, x: number, y: number): void;
+
     /**
      * Forgets what was set on a control of the dialog, so that EUD memory drives it again.
      */
@@ -3288,18 +4285,22 @@ interface Console {
      * Shows or hides the whole console.
      */
     setVisible(visible: boolean): void;
+
     /**
      * @returns false while the script hides the console
      */
     isVisible(): boolean;
+
     /**
      * @returns the object of a console dialog, the same for the same dialog
      */
     getControl(control: ConsoleControl): ConsoleControlHandle;
+
     /**
      * Draws an image instead of a console art file of the shown race console; null for the installed file.
      */
     replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
+
     /**
      * Draws an image for the console icon of Minerals, Gas or Supply (every race's icon), fitted into the icon's box; null for the icon of EUD
      * memory or the installed one.
@@ -3327,15 +4328,19 @@ interface Messages {
      * Empties the message lines on the screen.
      */
     clear(): void;
+
     getLine(line: number): string;
+
     /**
      * Stores a text in a line, at most 217 UTF-8 bytes.
      */
     setLine(line: number, text: string): void;
+
     /**
      * @returns the line the next message starts at, a byte; 11 or more starts at line 0
      */
     getCursor(): number;
+
     setCursor(line: number): void;
 }
 
@@ -3358,14 +4363,17 @@ interface DisplayImages {
      * Replaces the graphics of every image of an image type.
      */
     replace(imageType: ImageType, images: ImageGraphics): void;
+
     /**
      * Restores the installed graphics of an image type.
      */
     restore(imageType: ImageType): void;
+
     /**
      * Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
      */
     replaceUnit(unit: Unit, images: ImageGraphics, imageType?: ImageType): void;
+
     /**
      * Restores the graphics of a unit's images of an image type, by default that of its main image now.
      */
@@ -3455,6 +4463,7 @@ interface ScriptButtonOptions {
      * Whether a press enters a targeting mode whose target, a unit or the ground, goes to onPressed.
      */
     target?: boolean;
+
     /**
      * Tells for a unit whether the button acts for it: true enabled, false disabled (gray), null hidden. Each local frame the button is
      * enabled when it returns true for a unit of the local selection, else disabled when it returns false for one, else hidden; and when a
@@ -3462,11 +4471,13 @@ interface ScriptButtonOptions {
      * read the game state only, never local information. Without it the button is enabled and every selected unit passes.
      */
     isEnabled?(unit: Unit): boolean | null;
+
     /**
      * Local: called for the press, or the target of a target button, on the pressing machine; consuming it sends nothing, and keeps the
      * targeting mode of a target button.
      */
     onLocalPressed?(event: LocalButtonPressedEvent | LocalButtonTargetedEvent): void;
+
     /**
      * Shared: called on every peer and in every replay when the press runs, with the player, the selected units that isEnabled passed and the
      * target (null for a button without target).
@@ -3479,7 +4490,9 @@ interface ScriptButtonOptions {
  */
 interface ScriptButton {
     getId(): number;
+
     getButtonSet(): ButtonSet;
+
     /**
      * @returns the button in its set's table, null once it was removed
      */
@@ -3494,6 +4507,7 @@ interface CommandCard {
      * @returns the button set of a unit type or an id, null for an id outside the table
      */
     getButtonSet(set: UnitType | number): ButtonSet | null;
+
     /**
      * Creates a script button in shared code (local code throws a TypeError), at most 256 per game. The button goes after the set's buttons
      * up to its position, with the condition Script and the action Script, or ScriptTarget for a target button.
@@ -3508,34 +4522,45 @@ interface CommandCard {
  */
 interface ButtonSet {
     getId(): number;
+
     getButtonCount(): number;
+
     getButtons(): Button[];
+
     /**
      * @returns the button at an index, null outside the set
      */
     getButton(index: number): Button | null;
+
     /**
      * Inserts a button before an index, or at the end for the button count.
      */
     insertButton(index: number, options: ButtonOptions): Button;
+
     removeButton(index: number): void;
+
     /**
      * Takes the array of another set.
      */
     share(other: ButtonSet | UnitType | number): void;
+
     /**
      * Takes an own copy of the array.
      */
     unshare(): void;
+
     /**
      * @returns the first set that holds this set's array
      */
     getArray(): ButtonSet;
+
     /**
      * Takes the installed array and connected set again.
      */
     restore(): void;
+
     getConnectedSet(): ButtonSet | null;
+
     setConnectedSet(set: ButtonSet | UnitType | number | null): void;
 }
 
@@ -3544,41 +4569,62 @@ interface ButtonSet {
  */
 interface Button {
     getButtonSet(): ButtonSet;
+
     getIndex(): number;
+
     getPosition(): number;
+
     setPosition(position: number): void;
+
     getIcon(): number;
+
     setIcon(icon: number): void;
+
     /**
      * @returns the condition, null for an unknown function
      */
     getCondition(): ButtonCondition | null;
+
     setCondition(condition: ButtonCondition): void;
+
     getConditionValue(): number;
+
     setConditionValue(value: number): void;
+
     /**
      * @returns the action, null for an unknown function
      */
     getAction(): ButtonAction | null;
+
     setAction(action: ButtonAction): void;
+
     getActionValue(): number;
+
     setActionValue(value: number): void;
+
     /**
      * @returns the one-based stat_txt id of the enabled string
      */
     getEnabledString(): number;
+
     getDisabledString(): number;
+
     /**
      * @returns the text shown instead of the enabled string, without hotkey and kind; null while the button shows its string
      */
     getText(): string | null;
+
     getHotkey(): string | null;
+
     getKind(): ButtonKind | null;
+
     /**
      * Sets the text, keeping the current hotkey and kind unless given; null shows the enabled string again.
      */
     setText(text: string | null, options?: { hotkey?: string | null; kind?: ButtonKind }): void;
+
     getDisabledText(): string | null;
+
     setDisabledText(text: string | null): void;
 }
 
@@ -3594,9 +4640,13 @@ interface UnitEvent {
      * @returns the event's record of {@link CoreEvents.getFrameEvents}
      */
     getRecord(): CoreEventRecord;
+
     getFrame(): number;
+
     getUnit(): Unit;
+
     getUnitType(): UnitType;
+
     getOwner(): Player;
 }
 
@@ -3608,22 +4658,31 @@ interface UnitCompletedEvent extends UnitEvent {
 
 interface UnitDiedEvent extends UnitEvent {
     getKiller(): Unit | null;
+
     getKillerPlayer(): Player | null;
+
     getWeapon(): WeaponType | null;
 }
 
 interface UnitDamagedEvent extends UnitEvent {
     getSource(): Unit | null;
+
     getSourcePlayer(): Player | null;
+
     getWeapon(): WeaponType | null;
+
     getAmount(): number;
 }
 
 interface OrderIssuedEvent extends UnitEvent {
     getOrder(): Order;
+
     getTarget(): Unit | null;
+
     getTargetPosition(): Position;
+
     getBuildType(): UnitType | null;
+
     isQueued(): boolean;
 }
 
@@ -3641,12 +4700,15 @@ interface ResearchCompletedEvent extends UnitEvent {
 
 interface UpgradeCompletedEvent extends UnitEvent {
     getUpgrade(): UpgradeType;
+
     getLevel(): number;
 }
 
 interface SpellCastEvent extends UnitEvent {
     getTech(): TechType;
+
     getTarget(): Unit | null;
+
     getTargetPosition(): Position;
 }
 
@@ -3664,15 +4726,22 @@ interface UnitUnloadedEvent extends UnitEvent {
 
 interface BulletEvent {
     getRecord(): CoreEventRecord;
+
     getFrame(): number;
+
     /**
      * @returns the bullet; once it is gone its exists() is false
      */
     getBullet(): Bullet;
+
     getWeapon(): WeaponType;
+
     getPlayer(): Player | null;
+
     getSource(): Unit | null;
+
     getTarget(): Unit | null;
+
     getTargetPosition(): Position;
 }
 
@@ -3688,8 +4757,11 @@ interface BulletHitEvent extends BulletEvent {
  */
 interface PlayerLeftEvent {
     getRecord(): CoreEventRecord;
+
     getFrame(): number;
+
     getPlayer(): Player;
+
     /**
      * @returns the signed departure reason of the player's Leave Game command
      */
@@ -3701,18 +4773,25 @@ interface PlayerLeftEvent {
  */
 interface PlayerResultEvent {
     getRecord(): CoreEventRecord;
+
     getFrame(): number;
+
     getPlayer(): Player;
+
     /**
      * @returns the raw result: 1 dropped, 2 defeat, 3 victory, 4 secured victory, 5 draw
      */
     getResult(): number;
+
     /**
      * @returns whether the result is a victory, secured or not
      */
     isVictory(): boolean;
+
     isDefeat(): boolean;
+
     isDraw(): boolean;
+
     isDropped(): boolean;
 }
 
@@ -3724,10 +4803,12 @@ interface LocalEvent {
      * @returns the input's record of {@link CoreLocal.getInputEvents}, whose consumed this event's {@link consume} sets
      */
     getRecord(): CoreInputRecord;
+
     /**
      * Keeps a pressed key or button, or a chat line, from the game's own handling; it has no effect on a release.
      */
     consume(): void;
+
     isConsumed(): boolean;
 }
 
@@ -3736,9 +4817,13 @@ interface LocalEvent {
  */
 interface LocalInputEvent extends LocalEvent {
     getModifiers(): number;
+
     getMousePosition(): Position | null;
+
     isShift(): boolean;
+
     isControl(): boolean;
+
     isAlt(): boolean;
 }
 
@@ -3763,16 +4848,24 @@ interface LocalChatEvent extends LocalEvent {
  */
 interface LocalButtonPressedEvent extends LocalEvent {
     getButtonSet(): ButtonSet;
+
     getButton(): Button | null;
+
     getPosition(): number;
+
     getCondition(): ButtonCondition | null;
+
     getConditionValue(): number;
+
     getAction(): ButtonAction | null;
+
     getActionValue(): number;
+
     /**
      * @returns true while Shift was held
      */
     isQueued(): boolean;
+
     /**
      * @returns true for a hotkey press, false for a click
      */
@@ -3785,6 +4878,7 @@ interface LocalButtonPressedEvent extends LocalEvent {
  */
 interface LocalButtonTargetedEvent extends LocalButtonPressedEvent {
     getTarget(): Unit | null;
+
     getTargetPosition(): Position;
 }
 
@@ -3796,15 +4890,25 @@ interface DamageDecision {
      * @returns the decision's record, whose amount and cancelled the setters change; a hook may change them there too
      */
     getRecord(): CoreDecisionRecord;
+
     getTarget(): Unit;
+
     getTargetType(): UnitType;
+
     getTargetOwner(): Player;
+
     getSource(): Unit | null;
+
     getSourcePlayer(): Player | null;
+
     getWeapon(): WeaponType | null;
+
     getAmount(): number;
+
     setAmount(amount: number): void;
+
     cancel(): void;
+
     isCancelled(): boolean;
 }
 
@@ -3813,20 +4917,32 @@ interface OrderDecision {
      * @returns the decision's record, whose order, target, targetGeneration, targetX, targetY and rejected the setters change
      */
     getRecord(): CoreDecisionRecord;
+
     getUnit(): Unit;
+
     getUnitType(): UnitType;
+
     getOwner(): Player;
+
     getBuildType(): UnitType | null;
+
     isQueued(): boolean;
+
     getOrder(): Order;
+
     setOrder(order: Order): void;
+
     getTarget(): Unit | null;
+
     getTargetPosition(): Position;
+
     /**
      * Sets a target unit (and its position), a position without a target unit, or no target unit for null.
      */
     setTarget(target: Unit | Position | null): void;
+
     reject(): void;
+
     isRejected(): boolean;
 }
 
@@ -3835,10 +4951,15 @@ interface TargetAcquisitionDecision {
      * @returns the decision's record, whose target and targetGeneration the setter changes
      */
     getRecord(): CoreDecisionRecord;
+
     getUnit(): Unit;
+
     getUnitType(): UnitType;
+
     getOwner(): Player;
+
     getTarget(): Unit | null;
+
     /**
      * Sets the target unit, or no target for null.
      */
@@ -4054,6 +5175,7 @@ interface ButtonStateTable {
     readonly Enabled: ButtonState;
     readonly Hidden: ButtonState;
     readonly Disabled: ButtonState;
+
     /**
      * @returns the state of a condition result, null for another value
      */

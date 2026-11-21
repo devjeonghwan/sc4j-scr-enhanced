@@ -1,29 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.BulletCreatedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.BulletHitEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OrderDecision;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OrderIssuedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.OwnerChangedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerLeftEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerResultEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.ResearchCompletedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationUnit;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SpellCastEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.TargetAcquiredEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.TargetAcquisitionDecision;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitCompletedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitCreatedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDamagedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDiedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitLoadedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitTrainedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitUnloadedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UpgradeCompletedEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.WeaponDamageDecision;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.*;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitHandle;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
@@ -59,7 +37,7 @@ final class ScriptSimulationUtils {
      * @return the record
      */
     static @NotNull ScriptableObject createEventRecord(@NotNull Context context, @NotNull Scriptable global, @NotNull UnitPool pool,
-                                                      @NotNull ScriptEventKind kind, @NotNull SimulationEvent event, int frame) {
+                                                       @NotNull ScriptEventKind kind, @NotNull SimulationEvent event, int frame) {
         ScriptableObject values = (ScriptableObject) context.newObject(global);
 
         putNumber(values, KIND_PROPERTY, kind.ordinal());

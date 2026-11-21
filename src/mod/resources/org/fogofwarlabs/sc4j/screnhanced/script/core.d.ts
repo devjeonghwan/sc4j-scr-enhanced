@@ -156,180 +156,297 @@ interface CoreOrderRecord {
 interface CoreDatUnits {
     /** Graphics (below 209) */
     getFlingyType(unitType: number): number;
+
     setFlingyType(unitType: number, value: number): void;
+
     /** Subunit1 */
     getFirstSubunit(unitType: number): number;
+
     setFirstSubunit(unitType: number, value: number): void;
+
     /** Subunit2 */
     getSecondSubunit(unitType: number): number;
+
     setSecondSubunit(unitType: number, value: number): void;
+
     /** Infestation (unit types 106 to 201) */
     getInfestedType(unitType: number): number;
+
     setInfestedType(unitType: number, value: number): void;
+
     /** Construction Animation */
     getConstructionImage(unitType: number): number;
+
     setConstructionImage(unitType: number, value: number): void;
+
     /** Unit Direction */
     getInitialDirection(unitType: number): number;
+
     setInitialDirection(unitType: number, value: number): void;
+
     /** Shield Enable */
     getShieldEnabled(unitType: number): number;
+
     setShieldEnabled(unitType: number, value: number): void;
+
     /** Shield Amount */
     getShieldAmount(unitType: number): number;
+
     setShieldAmount(unitType: number, value: number): void;
+
     /** Hit Points */
     getHitPoints(unitType: number): number;
+
     setHitPoints(unitType: number, value: number): void;
+
     /** Elevation Level */
     getElevationLevel(unitType: number): number;
+
     setElevationLevel(unitType: number, value: number): void;
+
     /** Unknown */
     getUnknownByte(unitType: number): number;
+
     setUnknownByte(unitType: number, value: number): void;
+
     /** Sublabel */
     getSublabel(unitType: number): number;
+
     setSublabel(unitType: number, value: number): void;
+
     /** Comp AI Idle */
     getComputerIdleOrder(unitType: number): number;
+
     setComputerIdleOrder(unitType: number, value: number): void;
+
     /** Human AI Idle */
     getHumanIdleOrder(unitType: number): number;
+
     setHumanIdleOrder(unitType: number, value: number): void;
+
     /** Return to Idle */
     getReturnToIdleOrder(unitType: number): number;
+
     setReturnToIdleOrder(unitType: number, value: number): void;
+
     /** Attack Unit */
     getAttackUnitOrder(unitType: number): number;
+
     setAttackUnitOrder(unitType: number, value: number): void;
+
     /** Attack Move */
     getAttackMoveOrder(unitType: number): number;
+
     setAttackMoveOrder(unitType: number, value: number): void;
+
     /** Ground Weapon */
     getGroundWeapon(unitType: number): number;
+
     setGroundWeapon(unitType: number, value: number): void;
+
     /** Max Ground Hits */
     getMaximumGroundHits(unitType: number): number;
+
     setMaximumGroundHits(unitType: number, value: number): void;
+
     /** Air Weapon */
     getAirWeapon(unitType: number): number;
+
     setAirWeapon(unitType: number, value: number): void;
+
     /** Max Air Hits */
     getMaximumAirHits(unitType: number): number;
+
     setMaximumAirHits(unitType: number, value: number): void;
+
     /** AI Internal */
     getComputerInternalFlags(unitType: number): number;
+
     setComputerInternalFlags(unitType: number, value: number): void;
+
     /** Special Ability Flags */
     getFlags(unitType: number): number;
+
     setFlags(unitType: number, value: number): void;
+
     /** Target Acquisition Range */
     getTargetAcquisitionRange(unitType: number): number;
+
     setTargetAcquisitionRange(unitType: number, value: number): void;
+
     /** Sight Range */
     getSightRange(unitType: number): number;
+
     setSightRange(unitType: number, value: number): void;
+
     /** Armor Upgrade */
     getArmorUpgrade(unitType: number): number;
+
     setArmorUpgrade(unitType: number, value: number): void;
+
     /** Unit Size */
     getSizeClass(unitType: number): number;
+
     setSizeClass(unitType: number, value: number): void;
+
     /** Armor */
     getArmor(unitType: number): number;
+
     setArmor(unitType: number, value: number): void;
+
     /** Right-click Action */
     getRightClickAction(unitType: number): number;
+
     setRightClickAction(unitType: number, value: number): void;
+
     /** Ready Sound (unit types 0 to 105) */
     getReadySound(unitType: number): number;
+
     setReadySound(unitType: number, value: number): void;
+
     /** What Sound Start */
     getWhatSoundStart(unitType: number): number;
+
     setWhatSoundStart(unitType: number, value: number): void;
+
     /** What Sound End */
     getWhatSoundEnd(unitType: number): number;
+
     setWhatSoundEnd(unitType: number, value: number): void;
+
     /** Piss Sound Start (unit types 0 to 105) */
     getAnnoyedSoundStart(unitType: number): number;
+
     setAnnoyedSoundStart(unitType: number, value: number): void;
+
     /** Piss Sound End (unit types 0 to 105) */
     getAnnoyedSoundEnd(unitType: number): number;
+
     setAnnoyedSoundEnd(unitType: number, value: number): void;
+
     /** Yes Sound Start (unit types 0 to 105) */
     getYesSoundStart(unitType: number): number;
+
     setYesSoundStart(unitType: number, value: number): void;
+
     /** Yes Sound End (unit types 0 to 105) */
     getYesSoundEnd(unitType: number): number;
+
     setYesSoundEnd(unitType: number, value: number): void;
+
     /** Placement Box Width */
     getPlacementWidth(unitType: number): number;
+
     setPlacementWidth(unitType: number, value: number): void;
+
     /** Placement Box Height */
     getPlacementHeight(unitType: number): number;
+
     setPlacementHeight(unitType: number, value: number): void;
+
     /** Addon Horizontal (unit types 106 to 201) */
     getAddonHorizontalOffset(unitType: number): number;
+
     setAddonHorizontalOffset(unitType: number, value: number): void;
+
     /** Addon Vertical (unit types 106 to 201) */
     getAddonVerticalOffset(unitType: number): number;
+
     setAddonVerticalOffset(unitType: number, value: number): void;
+
     /** Unit Size Left */
     getDimensionLeft(unitType: number): number;
+
     setDimensionLeft(unitType: number, value: number): void;
+
     /** Unit Size Up */
     getDimensionUp(unitType: number): number;
+
     setDimensionUp(unitType: number, value: number): void;
+
     /** Unit Size Right */
     getDimensionRight(unitType: number): number;
+
     setDimensionRight(unitType: number, value: number): void;
+
     /** Unit Size Down */
     getDimensionDown(unitType: number): number;
+
     setDimensionDown(unitType: number, value: number): void;
+
     /** Portrait */
     getPortrait(unitType: number): number;
+
     setPortrait(unitType: number, value: number): void;
+
     /** Mineral Cost */
     getMineralCost(unitType: number): number;
+
     setMineralCost(unitType: number, value: number): void;
+
     /** Vespene Cost */
     getGasCost(unitType: number): number;
+
     setGasCost(unitType: number, value: number): void;
+
     /** Build Time */
     getBuildTime(unitType: number): number;
+
     setBuildTime(unitType: number, value: number): void;
+
     /** Requirement Index */
     getRequirementIndex(unitType: number): number;
+
     setRequirementIndex(unitType: number, value: number): void;
+
     /** StarEdit Group Flags */
     getGroupFlags(unitType: number): number;
+
     setGroupFlags(unitType: number, value: number): void;
+
     /** Supply Provided */
     getSupplyProvided(unitType: number): number;
+
     setSupplyProvided(unitType: number, value: number): void;
+
     /** Supply Required */
     getSupplyRequired(unitType: number): number;
+
     setSupplyRequired(unitType: number, value: number): void;
+
     /** Space Required */
     getSpaceRequired(unitType: number): number;
+
     setSpaceRequired(unitType: number, value: number): void;
+
     /** Space Provided */
     getSpaceProvided(unitType: number): number;
+
     setSpaceProvided(unitType: number, value: number): void;
+
     /** Build Score */
     getBuildScore(unitType: number): number;
+
     setBuildScore(unitType: number, value: number): void;
+
     /** Destroy Score */
     getDestroyScore(unitType: number): number;
+
     setDestroyScore(unitType: number, value: number): void;
+
     /** Unit Map String */
     getMapStringIndex(unitType: number): number;
+
     setMapStringIndex(unitType: number, value: number): void;
+
     /** Broodwar Unit Flag */
     getBroodWarFlag(unitType: number): number;
+
     setBroodWarFlag(unitType: number, value: number): void;
+
     /** StarEdit Availability Flags */
     getAvailabilityFlags(unitType: number): number;
+
     setAvailabilityFlags(unitType: number, value: number): void;
 }
 
@@ -339,75 +456,122 @@ interface CoreDatUnits {
 interface CoreDatWeapons {
     /** Label */
     getLabel(weaponType: number): number;
+
     setLabel(weaponType: number, value: number): void;
+
     /** Sprite */
     getFlingyType(weaponType: number): number;
+
     setFlingyType(weaponType: number, value: number): void;
+
     /** Special Attack */
     getSpecialAttack(weaponType: number): number;
+
     setSpecialAttack(weaponType: number, value: number): void;
+
     /** Target Flags */
     getTargetFlags(weaponType: number): number;
+
     setTargetFlags(weaponType: number, value: number): void;
+
     /** Minimum Range */
     getMinimumRange(weaponType: number): number;
+
     setMinimumRange(weaponType: number, value: number): void;
+
     /** Maximum Range */
     getMaximumRange(weaponType: number): number;
+
     setMaximumRange(weaponType: number, value: number): void;
+
     /** Upgrade Group */
     getDamageUpgrade(weaponType: number): number;
+
     setDamageUpgrade(weaponType: number, value: number): void;
+
     /** Damage Type */
     getDamageType(weaponType: number): number;
+
     setDamageType(weaponType: number, value: number): void;
+
     /** Weapon Behavior */
     getBehavior(weaponType: number): number;
+
     setBehavior(weaponType: number, value: number): void;
+
     /** Remove After */
     getLifetime(weaponType: number): number;
+
     setLifetime(weaponType: number, value: number): void;
+
     /** Explosion Type */
     getExplosionType(weaponType: number): number;
+
     setExplosionType(weaponType: number, value: number): void;
+
     /** Inner Splash Radius */
     getInnerSplashRadius(weaponType: number): number;
+
     setInnerSplashRadius(weaponType: number, value: number): void;
+
     /** Medium Splash Radius */
     getMediumSplashRadius(weaponType: number): number;
+
     setMediumSplashRadius(weaponType: number, value: number): void;
+
     /** Outer Splash Radius */
     getOuterSplashRadius(weaponType: number): number;
+
     setOuterSplashRadius(weaponType: number, value: number): void;
+
     /** Damage Amount */
     getDamageAmount(weaponType: number): number;
+
     setDamageAmount(weaponType: number, value: number): void;
+
     /** Damage Bonus */
     getDamageBonus(weaponType: number): number;
+
     setDamageBonus(weaponType: number, value: number): void;
+
     /** Weapon Cooldown */
     getCooldown(weaponType: number): number;
+
     setCooldown(weaponType: number, value: number): void;
+
     /** Damage Factor */
     getDamageFactor(weaponType: number): number;
+
     setDamageFactor(weaponType: number, value: number): void;
+
     /** Attack Angle */
     getAttackAngle(weaponType: number): number;
+
     setAttackAngle(weaponType: number, value: number): void;
+
     /** Launch Spin */
     getLaunchSpin(weaponType: number): number;
+
     setLaunchSpin(weaponType: number, value: number): void;
+
     /** Forward Offset */
     getForwardOffset(weaponType: number): number;
+
     setForwardOffset(weaponType: number, value: number): void;
+
     /** Upward Offset */
     getUpwardOffset(weaponType: number): number;
+
     setUpwardOffset(weaponType: number, value: number): void;
+
     /** Target Error Message */
     getTargetErrorMessage(weaponType: number): number;
+
     setTargetErrorMessage(weaponType: number, value: number): void;
+
     /** Icon */
     getIcon(weaponType: number): number;
+
     setIcon(weaponType: number, value: number): void;
 }
 
@@ -417,24 +581,37 @@ interface CoreDatWeapons {
 interface CoreDatFlingy {
     /** Sprite */
     getSprite(flingyType: number): number;
+
     setSprite(flingyType: number, value: number): void;
+
     /** Top Speed */
     getTopSpeed(flingyType: number): number;
+
     setTopSpeed(flingyType: number, value: number): void;
+
     /** Acceleration */
     getAcceleration(flingyType: number): number;
+
     setAcceleration(flingyType: number, value: number): void;
+
     /** Halt Distance */
     getHaltDistance(flingyType: number): number;
+
     setHaltDistance(flingyType: number, value: number): void;
+
     /** Turn Rate */
     getTurnRate(flingyType: number): number;
+
     setTurnRate(flingyType: number, value: number): void;
+
     /** Unused */
     getUnused(flingyType: number): number;
+
     setUnused(flingyType: number, value: number): void;
+
     /** Movement Control */
     getMovementControl(flingyType: number): number;
+
     setMovementControl(flingyType: number, value: number): void;
 }
 
@@ -444,17 +621,25 @@ interface CoreDatFlingy {
 interface CoreDatSprites {
     /** Image (below 999) */
     getImage(spriteType: number): number;
+
     setImage(spriteType: number, value: number): void;
+
     /** Health Bar (sprite types 130 to 516, read only) */
     getHealthBarWidth(spriteType: number): number;
+
     /** Unused */
     getUnused(spriteType: number): number;
+
     setUnused(spriteType: number, value: number): void;
+
     /** Is Visible */
     getVisible(spriteType: number): number;
+
     setVisible(spriteType: number, value: number): void;
+
     /** Selection Circle (sprite types 130 to 516, read only) */
     getSelectionCircle(spriteType: number): number;
+
     /** Y Position (sprite types 130 to 516, read only) */
     getSelectionCircleOffset(spriteType: number): number;
 }
@@ -465,37 +650,57 @@ interface CoreDatSprites {
 interface CoreDatImages {
     /** GRP File (read only) */
     getGraphicsFile(imageType: number): number;
+
     /** Graphic Turns */
     getGraphicTurns(imageType: number): number;
+
     setGraphicTurns(imageType: number, value: number): void;
+
     /** Clickable */
     getClickable(imageType: number): number;
+
     setClickable(imageType: number, value: number): void;
+
     /** Use Full Iscript */
     getFullIscript(imageType: number): number;
+
     setFullIscript(imageType: number, value: number): void;
+
     /** Draw If Cloaked */
     getDrawIfCloaked(imageType: number): number;
+
     setDrawIfCloaked(imageType: number, value: number): void;
+
     /** Draw Function (below 18) */
     getDrawFunction(imageType: number): number;
+
     setDrawFunction(imageType: number, value: number): void;
+
     /** Color Shift */
     getColorShift(imageType: number): number;
+
     setColorShift(imageType: number, value: number): void;
+
     /** Iscript (below 411) */
     getIscript(imageType: number): number;
+
     setIscript(imageType: number, value: number): void;
+
     /** Shield Overlay (read only) */
     getShieldOverlay(imageType: number): number;
+
     /** Attack Overlay (read only) */
     getAttackOverlay(imageType: number): number;
+
     /** Damage Overlay (read only) */
     getDamageOverlay(imageType: number): number;
+
     /** Special Overlay (read only) */
     getSpecialOverlay(imageType: number): number;
+
     /** Landing Dust Overlay (read only) */
     getLandingDustOverlay(imageType: number): number;
+
     /** Liftoff Dust Overlay (read only) */
     getLiftoffDustOverlay(imageType: number): number;
 }
@@ -506,39 +711,62 @@ interface CoreDatImages {
 interface CoreDatUpgrades {
     /** Ore Cost */
     getMineralCost(upgradeType: number): number;
+
     setMineralCost(upgradeType: number, value: number): void;
+
     /** Ore Cost Factor */
     getMineralCostFactor(upgradeType: number): number;
+
     setMineralCostFactor(upgradeType: number, value: number): void;
+
     /** Gas Cost */
     getGasCost(upgradeType: number): number;
+
     setGasCost(upgradeType: number, value: number): void;
+
     /** Gas Cost Factor */
     getGasCostFactor(upgradeType: number): number;
+
     setGasCostFactor(upgradeType: number, value: number): void;
+
     /** Time Cost */
     getResearchTime(upgradeType: number): number;
+
     setResearchTime(upgradeType: number, value: number): void;
+
     /** Time Cost Factor */
     getResearchTimeFactor(upgradeType: number): number;
+
     setResearchTimeFactor(upgradeType: number, value: number): void;
+
     /** DatReqs Index */
     getRequirementIndex(upgradeType: number): number;
+
     setRequirementIndex(upgradeType: number, value: number): void;
+
     /** Icon */
     getIcon(upgradeType: number): number;
+
     setIcon(upgradeType: number, value: number): void;
+
     /** Label */
     getLabel(upgradeType: number): number;
+
     setLabel(upgradeType: number, value: number): void;
+
     /** Race */
     getRace(upgradeType: number): number;
+
     setRace(upgradeType: number, value: number): void;
+
     /** Max Repeats */
     getMaximumLevel(upgradeType: number): number;
+
     setMaximumLevel(upgradeType: number, value: number): void;
+
     /** BroodWar */
     getBroodWarFlag(upgradeType: number): number;
+
     setBroodWarFlag(upgradeType: number, value: number): void;
 }
 
@@ -548,36 +776,57 @@ interface CoreDatUpgrades {
 interface CoreDatTechdata {
     /** Ore Cost */
     getMineralCost(techType: number): number;
+
     setMineralCost(techType: number, value: number): void;
+
     /** Gas Cost */
     getGasCost(techType: number): number;
+
     setGasCost(techType: number, value: number): void;
+
     /** Time Cost */
     getResearchTime(techType: number): number;
+
     setResearchTime(techType: number, value: number): void;
+
     /** Energy */
     getEnergyCost(techType: number): number;
+
     setEnergyCost(techType: number, value: number): void;
+
     /** DatReqs Index */
     getResearchRequirementIndex(techType: number): number;
+
     setResearchRequirementIndex(techType: number, value: number): void;
+
     /** UseReqs Index */
     getUseRequirementIndex(techType: number): number;
+
     setUseRequirementIndex(techType: number, value: number): void;
+
     /** Icon */
     getIcon(techType: number): number;
+
     setIcon(techType: number, value: number): void;
+
     /** Label */
     getLabel(techType: number): number;
+
     setLabel(techType: number, value: number): void;
+
     /** Race */
     getRace(techType: number): number;
+
     setRace(techType: number, value: number): void;
+
     /** Researched */
     getResearchedFlag(techType: number): number;
+
     setResearchedFlag(techType: number, value: number): void;
+
     /** BroodWar */
     getBroodWarFlag(techType: number): number;
+
     setBroodWarFlag(techType: number, value: number): void;
 }
 
@@ -587,60 +836,97 @@ interface CoreDatTechdata {
 interface CoreDatOrders {
     /** Label */
     getLabel(order: number): number;
+
     setLabel(order: number, value: number): void;
+
     /** Use Weapon Targeting */
     getUseWeaponTargeting(order: number): number;
+
     setUseWeaponTargeting(order: number, value: number): void;
+
     /** Unused1 */
     getUnused1(order: number): number;
+
     setUnused1(order: number, value: number): void;
+
     /** Unused2 */
     getUnused2(order: number): number;
+
     setUnused2(order: number, value: number): void;
+
     /** Subunit Inheritance */
     getSubunitInheritance(order: number): number;
+
     setSubunitInheritance(order: number, value: number): void;
+
     /** Unused3 */
     getUnused3(order: number): number;
+
     setUnused3(order: number, value: number): void;
+
     /** Can Be Interrupted */
     getCanBeInterrupted(order: number): number;
+
     setCanBeInterrupted(order: number, value: number): void;
+
     /** Can Be Lifted */
     getCanBeLifted(order: number): number;
+
     setCanBeLifted(order: number, value: number): void;
+
     /** Can Be Queued */
     getCanBeQueued(order: number): number;
+
     setCanBeQueued(order: number, value: number): void;
+
     /** Disabling Keeps Target */
     getDisablingKeepsTarget(order: number): number;
+
     setDisablingKeepsTarget(order: number, value: number): void;
+
     /** Can Be Obstructed */
     getCanBeObstructed(order: number): number;
+
     setCanBeObstructed(order: number, value: number): void;
+
     /** Fleeable */
     getFleeable(order: number): number;
+
     setFleeable(order: number, value: number): void;
+
     /** Unused4 */
     getUnused4(order: number): number;
+
     setUnused4(order: number, value: number): void;
+
     /** Weapon */
     getWeapon(order: number): number;
+
     setWeapon(order: number, value: number): void;
+
     /** Energy */
     getTechnology(order: number): number;
+
     setTechnology(order: number, value: number): void;
+
     /** Animation */
     getAnimation(order: number): number;
+
     setAnimation(order: number, value: number): void;
+
     /** Highlight */
     getHighlight(order: number): number;
+
     setHighlight(order: number, value: number): void;
+
     /** DatReqs Index */
     getRequirementIndex(order: number): number;
+
     setRequirementIndex(order: number, value: number): void;
+
     /** Obscured */
     getObscuredOrder(order: number): number;
+
     setObscuredOrder(order: number, value: number): void;
 }
 
@@ -657,6 +943,7 @@ interface CoreDat {
     readonly techdata: CoreDatTechdata;
     readonly orders: CoreDatOrders;
 }
+
 // END GENERATED CORE DAT
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -666,113 +953,149 @@ interface CoreDat {
 interface CoreGame {
     /** [A] */
     getFrame(): number;
+
     /** [A] */
     getMapTileWidth(): number;
+
     /** [A] */
     getMapTileHeight(): number;
+
     /** [A] */
     getTileset(): number;
+
     /**
      * [A]
      * @returns the milliseconds of a frame at the fastest speed
      */
     getFrameDuration(): number;
+
     /** [S] */
     print(text: string): void;
+
     /** [A] */
     isReadOnly(): boolean;
+
     /** [A] */
     isSwitchSet(index: number): boolean;
+
     /** [S] */
     setSwitch(index: number, set: boolean): void;
+
     /** [S] */
     toggleSwitch(index: number): void;
+
     /** [A] */
     getCountdownTimer(): number;
+
     /** [S] */
     setCountdownTimer(seconds: number): void;
+
     /** [S] */
     addCountdownTimer(seconds: number): void;
+
     /** [S] */
     subtractCountdownTimer(seconds: number): void;
+
     /** [A] */
     isCountdownTimerPaused(): boolean;
+
     /** [S] */
     setCountdownTimerPaused(paused: boolean): void;
+
     /** [A] */
     getElapsedTime(): number;
+
     /**
      * [A]
      * @returns whether the game is paused, by Pause Game or by the pause of the game menu
      */
     isPaused(): boolean;
+
     /**
      * [S] Runs Pause Game without a trigger record at this frame's trigger step: nothing in a multiplayer session or while Pause Game already
      * paused the game. A game Pause Game paused runs no frame, but the trigger step and the frame entry keep running, with the frame number
      * unchanged, until Unpause Game.
      */
     pause(): void;
+
     /**
      * [S] Runs Unpause Game without a trigger record at this frame's trigger step: nothing in a multiplayer session or while Pause Game did not
      * pause the game.
      */
     resume(): void;
+
     /**
      * [A]
      * @returns the speed, 0 slowest to 6 fastest
      */
     getSpeed(): number;
+
     /**
      * [A]
      * @returns the milliseconds of a frame at a speed in the frame duration table
      */
     getSpeedDuration(speed: number): number;
+
     /**
      * [S] Stores an entry of the frame duration table as an EUD write does: the frame duration takes it at once unless the game name
      * overrides the speed; the turn timeouts of a network game keep the durations of their last fill.
      */
     setSpeedDuration(speed: number, milliseconds: number): void;
+
     /** [A] */
     isMultiplayer(): boolean;
+
     /**
      * [A]
      * @returns the game type WORD of the game header ({@link GameMode})
      */
     getGameType(): number;
+
     /** [A] */
     getGameSubtype(): number;
+
     /** [A] */
     getVictoryCondition(): number;
+
     /** [A] */
     getResourceType(): number;
+
     /** [A] */
     getStartingMinerals(): number;
+
     /** [A] */
     getStartingUnits(): number;
+
     /** [A] */
     getTournamentMode(): number;
+
     /**
      * [A]
      * @returns whether the game options permit the cheat command
      */
     areCheatsEnabled(): boolean;
+
     /**
      * [A]
      * @returns the expansion byte, 0 for StarCraft
      */
     getExpansion(): number;
+
     /** [S] */
     setExpansion(value: number): void;
+
     /**
      * [A]
      * @returns the cheat flags ({@link Cheat}), one bit per cheat
      */
     getCheatFlags(): number;
+
     /**
      * [S] Stores the cheat flags once, as an EUD write does, without the reveal update and the one-shot grants of the cheat routine; the
      * native reset of the tiles may clear the reveal bits again ({@link Game.setCheatEnabled} keeps them).
      */
     setCheatFlags(flags: number): void;
+
     /**
      * [S] Runs the cheat routine with the flags: nothing when the game options forbid cheats or more than one human plays a network game.
      */
@@ -782,137 +1105,197 @@ interface CoreGame {
 interface CorePlayer {
     /** [A] */
     getCount(): number;
+
     /** [A] */
     getName(player: number): string;
+
     /** [A] */
     getRace(player: number): number;
+
     /** [A] */
     getType(player: number): number;
+
     /** [A] */
     isHuman(player: number): boolean;
+
     /** [A] */
     getMinerals(player: number): number;
+
     /** [S] */
     setMinerals(player: number, amount: number): void;
+
     /** [S] */
     addMinerals(player: number, amount: number): void;
+
     /** [S] */
     subtractMinerals(player: number, amount: number): void;
+
     /** [A] */
     getGas(player: number): number;
+
     /** [S] */
     setGas(player: number, amount: number): void;
+
     /** [S] */
     addGas(player: number, amount: number): void;
+
     /** [S] */
     subtractGas(player: number, amount: number): void;
+
     /**
      * [A]
      * @param resourceType 0 minerals, 1 gas, 2 minerals and gas
      */
     getResources(player: number, resourceType: number): number;
+
     /** [A] */
     getGatheredMinerals(player: number): number;
+
     /** [S] */
     setGatheredMinerals(player: number, amount: number): void;
+
     /** [A] */
     getGatheredGas(player: number): number;
+
     /** [S] */
     setGatheredGas(player: number, amount: number): void;
+
     /** [A] */
     getSupplyUsed(player: number, race: number): number;
+
     /** [A] */
     getSupplyProvided(player: number, race: number): number;
+
     /** [A] */
     getSupplyMax(player: number, race: number): number;
+
     /**
      * [A]
      * @returns 0 enemy, 1 allied, 2 allied victory
      */
     getAlliance(player: number, other: number): number;
+
     /** [S] */
     setAlliance(player: number, other: number, alliance: number): void;
+
     /** [S] */
     endGame(player: number, result: number): boolean;
+
     /** [A] */
     getDeaths(player: number, unitType: number): number;
+
     /** [S] */
     setDeaths(player: number, unitType: number, amount: number): void;
+
     /** [S] */
     addDeaths(player: number, unitType: number, amount: number): void;
+
     /** [S] */
     subtractDeaths(player: number, unitType: number, amount: number): void;
+
     /** [A] */
     getKills(player: number, unitType: number): number;
+
     /** [A] */
     getScore(player: number, scoreType: number): number;
+
     /** [S] */
     setScore(player: number, scoreType: number, amount: number): void;
+
     /** [S] */
     addScore(player: number, scoreType: number, amount: number): void;
+
     /** [S] */
     subtractScore(player: number, scoreType: number, amount: number): void;
+
     /** [A] */
     countUnits(player: number, unitType: number, completed: boolean): number;
+
     /** [A] */
     countUnitsAt(player: number, unitType: number, location: number, completed: boolean): number;
+
     /** [A] */
     countOpponents(player: number): number;
+
     /**
      * [S]
      * @param location the location, -1 for everywhere
      * @param count    the most units, 0 for all
      */
     killUnits(player: number, unitType: number, location: number, count: number): void;
+
     /** [S] */
     removeUnits(player: number, unitType: number, location: number, count: number): void;
+
     /** [S] */
     runAiScript(player: number, script: number): boolean;
+
     /** [S] */
     runAiScriptAt(player: number, script: number, location: number): boolean;
+
     /** [S] */
     setMissionObjectives(player: number, text: string): void;
+
     /** [S] */
     print(player: number, text: string, forced: boolean): void;
+
     /** [S] */
     pingMinimap(player: number, x: number, y: number): void;
+
     /** [S] */
     playSound(player: number, path: string): void;
+
     /** [S] */
     showTalkingPortrait(player: number, unitType: number, milliseconds: number): void;
+
     /** [S] */
     setUnitSpeechMuted(player: number, muted: boolean): void;
+
     /** [S] */
     centerView(player: number, x: number, y: number): void;
+
     /** [A] */
     getUpgradeLevel(player: number, upgradeType: number): number;
+
     /** [S] */
     setUpgradeLevel(player: number, upgradeType: number, level: number): void;
+
     /** [A] */
     getMaxUpgradeLevel(player: number, upgradeType: number): number;
+
     /** [S] */
     setMaxUpgradeLevel(player: number, upgradeType: number, level: number): void;
+
     /** [A] */
     isUpgradeInProgress(player: number, upgradeType: number): boolean;
+
     /** [A] */
     isTechResearched(player: number, techType: number): boolean;
+
     /** [S] */
     setTechResearched(player: number, techType: number, researched: boolean): void;
+
     /** [A] */
     isTechAvailable(player: number, techType: number): boolean;
+
     /** [S] */
     setTechAvailable(player: number, techType: number, available: boolean): void;
+
     /** [A] */
     isTechInProgress(player: number, techType: number): boolean;
+
     /** [A] */
     isUnitAvailable(player: number, unitType: number): boolean;
+
     /** [S] */
     setUnitAvailable(player: number, unitType: number, available: boolean): void;
+
     /**
      * [A]
      * @returns the ids of the live units of the player's selection, empty for players 8 to 11
      */
     getSelection(player: number): number[];
+
     /**
      * [S] Replaces the player's selection as a selection command of the player does ({@link Player.setSelection}).
      *
@@ -920,53 +1303,64 @@ interface CorePlayer {
      * @returns the number of selected units
      */
     setSelection(player: number, units: number[]): number;
+
     /**
      * [A]
      * @returns the players that see what the player's units see, one bit per player, the player's own bit included
      */
     getSharedVision(player: number): number;
+
     /**
      * [S] Sets the players that see what the player's units see, as the vision command does but without its permission test.
      */
     setSharedVision(player: number, mask: number): void;
+
     /**
      * [A]
      * @param player a player from 0 to 7
      */
     getPausesLeft(player: number): number;
+
     /** [S] */
     setPausesLeft(player: number, pauses: number): void;
+
     /**
      * [A]
      * @returns the x of the player's start location, -1 for a player without one
      */
     getStartLocationX(player: number): number;
+
     /**
      * [A]
      * @returns the y of the player's start location, -1 for a player without one
      */
     getStartLocationY(player: number): number;
+
     /**
      * [S]
      * @returns false for a player without a start location
      */
     setStartLocation(player: number, x: number, y: number): boolean;
+
     /**
      * [A]
      * @param index the remapped unit color, 0 to 7; color 0 is also the HD team color
      * @returns the palette index of the player's unit color row
      */
     getUnitColor(player: number, index: number): number;
+
     /**
      * [A] Stores a palette index (0 to 255) of the player's unit color row as an EUD write does; the next drawn frame shows it. A player shown
      * in a custom color of the game keeps that color as its HD team color and on the minimap.
      */
     setUnitColor(player: number, index: number, paletteIndex: number): void;
+
     /**
      * [A]
      * @returns the palette index of the player's minimap dots
      */
     getMinimapColor(player: number): number;
+
     /** [A] */
     setMinimapColor(player: number, paletteIndex: number): void;
 }
@@ -974,100 +1368,142 @@ interface CorePlayer {
 interface CoreUnit {
     /** [A] */
     getCapacity(): number;
+
     /** [A] */
     getIds(): number[];
+
     /** [A] */
     exists(unit: number): boolean;
+
     /** [A] */
     getGeneration(unit: number): number;
+
     /** [A] */
     getType(unit: number): number;
+
     /** [A] */
     getOwner(unit: number): number;
+
     /** [A] */
     getX(unit: number): number;
+
     /** [A] */
     getY(unit: number): number;
+
     /** [A] */
     getHp(unit: number): number;
+
     /** [A] */
     getShields(unit: number): number;
+
     /** [A] */
     getEnergy(unit: number): number;
+
     /**
      * [A]
      * @returns the maximum energy after the energy upgrades of the unit's owner, 0 for a unit without energy
      */
     getMaxEnergy(unit: number): number;
+
     /** [A] */
     getOrder(unit: number): number;
+
     /**
      * [A]
      * @returns the target unit, -1 for none
      */
     getTarget(unit: number): number;
+
     /** [A] */
     getTargetX(unit: number): number;
+
     /** [A] */
     getTargetY(unit: number): number;
+
     /** [A] */
     getStatus(unit: number): number;
+
     /** [A] */
     getImageType(unit: number): number;
+
     /**
      * [A]
      * @returns the slot of the unit's sprite ({@link CoreSprite}), -1 for none
      */
     getSprite(unit: number): number;
+
     /** [A] */
     getResources(unit: number): number;
+
     /** [A] */
     getHangarCount(unit: number): number;
+
     /** [A] */
     isCompleted(unit: number): boolean;
+
     /** [A] */
     isCloaked(unit: number): boolean;
+
     /** [A] */
     isBurrowed(unit: number): boolean;
+
     /** [A] */
     isInvincible(unit: number): boolean;
+
     /** [A] */
     isDisabled(unit: number): boolean;
+
     /** [S] */
     setHp(unit: number, hp: number): void;
+
     /** [S] */
     setShields(unit: number, shields: number): boolean;
+
     /** [S] */
     setEnergy(unit: number, energy: number): boolean;
+
     /** [S] */
     setHpPercent(unit: number, percent: number): void;
+
     /** [S] */
     setShieldsPercent(unit: number, percent: number): boolean;
+
     /** [S] */
     setEnergyPercent(unit: number, percent: number): boolean;
+
     /** [S] */
     setInvincible(unit: number, invincible: boolean): void;
+
     /** [S] */
     enableDoodad(unit: number): void;
+
     /** [S] */
     disableDoodad(unit: number): void;
+
     /** [S] */
     setResources(unit: number, amount: number): boolean;
+
     /** [S] */
     addHangarCount(unit: number, count: number): boolean;
+
     /**
      * [S]
      * @returns the new unit, -1 for none
      */
     create(unitType: number, owner: number, x: number, y: number): number;
+
     /** [S] */
     kill(unit: number): boolean;
+
     /** [S] */
     remove(unit: number): boolean;
+
     /** [S] */
     move(unit: number, x: number, y: number): boolean;
+
     /** [S] */
     give(unit: number, player: number): boolean;
+
     /**
      * [S] Issues an order: not queued to a position as the Order action does; queued or to a target unit through the order system after the
      * order requirement test, which appends a queued order behind the queue when the order takes one.
@@ -1075,214 +1511,291 @@ interface CoreUnit {
      * @param target the target unit, -1 for the position
      */
     issueOrder(unit: number, order: number, target: number, x: number, y: number, queued: boolean): void;
+
     /**
      * [S] Runs the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target, two for a weapon of damage
      * factor 2, none for a weapon without a flingy.
      */
     useWeapon(unit: number, weapon: number): void;
+
     /**
      * [A]
      * @returns the orders waiting behind the current one, first to last
      */
     getOrderQueue(unit: number): CoreOrderRecord[];
+
     /** [A] */
     getSecondaryOrder(unit: number): number;
+
     /**
      * [A]
      * @returns the WORD of the unit's command card button set ({@link CoreButtons})
      */
     getButtonSet(unit: number): number;
+
     /** [S] Sets the button set WORD; the native routines of morphs, completion and burrowing set it again. */
     setButtonSet(unit: number, set: number): void;
+
     /** [A] */
     getSecondaryOrderState(unit: number): number;
+
     /**
      * [S] Sets the secondary order as the native routine does: a changed order clears its state and the unit in production.
      */
     setSecondaryOrder(unit: number, order: number): void;
+
     /**
      * [A]
      * @returns the hit points in 1/256 a unit under construction gains each frame
      */
     getHpGain(unit: number): number;
+
     /** [S] */
     setHpGain(unit: number, hp: number): void;
+
     /**
      * [A]
      * @returns the shields in 1/256 a unit under construction gains each frame
      */
     getShieldGain(unit: number): number;
+
     /** [S] */
     setShieldGain(unit: number, shields: number): void;
+
     /**
      * [A]
      * @returns the whole hit points the unit had before it morphed
      */
     getPreviousHp(unit: number): number;
+
     /**
      * [A]
      * @returns the players whose sight covers the unit, one bit per player
      */
     getVisibilityFlags(unit: number): number;
+
     /**
      * [A]
      * @returns the players that detect the unit, one bit per player
      */
     getDetectionFlags(unit: number): number;
+
     /** [A] */
     isVisibleTo(unit: number, player: number): boolean;
+
     /** [A] */
     isDetectedBy(unit: number, player: number): boolean;
+
     /** [A] */
     getAirStrength(unit: number): number;
+
     /** [A] */
     getGroundStrength(unit: number): number;
+
     /**
      * [S] The unit finder's search, which uses the finder's working state.
      *
      * @returns the live units whose bounds meet the rectangle, in the finder's order
      */
     findInRectangle(left: number, top: number, right: number, bottom: number): number[];
+
     /**
      * [S]
      * @returns the live units whose bounds hold the point, in the finder's order
      */
     findAtPoint(x: number, y: number): number[];
+
     /**
      * [A] The status timers in status steps of eight frames, with the native apply and end routines as {@link UnitTimers.setLockdown} has them.
      */
     getStimTimer(unit: number): number;
+
     /** [S] */
     setStimTimer(unit: number, timer: number): void;
+
     /** [A] */
     getEnsnareTimer(unit: number): number;
+
     /** [S] */
     setEnsnareTimer(unit: number, timer: number): void;
+
     /** [A] */
     getLockdownTimer(unit: number): number;
+
     /** [S] */
     setLockdownTimer(unit: number, timer: number): void;
+
     /** [A] */
     getStasisTimer(unit: number): number;
+
     /** [S] */
     setStasisTimer(unit: number, timer: number): void;
+
     /** [A] */
     getMaelstromTimer(unit: number): number;
+
     /** [S] */
     setMaelstromTimer(unit: number, timer: number): void;
+
     /** [A] */
     getPlagueTimer(unit: number): number;
+
     /** [S] */
     setPlagueTimer(unit: number, timer: number): void;
+
     /** [A] */
     getIrradiateTimer(unit: number): number;
+
     /** [S] */
     setIrradiateTimer(unit: number, timer: number): void;
+
     /** [A] */
     getStormTimer(unit: number): number;
+
     /** [S] */
     setStormTimer(unit: number, timer: number): void;
+
     /** [A] */
     getDefensiveMatrixTimer(unit: number): number;
+
     /** [S] */
     setDefensiveMatrixTimer(unit: number, timer: number): void;
+
     /** [A] */
     getDefensiveMatrixHp(unit: number): number;
+
     /** [S] */
     setDefensiveMatrixHp(unit: number, hp: number): void;
+
     /** [A] */
     getAcidSporeCount(unit: number): number;
+
     /** [S] */
     setAcidSporeCount(unit: number, count: number): void;
+
     /** [A] */
     getRemoveTimer(unit: number): number;
+
     /** [S] */
     setRemoveTimer(unit: number, frames: number): void;
+
     /**
      * [A]
      * @returns the players whose Parasite is on the unit, one bit per player
      */
     getParasiteFlags(unit: number): number;
+
     /** [S] */
     setParasiteFlags(unit: number, flags: number): void;
+
     /**
      * [A]
      * @returns the players whose Optical Flare blinded the unit, one bit per player
      */
     getBlindFlags(unit: number): number;
+
     /** [S] */
     setBlindFlags(unit: number, flags: number): void;
+
     /** [A] */
     getGroundCooldown(unit: number): number;
+
     /** [S] */
     setGroundCooldown(unit: number, frames: number): void;
+
     /** [A] */
     getAirCooldown(unit: number): number;
+
     /** [S] */
     setAirCooldown(unit: number, frames: number): void;
+
     /** [A] */
     getSpellCooldown(unit: number): number;
+
     /** [S] */
     setSpellCooldown(unit: number, frames: number): void;
+
     /** [A] */
     getKillCount(unit: number): number;
+
     /** [S] */
     setKillCount(unit: number, kills: number): void;
+
     /** [A] */
     getBuildQueue(unit: number): number[];
+
     /** [A] */
     getRemainingBuildTime(unit: number): number;
+
     /** [S] */
     setRemainingBuildTime(unit: number, frames: number): void;
+
     /** [A] */
     getRemainingResearchTime(unit: number): number;
+
     /** [S] */
     setRemainingResearchTime(unit: number, frames: number): void;
+
     /**
      * [A]
      * @returns the technology in progress, -1 for none
      */
     getResearch(unit: number): number;
+
     /**
      * [A]
      * @returns the upgrade in progress, -1 for none
      */
     getUpgrade(unit: number): number;
+
     /**
      * [A]
      * @returns the add-on, -1 for none
      */
     getAddon(unit: number): number;
+
     /** [A] */
     getRallyX(unit: number): number;
+
     /** [A] */
     getRallyY(unit: number): number;
+
     /**
      * [A]
      * @returns the rally unit, -1 for none
      */
     getRallyUnit(unit: number): number;
+
     /** [S] */
     setRallyPosition(unit: number, x: number, y: number): boolean;
+
     /**
      * [S]
      * @param target the rally unit, -1 for none
      */
     setRallyUnit(unit: number, target: number): boolean;
+
     /** [A] */
     getDirection(unit: number): number;
+
     /** [S] */
     setDirection(unit: number, direction: number): void;
+
     /** [A] */
     getCurrentSpeed(unit: number): number;
+
     /** [A] */
     getTopSpeed(unit: number): number;
+
     /** [A] */
     getMoveTargetX(unit: number): number;
+
     /** [A] */
     getMoveTargetY(unit: number): number;
+
     /** [S] */
     setMoveTarget(unit: number, x: number, y: number): void;
+
     /** [S] */
     setType(unit: number, unitType: number): boolean;
 }
@@ -1290,34 +1803,46 @@ interface CoreUnit {
 interface CoreLocation {
     /** [A] */
     getCount(): number;
+
     /** [A] */
     getName(location: number): string | null;
+
     /**
      * [A]
      * @returns the first location with the name, -1 for none
      */
     findByName(name: string): number;
+
     /** [A] */
     getLeft(location: number): number;
+
     /** [A] */
     getTop(location: number): number;
+
     /** [A] */
     getRight(location: number): number;
+
     /** [A] */
     getBottom(location: number): number;
+
     /** [A] */
     getCenterX(location: number): number;
+
     /** [A] */
     getCenterY(location: number): number;
+
     /** [S] */
     setBounds(location: number, left: number, top: number, right: number, bottom: number): void;
+
     /** [S] */
     setCenter(location: number, x: number, y: number): void;
+
     /**
      * [A]
      * @returns the elevation flags ({@link LocationFlag}): a set bit leaves the units at its elevation out of the location
      */
     getFlags(location: number): number;
+
     /** [S] */
     setFlags(location: number, flags: number): void;
 }
@@ -1328,31 +1853,42 @@ interface CoreLocation {
 interface CoreTerrain {
     /** [A] */
     getTile(tileX: number, tileY: number): number;
+
     /**
      * [A]
      * @returns the flag DWORD the game holds for the tile: sight, walkability, creep, elevation and occupation
      */
     getTileFlags(tileX: number, tileY: number): number;
+
     /**
      * [S] Queues the change, which applies at the next trigger step, after the frame start hooks and before the triggers.
      */
     setTile(tileX: number, tileY: number, value: number): void;
+
     /** [A] */
     getTileGroupCount(): number;
+
     /** [A] */
     isValidTile(value: number): boolean;
+
     /** [A] */
     isTileWalkable(value: number): boolean;
+
     /** [A] */
     isTilePartiallyWalkable(value: number): boolean;
+
     /** [A] */
     isTileBuildable(value: number): boolean;
+
     /** [A] */
     hasTileCreep(value: number): boolean;
+
     /** [A] */
     getTileElevation(value: number): number;
+
     /** [A] */
     isTileBlockingSight(value: number): boolean;
+
     /**
      * [A]
      * @returns whether the tile has the creep flag, which the rules of the game read (placement, larvae, spells)
@@ -1369,16 +1905,19 @@ interface CoreCreep {
      * as the game does for a building that needs creep.
      */
     fill(unitType: number, x: number, y: number): void;
+
     /**
      * [S] Runs one spread step of a creep source of the unit type at the map position; a type that spreads creep keeps to its ellipse.
      *
      * @returns 1 when it added a tile, 2 when it added none and an occupied tile blocked it, else 0
      */
     spread(unitType: number, x: number, y: number): number;
+
     /**
      * [S] Removes the creep of the tile at once and gives back the terrain below it.
      */
     removeTile(tileX: number, tileY: number): void;
+
     /**
      * [S] Starts the recession of a creep tile as a removed building does: the tile recedes later, at the pace of the recession.
      *
@@ -1398,46 +1937,59 @@ interface CoreCreep {
 interface CoreSprite {
     /** [A] */
     getCapacity(): number;
+
     /**
      * [A]
      * @returns the allocated sprites in slot order
      */
     getIds(): number[];
+
     /** [A] */
     exists(sprite: number): boolean;
+
     /** [A] */
     getGeneration(sprite: number): number;
+
     /**
      * [A]
      * @returns the sprites.dat entry
      */
     getType(sprite: number): number;
+
     /** [A] */
     getX(sprite: number): number;
+
     /** [A] */
     getY(sprite: number): number;
+
     /** [A] */
     getOwner(sprite: number): number;
+
     /** [A] */
     getElevation(sprite: number): number;
+
     /** [A] */
     getFlags(sprite: number): number;
+
     /**
      * [A]
      * @returns the players that see the sprite, one bit per player
      */
     getVisibilityFlags(sprite: number): number;
+
     /**
      * [A]
      * @returns the images of the image pool in the order of the sprite's list, from the image drawn on top; the local selection circles and
      *          health bars are no images of the pool
      */
     getImages(sprite: number): number[];
+
     /**
      * [A]
      * @returns the main image, -1 for none
      */
     getMainImage(sprite: number): number;
+
     /**
      * [S] Creates a sprite that lives as long as its image scripts run, as the game creates the sprite of a spell or of dust, then sets its
      * elevation (0 to 255) and its visibility from the tile below it, as every native caller does.
@@ -1455,36 +2007,46 @@ interface CoreSprite {
 interface CoreImage {
     /** [A] */
     getCapacity(): number;
+
     /** [A] */
     exists(image: number): boolean;
+
     /** [A] */
     getGeneration(image: number): number;
+
     /**
      * [A]
      * @returns the images.dat entry
      */
     getType(image: number): number;
+
     /**
      * [A]
      * @returns the sprite, -1 for none
      */
     getSprite(image: number): number;
+
     /**
      * [A]
      * @returns the drawn frame
      */
     getFrame(image: number): number;
+
     /**
      * [A]
      * @returns the frame offset of the direction inside the frame group
      */
     getDirection(image: number): number;
+
     /** [A] */
     getDrawFunction(image: number): number;
+
     /** [A] */
     getFlags(image: number): number;
+
     /** [A] */
     getOffsetX(image: number): number;
+
     /** [A] */
     getOffsetY(image: number): number;
 }
@@ -1498,73 +2060,95 @@ interface CoreImage {
 interface CoreBullet {
     /** [A] */
     getCapacity(): number;
+
     /** [A] */
     getActiveCount(): number;
+
     /**
      * [A]
      * @returns the active bullets in the order of the active list
      */
     getIds(): number[];
+
     /** [A] */
     exists(bullet: number): boolean;
+
     /** [A] */
     getGeneration(bullet: number): number;
+
     /** [A] */
     getWeapon(bullet: number): number;
+
     /** [A] */
     getFlingyType(bullet: number): number;
+
     /** [A] */
     getX(bullet: number): number;
+
     /** [A] */
     getY(bullet: number): number;
+
     /** [A] */
     getPlayer(bullet: number): number;
+
     /**
      * [A]
      * @returns the unit that fired the bullet, -1 once it is gone
      */
     getSource(bullet: number): number;
+
     /**
      * [A]
      * @returns the target unit, -1 for none
      */
     getTarget(bullet: number): number;
+
     /**
      * [A]
      * @returns the X of the center of the hit
      */
     getTargetX(bullet: number): number;
+
     /** [A] */
     getTargetY(bullet: number): number;
+
     /**
      * [A]
      * @returns 0 init, 1 move, 2 follow, 3 bounce, 4 damage over time, 5 dying, 6 hit near the target
      */
     getState(bullet: number): number;
+
     /** [A] */
     getRemainingTime(bullet: number): number;
+
     /** [A] */
     getRemainingBounces(bullet: number): number;
+
     /** [A] */
     getDirection(bullet: number): number;
+
     /**
      * [A]
      * @returns the sprite, -1 once its last image ended
      */
     getSprite(bullet: number): number;
+
     /**
      * [S] Sets the target unit (-1 for none) as an EUD write does: the follow, bounce and hit-near-target states move toward it from the next
      * frame and the hit damages it; the move state keeps its move target.
      */
     setTarget(bullet: number, unit: number): void;
+
     /**
      * [S] Sets the center of the hit as an EUD write does; the move target does not change.
      */
     setTargetPosition(bullet: number, x: number, y: number): void;
+
     /**
      * [S] Sets the remaining time (0 to 255), which the move and damage-over-time states count down.
      */
     setRemainingTime(bullet: number, frames: number): void;
+
     /**
      * [S] Runs the bullet creation of the game at the map position for a live unit, which aims the bullet at its order target unit, else its
      * order target position.
@@ -1583,23 +2167,29 @@ interface CoreVision {
      * @returns bit p set while player p does not see the tile, bit 8 + p while player p has not explored it
      */
     getTileVisibility(tileX: number, tileY: number): number;
+
     /**
      * [S] Replaces the visibility bits (0 to 0xFFFF) of one tile as an EUD write does: the visible bits last until the game marks the tiles
      * unseen or the units' sight clears them, the explored bits stay.
      */
     setTileVisibility(tileX: number, tileY: number, bits: number): void;
+
     /**
      * [A]
      * @returns the fog brightness of visible tiles (0 to 255, default 31): the world's fog draws visible tiles at this level, explored tiles at
      *          half of it; the minimap does not use it
      */
     getFogBrightness(): number;
+
     /** [A] */
     setFogBrightness(level: number): void;
+
     /** [A] */
     isVisible(player: number, x: number, y: number): boolean;
+
     /** [A] */
     isExplored(player: number, x: number, y: number): boolean;
+
     /**
      * [S] Runs a unit's sight routine for the players of the mask (0 to 0xFF) with a sight range from 0 to 11; the tiles stay seen until the
      * game marks them unseen again.
@@ -1618,12 +2208,16 @@ interface CoreCombat {
      * @returns the factor in 1/256
      */
     getDamageMultiplier(damageType: number, size: number): number;
+
     /** [S] */
     setDamageMultiplier(damageType: number, size: number, value: number): void;
+
     /** [A] */
     getFleeDistanceCount(): number;
+
     /** [A] */
     getFleeDistance(index: number): number;
+
     /** [S] */
     setFleeDistance(index: number, pixels: number): void;
 }
@@ -1637,22 +2231,29 @@ interface CoreCombat {
 interface CoreRequirements {
     /** [A] */
     getScriptLength(kind: number): number;
+
     /** [A] */
     getScriptWord(kind: number, position: number): number;
+
     /** [S] */
     setScriptWord(kind: number, position: number, word: number): void;
+
     /**
      * [A] Runs the native order test for a live unit and a player.
      * @returns 0 when the requirements hold, else the failure code in the low byte, with 0x10000 set when the command card shows the button
      *          disabled rather than hidden
      */
     checkOrder(unit: number, order: number, player: number): number;
+
     /** [A] As {@link checkOrder}. */
     checkTechnologyUse(unit: number, tech: number, player: number): number;
+
     /** [A] As {@link checkOrder}. */
     checkResearch(unit: number, tech: number, player: number): number;
+
     /** [A] As {@link checkOrder}. */
     checkUpgrade(unit: number, upgrade: number, player: number): number;
+
     /** [A] As {@link checkOrder}. */
     checkBuild(unit: number, unitType: number, player: number): number;
 }
@@ -1666,6 +2267,7 @@ interface CoreAi {
      * @returns the strength of the unit type against air or ground targets
      */
     getUnitStrength(unitType: number, air: boolean): number;
+
     /** [S] */
     setUnitStrength(unitType: number, air: boolean, value: number): void;
 }
@@ -1673,12 +2275,16 @@ interface CoreAi {
 interface CoreLeaderboard {
     /** [S] */
     show(type: number, operand: number, goal: number, label: string): void;
+
     /** [S] */
     showAt(type: number, location: number, unitType: number, goal: number, label: string): void;
+
     /** [S] */
     showGreed(goal: number): void;
+
     /** [A] */
     areComputersIncluded(): boolean;
+
     /** [S] */
     setComputersIncluded(included: boolean): void;
 }
@@ -1686,6 +2292,7 @@ interface CoreLeaderboard {
 interface CoreTypes {
     /** [A] */
     getCount(): number;
+
     /** [A] */
     getName(id: number): string;
 }
@@ -1696,11 +2303,13 @@ interface CoreImageTypes extends CoreTypes {
      * @returns the image type whose HD anim the image type draws (images.rel), the image type itself for one with its own anim
      */
     getAnimImageType(imageType: number): number;
+
     /**
      * [A]
      * @returns the damage overlay byte: twice the flame positions of the image's damage overlay
      */
     getDamageOverlayCount(imageType: number): number;
+
     /** [S] */
     setDamageOverlayCount(imageType: number, count: number): void;
 }
@@ -1708,17 +2317,22 @@ interface CoreImageTypes extends CoreTypes {
 interface CoreResources {
     /** [A] */
     has(name: string): boolean;
+
     /**
      * [A]
      * @returns the resource handle
      */
     getGrp(name: string): number;
+
     /** [A] */
     getAnim(name: string): number;
+
     /** [A] */
     getImage(name: string): number;
+
     /** [A] */
     getImageWidth(image: number): number;
+
     /** [A] */
     getImageHeight(image: number): number;
 }
@@ -1731,23 +2345,30 @@ interface CoreGraphics {
      * @param hd2Anim the HD2 anim handle, -1 for none
      */
     replaceImage(imageType: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
     /** [A] */
     restoreImage(imageType: number): void;
+
     /** [A] */
     replaceUnitImage(unit: number, imageType: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
     /** [A] */
     restoreUnitImage(unit: number, imageType: number): void;
+
     /**
      * [A] Replaces the graphics of one image ({@link CoreImage}) while its slot holds it; they win over those of its unit and image type.
      */
     replaceImageGraphics(image: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
     /** [A] */
     restoreImageGraphics(image: number): void;
+
     /**
      * [A] Draws a frame (0 to 65535) of one image until the image's own drawn frame changes, as an EUD write of the frame does; -1 draws the
      * image's own frame again. It wins over an EUD write.
      */
     setImageFrame(image: number, frame: number): void;
+
     /**
      * [A] Draws one image with a draw function (0 to 17) until the image's own draw function changes, as an EUD write of the render function
      * does; -1 draws with the image's own again. It wins over an EUD write.
@@ -1764,11 +2385,13 @@ interface CoreEvents {
      * @returns a new array of the records of the frame's events, in the order they happened; every call of a frame returns the same records
      */
     getFrameEvents(): CoreEventRecord[];
+
     /**
      * [A]
      * @returns the number of event kinds
      */
     getKindCount(): number;
+
     /**
      * [A]
      * @returns the name of an event kind, that of {@link EventKind}
@@ -1785,6 +2408,7 @@ interface CoreCommand {
      * of these; anything else throws a TypeError. A replay and an observer submit nothing; shared code submits once from every human peer.
      */
     submit(value: any): void;
+
     /**
      * [S]
      * @returns new records of the script commands that ran since the previous frame start, in the order they ran, each with a new copy of
@@ -1802,58 +2426,74 @@ interface CoreLocal {
      * @returns the local player's id, -1 in a replay and for an observer
      */
     getPlayer(): number;
+
     /** [L] */
     isReplay(): boolean;
+
     /** [L] */
     isChatOpen(): boolean;
+
     /**
      * [L]
      * @returns true once the client supplied the screen and pointer positions
      */
     isViewKnown(): boolean;
+
     /** [L] */
     getScreenX(): number;
+
     /** [L] */
     getScreenY(): number;
+
     /**
      * [L]
      * @returns the map X under the pointer
      */
     getMouseX(): number;
+
     /** [L] */
     getMouseY(): number;
+
     /**
      * [L]
      * @returns false while the screen is unknown
      */
     setScreenPosition(x: number, y: number): boolean;
+
     /** [L] */
     getSelection(): number[];
+
     /**
      * [L]
      * @returns a new array of the records of the local inputs that reached the game before the current local frame
      */
     getInputEvents(): CoreInputRecord[];
+
     /**
      * [L]
      * @returns the local state the Script button condition gives for a condition value (0 to 255): 1 enabled, 0 hidden, -1 disabled; every
      *          state starts 0 (hidden), the native zero value
      */
     getButtonState(conditionValue: number): number;
+
     /** [L] */
     setButtonState(conditionValue: number, state: number): void;
+
     /**
      * [L]
      * @returns the button set the local command card shows, 0xE4 for none
      */
     getDisplayedButtonSet(): number;
+
     /** [L] Shows a button set at the card's next refresh, as the Change Buttons action does, until the selection changes. */
     changeButtons(set: number): void;
+
     /**
      * [L] Sends the local player's Pause command of the game menu while the game runs; a network pause takes one of the player's pauses left.
      * Nothing in a replay.
      */
     requestPause(): void;
+
     /** [L] Sends the local player's Resume command while the game is paused. Nothing in a replay. */
     requestResume(): void;
 }
@@ -1872,95 +2512,128 @@ interface CoreLocal {
 interface CoreButtons {
     /** [A] */
     getSetCount(): number;
+
     /** [A] */
     getButtonCount(set: number): number;
+
     /**
      * [A]
      * @returns the connected set WORD, 0xFFFF for none
      */
     getConnectedSet(set: number): number;
+
     /** [A] */
     setConnectedSet(set: number, connected: number): void;
+
     /**
      * [A]
      * @returns the first set that holds the set's array
      */
     getArray(set: number): number;
+
     /** [A] The set takes the array of fromSet. */
     share(set: number, fromSet: number): void;
+
     /** [A] The set takes its own copy of its array. */
     unshare(set: number): void;
+
     /** [A] The set takes its installed array and connected set again. */
     restore(set: number): void;
+
     /** [A] The installed table again, also after EUD writes. */
     restoreAll(): void;
+
     /**
      * [A]
      * @returns the position from 1 to 9
      */
     getPosition(set: number, index: number): number;
+
     /** [A] */
     setPosition(set: number, index: number, position: number): void;
+
     /**
      * [A]
      * @returns the cmdicons frame
      */
     getIcon(set: number, index: number): number;
+
     /** [A] */
     setIcon(set: number, index: number, icon: number): void;
+
     /**
      * [A]
      * @returns the condition id, -1 for an unknown function
      */
     getCondition(set: number, index: number): number;
+
     /** [A] */
     setCondition(set: number, index: number, condition: number): void;
+
     /** [A] */
     getConditionValue(set: number, index: number): number;
+
     /** [A] The value BYTE. */
     setConditionValue(set: number, index: number, value: number): void;
+
     /**
      * [A]
      * @returns the action id, -1 for an unknown function
      */
     getAction(set: number, index: number): number;
+
     /** [A] */
     setAction(set: number, index: number, action: number): void;
+
     /** [A] */
     getActionValue(set: number, index: number): number;
+
     /** [A] The value WORD. */
     setActionValue(set: number, index: number, value: number): void;
+
     /**
      * [A]
      * @returns the one-based stat_txt id of the enabled string, 0 for none
      */
     getEnabledString(set: number, index: number): number;
+
     /** [A] */
     setEnabledString(set: number, index: number, stringId: number): void;
+
     /** [A] */
     getDisabledString(set: number, index: number): number;
+
     /** [A] */
     setDisabledString(set: number, index: number, stringId: number): void;
+
     /**
      * [A]
      * @returns the enabled text, null while the button shows its enabled string
      */
     getEnabledText(set: number, index: number): string | null;
+
     /** [A] */
     getDisabledText(set: number, index: number): string | null;
+
     /** [A] Sets both texts; null shows the string. */
     setText(set: number, index: number, enabled: string | null, disabled: string | null): void;
+
     /** [A] Inserts a button before the index, or at the end for the button count. */
     insert(set: number, index: number, position: number, icon: number, condition: number, conditionValue: number, action: number,
            actionValue: number, enabledString: number, disabledString: number): void;
+
     /** [A] */
     remove(set: number, index: number): void;
+
     /** [A] */
     getConditionCount(): number;
+
     /** [A] */
     getConditionName(condition: number): string;
+
     /** [A] */
     getActionCount(): number;
+
     /** [A] */
     getActionName(action: number): string;
 }
@@ -1971,20 +2644,28 @@ interface CoreButtons {
 interface CoreDrawing {
     /** [L] */
     fillRectangle(x: number, y: number, width: number, height: number, argb: number): void;
+
     /** [L] */
     drawRectangle(x: number, y: number, width: number, height: number, argb: number, thickness: number): void;
+
     /** [L] */
     fillCircle(x: number, y: number, radius: number, argb: number): void;
+
     /** [L] */
     drawCircle(x: number, y: number, radius: number, argb: number, thickness: number): void;
+
     /** [L] */
     drawLine(x1: number, y1: number, x2: number, y2: number, argb: number, thickness: number): void;
+
     /** [L] */
     drawPoint(x: number, y: number, argb: number): void;
+
     /** [L] */
     drawText(x: number, y: number, text: string, font: number, argb: number, align: number): void;
+
     /** [L] */
     drawImage(image: number, x: number, y: number, width: number, height: number, opacity: number): void;
+
     /** [L] */
     measureText(text: string, font: number): number;
 }
@@ -1996,19 +2677,25 @@ interface CoreDrawing {
 interface CoreScreen extends CoreDrawing {
     /** [L] */
     getWidth(): number;
+
     /** [L] */
     getHeight(): number;
+
     /** [L] */
     getScale(): number;
+
     /**
      * [L]
      * @returns 0 SD, 1 HD, 2 HD2
      */
     getGraphics(): number;
+
     /** [A] */
     setPixel(x: number, y: number, paletteIndex: number): void;
+
     /** [A] */
     fillPixels(x: number, y: number, width: number, height: number, paletteIndex: number): void;
+
     /** [A] */
     getPaletteColor(index: number): number;
 }
@@ -2020,25 +2707,34 @@ interface CoreScreen extends CoreDrawing {
 interface CoreConsole {
     /** [A] */
     setVisible(visible: boolean): void;
+
     /** [A] */
     isVisible(): boolean;
+
     /** [A] */
     setDialogVisible(dialog: number, visible: boolean): void;
+
     /** [A] */
     isDialogVisible(dialog: number): boolean;
+
     /** [A] */
     setDialogPosition(dialog: number, x: number, y: number): void;
+
     /**
      * [A] Shows or hides a control of a dialog by its identifier in the dialog's definition (a signed WORD); it wins over EUD memory until
      * restoreControl.
      */
     setControlVisible(dialog: number, control: number, visible: boolean): void;
+
     /** [A] Places a control of a dialog by its top left in the classic 640 by 480 screen; it wins over EUD memory until restoreControl. */
     setControlPosition(dialog: number, control: number, x: number, y: number): void;
+
     /** [A] Forgets the visibility and the position set on a control, so that EUD memory drives it again. */
     restoreControl(dialog: number, control: number): void;
+
     /** [A] */
     replaceImage(consoleImage: number, image: number): void;
+
     /** [A] */
     setResourceIcon(icon: number, image: number): void;
 }
@@ -2056,23 +2752,28 @@ interface CoreStrings {
 interface CoreMessages {
     /** [A] */
     clear(): void;
+
     /**
      * [A]
      * @returns the number of lines, 13
      */
     getLineCount(): number;
+
     /**
      * [A]
      * @returns the text of a line up to its first zero byte
      */
     getLine(line: number): string;
+
     /** [A] Stores the text's UTF-8 bytes, at most 217 of them, and a zero byte. */
     setLine(line: number, text: string): void;
+
     /**
      * [A]
      * @returns the line the next message starts at, a byte; 11 or more starts at line 0
      */
     getNextLine(): number;
+
     /** [A] */
     setNextLine(value: number): void;
 }

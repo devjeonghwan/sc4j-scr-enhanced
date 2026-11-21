@@ -4,11 +4,7 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.DatTable;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.DatType;
 import org.jetbrains.annotations.NotNull;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.EcmaError;
-import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.*;
 
 /**
  * Defines {@code core.dat}: one namespace per table of {@link ScriptDatTables} ({@code core.dat.units} and the others) with

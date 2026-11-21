@@ -297,8 +297,7 @@
         return 'Button ' + this.index + ' of button set ' + this.set;
     };
 
-    [buttonConditionPrototype, buttonActionPrototype, buttonStatePrototype, buttonKindPrototype, buttonSetPrototype,
-     buttonPrototype].forEach(freeze);
+    [buttonConditionPrototype, buttonActionPrototype, buttonStatePrototype, buttonKindPrototype, buttonSetPrototype, buttonPrototype].forEach(freeze);
 
     return {
         exports: {

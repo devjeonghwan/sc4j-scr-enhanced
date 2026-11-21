@@ -11,11 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Supplier;
 
 /**
@@ -103,7 +99,6 @@ public final class ImageReplacements {
             return this.graphics == null && this.frame == NONE && this.drawFunction == NONE;
         }
     }
-
 
 
     /**
@@ -257,7 +252,7 @@ public final class ImageReplacements {
         ImageOverride override = this.findImageOverride(image);
 
         return override == null || override.drawFunction == NONE || override.ownDrawFunction != image.getModifier() ? NONE
-                                                                                                                  : override.drawFunction;
+                                                                                                                    : override.drawFunction;
     }
 
     /**

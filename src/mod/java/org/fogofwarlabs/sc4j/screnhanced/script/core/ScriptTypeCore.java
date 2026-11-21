@@ -2,12 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.content.type.ContentType;
-import org.fogofwarlabs.sc4j.scr.content.ScrImages;
-import org.fogofwarlabs.sc4j.scr.content.ScrOrders;
-import org.fogofwarlabs.sc4j.scr.content.ScrTechs;
-import org.fogofwarlabs.sc4j.scr.content.ScrUnits;
-import org.fogofwarlabs.sc4j.scr.content.ScrUpgrades;
-import org.fogofwarlabs.sc4j.scr.content.ScrWeapons;
+import org.fogofwarlabs.sc4j.scr.content.*;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.FlingyDat;
 import org.fogofwarlabs.sc4j.scr.data.format.dat.SpritesDat;
 import org.fogofwarlabs.sc4j.scr.data.format.image.ImageRelations;
@@ -20,12 +15,7 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Defines the type namespaces of {@code core}: {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType},
@@ -303,7 +293,7 @@ final class ScriptTypeCore {
      *
      * @param gameData the game data, or {@code null} for a game without game data
      * @return the image types, by entry: the entry itself for an entry with its own anim, for a game without game data and when
-     *         {@code images.rel} cannot be read
+     * {@code images.rel} cannot be read
      */
     private static int @NotNull [] createAnimImageTypes(@Nullable GameData gameData) {
         int[] animImageTypes = new int[ScrImages.COUNT];

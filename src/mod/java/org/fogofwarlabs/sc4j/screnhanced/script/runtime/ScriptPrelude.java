@@ -3,11 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.screnhanced.script.core.ScriptDatTables;
 import org.jetbrains.annotations.NotNull;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.Function;
-import org.mozilla.javascript.Script;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,7 +27,7 @@ final class ScriptPrelude {
      * The area files of the prelude, in load order.
      */
     static final @NotNull List<@NotNull String> FILE_NAMES = List.of("values.js", "types.js", "buttons.js", "game.js", "sync.js", "local.js",
-                                                                      "command-card.js", "presentation.js", "render.js", "hooks.js");
+                                                                     "command-card.js", "presentation.js", "render.js", "hooks.js");
     /**
      * The resource folder of the area files.
      */

@@ -215,7 +215,7 @@ public enum ScriptHook {
 
     /**
      * @return {@code true} if the hook runs on the local machine only, its name starting with {@value #LOCAL_NAME_PREFIX} or {@link #RENDER},
-     *         {@code false} if it runs on every peer
+     * {@code false} if it runs on every peer
      */
     public boolean isLocal() {
         return this.local;

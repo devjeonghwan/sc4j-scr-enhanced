@@ -28,71 +28,71 @@ final class ScriptCreepCoreTest {
      */
     private static final int CHANGE_FRAMES = 4;
     private static final @NotNull String CHANGES = """
-            function onStart() {
-                var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter});
-                var spot = Position.of(commandCenter.getX(), commandCenter.getY() + 160);
-                game.map.terrain.creep.fill(UnitType.ZergSpawningPool, spot);
-                game.map.terrain.creep.spread(UnitType.ZergHatchery, spot);
-            }
-            """;
+                                                   function onStart() {
+                                                       var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter});
+                                                       var spot = Position.of(commandCenter.getX(), commandCenter.getY() + 160);
+                                                       game.map.terrain.creep.fill(UnitType.ZergSpawningPool, spot);
+                                                       game.map.terrain.creep.spread(UnitType.ZergHatchery, spot);
+                                                   }
+                                                   """;
 
     @Test
     void creep_is_filled_removed_and_recedes_through_the_native_routines(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var OCCUPIED = 0x8000000;
-                var creep = game.map.terrain.creep;
-                var recedingX = -1;
-                var recedingY = -1;
-                var done = false;
-                function tileOf(value) {
-                    return Math.floor(value / 32);
-                }
-                function onStart() {
-                    var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
-                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter});
-                    var spot = Position.of(commandCenter.getX(), commandCenter.getY() + 160);
-                    var tileX = tileOf(spot.getX());
-                    var tileY = tileOf(spot.getY());
-                    log.info(core.terrain.hasCreep(tileOf(hatchery.getX()), tileOf(hatchery.getY())), creep.has(tileX, tileY),
-                             creep.recede(tileX, tileY), creep.recede(tileOf(hatchery.getX()), tileOf(hatchery.getY())));
-                    creep.fill(UnitType.ZergSpawningPool, spot);
-                    var spread = core.creep.spread(UnitType.ZergHatchery.getId(), spot.getX(), spot.getY());
-                    log.info(creep.has(tileX, tileY), (core.terrain.getTileFlags(tileX, tileY) & 0x400000) !== 0,
-                             typeof creep.spread(UnitType.ZergHatchery, spot), [0, 1, 2].indexOf(spread) >= 0);
-                    creep.remove(tileX, tileY);
-                    log.info(creep.has(tileX, tileY));
-                    for (var y = tileY - 3; y <= tileY + 3 && recedingX < 0; y++) {
-                        for (var x = tileX - 3; x <= tileX + 3 && recedingX < 0; x++) {
-                            if ((x !== tileX || y !== tileY) && creep.has(x, y) && (core.terrain.getTileFlags(x, y) & OCCUPIED) === 0) {
-                                recedingX = x;
-                                recedingY = y;
-                            }
-                        }
-                    }
-                    log.info(creep.has(recedingX, recedingY), creep.recede(recedingX, recedingY), creep.recede(recedingX, recedingY));
-                    [function () { core.creep.fill(228, spot.getX(), spot.getY()); }, function () { core.creep.removeTile(-1, 0); },
-                     function () { core.creep.fill(UnitType.ZergHatchery.getId(), 0, 0); }].forEach(function (call) {
-                        try {
-                            call();
-                        } catch (error) {
-                            log.info(error.name);
-                        }
-                    });
-                }
-                function onFrame() {
-                    if (!done && !creep.has(recedingX, recedingY)) {
-                        done = true;
-                        log.info('receded');
-                    }
-                }
-                function onLocalFrame() {
-                    try {
-                        creep.remove(recedingX, recedingY);
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + creep.has(recedingX, recedingY));
-                    }
-                }
-                """);
+                                                                                                     var OCCUPIED = 0x8000000;
+                                                                                                     var creep = game.map.terrain.creep;
+                                                                                                     var recedingX = -1;
+                                                                                                     var recedingY = -1;
+                                                                                                     var done = false;
+                                                                                                     function tileOf(value) {
+                                                                                                         return Math.floor(value / 32);
+                                                                                                     }
+                                                                                                     function onStart() {
+                                                                                                         var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
+                                                                                                         var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter});
+                                                                                                         var spot = Position.of(commandCenter.getX(), commandCenter.getY() + 160);
+                                                                                                         var tileX = tileOf(spot.getX());
+                                                                                                         var tileY = tileOf(spot.getY());
+                                                                                                         log.info(core.terrain.hasCreep(tileOf(hatchery.getX()), tileOf(hatchery.getY())), creep.has(tileX, tileY),
+                                                                                                                  creep.recede(tileX, tileY), creep.recede(tileOf(hatchery.getX()), tileOf(hatchery.getY())));
+                                                                                                         creep.fill(UnitType.ZergSpawningPool, spot);
+                                                                                                         var spread = core.creep.spread(UnitType.ZergHatchery.getId(), spot.getX(), spot.getY());
+                                                                                                         log.info(creep.has(tileX, tileY), (core.terrain.getTileFlags(tileX, tileY) & 0x400000) !== 0,
+                                                                                                                  typeof creep.spread(UnitType.ZergHatchery, spot), [0, 1, 2].indexOf(spread) >= 0);
+                                                                                                         creep.remove(tileX, tileY);
+                                                                                                         log.info(creep.has(tileX, tileY));
+                                                                                                         for (var y = tileY - 3; y <= tileY + 3 && recedingX < 0; y++) {
+                                                                                                             for (var x = tileX - 3; x <= tileX + 3 && recedingX < 0; x++) {
+                                                                                                                 if ((x !== tileX || y !== tileY) && creep.has(x, y) && (core.terrain.getTileFlags(x, y) & OCCUPIED) === 0) {
+                                                                                                                     recedingX = x;
+                                                                                                                     recedingY = y;
+                                                                                                                 }
+                                                                                                             }
+                                                                                                         }
+                                                                                                         log.info(creep.has(recedingX, recedingY), creep.recede(recedingX, recedingY), creep.recede(recedingX, recedingY));
+                                                                                                         [function () { core.creep.fill(228, spot.getX(), spot.getY()); }, function () { core.creep.removeTile(-1, 0); },
+                                                                                                          function () { core.creep.fill(UnitType.ZergHatchery.getId(), 0, 0); }].forEach(function (call) {
+                                                                                                             try {
+                                                                                                                 call();
+                                                                                                             } catch (error) {
+                                                                                                                 log.info(error.name);
+                                                                                                             }
+                                                                                                         });
+                                                                                                     }
+                                                                                                     function onFrame() {
+                                                                                                         if (!done && !creep.has(recedingX, recedingY)) {
+                                                                                                             done = true;
+                                                                                                             log.info('receded');
+                                                                                                         }
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         try {
+                                                                                                             creep.remove(recedingX, recedingY);
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name + ' ' + creep.has(recedingX, recedingY));
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
 
         for (int frame = 0; frame < RECESSION_FRAMES && !scenario.getInfoMessages().contains("receded"); frame++) {
             scenario.stepFrame();

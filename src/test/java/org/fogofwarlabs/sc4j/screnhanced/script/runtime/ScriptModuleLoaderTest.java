@@ -31,25 +31,25 @@ final class ScriptModuleLoaderTest {
     void require_loads_modules_relative_to_the_requiring_script_once() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        const first = require('./lib/first');
-                        const again = require('lib/first.js');
-                        log.info(first.name, first.shared, again === first, typeof helper, typeof secret);
-                        log.info(module.id, require('./shared').count);
-                        """,
+                                                 const first = require('./lib/first');
+                                                 const again = require('lib/first.js');
+                                                 log.info(first.name, first.shared, again === first, typeof helper, typeof secret);
+                                                 log.info(module.id, require('./shared').count);
+                                                 """,
                 "lib/first.js", """
-                        const second = require('./second.js');
-                        exports.name = 'first+' + second.name;
-                        exports.shared = require('../shared').count;
-                        """,
+                                const second = require('./second.js');
+                                exports.name = 'first+' + second.name;
+                                exports.shared = require('../shared').count;
+                                """,
                 "lib/second.js", """
-                        var secret = 1;
-                        function helper() {}
-                        module.exports = { name: 'second ' + module.id };
-                        """,
+                                 var secret = 1;
+                                 function helper() {}
+                                 module.exports = { name: 'second ' + module.id };
+                                 """,
                 "shared.js", """
-                        log.info('shared loads');
-                        exports.count = 7;
-                        """
+                             log.info('shared loads');
+                             exports.count = 7;
+                             """
         );
 
         Assertions.assertEquals(List.of("INFO shared.js: shared loads", "INFO main.js: first+second lib/second.js 7 true undefined undefined",
@@ -60,16 +60,16 @@ final class ScriptModuleLoaderTest {
     void require_cycles_see_the_partial_exports() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        exports.ready = false;
-                        const other = require('./other');
-                        exports.ready = true;
-                        log.info('main sees', other.seen, other.after());
-                        """,
+                                                 exports.ready = false;
+                                                 const other = require('./other');
+                                                 exports.ready = true;
+                                                 log.info('main sees', other.seen, other.after());
+                                                 """,
                 "other.js", """
-                        const main = require('./main');
-                        exports.seen = main.ready;
-                        exports.after = () => main.ready;
-                        """
+                            const main = require('./main');
+                            exports.seen = main.ready;
+                            exports.after = () => main.ready;
+                            """
         );
 
         Assertions.assertEquals(List.of("INFO main.js: main sees false true"), ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 0));
@@ -79,16 +79,16 @@ final class ScriptModuleLoaderTest {
     void require_failures_are_script_errors() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        for (let id of ['./missing', '../outside', '/absolute', './broken', './broken']) {
-                            try { require(id); log.info('loaded', id); } catch (e) { log.info(e.name, e.message); }
-                        }
-                        log.info(typeof onFrame);
-                        """,
+                                                 for (let id of ['./missing', '../outside', '/absolute', './broken', './broken']) {
+                                                     try { require(id); log.info('loaded', id); } catch (e) { log.info(e.name, e.message); }
+                                                 }
+                                                 log.info(typeof onFrame);
+                                                 """,
                 "broken.js", """
-                        log.info('broken runs');
-                        function onFrame() { log.info('broken frame'); }
-                        throw new Error('broken fails');
-                        """
+                             log.info('broken runs');
+                             function onFrame() { log.info('broken frame'); }
+                             throw new Error('broken fails');
+                             """
         );
         ScriptRuntimeScenario scenario = new ScriptRuntimeScenario(scriptPackage, ScriptRuntimeScenario.SEED, ScriptRuntime.INSTRUCTION_BUDGET);
 

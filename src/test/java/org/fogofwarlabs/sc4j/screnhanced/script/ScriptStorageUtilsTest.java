@@ -17,11 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Tests {@link ScriptStorageUtils} with synthetic map archives; the layout tests read the footer and the bytes before the trailer because their
@@ -228,7 +224,7 @@ final class ScriptStorageUtilsTest {
     void read_trailer_should_read_resources_only_on_demand_and_check_their_digest() throws IOException, NoSuchAlgorithmException {
         byte[] incompressible = createIncompressible();
         byte[] packedMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Lazy", Map.of(MAIN_SCRIPT, "1;"),
-                                                                                               Map.of(RESOURCE_NAME, incompressible)));
+                                                                                                Map.of(RESOURCE_NAME, incompressible)));
 
         // A changed resource byte leaves the trailer readable until the resource is read.
         packedMap[indexOf(packedMap, incompressible) + 1] ^= 1;
@@ -289,7 +285,7 @@ final class ScriptStorageUtilsTest {
         // As protectors do, the block table overlaps the header: the reader decrypts the header bytes as block entries.
         byte[] map = ScriptMapScenario.setHeaderField(createMap(), ScriptMapScenario.BLOCK_TABLE_POSITION_FIELD, 0);
         byte[] packedMap = ScriptStorageUtils.writePackage(map, MAP_NAME, createPackage("Protected", Map.of(MAIN_SCRIPT, "1;"),
-                                                                                         Map.of(RESOURCE_NAME, createIncompressible())));
+                                                                                        Map.of(RESOURCE_NAME, createIncompressible())));
 
         Assertions.assertArrayEquals(map, Arrays.copyOf(packedMap, map.length));
         Assertions.assertEquals(0, readFooter(packedMap).getInt(FOOTER_PADDING_OFFSET));

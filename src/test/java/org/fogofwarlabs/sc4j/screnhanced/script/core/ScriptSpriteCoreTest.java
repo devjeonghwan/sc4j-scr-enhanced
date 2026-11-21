@@ -40,81 +40,81 @@ final class ScriptSpriteCoreTest {
      */
     private static final int CHANGE_FRAMES = 4;
     private static final @NotNull String CHANGES = """
-            function onStart() {
-                var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
-                game.createEffect(SpriteType.get(%d), hatchery.getPosition(), {elevation: 12});
-                hatchery.getSprite().getMainImage().setFrame(2);
-            }
-            """.formatted(EFFECT);
+                                                   function onStart() {
+                                                       var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
+                                                       game.createEffect(SpriteType.get(%d), hatchery.getPosition(), {elevation: 12});
+                                                       hatchery.getSprite().getMainImage().setFrame(2);
+                                                   }
+                                                   """.formatted(EFFECT);
 
     @Test
     void sprites_and_images_read_the_game_and_an_effect_ends_with_its_scripts(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var EFFECT = %d;
-                var effect;
-                var effectSlot;
-                var effectGeneration;
-                var main;
-                var done = false;
-                function onStart() {
-                    var human = game.players.getHumans()[0];
-                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
-                    var spriteId = core.unit.getSprite(commandCenter.getId());
-                    var sprite = commandCenter.getSprite();
-                    main = sprite.getMainImage();
-                    log.info(spriteId >= 0, sprite.getId() === spriteId, sprite === commandCenter.getSprite(), core.sprite.exists(spriteId),
-                             core.sprite.getX(spriteId) === commandCenter.getX(), sprite.getPosition().getY() === commandCenter.getY(),
-                             sprite.getOwner() === human, sprite.getType() === SpriteType.get(core.sprite.getType(spriteId)),
-                             core.sprite.getIds().indexOf(spriteId) >= 0, core.sprite.getGeneration(spriteId) > 0);
-                    log.info(main.getType() === commandCenter.getImageType(), main.getSprite() === sprite, sprite.getImages().indexOf(main) >= 0,
-                             core.image.exists(main.getId()), core.image.getGeneration(main.getId()) > 0, main.getDrawFunction().getName(),
-                             main.getFrame() === core.image.getFrame(main.getId()), sprite.isVisibleTo(human));
-                    effect = game.createEffect(SpriteType.get(EFFECT), commandCenter.getPosition(), {owner: human, elevation: 12});
-                    effectSlot = effect.getId();
-                    effectGeneration = core.sprite.getGeneration(effectSlot);
-                    log.info(effect.getType().getId(), effect.getElevation(), effect.getOwner() === human,
-                             effect.getPosition().getX() === commandCenter.getX(), effect.exists(), core.sprite.getMainImage(effectSlot) >= 0);
-                    main.setFrame(%d);
-                    main.setDrawFunction(DrawFunction.Hallucination);
-                    log.info('main ' + main.getId());
-                    [function () { core.sprite.createEffect(9999, 0, 0, 0, 0); }, function () { core.sprite.getType(-1); },
-                     function () { core.image.getType(core.image.getCapacity()); },
-                     function () { core.graphics.setImageDrawFunction(main.getId(), 18); },
-                     function () { core.sprite.createEffect(EFFECT, 0, 0, 12, 0); }].forEach(function (call) {
-                        try {
-                            call();
-                        } catch (error) {
-                            log.info(error.name);
-                        }
-                    });
-                }
-                function onFrame() {
-                    if (done || effect.exists()) {
-                        return;
-                    }
-                    done = true;
-                    try {
-                        effect.getType();
-                    } catch (error) {
-                        log.info('gone ' + error.name + ' ' + (error.message.indexOf('does not exist') >= 0) + ' ' + core.sprite.exists(effectSlot));
-                    }
-                    var reused = null;
-                    for (var count = 0; count < 100 && (reused === null || reused.getId() !== effectSlot); count++) {
-                        reused = game.createEffect(SpriteType.get(EFFECT), Position.of(64, 64));
-                    }
-                    log.info('reused ' + (reused.getId() === effectSlot) + ' ' + (core.sprite.getGeneration(effectSlot) > effectGeneration) + ' ' +
-                             (reused !== effect) + ' ' + effect.exists() + ' ' + reused.exists());
-                }
-                function onLocalFrame() {
-                    try {
-                        game.createEffect(SpriteType.get(EFFECT), Position.of(64, 64));
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + (core.sprite.getIds().length > 0));
-                    }
-                    main.setFrame(null);
-                    log.info('local frame ' + (main.getFrame() === core.image.getFrame(main.getId())));
-                }
-                """.formatted(EFFECT, SCRIPT_FRAME));
+                                                                                                     var EFFECT = %d;
+                                                                                                     var effect;
+                                                                                                     var effectSlot;
+                                                                                                     var effectGeneration;
+                                                                                                     var main;
+                                                                                                     var done = false;
+                                                                                                     function onStart() {
+                                                                                                         var human = game.players.getHumans()[0];
+                                                                                                         var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                                                                         var spriteId = core.unit.getSprite(commandCenter.getId());
+                                                                                                         var sprite = commandCenter.getSprite();
+                                                                                                         main = sprite.getMainImage();
+                                                                                                         log.info(spriteId >= 0, sprite.getId() === spriteId, sprite === commandCenter.getSprite(), core.sprite.exists(spriteId),
+                                                                                                                  core.sprite.getX(spriteId) === commandCenter.getX(), sprite.getPosition().getY() === commandCenter.getY(),
+                                                                                                                  sprite.getOwner() === human, sprite.getType() === SpriteType.get(core.sprite.getType(spriteId)),
+                                                                                                                  core.sprite.getIds().indexOf(spriteId) >= 0, core.sprite.getGeneration(spriteId) > 0);
+                                                                                                         log.info(main.getType() === commandCenter.getImageType(), main.getSprite() === sprite, sprite.getImages().indexOf(main) >= 0,
+                                                                                                                  core.image.exists(main.getId()), core.image.getGeneration(main.getId()) > 0, main.getDrawFunction().getName(),
+                                                                                                                  main.getFrame() === core.image.getFrame(main.getId()), sprite.isVisibleTo(human));
+                                                                                                         effect = game.createEffect(SpriteType.get(EFFECT), commandCenter.getPosition(), {owner: human, elevation: 12});
+                                                                                                         effectSlot = effect.getId();
+                                                                                                         effectGeneration = core.sprite.getGeneration(effectSlot);
+                                                                                                         log.info(effect.getType().getId(), effect.getElevation(), effect.getOwner() === human,
+                                                                                                                  effect.getPosition().getX() === commandCenter.getX(), effect.exists(), core.sprite.getMainImage(effectSlot) >= 0);
+                                                                                                         main.setFrame(%d);
+                                                                                                         main.setDrawFunction(DrawFunction.Hallucination);
+                                                                                                         log.info('main ' + main.getId());
+                                                                                                         [function () { core.sprite.createEffect(9999, 0, 0, 0, 0); }, function () { core.sprite.getType(-1); },
+                                                                                                          function () { core.image.getType(core.image.getCapacity()); },
+                                                                                                          function () { core.graphics.setImageDrawFunction(main.getId(), 18); },
+                                                                                                          function () { core.sprite.createEffect(EFFECT, 0, 0, 12, 0); }].forEach(function (call) {
+                                                                                                             try {
+                                                                                                                 call();
+                                                                                                             } catch (error) {
+                                                                                                                 log.info(error.name);
+                                                                                                             }
+                                                                                                         });
+                                                                                                     }
+                                                                                                     function onFrame() {
+                                                                                                         if (done || effect.exists()) {
+                                                                                                             return;
+                                                                                                         }
+                                                                                                         done = true;
+                                                                                                         try {
+                                                                                                             effect.getType();
+                                                                                                         } catch (error) {
+                                                                                                             log.info('gone ' + error.name + ' ' + (error.message.indexOf('does not exist') >= 0) + ' ' + core.sprite.exists(effectSlot));
+                                                                                                         }
+                                                                                                         var reused = null;
+                                                                                                         for (var count = 0; count < 100 && (reused === null || reused.getId() !== effectSlot); count++) {
+                                                                                                             reused = game.createEffect(SpriteType.get(EFFECT), Position.of(64, 64));
+                                                                                                         }
+                                                                                                         log.info('reused ' + (reused.getId() === effectSlot) + ' ' + (core.sprite.getGeneration(effectSlot) > effectGeneration) + ' ' +
+                                                                                                                  (reused !== effect) + ' ' + effect.exists() + ' ' + reused.exists());
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         try {
+                                                                                                             game.createEffect(SpriteType.get(EFFECT), Position.of(64, 64));
+                                                                                                         } catch (error) {
+                                                                                                             log.info('local ' + error.name + ' ' + (core.sprite.getIds().length > 0));
+                                                                                                         }
+                                                                                                         main.setFrame(null);
+                                                                                                         log.info('local frame ' + (main.getFrame() === core.image.getFrame(main.getId())));
+                                                                                                     }
+                                                                                                     """.formatted(EFFECT, SCRIPT_FRAME));
 
         List<String> started = List.copyOf(scenario.getInfoMessages());
         int mainImage = Integer.parseInt(started.get(3).substring("main ".length()));

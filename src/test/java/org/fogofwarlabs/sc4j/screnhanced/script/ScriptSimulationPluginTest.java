@@ -2,11 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
-import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandCodecs;
-import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
-import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayFile;
-import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplaySelectionCommand;
-import org.fogofwarlabs.sc4j.scr.data.format.replay.SelectionRequest;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrInputModifiers;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
@@ -51,29 +47,29 @@ final class ScriptSimulationPluginTest {
      * Command Center exists, then {@code afterSpawn(frame)} if the script has it.
      */
     private static final @NotNull String SPAWN_SCRIPT = """
-            var human, computer, marine, zergling, spawnFrame, withoutZergling;
-            function spawn() {
-                human = game.players.getHumans()[0];
-                computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
-                var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
-                var directionX = commandCenter.getX() < game.map.getWidth() / 2 ? 1 : -1;
-                var directionY = commandCenter.getY() < game.map.getHeight() / 2 ? 1 : -1;
-                marine = game.units.create(UnitType.TerranMarine, human,
-                                         Position.of(commandCenter.getX() + 160 * directionX, commandCenter.getY() + 160 * directionY));
-                if (!withoutZergling) {
-                    zergling = game.units.create(UnitType.ZergZergling, computer, Position.of(marine.getX() + 48 * directionX, marine.getY()));
-                }
-            }
-            function onFrame(frame) {
-                if (spawnFrame === undefined && game.units.findOne({type: UnitType.TerranCommandCenter}) !== null) {
-                    spawnFrame = frame;
-                    spawn();
-                }
-                if (spawnFrame !== undefined && typeof afterSpawn === 'function') {
-                    afterSpawn(frame);
-                }
-            }
-            """;
+                                                        var human, computer, marine, zergling, spawnFrame, withoutZergling;
+                                                        function spawn() {
+                                                            human = game.players.getHumans()[0];
+                                                            computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
+                                                            var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                            var directionX = commandCenter.getX() < game.map.getWidth() / 2 ? 1 : -1;
+                                                            var directionY = commandCenter.getY() < game.map.getHeight() / 2 ? 1 : -1;
+                                                            marine = game.units.create(UnitType.TerranMarine, human,
+                                                                                     Position.of(commandCenter.getX() + 160 * directionX, commandCenter.getY() + 160 * directionY));
+                                                            if (!withoutZergling) {
+                                                                zergling = game.units.create(UnitType.ZergZergling, computer, Position.of(marine.getX() + 48 * directionX, marine.getY()));
+                                                            }
+                                                        }
+                                                        function onFrame(frame) {
+                                                            if (spawnFrame === undefined && game.units.findOne({type: UnitType.TerranCommandCenter}) !== null) {
+                                                                spawnFrame = frame;
+                                                                spawn();
+                                                            }
+                                                            if (spawnFrame !== undefined && typeof afterSpawn === 'function') {
+                                                                afterSpawn(frame);
+                                                            }
+                                                        }
+                                                        """;
     private static final int FIGHT_FRAMES = 400;
     private static final int KEY_Q = 0x51;
     private static final int KEY_W = 0x57;
@@ -142,27 +138,27 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void a_map_script_starts_runs_its_frames_and_receives_the_start_units(@NotNull InstallationTestResources resources,
-                                                                           @TempDir @NotNull Path folder) throws IOException {
+                                                                          @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
-                var frames = [];
-                var commandCenter = null;
-                function onStart() {
-                    frames.push('start ' + game.getFrame());
-                }
-                function onUnitCreated(event) {
-                    if (event.getUnitType() === UnitType.TerranCommandCenter) {
-                        commandCenter = event;
-                    }
-                }
-                function onFrame(frame) {
-                    frames.push(frame);
-                    if (frames.length === 4) {
-                        var unit = commandCenter.getUnit();
-                        game.print('ES frames ' + frames.join(' ') + ', center ' + (unit === game.units.findOne({type: UnitType.TerranCommandCenter})) +
-                                   ' ' + unit.exists() + ' ' + commandCenter.getOwner().isHuman() + ' ' + commandCenter.getFrame());
-                    }
-                }
-                """);
+                                                                                                           var frames = [];
+                                                                                                           var commandCenter = null;
+                                                                                                           function onStart() {
+                                                                                                               frames.push('start ' + game.getFrame());
+                                                                                                           }
+                                                                                                           function onUnitCreated(event) {
+                                                                                                               if (event.getUnitType() === UnitType.TerranCommandCenter) {
+                                                                                                                   commandCenter = event;
+                                                                                                               }
+                                                                                                           }
+                                                                                                           function onFrame(frame) {
+                                                                                                               frames.push(frame);
+                                                                                                               if (frames.length === 4) {
+                                                                                                                   var unit = commandCenter.getUnit();
+                                                                                                                   game.print('ES frames ' + frames.join(' ') + ', center ' + (unit === game.units.findOne({type: UnitType.TerranCommandCenter})) +
+                                                                                                                              ' ' + unit.exists() + ' ' + commandCenter.getOwner().isHuman() + ' ' + commandCenter.getFrame());
+                                                                                                               }
+                                                                                                           }
+                                                                                                           """);
 
         scenario.stepFrames(4);
 
@@ -179,31 +175,31 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void a_paused_game_runs_the_frame_hook_until_the_script_resumes_it_live_and_in_the_replay(@NotNull InstallationTestResources resources,
-                                                                                               @TempDir @NotNull Path folder) throws IOException {
+                                                                                              @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
-                var paused = 0;
-                var pausedFrame = -1;
-                var reported = false;
-                function onFrame(frame) {
-                    if (frame === 3 && pausedFrame < 0 && !game.isPaused()) {
-                        game.pause();
-                    }
-                    if (game.isPaused()) {
-                        paused++;
-                        if (pausedFrame < 0) {
-                            pausedFrame = frame;
-                        }
-                        if (paused === 3) {
-                            game.switches.set(1, true);
-                            game.resume();
-                        }
-                    } else if (paused > 0 && !reported) {
-                        reported = true;
-                        game.switches.set(2, true);
-                        game.print('ES paused ' + paused + ' at ' + pausedFrame + ', now ' + frame);
-                    }
-                }
-                """);
+                                                                                                           var paused = 0;
+                                                                                                           var pausedFrame = -1;
+                                                                                                           var reported = false;
+                                                                                                           function onFrame(frame) {
+                                                                                                               if (frame === 3 && pausedFrame < 0 && !game.isPaused()) {
+                                                                                                                   game.pause();
+                                                                                                               }
+                                                                                                               if (game.isPaused()) {
+                                                                                                                   paused++;
+                                                                                                                   if (pausedFrame < 0) {
+                                                                                                                       pausedFrame = frame;
+                                                                                                                   }
+                                                                                                                   if (paused === 3) {
+                                                                                                                       game.switches.set(1, true);
+                                                                                                                       game.resume();
+                                                                                                                   }
+                                                                                                               } else if (paused > 0 && !reported) {
+                                                                                                                   reported = true;
+                                                                                                                   game.switches.set(2, true);
+                                                                                                                   game.print('ES paused ' + paused + ' at ' + pausedFrame + ', now ' + frame);
+                                                                                                               }
+                                                                                                           }
+                                                                                                           """);
 
         scenario.stepUntilPrinted("paused", PAUSE_FRAMES);
 
@@ -233,26 +229,26 @@ final class ScriptSimulationPluginTest {
     void on_unit_died_receives_the_killer_and_the_weapon(@NotNull InstallationTestResources resources,
                                                          @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                var victim;
-                function afterSpawn(frame) {
-                    if (frame === spawnFrame) {
-                        zergling.setHp(1);
-                        victim = game.units.create(UnitType.TerranMarine, human, marine.getPosition());
-                        victim.kill();
-                    }
-                }
-                function onUnitDied(event) {
-                    if (event.getUnit() === zergling) {
-                        game.print('ES zergling ' + (event.getKiller() === marine) + ' ' + (event.getKillerPlayer() === human) + ' ' +
-                                   event.getWeapon() + ' ' + event.getUnitType() + ' ' + (event.getOwner() === computer) + ' ' +
-                                   event.getUnit().exists());
-                    }
-                    if (event.getUnit() === victim) {
-                        game.print('ES victim ' + event.getKiller() + ' ' + event.getKillerPlayer() + ' ' + event.getWeapon() + ' ' +
-                                   victim.exists());
-                    }
-                }
-                """);
+                                                                                                                          var victim;
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame === spawnFrame) {
+                                                                                                                                  zergling.setHp(1);
+                                                                                                                                  victim = game.units.create(UnitType.TerranMarine, human, marine.getPosition());
+                                                                                                                                  victim.kill();
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          function onUnitDied(event) {
+                                                                                                                              if (event.getUnit() === zergling) {
+                                                                                                                                  game.print('ES zergling ' + (event.getKiller() === marine) + ' ' + (event.getKillerPlayer() === human) + ' ' +
+                                                                                                                                             event.getWeapon() + ' ' + event.getUnitType() + ' ' + (event.getOwner() === computer) + ' ' +
+                                                                                                                                             event.getUnit().exists());
+                                                                                                                              }
+                                                                                                                              if (event.getUnit() === victim) {
+                                                                                                                                  game.print('ES victim ' + event.getKiller() + ' ' + event.getKillerPlayer() + ' ' + event.getWeapon() + ' ' +
+                                                                                                                                             victim.exists());
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("zergling", FIGHT_FRAMES);
 
@@ -264,19 +260,19 @@ final class ScriptSimulationPluginTest {
     void on_before_damage_doubles_the_damage_of_a_weapon_hit(@NotNull InstallationTestResources resources,
                                                              @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                var printed = false;
-                function onBeforeDamage(damage) {
-                    if (damage.getTarget() === zergling && damage.getWeapon() === WeaponType.GaussRifle) {
-                        damage.setAmount(damage.getAmount() * 2);
-                    }
-                }
-                function onUnitDamaged(event) {
-                    if (event.getUnit() === zergling && !printed) {
-                        printed = true;
-                        game.print('ES damaged ' + event.getAmount() + ' ' + (event.getSource() === marine) + ' ' + zergling.getHp());
-                    }
-                }
-                """);
+                                                                                                                          var printed = false;
+                                                                                                                          function onBeforeDamage(damage) {
+                                                                                                                              if (damage.getTarget() === zergling && damage.getWeapon() === WeaponType.GaussRifle) {
+                                                                                                                                  damage.setAmount(damage.getAmount() * 2);
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          function onUnitDamaged(event) {
+                                                                                                                              if (event.getUnit() === zergling && !printed) {
+                                                                                                                                  printed = true;
+                                                                                                                                  game.print('ES damaged ' + event.getAmount() + ' ' + (event.getSource() === marine) + ' ' + zergling.getHp());
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("damaged", FIGHT_FRAMES);
 
@@ -287,17 +283,17 @@ final class ScriptSimulationPluginTest {
     void on_before_damage_cancels_every_weapon_hit(@NotNull InstallationTestResources resources,
                                                    @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                var cancelled = 0;
-                function onBeforeDamage(damage) {
-                    damage.cancel();
-                    cancelled++;
-                }
-                function afterSpawn(frame) {
-                    if (frame === spawnFrame + 200) {
-                        game.print('ES hit points ' + marine.getHp() + ' ' + zergling.getHp() + ' ' + (cancelled > 1));
-                    }
-                }
-                """);
+                                                                                                                          var cancelled = 0;
+                                                                                                                          function onBeforeDamage(damage) {
+                                                                                                                              damage.cancel();
+                                                                                                                              cancelled++;
+                                                                                                                          }
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame === spawnFrame + 200) {
+                                                                                                                                  game.print('ES hit points ' + marine.getHp() + ' ' + zergling.getHp() + ' ' + (cancelled > 1));
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("hit points", FIGHT_FRAMES);
 
@@ -307,27 +303,27 @@ final class ScriptSimulationPluginTest {
     @Test
     void on_before_order_rejects_an_order(@NotNull InstallationTestResources resources, @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                withoutZergling = true;
-                var moved = false;
-                function onBeforeOrder(order) {
-                    if (order.getUnit() === marine && order.getOrder() === Order.Move) {
-                        order.reject();
-                    }
-                }
-                function onOrderIssued(event) {
-                    if (event.getUnit() === marine && event.getOrder() === Order.Move) {
-                        moved = true;
-                    }
-                }
-                function afterSpawn(frame) {
-                    if (frame === spawnFrame) {
-                        marine.issueOrder(Order.Move, Position.of(marine.getX() + 64, marine.getY()));
-                        game.print('ES order ' + (marine.getOrder() === Order.Move));
-                    } else if (frame === spawnFrame + 2) {
-                        game.print('ES issued ' + moved);
-                    }
-                }
-                """);
+                                                                                                                          withoutZergling = true;
+                                                                                                                          var moved = false;
+                                                                                                                          function onBeforeOrder(order) {
+                                                                                                                              if (order.getUnit() === marine && order.getOrder() === Order.Move) {
+                                                                                                                                  order.reject();
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          function onOrderIssued(event) {
+                                                                                                                              if (event.getUnit() === marine && event.getOrder() === Order.Move) {
+                                                                                                                                  moved = true;
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame === spawnFrame) {
+                                                                                                                                  marine.issueOrder(Order.Move, Position.of(marine.getX() + 64, marine.getY()));
+                                                                                                                                  game.print('ES order ' + (marine.getOrder() === Order.Move));
+                                                                                                                              } else if (frame === spawnFrame + 2) {
+                                                                                                                                  game.print('ES issued ' + moved);
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("issued", FIGHT_FRAMES);
 
@@ -338,27 +334,27 @@ final class ScriptSimulationPluginTest {
     void a_state_change_in_a_decision_throws_and_leaves_the_decision(@NotNull InstallationTestResources resources,
                                                                      @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                var errors = [];
-                var printed = false;
-                function onBeforeDamage(damage) {
-                    if (damage.getTarget() !== zergling) {
-                        return;
-                    }
-                    try {
-                        zergling.setHp(1);
-                    } catch (error) {
-                        errors.push(error.name + ' ' + game.isReadOnly());
-                    }
-                    damage.setAmount(0);
-                    zergling.kill();
-                }
-                function onUnitDamaged(event) {
-                    if (event.getUnit() === zergling && !printed) {
-                        printed = true;
-                        game.print('ES damaged ' + event.getAmount() + ' ' + errors[0] + ' ' + game.isReadOnly() + ' ' + zergling.getHp());
-                    }
-                }
-                """);
+                                                                                                                          var errors = [];
+                                                                                                                          var printed = false;
+                                                                                                                          function onBeforeDamage(damage) {
+                                                                                                                              if (damage.getTarget() !== zergling) {
+                                                                                                                                  return;
+                                                                                                                              }
+                                                                                                                              try {
+                                                                                                                                  zergling.setHp(1);
+                                                                                                                              } catch (error) {
+                                                                                                                                  errors.push(error.name + ' ' + game.isReadOnly());
+                                                                                                                              }
+                                                                                                                              damage.setAmount(0);
+                                                                                                                              zergling.kill();
+                                                                                                                          }
+                                                                                                                          function onUnitDamaged(event) {
+                                                                                                                              if (event.getUnit() === zergling && !printed) {
+                                                                                                                                  printed = true;
+                                                                                                                                  game.print('ES damaged ' + event.getAmount() + ' ' + errors[0] + ' ' + game.isReadOnly() + ' ' + zergling.getHp());
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("damaged", FIGHT_FRAMES);
 
@@ -369,47 +365,47 @@ final class ScriptSimulationPluginTest {
     void trigger_writes_in_a_decision_throw_while_the_local_display_runs(@NotNull InstallationTestResources resources,
                                                                          @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                var refused = null;
-                var displayed = false;
-                var printed = false;
-                function onBeforeDamage(damage) {
-                    if (damage.getTarget() !== zergling || refused !== null) {
-                        return;
-                    }
-                    var writes = [
-                        function () { game.switches.set(0, true); },
-                        function () { game.countdown.set(30); },
-                        function () { human.deaths.set(UnitType.TerranMarine, 1); },
-                        function () { human.score.set(ScoreType.Custom, 1); },
-                        function () { computer.units.kill(UnitType.ZergDrone); },
-                        function () { human.setAlliance(computer, Alliance.Ally); },
-                        function () { computer.runAiScript('EnBk'); },
-                        function () { human.setMissionObjectives('Objectives'); },
-                        function () { game.leaderboard.showGreed(10); },
-                        function () { zergling.disableDoodad(); }
-                    ];
-                    refused = writes.filter(function (write) {
-                        try {
-                            write();
-                            return false;
-                        } catch (error) {
-                            return error.name === 'TypeError';
-                        }
-                    }).length + '/' + writes.length;
-                    human.pingMinimap(marine.getPosition());
-                    human.print('a decision text');
-                    human.deaths.get(UnitType.TerranMarine);
-                    human.units.count(UnitType.TerranMarine);
-                    displayed = true;
-                }
-                function onUnitDamaged(event) {
-                    if (event.getUnit() === zergling && !printed) {
-                        printed = true;
-                        game.print('ES refused ' + refused + ' ' + displayed + ' ' + game.switches.isSet(0) + ' ' + game.countdown.get() + ' ' +
-                                   human.deaths.get(UnitType.TerranMarine) + ' ' + computer.units.count(UnitType.ZergDrone));
-                    }
-                }
-                """);
+                                                                                                                          var refused = null;
+                                                                                                                          var displayed = false;
+                                                                                                                          var printed = false;
+                                                                                                                          function onBeforeDamage(damage) {
+                                                                                                                              if (damage.getTarget() !== zergling || refused !== null) {
+                                                                                                                                  return;
+                                                                                                                              }
+                                                                                                                              var writes = [
+                                                                                                                                  function () { game.switches.set(0, true); },
+                                                                                                                                  function () { game.countdown.set(30); },
+                                                                                                                                  function () { human.deaths.set(UnitType.TerranMarine, 1); },
+                                                                                                                                  function () { human.score.set(ScoreType.Custom, 1); },
+                                                                                                                                  function () { computer.units.kill(UnitType.ZergDrone); },
+                                                                                                                                  function () { human.setAlliance(computer, Alliance.Ally); },
+                                                                                                                                  function () { computer.runAiScript('EnBk'); },
+                                                                                                                                  function () { human.setMissionObjectives('Objectives'); },
+                                                                                                                                  function () { game.leaderboard.showGreed(10); },
+                                                                                                                                  function () { zergling.disableDoodad(); }
+                                                                                                                              ];
+                                                                                                                              refused = writes.filter(function (write) {
+                                                                                                                                  try {
+                                                                                                                                      write();
+                                                                                                                                      return false;
+                                                                                                                                  } catch (error) {
+                                                                                                                                      return error.name === 'TypeError';
+                                                                                                                                  }
+                                                                                                                              }).length + '/' + writes.length;
+                                                                                                                              human.pingMinimap(marine.getPosition());
+                                                                                                                              human.print('a decision text');
+                                                                                                                              human.deaths.get(UnitType.TerranMarine);
+                                                                                                                              human.units.count(UnitType.TerranMarine);
+                                                                                                                              displayed = true;
+                                                                                                                          }
+                                                                                                                          function onUnitDamaged(event) {
+                                                                                                                              if (event.getUnit() === zergling && !printed) {
+                                                                                                                                  printed = true;
+                                                                                                                                  game.print('ES refused ' + refused + ' ' + displayed + ' ' + game.switches.isSet(0) + ' ' + game.countdown.get() + ' ' +
+                                                                                                                                             human.deaths.get(UnitType.TerranMarine) + ' ' + computer.units.count(UnitType.ZergDrone));
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("refused", FIGHT_FRAMES);
 
@@ -418,44 +414,44 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void channel_messages_of_shared_code_and_local_hooks_reach_the_handler_live_and_in_the_replay(@NotNull InstallationTestResources resources,
-                                                                                                   @TempDir @NotNull Path folder) throws IOException {
+                                                                                                  @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
-                var DIGEST_BITS = 32;
-                var human;
-                var digest = 0;
-                var count = 0;
-                var score = sync.createPlayerValue(0);
-                var channel = sync.createChannel(function (player, value) {
-                    var text = 'channel ' + (player === human) + ' ' + (typeof value === 'string' ? value : JSON.stringify(value)) + ' ' +
-                               score.get(player);
-                    game.print('ES ' + text);
-                    for (var index = 0; index < text.length; index++) {
-                        digest = (digest * 31 + text.charCodeAt(index)) | 0;
-                    }
-                    for (var bit = 0; bit < DIGEST_BITS; bit++) {
-                        game.switches.set(bit, (digest >>> bit & 1) === 1);
-                    }
-                    game.switches.set(DIGEST_BITS + count++, true);
-                });
-                function onStart() {
-                    human = game.players.getHumans()[0];
-                    channel.send({start: [1, 'two', true, null]});
-                    game.print('ES started');
-                }
-                function onLocalKeyDown(event) {
-                    if (event.getKey() === Key.Q) {
-                        score.set(7);
-                        channel.send('key ' + event.isShift() + ' ' + event.getMousePosition());
-                        event.consume();
-                    }
-                }
-                function onLocalChat(event) {
-                    if (event.getText().charAt(0) === '!') {
-                        channel.send(event.getText());
-                        event.consume();
-                    }
-                }
-                """);
+                                                                                                           var DIGEST_BITS = 32;
+                                                                                                           var human;
+                                                                                                           var digest = 0;
+                                                                                                           var count = 0;
+                                                                                                           var score = sync.createPlayerValue(0);
+                                                                                                           var channel = sync.createChannel(function (player, value) {
+                                                                                                               var text = 'channel ' + (player === human) + ' ' + (typeof value === 'string' ? value : JSON.stringify(value)) + ' ' +
+                                                                                                                          score.get(player);
+                                                                                                               game.print('ES ' + text);
+                                                                                                               for (var index = 0; index < text.length; index++) {
+                                                                                                                   digest = (digest * 31 + text.charCodeAt(index)) | 0;
+                                                                                                               }
+                                                                                                               for (var bit = 0; bit < DIGEST_BITS; bit++) {
+                                                                                                                   game.switches.set(bit, (digest >>> bit & 1) === 1);
+                                                                                                               }
+                                                                                                               game.switches.set(DIGEST_BITS + count++, true);
+                                                                                                           });
+                                                                                                           function onStart() {
+                                                                                                               human = game.players.getHumans()[0];
+                                                                                                               channel.send({start: [1, 'two', true, null]});
+                                                                                                               game.print('ES started');
+                                                                                                           }
+                                                                                                           function onLocalKeyDown(event) {
+                                                                                                               if (event.getKey() === Key.Q) {
+                                                                                                                   score.set(7);
+                                                                                                                   channel.send('key ' + event.isShift() + ' ' + event.getMousePosition());
+                                                                                                                   event.consume();
+                                                                                                               }
+                                                                                                           }
+                                                                                                           function onLocalChat(event) {
+                                                                                                               if (event.getText().charAt(0) === '!') {
+                                                                                                                   channel.send(event.getText());
+                                                                                                                   event.consume();
+                                                                                                               }
+                                                                                                           }
+                                                                                                           """);
 
         scenario.stepUntilPrinted("channel", FIGHT_FRAMES);
 
@@ -493,49 +489,49 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void player_selections_follow_the_selection_commands_and_set_selection_live_and_in_the_replay(@NotNull InstallationTestResources resources,
-                                                                                                    @TempDir @NotNull Path folder) throws IOException {
+                                                                                                  @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
-                var human, computer, last = null, set = false;
-                var LOCAL_TEXT = 1000;
-                function describe(units) {
-                    return units.map(function (unit) { return unit.getId(); }).join(',');
-                }
-                function onStart() {
-                    human = game.players.getHumans()[0];
-                    computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
-                }
-                function onFrame(frame) {
-                    var selection = human.getSelection();
-                    var text = describe(selection);
-                    if (text !== last) {
-                        last = text;
-                        game.print('ES selection [' + text + ']');
-                    }
-                    if (selection.length === 4 && !set) {
-                        set = true;
-                        var scvs = game.units.find({type: UnitType.TerranSCV, owner: human});
-                        var center = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
-                        var neutral = game.units.findOne(function (unit) { return unit.getOwner().getId() === 11; });
-                        var drones = game.units.find({type: UnitType.ZergDrone, owner: computer});
-                        var tooMany = 'none';
-                        try {
-                            human.setSelection(scvs.concat(scvs, scvs, scvs));
-                        } catch (error) {
-                            tooMany = error.name;
-                        }
-                        var mixed = human.setSelection([scvs[1], center, neutral, scvs[2]]);
-                        var computerSet = computer.setSelection(drones.slice(0, 2));
-                        game.print('ES set ' + tooMany + ' ' + mixed + ' [' + describe(human.getSelection()) + '] ' + computerSet + ' ' +
-                                   (describe(computer.getSelection()) === describe(drones.slice(0, 2))));
-                    }
-                }
-                function onLocalFrame(frame) {
-                    display.strings.setStatText(LOCAL_TEXT, 'local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
-                    if (local.isReplay() && local.getPlayer() === null && local.getSelection().length === 0) {
-                        local.setScreenPosition(Position.of(64, 96));
-                    }
-                }
-                """);
+                                                                                                           var human, computer, last = null, set = false;
+                                                                                                           var LOCAL_TEXT = 1000;
+                                                                                                           function describe(units) {
+                                                                                                               return units.map(function (unit) { return unit.getId(); }).join(',');
+                                                                                                           }
+                                                                                                           function onStart() {
+                                                                                                               human = game.players.getHumans()[0];
+                                                                                                               computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
+                                                                                                           }
+                                                                                                           function onFrame(frame) {
+                                                                                                               var selection = human.getSelection();
+                                                                                                               var text = describe(selection);
+                                                                                                               if (text !== last) {
+                                                                                                                   last = text;
+                                                                                                                   game.print('ES selection [' + text + ']');
+                                                                                                               }
+                                                                                                               if (selection.length === 4 && !set) {
+                                                                                                                   set = true;
+                                                                                                                   var scvs = game.units.find({type: UnitType.TerranSCV, owner: human});
+                                                                                                                   var center = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                                                                                   var neutral = game.units.findOne(function (unit) { return unit.getOwner().getId() === 11; });
+                                                                                                                   var drones = game.units.find({type: UnitType.ZergDrone, owner: computer});
+                                                                                                                   var tooMany = 'none';
+                                                                                                                   try {
+                                                                                                                       human.setSelection(scvs.concat(scvs, scvs, scvs));
+                                                                                                                   } catch (error) {
+                                                                                                                       tooMany = error.name;
+                                                                                                                   }
+                                                                                                                   var mixed = human.setSelection([scvs[1], center, neutral, scvs[2]]);
+                                                                                                                   var computerSet = computer.setSelection(drones.slice(0, 2));
+                                                                                                                   game.print('ES set ' + tooMany + ' ' + mixed + ' [' + describe(human.getSelection()) + '] ' + computerSet + ' ' +
+                                                                                                                              (describe(computer.getSelection()) === describe(drones.slice(0, 2))));
+                                                                                                               }
+                                                                                                           }
+                                                                                                           function onLocalFrame(frame) {
+                                                                                                               display.strings.setStatText(LOCAL_TEXT, 'local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
+                                                                                                               if (local.isReplay() && local.getPlayer() === null && local.getSelection().length === 0) {
+                                                                                                                   local.setScreenPosition(Position.of(64, 96));
+                                                                                                               }
+                                                                                                           }
+                                                                                                           """);
 
         scenario.stepFrames(START_FRAMES);
 

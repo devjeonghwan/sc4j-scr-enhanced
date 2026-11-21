@@ -202,25 +202,25 @@
     }
 
     var Position = freeze({
-        of: function (x, y) {
-            return createPosition(x, y);
-        }
-    });
+                              of: function (x, y) {
+                                  return createPosition(x, y);
+                              }
+                          });
 
     // The frames of a duration, rounded to the nearest frame (halves up). Seconds and minutes are those of the trigger clock, which the
     // countdown timer and the elapsed time count: sixteen frames a second. Milliseconds are real time at the fastest speed: the frames of the
     // game's frame duration.
     var Time = freeze({
-        fromSeconds: function (seconds) {
-            return Math.round(seconds * FRAMES_PER_CLOCK_SECOND);
-        },
-        fromMinutes: function (minutes) {
-            return Math.round(minutes * SECONDS_PER_MINUTE * FRAMES_PER_CLOCK_SECOND);
-        },
-        fromMilliseconds: function (milliseconds) {
-            return Math.round(milliseconds / core.game.getFrameDuration());
-        }
-    });
+                          fromSeconds: function (seconds) {
+                              return Math.round(seconds * FRAMES_PER_CLOCK_SECOND);
+                          },
+                          fromMinutes: function (minutes) {
+                              return Math.round(minutes * SECONDS_PER_MINUTE * FRAMES_PER_CLOCK_SECOND);
+                          },
+                          fromMilliseconds: function (milliseconds) {
+                              return Math.round(milliseconds / core.game.getFrameDuration());
+                          }
+                      });
 
     function readChannel(value, name) {
         var channel = Number(value);
@@ -244,29 +244,29 @@
     }
 
     var Color = freeze({
-        Transparent: 0x00000000,
-        Black: 0xFF000000,
-        White: 0xFFFFFFFF,
-        Gray: 0xFF808080,
-        Red: 0xFFFF0000,
-        Green: 0xFF00FF00,
-        Blue: 0xFF0000FF,
-        Yellow: 0xFFFFFF00,
-        Cyan: 0xFF00FFFF,
-        Magenta: 0xFFFF00FF,
-        Orange: 0xFFFFA500,
-        fromRgb: function (red, green, blue) {
-            return Color.fromRgba(red, green, blue, 1);
-        },
-        fromRgba: function (red, green, blue, alpha) {
-            return readAlpha(alpha) * ALPHA_FACTOR +
-                   (readChannel(red, 'red') << RED_SHIFT | readChannel(green, 'green') << GREEN_SHIFT | readChannel(blue, 'blue'));
-        },
-        // The colour of a palette index of the map's tileset palette, opaque.
-        fromPalette: function (index) {
-            return core.screen.getPaletteColor(index);
-        }
-    });
+                           Transparent: 0x00000000,
+                           Black: 0xFF000000,
+                           White: 0xFFFFFFFF,
+                           Gray: 0xFF808080,
+                           Red: 0xFFFF0000,
+                           Green: 0xFF00FF00,
+                           Blue: 0xFF0000FF,
+                           Yellow: 0xFFFFFF00,
+                           Cyan: 0xFF00FFFF,
+                           Magenta: 0xFFFF00FF,
+                           Orange: 0xFFFFA500,
+                           fromRgb: function (red, green, blue) {
+                               return Color.fromRgba(red, green, blue, 1);
+                           },
+                           fromRgba: function (red, green, blue, alpha) {
+                               return readAlpha(alpha) * ALPHA_FACTOR +
+                                      (readChannel(red, 'red') << RED_SHIFT | readChannel(green, 'green') << GREEN_SHIFT | readChannel(blue, 'blue'));
+                           },
+                           // The colour of a palette index of the map's tileset palette, opaque.
+                           fromPalette: function (index) {
+                               return core.screen.getPaletteColor(index);
+                           }
+                       });
 
     freeze(typePrototype);
     freeze(positionPrototype);

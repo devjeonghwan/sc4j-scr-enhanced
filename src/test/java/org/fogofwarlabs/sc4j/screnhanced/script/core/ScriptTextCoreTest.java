@@ -31,15 +31,15 @@ final class ScriptTextCoreTest {
      * Defines {@code error(fn)}, which returns the name of the error {@code fn} throws, or {@code "none"}.
      */
     private static final @NotNull String ERROR_FUNCTION = """
-            function error(fn) {
-                try {
-                    fn();
-                    return 'none';
-                } catch (e) {
-                    return e.name;
-                }
-            }
-            """;
+                                                          function error(fn) {
+                                                              try {
+                                                                  fn();
+                                                                  return 'none';
+                                                              } catch (e) {
+                                                                  return e.name;
+                                                              }
+                                                          }
+                                                          """;
 
     private static @NotNull Game createGame() {
         return Game.create(null, new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, 0, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]), new LcgRandom(0));
@@ -49,15 +49,15 @@ final class ScriptTextCoreTest {
     void stat_text_overrides_reach_the_game_text_lookup() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
-                UnitType.get(0).setName('Space Marine');
-                UnitType.get(1).setName('Spectre');
-                display.strings.setStatText(700, 'Build');
-                log.info(error(function () { display.strings.setStatText(0, 'x'); }), error(function () { core.strings.setStatText(65536, 'x'); }),
-                         error(function () { core.strings.setStatText(1, 5); }));
-                function onLocalFrame(frame) {
-                    UnitType.get(1).setName(null);
-                }
-                """);
+                                                                                    UnitType.get(0).setName('Space Marine');
+                                                                                    UnitType.get(1).setName('Spectre');
+                                                                                    display.strings.setStatText(700, 'Build');
+                                                                                    log.info(error(function () { display.strings.setStatText(0, 'x'); }), error(function () { core.strings.setStatText(65536, 'x'); }),
+                                                                                             error(function () { core.strings.setStatText(1, 5); }));
+                                                                                    function onLocalFrame(frame) {
+                                                                                        UnitType.get(1).setName(null);
+                                                                                    }
+                                                                                    """);
         StatTextOverrides overrides = game.getInterfaceLink().getStatTextOverrides();
 
         scenario.getRuntime().start();
@@ -77,10 +77,10 @@ final class ScriptTextCoreTest {
     void messages_clear_should_empty_the_message_lines() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
-                function onStart() {
-                    display.messages.clear();
-                }
-                """);
+                                                                   function onStart() {
+                                                                       display.messages.clear();
+                                                                   }
+                                                                   """);
         MessageLines lines = game.getInterfaceLink().getMessageLines();
 
         lines.writeByte(0, 'a');
@@ -99,17 +99,17 @@ final class ScriptTextCoreTest {
         Game game = createGame();
         MessageLines lines = game.getInterfaceLink().getMessageLines();
         ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
-                log.info(core.messages.getLineCount(), display.messages.getLine(1), display.messages.getCursor());
-                display.messages.setLine(1, 'line one');
-                display.messages.setLine(2, new Array(301).join('x'));
-                display.messages.setCursor(4);
-                log.info(display.messages.getLine(1), display.messages.getLine(2).length, display.messages.getCursor());
-                log.info(error(function () { display.messages.getLine(13); }), error(function () { core.messages.setNextLine(256); }),
-                         error(function () { core.messages.setLine(-1, 'a'); }));
-                function onLocalFrame(frame) {
-                    display.messages.setLine(12, 'status');
-                }
-                """);
+                                                                                    log.info(core.messages.getLineCount(), display.messages.getLine(1), display.messages.getCursor());
+                                                                                    display.messages.setLine(1, 'line one');
+                                                                                    display.messages.setLine(2, new Array(301).join('x'));
+                                                                                    display.messages.setCursor(4);
+                                                                                    log.info(display.messages.getLine(1), display.messages.getLine(2).length, display.messages.getCursor());
+                                                                                    log.info(error(function () { display.messages.getLine(13); }), error(function () { core.messages.setNextLine(256); }),
+                                                                                             error(function () { core.messages.setLine(-1, 'a'); }));
+                                                                                    function onLocalFrame(frame) {
+                                                                                        display.messages.setLine(12, 'status');
+                                                                                    }
+                                                                                    """);
 
         lines.writeSystemLine("old line".getBytes(StandardCharsets.UTF_8), 0);
         lines.writeByte(MessageLines.LINE_SIZE, 'a');

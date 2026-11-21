@@ -117,56 +117,56 @@ final class ScriptButtonCoreTest {
     @Test
     void the_table_starts_installed_and_a_change_reaches_every_set_that_shares_the_array() throws IOException {
         Peer peer = new Peer(0, """
-                var marine = display.commandCard.getButtonSet(UnitType.TerranMarine);
-                var shared = -1;
-                for (var set = 1; set < core.buttons.getSetCount() && shared < 0; set++) {
-                    if (core.buttons.getArray(set) === 0) {
-                        shared = set;
-                    }
-                }
-                var hero = display.commandCard.getButtonSet(shared);
-                log.info(marine.getId(), marine.getButtonCount(), hero.getButtonCount(), hero.getArray() === marine,
-                         marine.getButton(0).getAction() === ButtonAction.Move, marine.getButton(0).getCondition() === ButtonCondition.Always,
-                         marine.getButton(0).getEnabledString(), marine.getButton(0).getText(), marine.getButton(99));
-                log.info(core.buttons.getConditionName(core.buttons.getConditionCount() - 1), ButtonCondition.Script.getId(),
-                         core.buttons.getActionName(core.buttons.getActionCount() - 2), ButtonAction.ScriptTarget.getName());
-                var added = marine.insertButton(0, {position: 9, icon: 12, condition: ButtonCondition.Always, action: ButtonAction.Stop,
-                                                    text: 'Halt\\nnow', hotkey: 'H', kind: ButtonKind.Research, disabledText: '\\x06No'});
-                log.info(marine.getButtonCount(), hero.getButtonCount(), added.getText() === 'Halt\\nnow', added.getHotkey(),
-                         added.getKind() === ButtonKind.Research, JSON.stringify(core.buttons.getEnabledText(0, 0)),
-                         JSON.stringify(added.getDisabledText()));
-                added.setText('Stop it', {hotkey: null});
-                added.setIcon(13);
-                log.info(JSON.stringify(core.buttons.getEnabledText(0, 0)), core.buttons.getIcon(shared, 0), added.getKind().getName());
-                hero.unshare();
-                marine.removeButton(0);
-                log.info(marine.getButtonCount(), hero.getButtonCount(), hero.getArray() === hero, core.buttons.getIcon(shared, 0));
-                hero.share(marine);
-                log.info(hero.getButtonCount(), hero.getArray() === marine);
-                hero.restore();
-                log.info(hero.getButtonCount(), hero.getArray() === hero);
-                core.buttons.restoreAll();
-                log.info(hero.getArray() === marine, marine.getButtonCount());
-                function attempt(name, call) {
-                    try {
-                        call();
-                        log.info(name + ' ok');
-                    } catch (error) {
-                        log.info(name + ' ' + error.name);
-                    }
-                }
-                attempt('set', function () { core.buttons.getButtonCount(250); });
-                attempt('position', function () { core.buttons.setPosition(0, 0, 10); });
-                attempt('index', function () { core.buttons.remove(0, 99); });
-                attempt('condition', function () { core.buttons.setCondition(0, 0, core.buttons.getConditionCount()); });
-                attempt('value', function () { core.buttons.setConditionValue(0, 0, 256); });
-                attempt('integer', function () { core.buttons.setIcon(0, 0, 'a'); });
-                attempt('text', function () { core.buttons.setText(0, 0, 5, null); });
-                function onLocalFrame() {
-                    attempt('local', function () { core.buttons.setIcon(0, 0, 99); });
-                    log.info(core.buttons.getIcon(0, 0));
-                }
-                """);
+                                var marine = display.commandCard.getButtonSet(UnitType.TerranMarine);
+                                var shared = -1;
+                                for (var set = 1; set < core.buttons.getSetCount() && shared < 0; set++) {
+                                    if (core.buttons.getArray(set) === 0) {
+                                        shared = set;
+                                    }
+                                }
+                                var hero = display.commandCard.getButtonSet(shared);
+                                log.info(marine.getId(), marine.getButtonCount(), hero.getButtonCount(), hero.getArray() === marine,
+                                         marine.getButton(0).getAction() === ButtonAction.Move, marine.getButton(0).getCondition() === ButtonCondition.Always,
+                                         marine.getButton(0).getEnabledString(), marine.getButton(0).getText(), marine.getButton(99));
+                                log.info(core.buttons.getConditionName(core.buttons.getConditionCount() - 1), ButtonCondition.Script.getId(),
+                                         core.buttons.getActionName(core.buttons.getActionCount() - 2), ButtonAction.ScriptTarget.getName());
+                                var added = marine.insertButton(0, {position: 9, icon: 12, condition: ButtonCondition.Always, action: ButtonAction.Stop,
+                                                                    text: 'Halt\\nnow', hotkey: 'H', kind: ButtonKind.Research, disabledText: '\\x06No'});
+                                log.info(marine.getButtonCount(), hero.getButtonCount(), added.getText() === 'Halt\\nnow', added.getHotkey(),
+                                         added.getKind() === ButtonKind.Research, JSON.stringify(core.buttons.getEnabledText(0, 0)),
+                                         JSON.stringify(added.getDisabledText()));
+                                added.setText('Stop it', {hotkey: null});
+                                added.setIcon(13);
+                                log.info(JSON.stringify(core.buttons.getEnabledText(0, 0)), core.buttons.getIcon(shared, 0), added.getKind().getName());
+                                hero.unshare();
+                                marine.removeButton(0);
+                                log.info(marine.getButtonCount(), hero.getButtonCount(), hero.getArray() === hero, core.buttons.getIcon(shared, 0));
+                                hero.share(marine);
+                                log.info(hero.getButtonCount(), hero.getArray() === marine);
+                                hero.restore();
+                                log.info(hero.getButtonCount(), hero.getArray() === hero);
+                                core.buttons.restoreAll();
+                                log.info(hero.getArray() === marine, marine.getButtonCount());
+                                function attempt(name, call) {
+                                    try {
+                                        call();
+                                        log.info(name + ' ok');
+                                    } catch (error) {
+                                        log.info(name + ' ' + error.name);
+                                    }
+                                }
+                                attempt('set', function () { core.buttons.getButtonCount(250); });
+                                attempt('position', function () { core.buttons.setPosition(0, 0, 10); });
+                                attempt('index', function () { core.buttons.remove(0, 99); });
+                                attempt('condition', function () { core.buttons.setCondition(0, 0, core.buttons.getConditionCount()); });
+                                attempt('value', function () { core.buttons.setConditionValue(0, 0, 256); });
+                                attempt('integer', function () { core.buttons.setIcon(0, 0, 'a'); });
+                                attempt('text', function () { core.buttons.setText(0, 0, 5, null); });
+                                function onLocalFrame() {
+                                    attempt('local', function () { core.buttons.setIcon(0, 0, 99); });
+                                    log.info(core.buttons.getIcon(0, 0));
+                                }
+                                """);
         int count = ButtonSetTable.getButtons(MARINE_SET).length;
 
         peer.scenario.getRuntime().callLocalFrame(0);
@@ -188,15 +188,15 @@ final class ScriptButtonCoreTest {
     @Test
     void an_eud_commit_replaces_the_changes_and_later_changes_apply_to_the_committed_table() throws IOException {
         Peer peer = new Peer(0, """
-                var marine = display.commandCard.getButtonSet(0);
-                marine.insertButton(0, {position: 9, icon: 12, condition: ButtonCondition.Always, action: ButtonAction.Stop});
-                log.info(marine.getButtonCount(), marine.getButton(0).getIcon());
-                function onFrame() {
-                    log.info(marine.getButtonCount(), marine.getButton(0).getIcon());
-                    marine.getButton(0).setIcon(77);
-                    log.info(marine.getButton(0).getIcon());
-                }
-                """);
+                                var marine = display.commandCard.getButtonSet(0);
+                                marine.insertButton(0, {position: 9, icon: 12, condition: ButtonCondition.Always, action: ButtonAction.Stop});
+                                log.info(marine.getButtonCount(), marine.getButton(0).getIcon());
+                                function onFrame() {
+                                    log.info(marine.getButtonCount(), marine.getButton(0).getIcon());
+                                    marine.getButton(0).setIcon(77);
+                                    log.info(marine.getButton(0).getIcon());
+                                }
+                                """);
         HostButtonSets host = peer.game.getGameContext().getHostButtonSets();
         HostButtonSets.Button[][] committed = ButtonSetTable.createHostButtons();
         int count = committed[MARINE_SET].length;
@@ -215,24 +215,24 @@ final class ScriptButtonCoreTest {
     @Test
     void the_script_condition_states_are_local_and_start_hidden() throws IOException {
         Peer peer = new Peer(0, """
-                try {
-                    core.local.setButtonState(0, 1);
-                } catch (error) {
-                    log.info('shared ' + error.name);
-                }
-                function onLocalFrame() {
-                    log.info(core.local.getButtonState(5), local.getButtonState(5) === ButtonState.Hidden, ButtonState.get(0).getName());
-                    local.setButtonState(5, ButtonState.Disabled);
-                    core.local.setButtonState(6, 1);
-                    log.info(core.local.getButtonState(5), core.local.getButtonState(6), local.getDisplayedButtonSet());
-                    try {
-                        core.local.setButtonState(0, 2);
-                    } catch (error) {
-                        log.info('state ' + error.name);
-                    }
-                    local.changeButtons(UnitType.TerranMarine);
-                }
-                """);
+                                try {
+                                    core.local.setButtonState(0, 1);
+                                } catch (error) {
+                                    log.info('shared ' + error.name);
+                                }
+                                function onLocalFrame() {
+                                    log.info(core.local.getButtonState(5), local.getButtonState(5) === ButtonState.Hidden, ButtonState.get(0).getName());
+                                    local.setButtonState(5, ButtonState.Disabled);
+                                    core.local.setButtonState(6, 1);
+                                    log.info(core.local.getButtonState(5), core.local.getButtonState(6), local.getDisplayedButtonSet());
+                                    try {
+                                        core.local.setButtonState(0, 2);
+                                    } catch (error) {
+                                        log.info('state ' + error.name);
+                                    }
+                                    local.changeButtons(UnitType.TerranMarine);
+                                }
+                                """);
 
         peer.scenario.getRuntime().callLocalFrame(0);
 
@@ -245,44 +245,44 @@ final class ScriptButtonCoreTest {
     @Test
     void a_script_button_press_reaches_on_pressed_on_every_peer_through_its_channel() throws IOException {
         String script = """
-                var blink = display.commandCard.createButton({
-                    unitType: UnitType.TerranMarine, position: 7, icon: 236, text: 'Blink', hotkey: 'B', disabledText: 'Needs energy',
-                    target: true,
-                    onLocalPressed: function (event) {
-                        log.info('local ' + event.getAction().getName() + ' ' + event.getTargetPosition() + ' ' + event.getTarget());
-                    },
-                    onPressed: function (player, units, target) {
-                        log.info('pressed ' + game.getFrame() + ' ' + player.getId() + ' ' + units.length + ' ' + target.position + ' ' + target.unit);
-                    }
-                });
-                var plain = display.commandCard.createButton({buttonSet: 0, position: 8, icon: 237, text: 'Ping', hotkey: 'P',
-                    onPressed: function (player, units, target) {
-                        log.info('plain ' + player.getId() + ' ' + target);
-                    }
-                });
-                var index = blink.getButton().getIndex();
-                log.info(blink.getId(), plain.getId(), index, plain.getButton().getIndex(), blink.getButton().getPosition(),
-                         blink.getButton().getCondition().getName(), blink.getButton().getConditionValue(),
-                         blink.getButton().getAction().getName(), plain.getButton().getActionValue(),
-                         JSON.stringify(core.buttons.getEnabledText(0, index)), blink.getButton().getDisabledText());
-                function onLocalButtonPressed(event) {
-                    log.info('hook pressed ' + event.getButtonSet().getId() + ' ' + event.getButton().getIndex() + ' ' + event.getAction().getName() +
-                             ' ' + event.getConditionValue() + ' ' + event.isHotkey() + ' ' + event.isQueued() + ' ' + event.getRecord().kind);
-                }
-                function onLocalButtonTargeted(event) {
-                    if (event.getTargetPosition().getX() === 0) {
-                        event.consume();
-                    }
-                }
-                function onLocalFrame() {
-                    log.info('states ' + core.local.getButtonState(0) + ' ' + core.local.getButtonState(1) + ' ' + core.local.getButtonState(2));
-                    try {
-                        display.commandCard.createButton({buttonSet: 0, position: 1, icon: 1});
-                    } catch (error) {
-                        log.info('local ' + error.name);
-                    }
-                }
-                """;
+                        var blink = display.commandCard.createButton({
+                            unitType: UnitType.TerranMarine, position: 7, icon: 236, text: 'Blink', hotkey: 'B', disabledText: 'Needs energy',
+                            target: true,
+                            onLocalPressed: function (event) {
+                                log.info('local ' + event.getAction().getName() + ' ' + event.getTargetPosition() + ' ' + event.getTarget());
+                            },
+                            onPressed: function (player, units, target) {
+                                log.info('pressed ' + game.getFrame() + ' ' + player.getId() + ' ' + units.length + ' ' + target.position + ' ' + target.unit);
+                            }
+                        });
+                        var plain = display.commandCard.createButton({buttonSet: 0, position: 8, icon: 237, text: 'Ping', hotkey: 'P',
+                            onPressed: function (player, units, target) {
+                                log.info('plain ' + player.getId() + ' ' + target);
+                            }
+                        });
+                        var index = blink.getButton().getIndex();
+                        log.info(blink.getId(), plain.getId(), index, plain.getButton().getIndex(), blink.getButton().getPosition(),
+                                 blink.getButton().getCondition().getName(), blink.getButton().getConditionValue(),
+                                 blink.getButton().getAction().getName(), plain.getButton().getActionValue(),
+                                 JSON.stringify(core.buttons.getEnabledText(0, index)), blink.getButton().getDisabledText());
+                        function onLocalButtonPressed(event) {
+                            log.info('hook pressed ' + event.getButtonSet().getId() + ' ' + event.getButton().getIndex() + ' ' + event.getAction().getName() +
+                                     ' ' + event.getConditionValue() + ' ' + event.isHotkey() + ' ' + event.isQueued() + ' ' + event.getRecord().kind);
+                        }
+                        function onLocalButtonTargeted(event) {
+                            if (event.getTargetPosition().getX() === 0) {
+                                event.consume();
+                            }
+                        }
+                        function onLocalFrame() {
+                            log.info('states ' + core.local.getButtonState(0) + ' ' + core.local.getButtonState(1) + ' ' + core.local.getButtonState(2));
+                            try {
+                                display.commandCard.createButton({buttonSet: 0, position: 1, icon: 1});
+                            } catch (error) {
+                                log.info('local ' + error.name);
+                            }
+                        }
+                        """;
         Peer first = new Peer(0, script);
         Peer second = new Peer(1, script);
         int index = ButtonSetTable.getButtons(MARINE_SET).length;

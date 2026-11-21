@@ -158,18 +158,18 @@ final class ScriptCommandCoreTest {
     @Test
     void a_message_reaches_every_peer_at_the_frame_its_command_runs_in_command_order() throws IOException {
         String script = """
-                var channel = sync.createChannel(function (player, value) {
-                    log.info(game.getFrame() + ' ' + player.getId() + ' ' + JSON.stringify(value));
-                });
-                function onFrame(frame) {
-                    if (frame === 1) {
-                        channel.send({frame: frame});
-                    }
-                }
-                function onLocalChat(event) {
-                    channel.send(event.getText());
-                }
-                """;
+                        var channel = sync.createChannel(function (player, value) {
+                            log.info(game.getFrame() + ' ' + player.getId() + ' ' + JSON.stringify(value));
+                        });
+                        function onFrame(frame) {
+                            if (frame === 1) {
+                                channel.send({frame: frame});
+                            }
+                        }
+                        function onLocalChat(event) {
+                            channel.send(event.getText());
+                        }
+                        """;
         Peer first = new Peer(0, script);
         Peer second = new Peer(1, script);
 
@@ -192,13 +192,13 @@ final class ScriptCommandCoreTest {
     @Test
     void a_large_value_is_split_into_commands_and_joined_between_other_players_commands() throws IOException {
         String script = """
-                var channel = sync.createChannel(function (player, value) {
-                    log.info(player.getId() + ' ' + (typeof value === 'string' ? value.length : value.text.length + ' ' + value.list.length));
-                });
-                function onLocalChat(event) {
-                    channel.send(event.getText() === 'big' ? {text: 'x'.repeat(600), list: [1, 2, 3]} : event.getText());
-                }
-                """;
+                        var channel = sync.createChannel(function (player, value) {
+                            log.info(player.getId() + ' ' + (typeof value === 'string' ? value.length : value.text.length + ' ' + value.list.length));
+                        });
+                        function onLocalChat(event) {
+                            channel.send(event.getText() === 'big' ? {text: 'x'.repeat(600), list: [1, 2, 3]} : event.getText());
+                        }
+                        """;
         Peer first = new Peer(0, script);
         Peer second = new Peer(1, script);
 
@@ -224,15 +224,15 @@ final class ScriptCommandCoreTest {
     @Test
     void commands_wait_in_order_while_the_turn_has_no_room() throws IOException {
         Peer peer = new Peer(0, """
-                var channel = sync.createChannel(function (player, value) {
-                    log.info(value);
-                });
-                function onLocalChat(event) {
-                    channel.send(event.getText() + ' 1');
-                    channel.send(event.getText() + ' 2');
-                    channel.send(event.getText() + ' 3');
-                }
-                """);
+                                var channel = sync.createChannel(function (player, value) {
+                                    log.info(value);
+                                });
+                                function onLocalChat(event) {
+                                    channel.send(event.getText() + ' 1');
+                                    channel.send(event.getText() + ' 2');
+                                    channel.send(event.getText() + ' 3');
+                                }
+                                """);
 
         peer.submitter.room = 1;
         peer.callLocalInput(ScriptLocalInput.ofChat("value"));
@@ -265,40 +265,40 @@ final class ScriptCommandCoreTest {
     @Test
     void send_takes_plain_values_and_refuses_anything_else() throws IOException {
         Peer peer = new Peer(0, """
-                var channel = sync.createChannel(function (player, value) {
-                    log.info(1 / value[0] === -Infinity, isNaN(value[1]), value[2] === -Infinity, value[3] === 2147483648, value[4] === 1.5,
-                             value[5] === 'é한😀', value[6]['0'] === 'zero' && value[6][0] === 'zero', value[7].length,
-                             Object.keys(value[8]).length, value[9], value[10], value[11] === null, JSON.stringify(value[12]));
-                });
-                function attempt(name, value) {
-                    try {
-                        channel.send(value);
-                        log.info(name + ' sent');
-                    } catch (error) {
-                        log.info(name + ' ' + error.name);
-                    }
-                }
-                function onStart() {
-                    var cycle = [];
-                    var deep = [];
-                    var nested = deep;
-                    cycle.push(cycle);
-                    for (var level = 0; level < 64; level++) {
-                        nested.push([]);
-                        nested = nested[0];
-                    }
-                    attempt('function', function () {});
-                    attempt('undefined', undefined);
-                    attempt('position', Position.of(1, 2));
-                    attempt('player', game.players.get(0));
-                    attempt('cycle', cycle);
-                    attempt('hole', [1, , 3]);
-                    attempt('deep', deep);
-                    attempt('regexp', /x/);
-                    channel.send([-0, NaN, -Infinity, 2147483648, 1.5, 'é한😀', {'0': 'zero'}, [], {}, true, false, null,
-                                  {a: [1, {b: 'c'}], d: null}]);
-                }
-                """);
+                                var channel = sync.createChannel(function (player, value) {
+                                    log.info(1 / value[0] === -Infinity, isNaN(value[1]), value[2] === -Infinity, value[3] === 2147483648, value[4] === 1.5,
+                                             value[5] === 'é한😀', value[6]['0'] === 'zero' && value[6][0] === 'zero', value[7].length,
+                                             Object.keys(value[8]).length, value[9], value[10], value[11] === null, JSON.stringify(value[12]));
+                                });
+                                function attempt(name, value) {
+                                    try {
+                                        channel.send(value);
+                                        log.info(name + ' sent');
+                                    } catch (error) {
+                                        log.info(name + ' ' + error.name);
+                                    }
+                                }
+                                function onStart() {
+                                    var cycle = [];
+                                    var deep = [];
+                                    var nested = deep;
+                                    cycle.push(cycle);
+                                    for (var level = 0; level < 64; level++) {
+                                        nested.push([]);
+                                        nested = nested[0];
+                                    }
+                                    attempt('function', function () {});
+                                    attempt('undefined', undefined);
+                                    attempt('position', Position.of(1, 2));
+                                    attempt('player', game.players.get(0));
+                                    attempt('cycle', cycle);
+                                    attempt('hole', [1, , 3]);
+                                    attempt('deep', deep);
+                                    attempt('regexp', /x/);
+                                    channel.send([-0, NaN, -Infinity, 2147483648, 1.5, 'é한😀', {'0': 'zero'}, [], {}, true, false, null,
+                                                  {a: [1, {b: 'c'}], d: null}]);
+                                }
+                                """);
 
         peer.runFrame(0);
 
@@ -316,29 +316,29 @@ final class ScriptCommandCoreTest {
     void channels_are_created_in_shared_code_in_creation_order() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
-                var first = sync.createChannel(function () {});
-                var score = sync.createPlayerValue(0);
-                function attempt(name, create) {
-                    try {
-                        log.info(name + ' ' + create().getId());
-                    } catch (error) {
-                        log.info(name + ' ' + error.name);
-                    }
-                }
-                log.info('top ' + first.getId());
-                function onStart() {
-                    attempt('start', function () { return sync.createChannel(function () {}); });
-                    game.every(1, function () {
-                        attempt('timer', function () { return sync.createChannel(function () {}); });
-                    });
-                }
-                function onFrame(frame) {
-                    attempt('frame', function () { return sync.createChannel(function () {}); });
-                }
-                function onLocalFrame(frame) {
-                    attempt('local', function () { return sync.createChannel(function () {}); });
-                }
-                """);
+                                                                   var first = sync.createChannel(function () {});
+                                                                   var score = sync.createPlayerValue(0);
+                                                                   function attempt(name, create) {
+                                                                       try {
+                                                                           log.info(name + ' ' + create().getId());
+                                                                       } catch (error) {
+                                                                           log.info(name + ' ' + error.name);
+                                                                       }
+                                                                   }
+                                                                   log.info('top ' + first.getId());
+                                                                   function onStart() {
+                                                                       attempt('start', function () { return sync.createChannel(function () {}); });
+                                                                       game.every(1, function () {
+                                                                           attempt('timer', function () { return sync.createChannel(function () {}); });
+                                                                       });
+                                                                   }
+                                                                   function onFrame(frame) {
+                                                                       attempt('frame', function () { return sync.createChannel(function () {}); });
+                                                                   }
+                                                                   function onLocalFrame(frame) {
+                                                                       attempt('local', function () { return sync.createChannel(function () {}); });
+                                                                   }
+                                                                   """);
 
         scenario.getRuntime().start();
         scenario.getRuntime().runFrame(0);
@@ -353,17 +353,17 @@ final class ScriptCommandCoreTest {
     @Test
     void core_command_values_reach_every_peer_without_a_channel() throws IOException {
         String script = """
-                function onLocalChat(event) {
-                    core.command.submit({text: event.getText(), list: [1, 2]});
-                }
-                function onFrame(frame) {
-                    var executed = core.command.getExecuted();
-                    if (executed.length > 0) {
-                        executed[0].value.text = 'changed';
-                    }
-                    log.info(frame + ' ' + JSON.stringify(core.command.getExecuted()));
-                }
-                """;
+                        function onLocalChat(event) {
+                            core.command.submit({text: event.getText(), list: [1, 2]});
+                        }
+                        function onFrame(frame) {
+                            var executed = core.command.getExecuted();
+                            if (executed.length > 0) {
+                                executed[0].value.text = 'changed';
+                            }
+                            log.info(frame + ' ' + JSON.stringify(core.command.getExecuted()));
+                        }
+                        """;
         Peer first = new Peer(0, script);
         Peer second = new Peer(1, script);
 
@@ -381,19 +381,19 @@ final class ScriptCommandCoreTest {
     @Test
     void player_values_set_the_sending_players_slot_or_a_given_players_slot() throws IOException {
         String script = """
-                var score = sync.createPlayerValue('none');
-                function onLocalChat(event) {
-                    var text = event.getText();
-                    if (text.indexOf('for ') === 0) {
-                        score.set(game.players.get(0), text.substring(4));
-                    } else {
-                        score.set(text);
-                    }
-                }
-                function onFrame(frame) {
-                    log.info(frame + ' ' + score.get(game.players.get(0)) + ' ' + score.get(game.players.get(1)) + ' ' + score.get(game.players.get(2)));
-                }
-                """;
+                        var score = sync.createPlayerValue('none');
+                        function onLocalChat(event) {
+                            var text = event.getText();
+                            if (text.indexOf('for ') === 0) {
+                                score.set(game.players.get(0), text.substring(4));
+                            } else {
+                                score.set(text);
+                            }
+                        }
+                        function onFrame(frame) {
+                            log.info(frame + ' ' + score.get(game.players.get(0)) + ' ' + score.get(game.players.get(1)) + ' ' + score.get(game.players.get(2)));
+                        }
+                        """;
         Peer first = new Peer(0, script);
         Peer second = new Peer(1, script);
 
@@ -412,40 +412,40 @@ final class ScriptCommandCoreTest {
     @Test
     void local_hooks_read_and_send_but_cannot_change_the_game_or_the_shared_script_state() throws IOException {
         Peer peer = new Peer(0, """
-                var channel = sync.createChannel(function (player, value) {
-                    log.info('received ' + value);
-                });
-                var timer = game.every(100, function () {});
-                function attempt(name, action) {
-                    try {
-                        action();
-                        log.info(name + ' done');
-                    } catch (error) {
-                        log.info(name + ' ' + error.name);
-                    }
-                }
-                function onLocalKeyDown(event) {
-                    log.info('read only ' + game.isReadOnly() + ' ' + game.getFrame());
-                    attempt('switch', function () { game.switches.set(0, true); });
-                    attempt('timer', function () { game.every(1, function () {}); });
-                    attempt('random', function () { random.next(); });
-                    attempt('math random', function () { Math.random(); });
-                    attempt('require', function () { require('./other.js'); });
-                    attempt('cancel', function () { timer.cancel(); });
-                    attempt('channel', function () { sync.createChannel(function () {}); });
-                    attempt('events', function () { core.events.getFrameEvents(); });
-                    attempt('executed', function () { core.command.getExecuted(); });
-                    attempt('send', function () { channel.send('local'); });
-                    event.consume();
-                }
-                function onLocalKeyUp(event) {
-                    while (true) {
-                    }
-                }
-                function onFrame(frame) {
-                    log.info('frame ' + frame + ' ' + game.isReadOnly() + ' ' + (random.next() < 1));
-                }
-                """);
+                                var channel = sync.createChannel(function (player, value) {
+                                    log.info('received ' + value);
+                                });
+                                var timer = game.every(100, function () {});
+                                function attempt(name, action) {
+                                    try {
+                                        action();
+                                        log.info(name + ' done');
+                                    } catch (error) {
+                                        log.info(name + ' ' + error.name);
+                                    }
+                                }
+                                function onLocalKeyDown(event) {
+                                    log.info('read only ' + game.isReadOnly() + ' ' + game.getFrame());
+                                    attempt('switch', function () { game.switches.set(0, true); });
+                                    attempt('timer', function () { game.every(1, function () {}); });
+                                    attempt('random', function () { random.next(); });
+                                    attempt('math random', function () { Math.random(); });
+                                    attempt('require', function () { require('./other.js'); });
+                                    attempt('cancel', function () { timer.cancel(); });
+                                    attempt('channel', function () { sync.createChannel(function () {}); });
+                                    attempt('events', function () { core.events.getFrameEvents(); });
+                                    attempt('executed', function () { core.command.getExecuted(); });
+                                    attempt('send', function () { channel.send('local'); });
+                                    event.consume();
+                                }
+                                function onLocalKeyUp(event) {
+                                    while (true) {
+                                    }
+                                }
+                                function onFrame(frame) {
+                                    log.info('frame ' + frame + ' ' + game.isReadOnly() + ' ' + (random.next() < 1));
+                                }
+                                """);
 
         Assertions.assertTrue(peer.callLocalInput(ScriptLocalInput.ofKey(KEY_Q, true, 0, false, 0, 0)));
         Assertions.assertFalse(peer.callLocalInput(ScriptLocalInput.ofKey(KEY_W, false, 0, false, 0, 0)), "a local hook that runs over its budget");
@@ -464,13 +464,13 @@ final class ScriptCommandCoreTest {
     @Test
     void commands_of_other_shapes_reach_no_channel_and_a_broken_value_is_logged() throws IOException {
         Peer peer = new Peer(0, """
-                var channel = sync.createChannel(function (player, value) {
-                    log.info('received ' + value);
-                });
-                function onFrame(frame) {
-                    log.info(JSON.stringify(core.command.getExecuted()));
-                }
-                """);
+                                var channel = sync.createChannel(function (player, value) {
+                                    log.info('received ' + value);
+                                });
+                                function onFrame(frame) {
+                                    log.info(JSON.stringify(core.command.getExecuted()));
+                                }
+                                """);
         List<Command> commands = new ArrayList<>();
 
         commands.add(new Command(1, ScriptCommands.split(createEnvelope(5)).getFirst()));

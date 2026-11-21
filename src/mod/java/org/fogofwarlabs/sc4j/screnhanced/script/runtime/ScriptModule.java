@@ -2,11 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.Function;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.TopLevel;
+import org.mozilla.javascript.*;
 
 import java.util.ArrayList;
 import java.util.List;

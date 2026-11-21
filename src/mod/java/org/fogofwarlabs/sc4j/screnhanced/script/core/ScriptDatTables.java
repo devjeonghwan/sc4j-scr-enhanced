@@ -1,24 +1,10 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.DatSchema;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.DatTable;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.DatType;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.FlingyDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.ImagesDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.OrdersDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.SpritesDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.TechdataDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.UnitsDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.UpgradesDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.WeaponsDat;
+import org.fogofwarlabs.sc4j.scr.data.format.dat.*;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrSpriteTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
-import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitAvailabilityFlags;
-import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitComputerFlags;
-import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitGroupFlags;
-import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
-import org.fogofwarlabs.sc4j.scr.data.type.constant.WeaponTargetFlags;
+import org.fogofwarlabs.sc4j.scr.data.type.constant.*;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.ClassicDatRegion;
 import org.jetbrains.annotations.NotNull;
@@ -29,12 +15,7 @@ import org.mozilla.javascript.ScriptableObject;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -186,7 +167,7 @@ public final class ScriptDatTables {
 
         /**
          * @return the id that stands for no object, the count of the referred table, or {@link ScriptDatTables#NOT_NULLABLE} for a reference
-         *         that always names an object
+         * that always names an object
          */
         public int getNoneId() {
             return this.noneId;
@@ -216,7 +197,7 @@ public final class ScriptDatTables {
 
         /**
          * @return the name of the flag's methods, the column prefix followed by the constant in upper camel case ({@code Building},
-         *         {@code GroupZerg})
+         * {@code GroupZerg})
          */
         public @NotNull String getName() {
             return this.name;
@@ -429,7 +410,6 @@ public final class ScriptDatTables {
             return this.table.apply(gameData);
         }
     }
-
 
 
     /**

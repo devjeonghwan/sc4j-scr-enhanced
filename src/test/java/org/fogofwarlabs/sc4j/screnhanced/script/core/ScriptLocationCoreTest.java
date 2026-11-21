@@ -25,19 +25,19 @@ final class ScriptLocationCoreTest {
     @Test
     void locations_are_found_by_name_and_take_new_bounds(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
-                function onStart() {
-                    var anywhere = game.map.locations.findByName('Anywhere');
-                    log.info(anywhere.getId(), anywhere === game.map.locations.get(anywhere.getId()), anywhere.getName(), anywhere.getLeft(),
-                             anywhere.getTop(), anywhere.getRight() === game.map.getWidth(), anywhere.getBottom() === game.map.getHeight(),
-                             String(anywhere.getCenter()) === String(Position.of(game.map.getWidth() / 2, game.map.getHeight() / 2)));
-                    log.info(game.map.locations.findByName('No such location'), core.location.getCount(), game.map.locations.get(255));
-                    var changed = game.map.locations.get(3);
-                    changed.setBounds(32, 64, 97, 129);
-                    log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom(), String(changed.getCenter()));
-                    changed.setCenter(Position.of(100, 100));
-                    log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom());
-                }
-                """);
+                                                                                                              function onStart() {
+                                                                                                                  var anywhere = game.map.locations.findByName('Anywhere');
+                                                                                                                  log.info(anywhere.getId(), anywhere === game.map.locations.get(anywhere.getId()), anywhere.getName(), anywhere.getLeft(),
+                                                                                                                           anywhere.getTop(), anywhere.getRight() === game.map.getWidth(), anywhere.getBottom() === game.map.getHeight(),
+                                                                                                                           String(anywhere.getCenter()) === String(Position.of(game.map.getWidth() / 2, game.map.getHeight() / 2)));
+                                                                                                                  log.info(game.map.locations.findByName('No such location'), core.location.getCount(), game.map.locations.get(255));
+                                                                                                                  var changed = game.map.locations.get(3);
+                                                                                                                  changed.setBounds(32, 64, 97, 129);
+                                                                                                                  log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom(), String(changed.getCenter()));
+                                                                                                                  changed.setCenter(Position.of(100, 100));
+                                                                                                                  log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom());
+                                                                                                              }
+                                                                                                              """);
 
         Assertions.assertEquals(List.of("63 true Anywhere 0 0 true true true",
                                         "null 255 null",
@@ -56,29 +56,29 @@ final class ScriptLocationCoreTest {
     @Test
     void locations_take_elevation_flags(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
-                var changed;
-                function onStart() {
-                    changed = game.map.locations.get(3);
-                    log.info(core.location.getFlags(3), changed.hasFlag(LocationFlag.LowAir), LocationFlag.HighAir.getId());
-                    changed.setFlag(LocationFlag.LowAir, true);
-                    changed.setFlag(LocationFlag.HighGround, true);
-                    log.info(core.location.getFlags(3), changed.hasFlag(LocationFlag.LowAir), changed.hasFlag(LocationFlag.MiddleGround));
-                    changed.setFlag(LocationFlag.LowAir, false);
-                    log.info(core.location.getFlags(3));
-                    try {
-                        core.location.setFlags(3, 0x10000);
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                }
-                function onLocalFrame() {
-                    try {
-                        changed.setFlag(LocationFlag.LowGround, true);
-                    } catch (error) {
-                        log.info('local ' + error.name + ' ' + core.location.getFlags(3));
-                    }
-                }
-                """);
+                                                                                                              var changed;
+                                                                                                              function onStart() {
+                                                                                                                  changed = game.map.locations.get(3);
+                                                                                                                  log.info(core.location.getFlags(3), changed.hasFlag(LocationFlag.LowAir), LocationFlag.HighAir.getId());
+                                                                                                                  changed.setFlag(LocationFlag.LowAir, true);
+                                                                                                                  changed.setFlag(LocationFlag.HighGround, true);
+                                                                                                                  log.info(core.location.getFlags(3), changed.hasFlag(LocationFlag.LowAir), changed.hasFlag(LocationFlag.MiddleGround));
+                                                                                                                  changed.setFlag(LocationFlag.LowAir, false);
+                                                                                                                  log.info(core.location.getFlags(3));
+                                                                                                                  try {
+                                                                                                                      core.location.setFlags(3, 0x10000);
+                                                                                                                  } catch (error) {
+                                                                                                                      log.info(error.name);
+                                                                                                                  }
+                                                                                                              }
+                                                                                                              function onLocalFrame() {
+                                                                                                                  try {
+                                                                                                                      changed.setFlag(LocationFlag.LowGround, true);
+                                                                                                                  } catch (error) {
+                                                                                                                      log.info('local ' + error.name + ' ' + core.location.getFlags(3));
+                                                                                                                  }
+                                                                                                              }
+                                                                                                              """);
 
         scenario.runLocalFrame();
 

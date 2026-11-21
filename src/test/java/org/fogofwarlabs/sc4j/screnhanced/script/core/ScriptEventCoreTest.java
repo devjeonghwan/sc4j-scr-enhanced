@@ -37,17 +37,17 @@ final class ScriptEventCoreTest {
     void get_frame_events_should_return_the_records_of_the_frame_without_taking_them() throws IOException {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
-                var hooked = [];
-                function onPlayerResult(event) {
-                    hooked.push(event.getRecord() === core.events.getFrameEvents()[0] && event.isVictory());
-                }
-                function onFrame(frame) {
-                    var events = core.events.getFrameEvents();
-                    log.info(frame + ' ' + JSON.stringify(events));
-                    log.info(events === core.events.getFrameEvents(), events[0] === core.events.getFrameEvents()[0],
-                             events.length > 0 && Object.isFrozen(events[0]), hooked.join());
-                }
-                """);
+                                                                   var hooked = [];
+                                                                   function onPlayerResult(event) {
+                                                                       hooked.push(event.getRecord() === core.events.getFrameEvents()[0] && event.isVictory());
+                                                                   }
+                                                                   function onFrame(frame) {
+                                                                       var events = core.events.getFrameEvents();
+                                                                       log.info(frame + ' ' + JSON.stringify(events));
+                                                                       log.info(events === core.events.getFrameEvents(), events[0] === core.events.getFrameEvents()[0],
+                                                                                events.length > 0 && Object.isFrozen(events[0]), hooked.join());
+                                                                   }
+                                                                   """);
 
         scenario.getRuntime().start();
         scenario.getRuntime().queueEvent(new PlayerResultEvent(2, VICTORY), 3);
@@ -64,17 +64,17 @@ final class ScriptEventCoreTest {
     @Test
     void kinds_are_named_by_id_and_match_the_event_kind_table() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), """
-                var names = [];
-                for (var kind = 0; kind < core.events.getKindCount(); kind++) {
-                    names.push(core.events.getKindName(kind) + (EventKind.get(kind).getName() === core.events.getKindName(kind) ? '' : '!'));
-                }
-                log.info(names.join(' '));
-                try {
-                    core.events.getKindName(core.events.getKindCount());
-                } catch (error) {
-                    log.info(error.name);
-                }
-                """);
+                                                                           var names = [];
+                                                                           for (var kind = 0; kind < core.events.getKindCount(); kind++) {
+                                                                               names.push(core.events.getKindName(kind) + (EventKind.get(kind).getName() === core.events.getKindName(kind) ? '' : '!'));
+                                                                           }
+                                                                           log.info(names.join(' '));
+                                                                           try {
+                                                                               core.events.getKindName(core.events.getKindCount());
+                                                                           } catch (error) {
+                                                                               log.info(error.name);
+                                                                           }
+                                                                           """);
 
         scenario.getRuntime().start();
 

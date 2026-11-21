@@ -56,37 +56,42 @@
     };
 
     var sync = freeze({
-        // Creates a channel; only in shared code, so that every peer has the same channels.
-        createChannel: function (handler) {
-            if (typeof handler !== 'function') {
-                throw new TypeError('A channel handler function is needed, not ' + handler + '.');
-            }
+                          // Creates a channel; only in shared code, so that every peer has the same channels.
+                          createChannel: function (handler) {
+                              if (typeof handler !== 'function') {
+                                  throw new TypeError('A channel handler function is needed, not ' + handler + '.');
+                              }
 
-            requireShared('Local code cannot create a channel.');
-            handlers.push(handler);
+                              requireShared('Local code cannot create a channel.');
+                              handlers.push(handler);
 
-            return freeze(createObject(channelPrototype, {id: handlers.length - 1}));
-        },
-        // Creates a value per player over a new channel; only in shared code, as createChannel.
-        createPlayerValue: function (initial) {
-            var values = [];
-            var assigned = [];
-            var channel = sync.createChannel(function (player, message) {
-                if (!Array.isArray(message) || message.length !== 2) {
-                    return;
-                }
+                              return freeze(createObject(channelPrototype, {id: handlers.length - 1}));
+                          },
+                          // Creates a value per player over a new channel; only in shared code, as createChannel.
+                          createPlayerValue: function (initial) {
+                              var values = [];
+                              var assigned = [];
+                              var channel = sync.createChannel(function (player, message) {
+                                  if (!Array.isArray(message) || message.length !== 2) {
+                                      return;
+                                  }
 
-                var id = message[0] === NONE ? player.id : message[0];
+                                  var id = message[0] === NONE ? player.id : message[0];
 
-                if (typeof id === 'number' && id === Math.floor(id) && getPlayer(id) !== null) {
-                    values[id] = message[1];
-                    assigned[id] = true;
-                }
-            });
+                                  if (typeof id === 'number' && id === Math.floor(id) && getPlayer(id) !== null) {
+                                      values[id] = message[1];
+                                      assigned[id] = true;
+                                  }
+                              });
 
-            return freeze(createObject(playerValuePrototype, {channel: channel, initial: initial, values: values, assigned: assigned}));
-        }
-    });
+                              return freeze(createObject(playerValuePrototype, {
+                                  channel: channel,
+                                  initial: initial,
+                                  values: values,
+                                  assigned: assigned
+                              }));
+                          }
+                      });
 
     function hasChannels() {
         return handlers.length > 0;

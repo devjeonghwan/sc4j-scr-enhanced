@@ -1,14 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
-import org.fogofwarlabs.sc4j.scr.data.format.dat.DatSchema;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.FlingyDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.ImagesDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.OrdersDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.SpritesDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.TechdataDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.UnitsDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.UpgradesDat;
-import org.fogofwarlabs.sc4j.scr.data.format.dat.WeaponsDat;
+import org.fogofwarlabs.sc4j.scr.data.format.dat.*;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.WeaponTargetFlags;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProjectUtils;
@@ -20,13 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Tests that {@link ScriptDatTables} has one column for every field of the SC:R DAT schemas, named after the field's constant, the named bits of

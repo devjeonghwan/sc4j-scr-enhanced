@@ -34,11 +34,11 @@ final class ScriptSimulationExtensionTest {
      * GRP.
      */
     private static final @NotNull String SCRIPT = """
-            function onStart() {
-                display.images.replace(ImageType.get(239), {sd: game.map.resources.getGrp('units/marine.grp')});
-                game.print('ES started ' + game.map.resources.has('units/marine.grp'));
-            }
-            """;
+                                                  function onStart() {
+                                                      display.images.replace(ImageType.get(239), {sd: game.map.resources.getGrp('units/marine.grp')});
+                                                      game.print('ES started ' + game.map.resources.has('units/marine.grp'));
+                                                  }
+                                                  """;
     private static final @NotNull String GRP_NAME = "units/marine.grp";
     private static final int REPLACED_IMAGE_TYPE = 239;
     private static final int PLAYED_FRAMES = 8;

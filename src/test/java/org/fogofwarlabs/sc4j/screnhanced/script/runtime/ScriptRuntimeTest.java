@@ -1,10 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProjectUtils;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProtector;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptSourceMap;
+import org.fogofwarlabs.sc4j.screnhanced.script.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -67,11 +63,11 @@ final class ScriptRuntimeTest {
     @Test
     void script_errors_carry_no_java_objects() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                try { null.x; } catch (e) { log.info(e.name, typeof e.rhinoException, typeof e.javaException); }
-                try { missing(); } catch (e) { log.info(e.name, typeof e.rhinoException, typeof e.javaException); }
-                try { require(); } catch (e) { log.info(e.name, typeof e.rhinoException, typeof e.javaException); }
-                log.info(typeof ''.getClass, typeof log.getClass, typeof Math.getClass, typeof random.getClass);
-                """);
+                                                                     try { null.x; } catch (e) { log.info(e.name, typeof e.rhinoException, typeof e.javaException); }
+                                                                     try { missing(); } catch (e) { log.info(e.name, typeof e.rhinoException, typeof e.javaException); }
+                                                                     try { require(); } catch (e) { log.info(e.name, typeof e.rhinoException, typeof e.javaException); }
+                                                                     log.info(typeof ''.getClass, typeof log.getClass, typeof Math.getClass, typeof random.getClass);
+                                                                     """);
 
         Assertions.assertEquals(List.of("TypeError undefined undefined", "ReferenceError undefined undefined", "TypeError undefined undefined",
                                         "undefined undefined undefined undefined"), scenario.getInfoMessages(), scenario.getLines()::toString);
@@ -98,11 +94,11 @@ final class ScriptRuntimeTest {
     @Test
     void functions_keep_their_prototype_without_the_string_constructor() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function add(first, second) { return first + second; }
-                function* count() { yield 1; yield 2; }
-                log.info((function () {}) instanceof Function, (() => 1) instanceof Function, add.call(null, 1, 2), add.apply(null, [3, 4]),
-                         add.bind(null, 5)(6), Array.from(count()).join('+'), typeof Function.prototype.toString);
-                """);
+                                                                     function add(first, second) { return first + second; }
+                                                                     function* count() { yield 1; yield 2; }
+                                                                     log.info((function () {}) instanceof Function, (() => 1) instanceof Function, add.call(null, 1, 2), add.apply(null, [3, 4]),
+                                                                              add.bind(null, 5)(6), Array.from(count()).join('+'), typeof Function.prototype.toString);
+                                                                     """);
 
         Assertions.assertEquals(List.of("true true 3 7 11 1+2 function"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
@@ -111,11 +107,11 @@ final class ScriptRuntimeTest {
     void the_generator_constructor_stays_disabled_in_later_modules() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        log.info(delete globalThis.GeneratorFunction, typeof GeneratorFunction);
-                        GeneratorFunction = null;
-                        delete globalThis.Function;
-                        require('./later.js');
-                        """,
+                                                 log.info(delete globalThis.GeneratorFunction, typeof GeneratorFunction);
+                                                 GeneratorFunction = null;
+                                                 delete globalThis.Function;
+                                                 require('./later.js');
+                                                 """,
                 "later.js", createAttemptScript(List.of("typeof __GeneratorFunction", "(function* () {}).constructor('yield 1')().next().value",
                                                         "GeneratorFunction('yield 1')"))
         );
@@ -129,15 +125,15 @@ final class ScriptRuntimeTest {
     @Test
     void promise_jobs_run_within_the_call() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function onStart() {
-                    Promise.resolve('job').then(value => log.info(value));
-                    log.info('start');
-                }
-                function onFrame(frame) {
-                    Promise.resolve(frame).then(value => log.info('job ' + value));
-                    log.info('frame ' + frame);
-                }
-                """);
+                                                                     function onStart() {
+                                                                         Promise.resolve('job').then(value => log.info(value));
+                                                                         log.info('start');
+                                                                     }
+                                                                     function onFrame(frame) {
+                                                                         Promise.resolve(frame).then(value => log.info('job ' + value));
+                                                                         log.info('frame ' + frame);
+                                                                     }
+                                                                     """);
 
         scenario.getRuntime().runFrame(1);
 
@@ -147,21 +143,21 @@ final class ScriptRuntimeTest {
     @Test
     void the_same_package_and_seed_give_the_same_results() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(ScriptRuntimeScenario.MAIN_NAME, """
-                const values = [];
-                function onStart() {
-                    for (let index = 0; index < 4; index++) {
-                        values.push(random.next(), random.nextInt(1000), random.chance(0.5), Math.random());
-                    }
-                    log.info(values.join(','));
-                    log.info(JSON.stringify({b: 1, a: [3, 1, 2].sort(), c: Math.sin(1) / 3, d: (0.1 + 0.2).toFixed(20)}));
-                    log.info(Object.keys({z: 1, 10: 2, y: 3, 2: 4}).join());
-                    log.info((1234.5678).toString(16), (1e21).toString(), (123.456).toPrecision(10), 'abc'.localeCompare('abd'),
-                             'a1b22'.replace(/[0-9]+/g, 'x'), /^([a-z]+)-([0-9])$/.exec('unit-7')[2]);
-                }
-                function onFrame(frame) {
-                    log.info(frame, random.nextInt(6), Math.atan2(frame, 3), Math.pow(1.5, frame));
-                }
-                """);
+                                                                                                           const values = [];
+                                                                                                           function onStart() {
+                                                                                                               for (let index = 0; index < 4; index++) {
+                                                                                                                   values.push(random.next(), random.nextInt(1000), random.chance(0.5), Math.random());
+                                                                                                               }
+                                                                                                               log.info(values.join(','));
+                                                                                                               log.info(JSON.stringify({b: 1, a: [3, 1, 2].sort(), c: Math.sin(1) / 3, d: (0.1 + 0.2).toFixed(20)}));
+                                                                                                               log.info(Object.keys({z: 1, 10: 2, y: 3, 2: 4}).join());
+                                                                                                               log.info((1234.5678).toString(16), (1e21).toString(), (123.456).toPrecision(10), 'abc'.localeCompare('abd'),
+                                                                                                                        'a1b22'.replace(/[0-9]+/g, 'x'), /^([a-z]+)-([0-9])$/.exec('unit-7')[2]);
+                                                                                                           }
+                                                                                                           function onFrame(frame) {
+                                                                                                               log.info(frame, random.nextInt(6), Math.atan2(frame, 3), Math.pow(1.5, frame));
+                                                                                                           }
+                                                                                                           """);
 
         List<String> first = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 10);
         List<String> second = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 10);
@@ -185,19 +181,19 @@ final class ScriptRuntimeTest {
     @Test
     void random_gives_numbers_in_range_and_refuses_bad_bounds() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                let inRange = true;
-                const seen = new Set();
-                for (let index = 0; index < 1000; index++) {
-                    let next = random.next();
-                    let die = random.nextInt(6);
-                    inRange = inRange && next >= 0 && next < 1 && Number.isInteger(die) && die >= 0 && die < 6;
-                    seen.add(die);
-                }
-                log.info(inRange, seen.size, random.chance(0), random.chance(1), random.nextInt(1), random.nextInt(2 ** 53) < 2 ** 53);
-                for (let bound of [0, -1, 1.5, NaN, Infinity, 2 ** 53 + 2, undefined]) {
-                    try { random.nextInt(bound); log.info('accepted', bound); } catch (e) { log.info(e.name); }
-                }
-                """);
+                                                                     let inRange = true;
+                                                                     const seen = new Set();
+                                                                     for (let index = 0; index < 1000; index++) {
+                                                                         let next = random.next();
+                                                                         let die = random.nextInt(6);
+                                                                         inRange = inRange && next >= 0 && next < 1 && Number.isInteger(die) && die >= 0 && die < 6;
+                                                                         seen.add(die);
+                                                                     }
+                                                                     log.info(inRange, seen.size, random.chance(0), random.chance(1), random.nextInt(1), random.nextInt(2 ** 53) < 2 ** 53);
+                                                                     for (let bound of [0, -1, 1.5, NaN, Infinity, 2 ** 53 + 2, undefined]) {
+                                                                         try { random.nextInt(bound); log.info('accepted', bound); } catch (e) { log.info(e.name); }
+                                                                     }
+                                                                     """);
 
         Assertions.assertEquals(List.of("true 6 false true 0 true", "RangeError", "RangeError", "RangeError", "RangeError", "RangeError",
                                         "RangeError", "RangeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
@@ -207,18 +203,18 @@ final class ScriptRuntimeTest {
     void hooks_run_per_module_in_load_order() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        require('./first.js');
-                        require('./second.js');
-                        function onStart() { log.info('start'); }
-                        function onFrame(frame) { log.info('frame', frame); }
-                        """,
+                                                 require('./first.js');
+                                                 require('./second.js');
+                                                 function onStart() { log.info('start'); }
+                                                 function onFrame(frame) { log.info('frame', frame); }
+                                                 """,
                 "first.js", """
-                        function onFrame(frame) { log.info('frame', frame); }
-                        """,
+                            function onFrame(frame) { log.info('frame', frame); }
+                            """,
                 "second.js", """
-                        function onStart() { log.info('start'); }
-                        var onFrame = function (frame) { log.info('frame', frame); };
-                        """
+                             function onStart() { log.info('start'); }
+                             var onFrame = function (frame) { log.info('frame', frame); };
+                             """
         );
 
         List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 2);
@@ -231,12 +227,12 @@ final class ScriptRuntimeTest {
     @Test
     void unknown_hook_names_log_one_warning_each() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function onUnitDance() { log.info('called'); }
-                function onstart() { log.info('called'); }
-                function on() { log.info('called'); }
-                var onCount = 3;
-                function onStart() { log.info('start'); }
-                """);
+                                                                     function onUnitDance() { log.info('called'); }
+                                                                     function onstart() { log.info('called'); }
+                                                                     function on() { log.info('called'); }
+                                                                     var onCount = 3;
+                                                                     function onStart() { log.info('start'); }
+                                                                     """);
 
         scenario.getRuntime().runFrame(0);
         scenario.getRuntime().runFrame(1);
@@ -248,11 +244,11 @@ final class ScriptRuntimeTest {
     @Test
     void event_and_decision_hooks_are_known_hooks() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function onUnitDied(event) {}
-                function onPlayerResult(event) {}
-                function onBeforeDamage(damage) {}
-                function onBeforeTargetAcquired(target) {}
-                """);
+                                                                     function onUnitDied(event) {}
+                                                                     function onPlayerResult(event) {}
+                                                                     function onBeforeDamage(damage) {}
+                                                                     function onBeforeTargetAcquired(target) {}
+                                                                     """);
 
         Assertions.assertEquals(List.of(), scenario.getLines());
     }
@@ -261,17 +257,17 @@ final class ScriptRuntimeTest {
     void an_exceeded_budget_stops_the_script_for_the_rest_of_the_game() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        require('./other.js');
-                        function onFrame(frame) {
-                            log.info('main', frame);
-                            if (frame === 2) {
-                                try { while (true) {} } catch (e) { log.info('caught'); } finally { log.info('finally'); }
-                            }
-                        }
-                        """,
+                                                 require('./other.js');
+                                                 function onFrame(frame) {
+                                                     log.info('main', frame);
+                                                     if (frame === 2) {
+                                                         try { while (true) {} } catch (e) { log.info('caught'); } finally { log.info('finally'); }
+                                                     }
+                                                 }
+                                                 """,
                 "other.js", """
-                        function onFrame(frame) { log.info('other', frame); }
-                        """
+                            function onFrame(frame) { log.info('other', frame); }
+                            """
         );
         ScriptRuntimeScenario scenario = new ScriptRuntimeScenario(scriptPackage, ScriptRuntimeScenario.SEED, 100_000);
 
@@ -291,11 +287,11 @@ final class ScriptRuntimeTest {
     @Test
     void the_budget_counts_each_call_on_its_own() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(ScriptRuntimeScenario.MAIN_NAME, """
-                let total = 0;
-                function onFrame(frame) {
-                    for (let index = 0; index < 1000; index++) { total += index; }
-                }
-                """);
+                                                                                                           let total = 0;
+                                                                                                           function onFrame(frame) {
+                                                                                                               for (let index = 0; index < 1000; index++) { total += index; }
+                                                                                                           }
+                                                                                                           """);
         ScriptRuntimeScenario scenario = new ScriptRuntimeScenario(scriptPackage, ScriptRuntimeScenario.SEED, 100_000);
 
         scenario.getRuntime().start();
@@ -311,8 +307,8 @@ final class ScriptRuntimeTest {
     @Test
     void the_budget_covers_loading() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(ScriptRuntimeScenario.MAIN_NAME, """
-                for (;;) {}
-                """);
+                                                                                                           for (;;) {}
+                                                                                                           """);
         ScriptRuntimeScenario scenario = new ScriptRuntimeScenario(scriptPackage, ScriptRuntimeScenario.SEED, 100_000);
 
         scenario.getRuntime().start();
@@ -326,21 +322,21 @@ final class ScriptRuntimeTest {
     void an_uncaught_error_ends_only_its_hook_call() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        require('./other.js');
-                        function onStart() {
-                            throw new Error('start failed');
-                        }
-                        function onFrame(frame) {
-                            if (frame === 1) {
-                                null.x;
-                            }
-                            log.info('main', frame);
-                        }
-                        """,
+                                                 require('./other.js');
+                                                 function onStart() {
+                                                     throw new Error('start failed');
+                                                 }
+                                                 function onFrame(frame) {
+                                                     if (frame === 1) {
+                                                         null.x;
+                                                     }
+                                                     log.info('main', frame);
+                                                 }
+                                                 """,
                 "other.js", """
-                        function onStart() { log.info('other start'); }
-                        function onFrame(frame) { log.info('other', frame); }
-                        """
+                            function onStart() { log.info('other start'); }
+                            function onFrame(frame) { log.info('other', frame); }
+                            """
         );
 
         List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 3);
@@ -354,10 +350,10 @@ final class ScriptRuntimeTest {
     @Test
     void a_syntax_error_ends_the_loading_of_its_script() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function onFrame(frame) {
-                    log.info('frame', frame;
-                }
-                """);
+                                                                     function onFrame(frame) {
+                                                                         log.info('frame', frame;
+                                                                     }
+                                                                     """);
 
         scenario.getRuntime().runFrame(0);
 
@@ -370,10 +366,10 @@ final class ScriptRuntimeTest {
     @Test
     void deep_script_recursion_is_a_script_error() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function down(depth) { return depth === 0 ? 0 : 1 + down(depth - 1); }
-                log.info(down(5000));
-                try { down(100000); } catch (e) { log.info(e.name); }
-                """);
+                                                                     function down(depth) { return depth === 0 ? 0 : 1 + down(depth - 1); }
+                                                                     log.info(down(5000));
+                                                                     try { down(100000); } catch (e) { log.info(e.name); }
+                                                                     """);
 
         Assertions.assertEquals(List.of("5000", "InternalError"), scenario.getInfoMessages(), scenario.getLines()::toString);
         Assertions.assertFalse(scenario.getRuntime().isStopped());
@@ -382,9 +378,9 @@ final class ScriptRuntimeTest {
     @Test
     void a_java_stack_overflow_stops_the_script() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                function down(depth) { return [depth].map(value => down(value + 1))[0]; }
-                function onStart() { down(0); }
-                """);
+                                                                     function down(depth) { return [depth].map(value => down(value + 1))[0]; }
+                                                                     function onStart() { down(0); }
+                                                                     """);
 
         scenario.getRuntime().runFrame(0);
 
@@ -417,11 +413,11 @@ final class ScriptRuntimeTest {
     @Test
     void runtimes_do_not_share_globals() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(ScriptRuntimeScenario.MAIN_NAME, """
-                log.info(typeof globalThis.shared, Array.prototype.marked);
-                globalThis.shared = 1;
-                Array.prototype.marked = true;
-                Math.sin = null;
-                """);
+                                                                                                           log.info(typeof globalThis.shared, Array.prototype.marked);
+                                                                                                           globalThis.shared = 1;
+                                                                                                           Array.prototype.marked = true;
+                                                                                                           Math.sin = null;
+                                                                                                           """);
         List<String> lines = new ArrayList<>(ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 0));
 
         lines.addAll(ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 0));
@@ -433,45 +429,45 @@ final class ScriptRuntimeTest {
     void protected_packages_log_the_same_lines_as_their_sources(@TempDir @NotNull Path folder) throws IOException {
         ScriptPackage modules = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
-                        // The main module: a counter of the library at the start, random values every frame, an error at frame 2.
-                        const util = require('./lib/util.js');
-                        var history = [];
-
-                        function onStart() {
-                            var counter = util.makeCounter(3);
-                            history.push(counter.next(), counter.next());
-                            log.info('start', history.join(','));
-                        }
-
-                        function onFrame(frame) {
-                            var values = [];
-                            for (let index = 0; index < 3; index++) {
-                                values.push(util.scale(random.nextInt(100), index));
-                            }
-                            log.info('frame', frame, values.join(' '));
-                            if (frame === 2) {
-                                util.fail(frame);
-                            }
-                        }
-                        """,
+                                                 // The main module: a counter of the library at the start, random values every frame, an error at frame 2.
+                                                 const util = require('./lib/util.js');
+                                                 var history = [];
+                                                 
+                                                 function onStart() {
+                                                     var counter = util.makeCounter(3);
+                                                     history.push(counter.next(), counter.next());
+                                                     log.info('start', history.join(','));
+                                                 }
+                                                 
+                                                 function onFrame(frame) {
+                                                     var values = [];
+                                                     for (let index = 0; index < 3; index++) {
+                                                         values.push(util.scale(random.nextInt(100), index));
+                                                     }
+                                                     log.info('frame', frame, values.join(' '));
+                                                     if (frame === 2) {
+                                                         util.fail(frame);
+                                                     }
+                                                 }
+                                                 """,
                 "lib/util.js", """
-                        /* The library: a counter with a closure, a scale and a failing function. */
-                        function makeCounter(start) {
-                            var count = start;
-                            return {next: function () { count += 1; return count; }};
-                        }
-
-                        exports.makeCounter = makeCounter;
-                        exports.scale = function (value, factor) {
-                            var scaled = value * factor;
-                            return scaled;
-                        };
-                        exports.fail = function (frame) {
-                            var missing = null;
-
-                            return missing.property + frame;
-                        };
-                        """
+                               /* The library: a counter with a closure, a scale and a failing function. */
+                               function makeCounter(start) {
+                                   var count = start;
+                                   return {next: function () { count += 1; return count; }};
+                               }
+                               
+                               exports.makeCounter = makeCounter;
+                               exports.scale = function (value, factor) {
+                                   var scaled = value * factor;
+                                   return scaled;
+                               };
+                               exports.fail = function (frame) {
+                                   var missing = null;
+                               
+                                   return missing.property + frame;
+                               };
+                               """
         );
         Path template = folder.resolve("template");
 

@@ -5,19 +5,10 @@ import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.Script;
-import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.TopLevel;
+import org.mozilla.javascript.*;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Loads the scripts of a script runtime as CommonJS-style modules and keeps them in load order.

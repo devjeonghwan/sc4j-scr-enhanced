@@ -31,7 +31,7 @@ final class ScriptSourceMapTest {
             context.setLanguageVersion(Context.VERSION_ECMASCRIPT);
 
             EcmaError error = Assertions.assertThrows(EcmaError.class, () -> context.evaluateString(context.initStandardObjects(), source,
-                                                                                                     MAIN_SCRIPT, 1, null));
+                                                                                                    MAIN_SCRIPT, 1, null));
 
             return error.lineNumber();
         }
@@ -75,17 +75,17 @@ final class ScriptSourceMapTest {
     @Test
     void the_error_line_of_a_protected_script_maps_to_the_original_line() throws IOException {
         String source = """
-                // The error is on line 8.
-                function fail(frame) {
-                    var units = [];
-
-                    /* Nothing here,
-                       nor here. */
-                    var missing = null;
-                    return units.length + missing.property + frame;
-                }
-                fail(1);
-                """;
+                        // The error is on line 8.
+                        function fail(frame) {
+                            var units = [];
+                        
+                            /* Nothing here,
+                               nor here. */
+                            var missing = null;
+                            return units.length + missing.property + frame;
+                        }
+                        fail(1);
+                        """;
         ScriptProtector protector = ScriptProtector.protect(MAIN_SCRIPT, source);
         ScriptSourceMap sourceMap = new ScriptSourceMap();
         int protectedLine = findErrorLine(protector.getText());

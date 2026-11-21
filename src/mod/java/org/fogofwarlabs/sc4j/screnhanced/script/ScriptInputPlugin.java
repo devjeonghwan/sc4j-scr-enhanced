@@ -1,11 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrButtonInput;
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
-import org.fogofwarlabs.sc4j.scr.game.extension.ScrMouseInput;
+import org.fogofwarlabs.sc4j.scr.game.extension.*;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;

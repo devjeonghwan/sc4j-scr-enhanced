@@ -3,53 +3,12 @@ package org.fogofwarlabs.sc4j.screnhanced.script;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.CompilerEnvirons;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.ContextFactory;
-import org.mozilla.javascript.EvaluatorException;
-import org.mozilla.javascript.Parser;
-import org.mozilla.javascript.ast.ArrayComprehension;
-import org.mozilla.javascript.ast.ArrayLiteral;
-import org.mozilla.javascript.ast.Assignment;
-import org.mozilla.javascript.ast.AstNode;
-import org.mozilla.javascript.ast.AstRoot;
-import org.mozilla.javascript.ast.BreakStatement;
-import org.mozilla.javascript.ast.CatchClause;
-import org.mozilla.javascript.ast.Comment;
-import org.mozilla.javascript.ast.ContinueStatement;
-import org.mozilla.javascript.ast.FunctionCall;
-import org.mozilla.javascript.ast.FunctionNode;
-import org.mozilla.javascript.ast.GeneratorExpression;
-import org.mozilla.javascript.ast.LetNode;
-import org.mozilla.javascript.ast.Name;
-import org.mozilla.javascript.ast.NodeVisitor;
-import org.mozilla.javascript.ast.NumberLiteral;
-import org.mozilla.javascript.ast.ObjectLiteral;
-import org.mozilla.javascript.ast.ObjectProperty;
-import org.mozilla.javascript.ast.PropertyGet;
-import org.mozilla.javascript.ast.RegExpLiteral;
-import org.mozilla.javascript.ast.Scope;
-import org.mozilla.javascript.ast.StringLiteral;
-import org.mozilla.javascript.ast.TemplateCharacters;
-import org.mozilla.javascript.ast.WithStatement;
-import org.mozilla.javascript.ast.XmlFragment;
-import org.mozilla.javascript.ast.XmlLiteral;
-import org.mozilla.javascript.ast.XmlRef;
+import org.mozilla.javascript.*;
+import org.mozilla.javascript.ast.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -588,7 +547,7 @@ public final class ScriptProtector {
 
     /**
      * @return {@code true} if a destructured parameter of the function has a default value, which Rhino keeps out of the tree, {@code false}
-     *         otherwise
+     * otherwise
      */
     private boolean hasDestructuredDefault(@NotNull FunctionNode function) {
         for (AstNode parameter : function.getParams()) {
@@ -971,7 +930,7 @@ public final class ScriptProtector {
             char character = this.source.charAt(index);
 
             if (span != null && span.comment) {
-                gap = true;
+                gap   = true;
                 gapLineBreak |= this.source.substring(span.start, span.end).chars().anyMatch(value -> isLineBreak((char) value));
                 index = span.end;
                 continue;

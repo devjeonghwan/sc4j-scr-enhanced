@@ -46,7 +46,7 @@ final class ScriptGameScenario implements ScriptLogOutput {
      * Creates a {@link ScriptGameScenario} instance with a runtime that is not started.
      */
     ScriptGameScenario(@NotNull Game game, @NotNull String mainSource, @NotNull ScriptResources resources, int instructionBudget)
-            throws IOException {
+    throws IOException {
         ScriptPackage scriptPackage = ScriptPackage.create(ScriptManifest.parse(MANIFEST.getBytes(StandardCharsets.UTF_8)),
                                                            Map.of(MAIN_NAME, mainSource.getBytes(StandardCharsets.UTF_8)), Map.of());
 

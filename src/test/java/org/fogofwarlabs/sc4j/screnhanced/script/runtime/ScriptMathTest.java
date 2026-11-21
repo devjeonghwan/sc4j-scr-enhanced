@@ -8,11 +8,7 @@ import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ScriptableObject;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.DoubleUnaryOperator;
 
@@ -44,15 +40,15 @@ final class ScriptMathTest {
      */
     private static @NotNull List<@NotNull String> runCalls(@NotNull List<@NotNull String> expressions) throws IOException {
         StringBuilder script = new StringBuilder("""
-                const view = new DataView(new ArrayBuffer(8));
-                function bits(value) {
-                    if (value !== value) {
-                        return "NaN";
-                    }
-                    view.setFloat64(0, value);
-                    return view.getUint32(0).toString(16) + ':' + view.getUint32(4).toString(16);
-                }
-                """);
+                                                 const view = new DataView(new ArrayBuffer(8));
+                                                 function bits(value) {
+                                                     if (value !== value) {
+                                                         return "NaN";
+                                                     }
+                                                     view.setFloat64(0, value);
+                                                     return view.getUint32(0).toString(16) + ':' + view.getUint32(4).toString(16);
+                                                 }
+                                                 """);
 
         for (String expression : expressions) {
             script.append("log.info(bits(").append(expression).append("));\n");
@@ -99,10 +95,10 @@ final class ScriptMathTest {
         }
 
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                log.info(Object.getOwnPropertyNames(Math).sort().join(','));
-                log.info(Object.prototype.toString.call(Math), Math.E === 2.718281828459045, Math.PI === 3.141592653589793, Math.LN2, Math.LN10,
-                         Math.LOG2E, Math.LOG10E, Math.SQRT1_2, Math.SQRT2, Math.max.length, Math.hypot.length, Math.random.length);
-                """);
+                                                                     log.info(Object.getOwnPropertyNames(Math).sort().join(','));
+                                                                     log.info(Object.prototype.toString.call(Math), Math.E === 2.718281828459045, Math.PI === 3.141592653589793, Math.LN2, Math.LN10,
+                                                                              Math.LOG2E, Math.LOG10E, Math.SQRT1_2, Math.SQRT2, Math.max.length, Math.hypot.length, Math.random.length);
+                                                                     """);
 
         Assertions.assertEquals(String.join(",", rhinoMembers), scenario.getInfoMessages().getFirst());
         Assertions.assertEquals("[object Math] true true 0.6931471805599453 2.302585092994046 1.4426950408889634 0.4342944819032518 "
@@ -220,12 +216,12 @@ final class ScriptMathTest {
     @Test
     void math_converts_every_argument_in_order() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
-                const order = [];
-                const value = name => ({ valueOf() { order.push(name); return NaN; } });
-                Math.max(value('a'), value('b'), value('c'));
-                Math.atan2(value('d'), value('e'));
-                log.info(order.join(''));
-                """);
+                                                                     const order = [];
+                                                                     const value = name => ({ valueOf() { order.push(name); return NaN; } });
+                                                                     Math.max(value('a'), value('b'), value('c'));
+                                                                     Math.atan2(value('d'), value('e'));
+                                                                     log.info(order.join(''));
+                                                                     """);
 
         Assertions.assertEquals(List.of("abcde"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }

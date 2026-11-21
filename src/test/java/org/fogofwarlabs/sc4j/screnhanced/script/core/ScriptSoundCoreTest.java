@@ -29,19 +29,19 @@ final class ScriptSoundCoreTest {
     void play_at_should_queue_shared_sounds_at_once_and_local_sounds_at_the_next_frame_start() throws IOException {
         Game game = Game.create(null, new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, 0, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]), new LcgRandom(0));
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
-                display.sound.playAt(7, Position.of(40, 72));
-                [function () { core.sound.playAt(1144, 0, 0); }, function () { core.sound.playAt(-1, 0, 0); },
-                 function () { display.sound.playAt(7, null); }].forEach(function (call) {
-                    try {
-                        call();
-                    } catch (error) {
-                        log.info(error.name);
-                    }
-                });
-                function onLocalFrame(frame) {
-                    core.sound.playAt(1143, 1, 2);
-                }
-                """);
+                                                                   display.sound.playAt(7, Position.of(40, 72));
+                                                                   [function () { core.sound.playAt(1144, 0, 0); }, function () { core.sound.playAt(-1, 0, 0); },
+                                                                    function () { display.sound.playAt(7, null); }].forEach(function (call) {
+                                                                       try {
+                                                                           call();
+                                                                       } catch (error) {
+                                                                           log.info(error.name);
+                                                                       }
+                                                                   });
+                                                                   function onLocalFrame(frame) {
+                                                                       core.sound.playAt(1143, 1, 2);
+                                                                   }
+                                                                   """);
         SoundEvents events = game.getInterfaceLink().getSoundEvents();
 
         scenario.getRuntime().start();

@@ -34,15 +34,15 @@ final class ScriptGraphicsCoreTest {
      * Defines {@code error(fn)}, which returns the name of the error {@code fn} throws, or {@code "none"}.
      */
     private static final @NotNull String ERROR_FUNCTION = """
-            function error(fn) {
-                try {
-                    fn();
-                    return 'none';
-                } catch (e) {
-                    return e.name;
-                }
-            }
-            """;
+                                                          function error(fn) {
+                                                              try {
+                                                                  fn();
+                                                                  return 'none';
+                                                              } catch (e) {
+                                                                  return e.name;
+                                                              }
+                                                          }
+                                                          """;
 
     private static @NotNull Game createGame() {
         return Game.create(null, new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILESET, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]), new LcgRandom(0));
@@ -64,12 +64,12 @@ final class ScriptGraphicsCoreTest {
     @Test
     void resource_handles_are_checked_once_and_kept_per_name() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                var grp = game.map.resources.getGrp('units/marine.grp');
-                log.info(grp === game.map.resources.getGrp('units/marine.grp'), grp.getName(), String(grp), game.map.resources.has('units/marine.grp'),
-                         game.map.resources.has('units/none.grp'), grp.getId() === game.map.resources.getAnim('units/marine.anim').getId());
-                log.info(error(function () { game.map.resources.getGrp('units/none.grp'); }), error(function () { game.map.resources.getGrp('units/marine.anim'); }),
-                         error(function () { game.map.resources.getAnim('units/marine.grp'); }), error(function () { core.resources.getGrp(1); }));
-                """, createResources());
+                                                                                            var grp = game.map.resources.getGrp('units/marine.grp');
+                                                                                            log.info(grp === game.map.resources.getGrp('units/marine.grp'), grp.getName(), String(grp), game.map.resources.has('units/marine.grp'),
+                                                                                                     game.map.resources.has('units/none.grp'), grp.getId() === game.map.resources.getAnim('units/marine.anim').getId());
+                                                                                            log.info(error(function () { game.map.resources.getGrp('units/none.grp'); }), error(function () { game.map.resources.getGrp('units/marine.anim'); }),
+                                                                                                     error(function () { game.map.resources.getAnim('units/marine.grp'); }), error(function () { core.resources.getGrp(1); }));
+                                                                                            """, createResources());
 
         scenario.getRuntime().start();
 
@@ -80,20 +80,20 @@ final class ScriptGraphicsCoreTest {
     @Test
     void replace_image_sets_the_graphics_of_an_image_type() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                var grp = game.map.resources.getGrp('units/marine.grp');
-                var hd = game.map.resources.getAnim('units/marine.anim');
-                var hd2 = game.map.resources.getAnim('units/marine-hd2.anim');
-                display.images.replace(ImageType.get(239), {sd: grp, hd: hd, hd2: hd2});
-                display.images.replace(ImageType.get(240), {hd2: hd2});
-                display.images.restore(ImageType.get(240));
-                log.info(error(function () { display.images.replace(ImageType.get(240), {hd: hd2}); }),
-                         error(function () { display.images.replace(ImageType.get(240), {}); }),
-                         error(function () { display.images.replace(ImageType.get(240), {sd: hd}); }),
-                         error(function () { display.images.replace(239, {sd: grp}); }),
-                         error(function () { core.graphics.replaceImage(240, 99, -1, -1); }));
-                log.info(ImageType.getCount(), ImageType.get(211) === ImageType.Image211, ImageType.Image239 === ImageType.get(239),
-                         ImageType.get(239).getName());
-                """, createResources());
+                                                                                            var grp = game.map.resources.getGrp('units/marine.grp');
+                                                                                            var hd = game.map.resources.getAnim('units/marine.anim');
+                                                                                            var hd2 = game.map.resources.getAnim('units/marine-hd2.anim');
+                                                                                            display.images.replace(ImageType.get(239), {sd: grp, hd: hd, hd2: hd2});
+                                                                                            display.images.replace(ImageType.get(240), {hd2: hd2});
+                                                                                            display.images.restore(ImageType.get(240));
+                                                                                            log.info(error(function () { display.images.replace(ImageType.get(240), {hd: hd2}); }),
+                                                                                                     error(function () { display.images.replace(ImageType.get(240), {}); }),
+                                                                                                     error(function () { display.images.replace(ImageType.get(240), {sd: hd}); }),
+                                                                                                     error(function () { display.images.replace(239, {sd: grp}); }),
+                                                                                                     error(function () { core.graphics.replaceImage(240, 99, -1, -1); }));
+                                                                                            log.info(ImageType.getCount(), ImageType.get(211) === ImageType.Image211, ImageType.Image239 === ImageType.get(239),
+                                                                                                     ImageType.get(239).getName());
+                                                                                            """, createResources());
 
         scenario.getRuntime().start();
 
@@ -114,14 +114,14 @@ final class ScriptGraphicsCoreTest {
     @Test
     void graphics_changes_work_while_the_game_is_read_only_and_in_local_code() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                function onFrame() {
-                    var grp = game.map.resources.getGrp('units/marine.grp');
-                    log.info(error(function () { display.images.replace(ImageType.get(239), {sd: grp}); }), grp.getName());
-                }
-                function onLocalFrame() {
-                    log.info(error(function () { display.images.restore(ImageType.get(239)); }));
-                }
-                """, createResources());
+                                                                                            function onFrame() {
+                                                                                                var grp = game.map.resources.getGrp('units/marine.grp');
+                                                                                                log.info(error(function () { display.images.replace(ImageType.get(239), {sd: grp}); }), grp.getName());
+                                                                                            }
+                                                                                            function onLocalFrame() {
+                                                                                                log.info(error(function () { display.images.restore(ImageType.get(239)); }));
+                                                                                            }
+                                                                                            """, createResources());
 
         scenario.getRuntime().start();
         scenario.getRuntime().setReadOnly(true);

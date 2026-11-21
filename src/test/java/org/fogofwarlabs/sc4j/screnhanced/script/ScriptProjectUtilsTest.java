@@ -13,25 +13,14 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.ContextFactory;
-import org.mozilla.javascript.Function;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.TopLevel;
+import org.mozilla.javascript.*;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.stream.Stream;
 
 /**
@@ -148,95 +137,95 @@ final class ScriptProjectUtilsTest {
      * and every tile, no live unit or bullet, one sprite with its main image.
      */
     private static final @NotNull String STUB_CORE = """
-            (function () {
-                function types() {
-                    return {getCount: function () { return 1; }, getName: function () { return 'Stub Type'; }};
-                }
-                return {
-                    unitType: types(), weaponType: types(), flingyType: types(), spriteType: types(), imageType: types(), upgradeType: types(),
-                    techType: types(), orderType: types(),
-                    dat: {units: {}, weapons: {}, flingy: {}, sprites: {}, images: {}, upgrades: {}, techdata: {}, orders: {}},
-                    events: {getKindCount: function () { return KINDS.length; }, getKindName: function (kind) { return KINDS[kind]; }},
-                    command: {submit: function () {}},
-                    player: {getCount: function () { return 1; }},
-                    unit: {exists: function () { return false; }},
-                    location: {getCount: function () { return 1; }},
-                    terrain: {isValidTile: function () { return true; }},
-                    sprite: {exists: function () { return true; }, getGeneration: function () { return 1; },
-                             createEffect: function () { return 0; }, getMainImage: function () { return 0; }},
-                    image: {exists: function () { return true; }, getGeneration: function () { return 1; }},
-                    bullet: {exists: function () { return false; }},
-                    game: {getFrame: function () { return 0; }, getFrameDuration: function () { return 42; }},
-                    resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }, getImage: function () { return 2; }},
-                    buttons: {getSetCount: function () { return 250; }, getConditionCount: function () { return 1; },
-                              getConditionName: function () { return 'Stub Condition'; }, getActionCount: function () { return 1; },
-                              getActionName: function () { return 'Stub Action'; }},
-                    screen: {}, world: {}, minimap: {}
-                };
-            })()
-            """;
+                                                     (function () {
+                                                         function types() {
+                                                             return {getCount: function () { return 1; }, getName: function () { return 'Stub Type'; }};
+                                                         }
+                                                         return {
+                                                             unitType: types(), weaponType: types(), flingyType: types(), spriteType: types(), imageType: types(), upgradeType: types(),
+                                                             techType: types(), orderType: types(),
+                                                             dat: {units: {}, weapons: {}, flingy: {}, sprites: {}, images: {}, upgrades: {}, techdata: {}, orders: {}},
+                                                             events: {getKindCount: function () { return KINDS.length; }, getKindName: function (kind) { return KINDS[kind]; }},
+                                                             command: {submit: function () {}},
+                                                             player: {getCount: function () { return 1; }},
+                                                             unit: {exists: function () { return false; }},
+                                                             location: {getCount: function () { return 1; }},
+                                                             terrain: {isValidTile: function () { return true; }},
+                                                             sprite: {exists: function () { return true; }, getGeneration: function () { return 1; },
+                                                                      createEffect: function () { return 0; }, getMainImage: function () { return 0; }},
+                                                             image: {exists: function () { return true; }, getGeneration: function () { return 1; }},
+                                                             bullet: {exists: function () { return false; }},
+                                                             game: {getFrame: function () { return 0; }, getFrameDuration: function () { return 42; }},
+                                                             resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }, getImage: function () { return 2; }},
+                                                             buttons: {getSetCount: function () { return 250; }, getConditionCount: function () { return 1; },
+                                                                       getConditionName: function () { return 'Stub Condition'; }, getActionCount: function () { return 1; },
+                                                                       getActionName: function () { return 'Stub Action'; }},
+                                                             screen: {}, world: {}, minimap: {}
+                                                         };
+                                                     })()
+                                                     """;
     /**
      * The values of every event, decision and input record: one unit that no longer exists, no other unit; record(kind) copies them with a
      * kind.
      */
     private static final @NotNull String EVENT_VALUES = """
-            var values = {frame: 0, unit: 1, unitGeneration: 0, unitType: 0, owner: 0, player: 0, weapon: 0, amount: 0, order: 0, target: -1,
-                          targetGeneration: -1, targetX: 0, targetY: 0, buildType: 0, queued: false, tech: 0, upgrade: 0, level: 1, source: -1,
-                          sourceGeneration: -1, killer: -1, killerGeneration: -1, killerPlayer: 0, sourcePlayer: 0, producer: -1,
-                          producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
-                          key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, text: '', consumed: false, cancelled: false,
-                          rejected: false, set: 0, position: 1, condition: 0, conditionValue: 0, action: 0, actionValue: 0, hotkey: false,
-                          bullet: 0, bulletGeneration: 1};
-            function record(kind) {
-                var copy = {kind: kind};
-                for (var key in values) {
-                    copy[key] = values[key];
-                }
-                return copy;
-            }
-            """;
+                                                        var values = {frame: 0, unit: 1, unitGeneration: 0, unitType: 0, owner: 0, player: 0, weapon: 0, amount: 0, order: 0, target: -1,
+                                                                      targetGeneration: -1, targetX: 0, targetY: 0, buildType: 0, queued: false, tech: 0, upgrade: 0, level: 1, source: -1,
+                                                                      sourceGeneration: -1, killer: -1, killerGeneration: -1, killerPlayer: 0, sourcePlayer: 0, producer: -1,
+                                                                      producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
+                                                                      key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, text: '', consumed: false, cancelled: false,
+                                                                      rejected: false, set: 0, position: 1, condition: 0, conditionValue: 0, action: 0, actionValue: 0, hotkey: false,
+                                                                      bullet: 0, bulletGeneration: 1};
+                                                        function record(kind) {
+                                                            var copy = {kind: kind};
+                                                            for (var key in values) {
+                                                                copy[key] = values[key];
+                                                            }
+                                                            return copy;
+                                                        }
+                                                        """;
     /**
      * Reads the names of the module scope and the global scope, which of the declared globals a script reaches, the own and the prototype
      * chain property names of property paths from the module scope, and the identifiers of the generated tables by id, as one JSON log line.
      */
     private static final @NotNull String RUNTIME_PROBE = """
-            (function (scope, declared, paths, tables) {
-                function chainNames(value) {
-                    var names = [];
-                    for (var object = value; object !== null; object = Object.getPrototypeOf(object)) {
-                        names = names.concat(Object.getOwnPropertyNames(object));
-                    }
-                    return names;
-                }
-                var result = {globals: Object.getOwnPropertyNames(scope).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(scope))),
-                              defined: declared.filter(function (name) { return name in scope; }), own: {}, chain: {}, tables: {}};
-                paths.forEach(function (path) {
-                    var value = scope;
-                    path.forEach(function (name) {
-                        value = value === null || value === undefined ? undefined : value[name];
-                    });
-                    if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
-                        result.own[path.join('.')] = Object.getOwnPropertyNames(value);
-                        result.chain[path.join('.')] = chainNames(value);
-                    }
-                });
-                tables.forEach(function (name) {
-                    var table = scope[name];
-                    var entries = [];
-                    for (var id = 0; id < table.getCount(); id++) {
-                        entries.push([table.get(id).getName()]);
-                    }
-                    Object.getOwnPropertyNames(table).forEach(function (key) {
-                        var constant = table[key];
-                        if (constant !== null && typeof constant === 'object') {
-                            entries[constant.getId()].push(key);
-                        }
-                    });
-                    result.tables[name] = entries;
-                });
-                log.info(JSON.stringify(result));
-            })(this, DECLARED, PATHS, TABLES);
-            """;
+                                                         (function (scope, declared, paths, tables) {
+                                                             function chainNames(value) {
+                                                                 var names = [];
+                                                                 for (var object = value; object !== null; object = Object.getPrototypeOf(object)) {
+                                                                     names = names.concat(Object.getOwnPropertyNames(object));
+                                                                 }
+                                                                 return names;
+                                                             }
+                                                             var result = {globals: Object.getOwnPropertyNames(scope).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(scope))),
+                                                                           defined: declared.filter(function (name) { return name in scope; }), own: {}, chain: {}, tables: {}};
+                                                             paths.forEach(function (path) {
+                                                                 var value = scope;
+                                                                 path.forEach(function (name) {
+                                                                     value = value === null || value === undefined ? undefined : value[name];
+                                                                 });
+                                                                 if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
+                                                                     result.own[path.join('.')] = Object.getOwnPropertyNames(value);
+                                                                     result.chain[path.join('.')] = chainNames(value);
+                                                                 }
+                                                             });
+                                                             tables.forEach(function (name) {
+                                                                 var table = scope[name];
+                                                                 var entries = [];
+                                                                 for (var id = 0; id < table.getCount(); id++) {
+                                                                     entries.push([table.get(id).getName()]);
+                                                                 }
+                                                                 Object.getOwnPropertyNames(table).forEach(function (key) {
+                                                                     var constant = table[key];
+                                                                     if (constant !== null && typeof constant === 'object') {
+                                                                         entries[constant.getId()].push(key);
+                                                                     }
+                                                                 });
+                                                                 result.tables[name] = entries;
+                                                             });
+                                                             log.info(JSON.stringify(result));
+                                                         })(this, DECLARED, PATHS, TABLES);
+                                                         """;
 
     /**
      * Reads the declarations of every declarations file as one text.
@@ -380,7 +369,7 @@ final class ScriptProjectUtilsTest {
             ScriptableObject.putProperty(global, "prelude", prelude);
             context.evaluateString(global, EVENT_VALUES, "values.js", 1, null);
             names.put(HOOK_NAMES, new TreeSet<>(List.of(Context.toString(context.evaluateString(global, "prelude.hookNames.join(',')", "hooks", 1,
-                                                                                                    null)).split(","))));
+                                                                                                null)).split(","))));
 
             for (Map.Entry<String, String> expression : expressions.entrySet()) {
                 String code = "(function (object) { var names = []; for (var name in object) { if (name !== 'toString' && " +

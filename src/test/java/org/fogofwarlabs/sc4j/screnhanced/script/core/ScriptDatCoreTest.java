@@ -39,76 +39,76 @@ final class ScriptDatCoreTest {
      * Changes of the DAT tables, the units and the players that the game state shows.
      */
     private static final @NotNull String CHANGES = """
-            function onStart() {
-                var human = game.players.getHumans()[0];
-                var position = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
-                UnitType.TerranVulture.getFlingyType().setTopSpeed(2000);
-                UnitType.TerranMarine.setHitPoints(80 * 256);
-                var vulture = game.units.create(UnitType.TerranVulture, human, position);
-                vulture.timers.setEnsnare(3);
-                vulture.issueOrder(Order.Move, Position.of(position.getX() + 160, position.getY()));
-                var marine = game.units.create(UnitType.TerranMarine, human, position);
-                marine.timers.setLockdown(2);
-                marine.setKillCount(4);
-                game.units.findOne({type: UnitType.TerranSCV, owner: human}).setType(UnitType.TerranFirebat);
-                human.upgrades.setLevel(UpgradeType.IonThrusters, 1);
-                human.techs.setResearched(TechType.StimPacks, true);
-            }
-            """;
+                                                   function onStart() {
+                                                       var human = game.players.getHumans()[0];
+                                                       var position = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
+                                                       UnitType.TerranVulture.getFlingyType().setTopSpeed(2000);
+                                                       UnitType.TerranMarine.setHitPoints(80 * 256);
+                                                       var vulture = game.units.create(UnitType.TerranVulture, human, position);
+                                                       vulture.timers.setEnsnare(3);
+                                                       vulture.issueOrder(Order.Move, Position.of(position.getX() + 160, position.getY()));
+                                                       var marine = game.units.create(UnitType.TerranMarine, human, position);
+                                                       marine.timers.setLockdown(2);
+                                                       marine.setKillCount(4);
+                                                       game.units.findOne({type: UnitType.TerranSCV, owner: human}).setType(UnitType.TerranFirebat);
+                                                       human.upgrades.setLevel(UpgradeType.IonThrusters, 1);
+                                                       human.techs.setResearched(TechType.StimPacks, true);
+                                                   }
+                                                   """;
     /**
      * The checks of every column, which the round trip script calls.
      */
     private static final @NotNull String ROUND_TRIP_CHECK = """
-            var types = {UnitType: UnitType, WeaponType: WeaponType, FlingyType: FlingyType, SpriteType: SpriteType, ImageType: ImageType,
-                         UpgradeType: UpgradeType, TechType: TechType, Order: Order};
-            var failures = [];
-            var checked = 0;
-            function fail(table, column, what) {
-                failures.push(table + '.' + column + ' ' + what);
-            }
-            function check(table, type, column, id, writable, reference, flags) {
-                var namespace = core.dat[table];
-                var entry = types[type].get(id);
-                var before = namespace['get' + column](id);
-                var expected = reference === null ? before : types[reference].get(before);
-                if (flags === null && entry['get' + column]() !== expected) {
-                    fail(table, column, 'upper read');
-                }
-                flags !== null && flags.forEach(function (flag) {
-                    if (entry['is' + flag[0]]() !== ((before & flag[1]) !== 0)) {
-                        fail(table, column, 'flag read ' + flag[0]);
-                    }
-                });
-                checked++;
-                if (!writable) {
-                    if (namespace['set' + column] !== undefined || entry['set' + column] !== undefined) {
-                        fail(table, column, 'writable');
-                    }
-                    return;
-                }
-                var value = before === 1 ? 0 : 1;
-                namespace['set' + column](id, value);
-                if (namespace['get' + column](id) !== value) {
-                    fail(table, column, 'lower write');
-                }
-                if (flags === null) {
-                    entry['set' + column](expected);
-                } else {
-                    namespace['set' + column](id, before);
-                    flags.forEach(function (flag) {
-                        var set = (before & flag[1]) !== 0;
-                        entry['set' + flag[0]](!set);
-                        if (((namespace['get' + column](id) & flag[1]) !== 0) === set || entry['is' + flag[0]]() === set) {
-                            fail(table, column, 'flag write ' + flag[0]);
-                        }
-                        entry['set' + flag[0]](set);
-                    });
-                }
-                if (namespace['get' + column](id) !== before) {
-                    fail(table, column, 'upper write');
-                }
-            }
-            """;
+                                                            var types = {UnitType: UnitType, WeaponType: WeaponType, FlingyType: FlingyType, SpriteType: SpriteType, ImageType: ImageType,
+                                                                         UpgradeType: UpgradeType, TechType: TechType, Order: Order};
+                                                            var failures = [];
+                                                            var checked = 0;
+                                                            function fail(table, column, what) {
+                                                                failures.push(table + '.' + column + ' ' + what);
+                                                            }
+                                                            function check(table, type, column, id, writable, reference, flags) {
+                                                                var namespace = core.dat[table];
+                                                                var entry = types[type].get(id);
+                                                                var before = namespace['get' + column](id);
+                                                                var expected = reference === null ? before : types[reference].get(before);
+                                                                if (flags === null && entry['get' + column]() !== expected) {
+                                                                    fail(table, column, 'upper read');
+                                                                }
+                                                                flags !== null && flags.forEach(function (flag) {
+                                                                    if (entry['is' + flag[0]]() !== ((before & flag[1]) !== 0)) {
+                                                                        fail(table, column, 'flag read ' + flag[0]);
+                                                                    }
+                                                                });
+                                                                checked++;
+                                                                if (!writable) {
+                                                                    if (namespace['set' + column] !== undefined || entry['set' + column] !== undefined) {
+                                                                        fail(table, column, 'writable');
+                                                                    }
+                                                                    return;
+                                                                }
+                                                                var value = before === 1 ? 0 : 1;
+                                                                namespace['set' + column](id, value);
+                                                                if (namespace['get' + column](id) !== value) {
+                                                                    fail(table, column, 'lower write');
+                                                                }
+                                                                if (flags === null) {
+                                                                    entry['set' + column](expected);
+                                                                } else {
+                                                                    namespace['set' + column](id, before);
+                                                                    flags.forEach(function (flag) {
+                                                                        var set = (before & flag[1]) !== 0;
+                                                                        entry['set' + flag[0]](!set);
+                                                                        if (((namespace['get' + column](id) & flag[1]) !== 0) === set || entry['is' + flag[0]]() === set) {
+                                                                            fail(table, column, 'flag write ' + flag[0]);
+                                                                        }
+                                                                        entry['set' + flag[0]](set);
+                                                                    });
+                                                                }
+                                                                if (namespace['get' + column](id) !== before) {
+                                                                    fail(table, column, 'upper write');
+                                                                }
+                                                            }
+                                                            """;
 
     /**
      * Writes the round trip script: one check per column of every table, at the first entry the column holds.
@@ -165,13 +165,13 @@ final class ScriptDatCoreTest {
     @Test
     void unit_types_give_the_shown_maximum_hit_points_and_shields(@NotNull InstallationTestResources resources) throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(resources), """
-                var marine = UnitType.TerranMarine;
-                var zealot = UnitType.ProtossZealot;
-                var before = [marine.getMaxHp(), marine.getHitPoints(), zealot.getMaxShields(), zealot.getShieldAmount()];
-                marine.setMaxHp(55.5);
-                zealot.setMaxShields(70);
-                log.info(before.join(' '), marine.getMaxHp(), marine.getHitPoints(), zealot.getMaxShields(), zealot.getShieldAmount());
-                """);
+                                                                                    var marine = UnitType.TerranMarine;
+                                                                                    var zealot = UnitType.ProtossZealot;
+                                                                                    var before = [marine.getMaxHp(), marine.getHitPoints(), zealot.getMaxShields(), zealot.getShieldAmount()];
+                                                                                    marine.setMaxHp(55.5);
+                                                                                    zealot.setMaxShields(70);
+                                                                                    log.info(before.join(' '), marine.getMaxHp(), marine.getHitPoints(), zealot.getMaxShields(), zealot.getShieldAmount());
+                                                                                    """);
 
         scenario.getRuntime().start();
 
@@ -181,29 +181,29 @@ final class ScriptDatCoreTest {
     @Test
     void dat_writes_refuse_values_that_the_column_does_not_hold(@NotNull InstallationTestResources resources) throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(resources), """
-                function attempt(write) {
-                    try {
-                        write();
-                        return 'written';
-                    } catch (error) {
-                        return error.name;
-                    }
-                }
-                var units = core.dat.units;
-                log.info(attempt(function () { units.setFlingyType(0, 209); }), attempt(function () { units.setMineralCost(0, 65536); }),
-                         attempt(function () { units.setMineralCost(0, -1); }), attempt(function () { units.setMineralCost(0, 1.5); }),
-                         attempt(function () { units.setInfestedType(0, 1); }), attempt(function () { units.getMineralCost(228); }),
-                         attempt(function () { core.dat.images.setIscript(0, 411); }), attempt(function () { units.setHitPoints(0, 4294967295); }));
-                log.info(typeof units.getInfestedType(0), units.getHitPoints(0) === 4294967295, core.dat.sprites.setHealthBarWidth === undefined,
-                         typeof core.dat.sprites.getHealthBarWidth(0));
-                var marine = UnitType.TerranMarine;
-                marine.setGroundWeapon(null);
-                log.info(units.getGroundWeapon(marine.getId()), marine.getGroundWeapon(), attempt(function () { marine.setFlingyType(null); }));
-                marine.setGroundWeapon(WeaponType.GaussRifle);
-                marine.setOrganic(false);
-                log.info(marine.getGroundWeapon() === WeaponType.GaussRifle, marine.isOrganic(), (units.getFlags(marine.getId()) & 0x10000) === 0,
-                         marine.getFlingyType().getSprite().getImage() === ImageType.UnitTerranMarine, FlingyType.UnitTerranMarine === marine.getFlingyType());
-                """);
+                                                                                    function attempt(write) {
+                                                                                        try {
+                                                                                            write();
+                                                                                            return 'written';
+                                                                                        } catch (error) {
+                                                                                            return error.name;
+                                                                                        }
+                                                                                    }
+                                                                                    var units = core.dat.units;
+                                                                                    log.info(attempt(function () { units.setFlingyType(0, 209); }), attempt(function () { units.setMineralCost(0, 65536); }),
+                                                                                             attempt(function () { units.setMineralCost(0, -1); }), attempt(function () { units.setMineralCost(0, 1.5); }),
+                                                                                             attempt(function () { units.setInfestedType(0, 1); }), attempt(function () { units.getMineralCost(228); }),
+                                                                                             attempt(function () { core.dat.images.setIscript(0, 411); }), attempt(function () { units.setHitPoints(0, 4294967295); }));
+                                                                                    log.info(typeof units.getInfestedType(0), units.getHitPoints(0) === 4294967295, core.dat.sprites.setHealthBarWidth === undefined,
+                                                                                             typeof core.dat.sprites.getHealthBarWidth(0));
+                                                                                    var marine = UnitType.TerranMarine;
+                                                                                    marine.setGroundWeapon(null);
+                                                                                    log.info(units.getGroundWeapon(marine.getId()), marine.getGroundWeapon(), attempt(function () { marine.setFlingyType(null); }));
+                                                                                    marine.setGroundWeapon(WeaponType.GaussRifle);
+                                                                                    marine.setOrganic(false);
+                                                                                    log.info(marine.getGroundWeapon() === WeaponType.GaussRifle, marine.isOrganic(), (units.getFlags(marine.getId()) & 0x10000) === 0,
+                                                                                             marine.getFlingyType().getSprite().getImage() === ImageType.UnitTerranMarine, FlingyType.UnitTerranMarine === marine.getFlingyType());
+                                                                                    """);
 
         scenario.getRuntime().start();
 
@@ -216,39 +216,39 @@ final class ScriptDatCoreTest {
     @Test
     void a_dat_change_takes_effect_where_the_game_reads_the_table(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
-                var human;
-                var commandCenter;
-                var marine;
-                var maximumCooldown = 0;
-                var frames = 0;
-                function onStart() {
-                    human = game.players.getHumans()[0];
-                    commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
-                    UnitType.TerranSCV.setMineralCost(7);
-                    human.setMinerals(100);
-                    UnitType.TerranMarine.getGroundWeapon().setCooldown(100);
-                    var flingy = UnitType.TerranVulture.getFlingyType();
-                    var topSpeed = flingy.getTopSpeed();
-                    var vulture = game.units.create(UnitType.TerranVulture, human, commandCenter.getPosition());
-                    flingy.setTopSpeed(topSpeed * 2);
-                    var fastVulture = game.units.create(UnitType.TerranVulture, human, commandCenter.getPosition());
-                    log.info(commandCenter.getId(), vulture.getTopSpeed() === topSpeed, fastVulture.getTopSpeed() === topSpeed * 2);
-                    marine = game.units.create(UnitType.TerranMarine, human, commandCenter.getPosition());
-                    marine.issueOrder(Order.AttackUnit, game.units.create(UnitType.ZergZergling, game.players.get(1), marine.getPosition()));
-                }
-                function onFrame() {
-                    frames++;
-                    if (marine.exists()) {
-                        maximumCooldown = Math.max(maximumCooldown, marine.getGroundCooldown());
-                    }
-                    if (frames === 2) {
-                        log.info(human.getMinerals(), commandCenter.getBuildQueue().join(' '));
-                    }
-                    if (frames === 25) {
-                        log.info(maximumCooldown >= 95);
-                    }
-                }
-                """);
+                                                                                                     var human;
+                                                                                                     var commandCenter;
+                                                                                                     var marine;
+                                                                                                     var maximumCooldown = 0;
+                                                                                                     var frames = 0;
+                                                                                                     function onStart() {
+                                                                                                         human = game.players.getHumans()[0];
+                                                                                                         commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                                                                         UnitType.TerranSCV.setMineralCost(7);
+                                                                                                         human.setMinerals(100);
+                                                                                                         UnitType.TerranMarine.getGroundWeapon().setCooldown(100);
+                                                                                                         var flingy = UnitType.TerranVulture.getFlingyType();
+                                                                                                         var topSpeed = flingy.getTopSpeed();
+                                                                                                         var vulture = game.units.create(UnitType.TerranVulture, human, commandCenter.getPosition());
+                                                                                                         flingy.setTopSpeed(topSpeed * 2);
+                                                                                                         var fastVulture = game.units.create(UnitType.TerranVulture, human, commandCenter.getPosition());
+                                                                                                         log.info(commandCenter.getId(), vulture.getTopSpeed() === topSpeed, fastVulture.getTopSpeed() === topSpeed * 2);
+                                                                                                         marine = game.units.create(UnitType.TerranMarine, human, commandCenter.getPosition());
+                                                                                                         marine.issueOrder(Order.AttackUnit, game.units.create(UnitType.ZergZergling, game.players.get(1), marine.getPosition()));
+                                                                                                     }
+                                                                                                     function onFrame() {
+                                                                                                         frames++;
+                                                                                                         if (marine.exists()) {
+                                                                                                             maximumCooldown = Math.max(maximumCooldown, marine.getGroundCooldown());
+                                                                                                         }
+                                                                                                         if (frames === 2) {
+                                                                                                             log.info(human.getMinerals(), commandCenter.getBuildQueue().join(' '));
+                                                                                                         }
+                                                                                                         if (frames === 25) {
+                                                                                                             log.info(maximumCooldown >= 95);
+                                                                                                         }
+                                                                                                     }
+                                                                                                     """);
         String[] start = scenario.getInfoMessages().getFirst().split(" ");
         Game game = scenario.getGame();
         Unit commandCenter = game.getUnitSystem().requireUnitPool().getUnit(Integer.parseInt(start[0]));
