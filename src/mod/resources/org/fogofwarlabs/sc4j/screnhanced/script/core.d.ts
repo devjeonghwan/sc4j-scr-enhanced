@@ -18,8 +18,9 @@
  * UnitCreated, UnitCompleted: unit, unitType, owner. UnitDied: also killer, killerPlayer, weapon. UnitDamaged: also source, sourcePlayer,
  * weapon, amount. OrderIssued: also order, target, targetX, targetY, buildType, queued. TargetAcquired: also target. UnitTrained: also
  * producer. ResearchCompleted: also tech. UpgradeCompleted: also upgrade, level. SpellCast: also tech, target, targetX, targetY.
- * OwnerChanged: also previousOwner. UnitLoaded, UnitUnloaded: also transport. BulletCreated, BulletHit: weapon, player, source, target,
- * targetX, targetY, and missed for BulletHit. PlayerLeft: player, reason. PlayerResult: player, result.
+ * OwnerChanged: also previousOwner. UnitLoaded, UnitUnloaded: also transport. BulletCreated, BulletHit: bullet and bulletGeneration (the entry
+ * of the bullet table and its generation then, {@link CoreBullet}), weapon, player, source, target, targetX, targetY, and missed for BulletHit.
+ * PlayerLeft: player, reason. PlayerResult: player, result.
  */
 interface CoreEventRecord {
     readonly kind: number;
@@ -52,6 +53,8 @@ interface CoreEventRecord {
     readonly transport?: number;
     readonly transportGeneration?: number;
     readonly player?: number;
+    readonly bullet?: number;
+    readonly bulletGeneration?: number;
     readonly missed?: boolean;
     readonly reason?: number;
     readonly result?: number;
@@ -750,7 +753,8 @@ interface CoreGame {
      */
     getCheatFlags(): number;
     /**
-     * [S] Stores the cheat flags as an EUD write does, without the reveal update and the one-shot grants of the cheat routine.
+     * [S] Stores the cheat flags once, as an EUD write does, without the reveal update and the one-shot grants of the cheat routine; the
+     * native reset of the tiles may clear the reveal bits again ({@link Game.setCheatEnabled} keeps them).
      */
     setCheatFlags(flags: number): void;
     /**
@@ -976,6 +980,11 @@ interface CoreUnit {
     getStatus(unit: number): number;
     /** [A] */
     getImageType(unit: number): number;
+    /**
+     * [A]
+     * @returns the slot of the unit's sprite ({@link CoreSprite}), -1 for none
+     */
+    getSprite(unit: number): number;
     /** [A] */
     getResources(unit: number): number;
     /** [A] */
@@ -1032,6 +1041,11 @@ interface CoreUnit {
      * @param target the target unit, -1 for the position
      */
     issueOrder(unit: number, order: number, target: number, x: number, y: number, queued: boolean): void;
+    /**
+     * [S] Runs the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target, two for a weapon of damage
+     * factor 2, none for a weapon without a flingy.
+     */
+    useWeapon(unit: number, weapon: number): void;
     /**
      * [A]
      * @returns the orders waiting behind the current one, first to last
@@ -1305,6 +1319,225 @@ interface CoreTerrain {
     getTileElevation(value: number): number;
     /** [A] */
     isTileBlockingSight(value: number): boolean;
+    /**
+     * [A]
+     * @returns whether the tile has the creep flag, which the rules of the game read (placement, larvae, spells)
+     */
+    hasCreep(tileX: number, tileY: number): boolean;
+}
+
+/**
+ * The routines that add and remove creep. Creep they add has no source: it stays until it is removed or recedes.
+ */
+interface CoreCreep {
+    /**
+     * [S] Covers the footprint of a building of the unit type centered at the map position with creep and grows it until no tile is added,
+     * as the game does for a building that needs creep.
+     */
+    fill(unitType: number, x: number, y: number): void;
+    /**
+     * [S] Runs one spread step of a creep source of the unit type at the map position; a type that spreads creep keeps to its ellipse.
+     *
+     * @returns 1 when it added a tile, 2 when it added none and an occupied tile blocked it, else 0
+     */
+    spread(unitType: number, x: number, y: number): number;
+    /**
+     * [S] Removes the creep of the tile at once and gives back the terrain below it.
+     */
+    removeTile(tileX: number, tileY: number): void;
+    /**
+     * [S] Starts the recession of a creep tile as a removed building does: the tile recedes later, at the pace of the recession.
+     *
+     * @returns false for a tile that is not creep, already recedes, is occupied or that a grounded Zerg building sustains, and when no
+     *          recession record is free
+     */
+    recede(tileX: number, tileY: number): boolean;
+}
+
+/**
+ * The sprites of the sprite pool by slot, from 0 to getCapacity() - 1. A slot holds a sprite while it is allocated; every allocation takes the
+ * next generation of the pool, so a sprite is its slot and generation. The functions other than getCapacity, getIds, exists and getGeneration
+ * throw a RangeError for a slot without a sprite. The pools of sprites and images also hold the buildings the local player remembers in the
+ * fog of war, so the slots and generations can differ from peer to peer in a network game: shared code may show them but should not let them
+ * decide the game.
+ */
+interface CoreSprite {
+    /** [A] */
+    getCapacity(): number;
+    /**
+     * [A]
+     * @returns the allocated sprites in slot order
+     */
+    getIds(): number[];
+    /** [A] */
+    exists(sprite: number): boolean;
+    /** [A] */
+    getGeneration(sprite: number): number;
+    /**
+     * [A]
+     * @returns the sprites.dat entry
+     */
+    getType(sprite: number): number;
+    /** [A] */
+    getX(sprite: number): number;
+    /** [A] */
+    getY(sprite: number): number;
+    /** [A] */
+    getOwner(sprite: number): number;
+    /** [A] */
+    getElevation(sprite: number): number;
+    /** [A] */
+    getFlags(sprite: number): number;
+    /**
+     * [A]
+     * @returns the players that see the sprite, one bit per player
+     */
+    getVisibilityFlags(sprite: number): number;
+    /**
+     * [A]
+     * @returns the images of the image pool in the order of the sprite's list, from the image drawn on top; the local selection circles and
+     *          health bars are no images of the pool
+     */
+    getImages(sprite: number): number[];
+    /**
+     * [A]
+     * @returns the main image, -1 for none
+     */
+    getMainImage(sprite: number): number;
+    /**
+     * [S] Creates a sprite that lives as long as its image scripts run, as the game creates the sprite of a spell or of dust, then sets its
+     * elevation (0 to 255) and its visibility from the tile below it, as every native caller does.
+     *
+     * @param owner the owner byte, a player slot
+     * @returns the sprite, or -1 when the pools are full
+     */
+    createEffect(spriteType: number, x: number, y: number, owner: number, elevation: number): number;
+}
+
+/**
+ * The images of the image pool by slot, from 0 to getCapacity() - 1, with a generation per slot as {@link CoreSprite}. The functions other than
+ * getCapacity, exists and getGeneration throw a RangeError for a slot without an image.
+ */
+interface CoreImage {
+    /** [A] */
+    getCapacity(): number;
+    /** [A] */
+    exists(image: number): boolean;
+    /** [A] */
+    getGeneration(image: number): number;
+    /**
+     * [A]
+     * @returns the images.dat entry
+     */
+    getType(image: number): number;
+    /**
+     * [A]
+     * @returns the sprite, -1 for none
+     */
+    getSprite(image: number): number;
+    /**
+     * [A]
+     * @returns the drawn frame
+     */
+    getFrame(image: number): number;
+    /**
+     * [A]
+     * @returns the frame offset of the direction inside the frame group
+     */
+    getDirection(image: number): number;
+    /** [A] */
+    getDrawFunction(image: number): number;
+    /** [A] */
+    getFlags(image: number): number;
+    /** [A] */
+    getOffsetX(image: number): number;
+    /** [A] */
+    getOffsetY(image: number): number;
+}
+
+/**
+ * The bullets of the bullet table by entry, from 0 to getCapacity() - 1. An entry holds a bullet while the bullet is in the active list, from
+ * its creation until it is released after dying; every bullet takes the next generation when it joins the list, so a bullet is its entry and
+ * generation. The functions other than getCapacity, getActiveCount, getIds, exists and getGeneration throw a RangeError for an entry without an
+ * active bullet.
+ */
+interface CoreBullet {
+    /** [A] */
+    getCapacity(): number;
+    /** [A] */
+    getActiveCount(): number;
+    /**
+     * [A]
+     * @returns the active bullets in the order of the active list
+     */
+    getIds(): number[];
+    /** [A] */
+    exists(bullet: number): boolean;
+    /** [A] */
+    getGeneration(bullet: number): number;
+    /** [A] */
+    getWeapon(bullet: number): number;
+    /** [A] */
+    getFlingyType(bullet: number): number;
+    /** [A] */
+    getX(bullet: number): number;
+    /** [A] */
+    getY(bullet: number): number;
+    /** [A] */
+    getPlayer(bullet: number): number;
+    /**
+     * [A]
+     * @returns the unit that fired the bullet, -1 once it is gone
+     */
+    getSource(bullet: number): number;
+    /**
+     * [A]
+     * @returns the target unit, -1 for none
+     */
+    getTarget(bullet: number): number;
+    /**
+     * [A]
+     * @returns the X of the center of the hit
+     */
+    getTargetX(bullet: number): number;
+    /** [A] */
+    getTargetY(bullet: number): number;
+    /**
+     * [A]
+     * @returns 0 init, 1 move, 2 follow, 3 bounce, 4 damage over time, 5 dying, 6 hit near the target
+     */
+    getState(bullet: number): number;
+    /** [A] */
+    getRemainingTime(bullet: number): number;
+    /** [A] */
+    getRemainingBounces(bullet: number): number;
+    /** [A] */
+    getDirection(bullet: number): number;
+    /**
+     * [A]
+     * @returns the sprite, -1 once its last image ended
+     */
+    getSprite(bullet: number): number;
+    /**
+     * [S] Sets the target unit (-1 for none) as an EUD write does: the follow, bounce and hit-near-target states move toward it from the next
+     * frame and the hit damages it; the move state keeps its move target.
+     */
+    setTarget(bullet: number, unit: number): void;
+    /**
+     * [S] Sets the center of the hit as an EUD write does; the move target does not change.
+     */
+    setTargetPosition(bullet: number, x: number, y: number): void;
+    /**
+     * [S] Sets the remaining time (0 to 255), which the move and damage-over-time states count down.
+     */
+    setRemainingTime(bullet: number, frames: number): void;
+    /**
+     * [S] Runs the bullet creation of the game at the map position for a live unit, which aims the bullet at its order target unit, else its
+     * order target position.
+     *
+     * @returns the bullet, or -1 when the game creates none (no free entry, no sprite, an attack the unit cannot make)
+     */
+    create(weapon: number, source: number, x: number, y: number): number;
 }
 
 /**
@@ -1457,6 +1690,22 @@ interface CoreGraphics {
     replaceUnitImage(unit: number, imageType: number, grp: number, hdAnim: number, hd2Anim: number): void;
     /** [A] */
     restoreUnitImage(unit: number, imageType: number): void;
+    /**
+     * [A] Replaces the graphics of one image ({@link CoreImage}) while its slot holds it; they win over those of its unit and image type.
+     */
+    replaceImageGraphics(image: number, grp: number, hdAnim: number, hd2Anim: number): void;
+    /** [A] */
+    restoreImageGraphics(image: number): void;
+    /**
+     * [A] Draws a frame (0 to 65535) of one image until the image's own drawn frame changes, as an EUD write of the frame does; -1 draws the
+     * image's own frame again. It wins over an EUD write.
+     */
+    setImageFrame(image: number, frame: number): void;
+    /**
+     * [A] Draws one image with a draw function (0 to 17) until the image's own draw function changes, as an EUD write of the render function
+     * does; -1 draws with the image's own again. It wins over an EUD write.
+     */
+    setImageDrawFunction(image: number, drawFunction: number): void;
 }
 
 /**
@@ -1541,7 +1790,7 @@ interface CoreLocal {
     /**
      * [L]
      * @returns the local state the Script button condition gives for a condition value (0 to 255): 1 enabled, 0 hidden, -1 disabled; every
-     *          state starts -1
+     *          state starts 0 (hidden), the native zero value
      */
     getButtonState(conditionValue: number): number;
     /** [L] */
@@ -1747,6 +1996,10 @@ interface Core {
     readonly unit: CoreUnit;
     readonly location: CoreLocation;
     readonly terrain: CoreTerrain;
+    readonly creep: CoreCreep;
+    readonly sprite: CoreSprite;
+    readonly image: CoreImage;
+    readonly bullet: CoreBullet;
     readonly vision: CoreVision;
     readonly leaderboard: CoreLeaderboard;
     readonly combat: CoreCombat;

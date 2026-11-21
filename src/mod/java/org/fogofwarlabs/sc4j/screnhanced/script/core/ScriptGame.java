@@ -37,8 +37,9 @@ import java.util.Map;
  * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the lower layer of the game API, and the shared, local and
  * read-only modes of its functions.
  * <p>
- * The namespaces of {@code core}, {@code game}, {@code player}, {@code unit}, {@code location}, {@code terrain}, {@code vision},
- * {@code leaderboard}, {@code combat}, {@code ai}, {@code requirements}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
+ * The namespaces of {@code core}, {@code game}, {@code player}, {@code unit}, {@code location}, {@code terrain}, {@code creep},
+ * {@code sprite}, {@code image}, {@code bullet}, {@code vision}, {@code leaderboard}, {@code combat}, {@code ai}, {@code requirements},
+ * {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
  * {@code orderType}, {@code dat}, {@code events}, {@code command}, {@code resources}, {@code graphics}, {@code local}, {@code screen},
  * {@code world}, {@code minimap}, {@code console}, {@code strings}, {@code messages} and {@code buttons}, take and return ids and raw values (hit points,
  * shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them) and plain records of them; a write
@@ -83,7 +84,8 @@ public final class ScriptGame {
         ScriptableObject core = (ScriptableObject) context.newObject(global);
         ScriptGame scriptGame = new ScriptGame(game, global, core);
         ScriptUnitCore unitCore = new ScriptUnitCore(scriptGame);
-        ScriptGraphicsCore graphicsCore = new ScriptGraphicsCore(scriptGame, unitCore, resources);
+        ScriptSpriteCore spriteCore = new ScriptSpriteCore(scriptGame);
+        ScriptGraphicsCore graphicsCore = new ScriptGraphicsCore(scriptGame, unitCore, spriteCore, resources);
         ScriptScreenCore screenCore = new ScriptScreenCore(scriptGame, graphicsCore);
         ScriptTextCore textCore = new ScriptTextCore(scriptGame);
 
@@ -95,6 +97,10 @@ public final class ScriptGame {
         unitCore.define(ScriptCoreUtils.createNamespace(context, global, core, "unit"), global);
         new ScriptLocationCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "location"), global);
         new ScriptTerrainCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "terrain"), global);
+        new ScriptCreepCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "creep"), global);
+        spriteCore.defineSprites(ScriptCoreUtils.createNamespace(context, global, core, "sprite"), global);
+        spriteCore.defineImages(ScriptCoreUtils.createNamespace(context, global, core, "image"), global);
+        new ScriptBulletCore(scriptGame, unitCore, spriteCore).define(ScriptCoreUtils.createNamespace(context, global, core, "bullet"), global);
         new ScriptVisionCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "vision"), global);
         new ScriptLeaderboardCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "leaderboard"), global);
         new ScriptCombatCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "combat"), global);

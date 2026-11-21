@@ -13,9 +13,8 @@
     var resourceTypePrototype = prelude.resourceTypePrototype;
     var ResourceType = prelude.ResourceType;
     var requireUnitId = prelude.requireUnitId;
-    var grpPrototype = prelude.grpPrototype;
-    var animPrototype = prelude.animPrototype;
     var imagePrototype = prelude.imagePrototype;
+    var readGraphicsIds = prelude.readGraphicsIds;
     var commandCard = prelude.commandCard;
 
     var create = Object.create;
@@ -25,20 +24,6 @@
     var MINERAL_ICONS = [0];
     var GAS_ICONS = [1, 2, 3];
     var SUPPLY_ICONS = [4, 5, 6];
-
-    function readResourceId(resource, prototype, kind) {
-        return resource === undefined || resource === null ? NONE : requireObject(resource, prototype, kind).id;
-    }
-
-    // Returns the handle ids of the graphics {sd, hd, hd2}: a GRP, an HD anim and an HD2 anim, each optional.
-    function readGraphicsIds(images) {
-        if (images === null || typeof images !== 'object') {
-            throw new TypeError('The graphics {sd, hd, hd2} are needed, not ' + images + '.');
-        }
-
-        return [readResourceId(images.sd, grpPrototype, 'A GRP'), readResourceId(images.hd, animPrototype, 'An anim'),
-                readResourceId(images.hd2, animPrototype, 'An anim')];
-    }
 
     // The image type of a unit's images: the given one, else the image type of the unit's main image.
     function readUnitImageType(unit, imageType) {

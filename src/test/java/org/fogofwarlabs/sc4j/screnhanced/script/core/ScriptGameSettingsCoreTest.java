@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
+import org.fogofwarlabs.sc4j.scr.game.state.GameCheats;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.jetbrains.annotations.NotNull;
@@ -24,6 +25,10 @@ final class ScriptGameSettingsCoreTest {
      * The frames the timer test runs after its start.
      */
     private static final int TIMER_FRAMES = 4;
+    /**
+     * The frames the kept cheat test runs after its start.
+     */
+    private static final int KEPT_CHEAT_FRAMES = 3;
     /**
      * The frames the determinism test runs after its start.
      */
@@ -134,6 +139,40 @@ final class ScriptGameSettingsCoreTest {
                                         "false 10050 3",
                                         "0 false",
                                         "local TypeError false"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    /**
+     * The upper setter keeps the bits it set and cleared: the frame entry point writes them again at the start of every frame, as the
+     * always-running trigger of an EUD map does, while a lower write of the flags is a one-time write.
+     */
+    @Test
+    void set_cheat_enabled_writes_its_bits_again_every_frame(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var step = 0;
+                function onStart() {
+                    game.setCheatEnabled(Cheat.WarAintWhatItUsedToBe, true);
+                    game.setCheatEnabled(Cheat.OperationCwal, false);
+                    core.game.setCheatFlags(Cheat.OperationCwal.getId());
+                }
+                function onFrame() {
+                    log.info(step, game.isCheatEnabled(Cheat.WarAintWhatItUsedToBe), game.isCheatEnabled(Cheat.OperationCwal));
+                    if (step === 1) {
+                        core.game.setCheatFlags(0);
+                    } else if (step === 2) {
+                        game.setCheatEnabled(Cheat.WarAintWhatItUsedToBe, false);
+                        core.game.setCheatFlags(Cheat.WarAintWhatItUsedToBe.getId() | Cheat.PowerOverwhelming.getId());
+                    }
+                    step++;
+                }
+                """);
+
+        for (int frame = 0; frame < KEPT_CHEAT_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        Assertions.assertEquals(List.of("0 false true", "1 true false", "2 true false", "3 false false"), scenario.getInfoMessages(),
+                                scenario.getLines()::toString);
+        Assertions.assertEquals(GameCheats.POWER_OVERWHELMING, scenario.getGame().getCheatFlags(), "a bit the setter never touched stays");
     }
 
     @Test

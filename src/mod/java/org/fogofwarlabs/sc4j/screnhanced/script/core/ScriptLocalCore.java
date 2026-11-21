@@ -34,9 +34,9 @@ import java.util.List;
  * {@code getInputEvents()} returns a new array of the records of the local inputs that reached the {@code localInput} entry point before the
  * current local frame ({@link #startLocalFrame()}), read-only after that call ({@link #createInputRecord}).
  * <p>
- * The local command card: {@code getButtonState(conditionValue)} and {@code setButtonState(conditionValue, state)} (the state the
- * {@code Script} button condition gives for its condition value, the native condition results {@code 1} enabled, {@code 0} hidden and
- * {@code -1} disabled; every state starts disabled), {@code getDisplayedButtonSet()} (the set the card shows, {@code 0xE4} for none) and
+ * The local command card: {@code getButtonState(conditionValue)} and {@code setButtonState(conditionValue, state)} (the state the {@code Script}
+ * button condition gives for its condition value, the native condition results {@code 1} enabled, {@code 0} hidden and {@code -1} disabled; every
+ * state starts hidden, the native zero value), {@code getDisplayedButtonSet()} (the set the card shows, {@code 0xE4} for none) and
  * {@code changeButtons(set)} (the card shows the set at its next refresh, as the Change Buttons action does, until the selection changes).
  */
 final class ScriptLocalCore {

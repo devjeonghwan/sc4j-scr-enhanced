@@ -213,7 +213,7 @@ final class ScriptButtonCoreTest {
     }
 
     @Test
-    void the_script_condition_states_are_local_and_start_disabled() throws IOException {
+    void the_script_condition_states_are_local_and_start_hidden() throws IOException {
         Peer peer = new Peer(0, """
                 try {
                     core.local.setButtonState(0, 1);
@@ -221,8 +221,8 @@ final class ScriptButtonCoreTest {
                     log.info('shared ' + error.name);
                 }
                 function onLocalFrame() {
-                    log.info(core.local.getButtonState(5), local.getButtonState(5) === ButtonState.Disabled, ButtonState.get(0).getName());
-                    local.setButtonState(5, ButtonState.Hidden);
+                    log.info(core.local.getButtonState(5), local.getButtonState(5) === ButtonState.Hidden, ButtonState.get(0).getName());
+                    local.setButtonState(5, ButtonState.Disabled);
                     core.local.setButtonState(6, 1);
                     log.info(core.local.getButtonState(5), core.local.getButtonState(6), local.getDisplayedButtonSet());
                     try {
@@ -236,9 +236,9 @@ final class ScriptButtonCoreTest {
 
         peer.scenario.getRuntime().callLocalFrame(0);
 
-        Assertions.assertEquals(List.of("shared TypeError", "-1 true Hidden", "0 1 null", "state RangeError"), peer.getMessages(),
+        Assertions.assertEquals(List.of("shared TypeError", "0 true Hidden", "-1 1 null", "state RangeError"), peer.getMessages(),
                                 peer.scenario.getLines()::toString);
-        Assertions.assertEquals(0, peer.game.getInterfaceLink().getButtonStates().getState(5));
+        Assertions.assertEquals(-1, peer.game.getInterfaceLink().getButtonStates().getState(5));
         Assertions.assertEquals(MARINE_SET, peer.game.getInterfaceLink().getButtonStates().takeRequestedButtonSet());
     }
 
@@ -304,7 +304,7 @@ final class ScriptButtonCoreTest {
         String created = "0 1 " + index + " " + (index + 1) + " 7 Script 0 ScriptTarget 1 \"B\\u0000Blink\" Needs energy";
         List<String> pressed = List.of("pressed 2 0 0 (" + TARGET_X + ", " + TARGET_Y + ") null", "plain 0 null");
 
-        Assertions.assertEquals(List.of(created, "states 1 1 -1", "local TypeError",
+        Assertions.assertEquals(List.of(created, "states 1 1 0", "local TypeError",
                                         "hook pressed 0 " + index + " ScriptTarget 0 true false 5",
                                         "local ScriptTarget (" + TARGET_X + ", " + TARGET_Y + ") null",
                                         "hook pressed 0 " + (index + 1) + " Script 1 true false 5",

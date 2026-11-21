@@ -3,6 +3,8 @@ package org.fogofwarlabs.sc4j.screnhanced.script.core;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.scr.content.ScrImages;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
+import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.ClassicDatRegion;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageAnim;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGraphics;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGrp;
@@ -40,11 +42,21 @@ import java.util.Map;
  * none; at least one is given, the HD anim has asset scale {@code 4} and the HD2 anim {@code 2}. The replacements change only what is drawn
  * ({@link ImageReplacements}): the classic graphics draw the GRP, else the installed GRP; HD draws the HD anim, else the HD2 anim; HD2 draws the
  * HD2 anim, else the HD anim at half size; graphics without an anim draw the GRP in HD too. A unit's replacement wins over that of the image
- * type, and a replacement wins over the GRP and anim pointers that EUD writes give the image. The {@code core.graphics} functions change
- * no game state and work anywhere: shared code replaces on every peer, local code on the local machine only.
+ * type, and a replacement wins over the GRP and anim pointers that EUD writes give the image.
+ * <p>
+ * One image of {@code core.image}, while its slot holds it: {@code replaceImageGraphics(image, grp, hdAnim, hd2Anim)} and
+ * {@code restoreImageGraphics(image)} (its graphics win over those of its unit and image type); {@code setImageFrame(image, frame)} (a drawn
+ * frame from {@code 0} to {@value #MAXIMUM_FRAME}) and {@code setImageDrawFunction(image, drawFunction)} (from {@code 0} to
+ * {@code 17}) draw that frame or draw function until the image's own drawn frame or draw function changes, as an EUD write of the image's
+ * entry does; {@code -1} gives back the image's own. A frame or draw function a script set wins over an EUD write. The {@code core.graphics}
+ * functions change no game state and work anywhere: shared code replaces on every peer, local code on the local machine only.
  */
 final class ScriptGraphicsCore {
     private static final @NotNull String ERROR_NAME = "Error";
+    /**
+     * The largest drawn frame of an image, a WORD.
+     */
+    private static final int MAXIMUM_FRAME = 0xFFFF;
 
     /**
      * Reads one resource.
@@ -64,9 +76,21 @@ final class ScriptGraphicsCore {
         return ScriptCoreUtils.requireId("image type", ScriptCoreUtils.readInteger(arguments, index), ScrImages.COUNT);
     }
 
+    /**
+     * Reads a value from {@code 0} to a maximum, or {@code -1} for none.
+     *
+     * @throws EcmaError if the argument is not an integer or neither {@code -1} nor from {@code 0} to the maximum
+     */
+    private static int readOptionalValue(@NotNull Object @NotNull [] arguments, int index, @NotNull String kind, int maximum) {
+        int value = ScriptCoreUtils.readInteger(arguments, index);
+
+        return value == ScriptCoreUtils.NO_ID ? ScriptCoreUtils.NO_ID : ScriptCoreUtils.requireId(kind, value, maximum + 1);
+    }
+
 
     private final @NotNull ScriptGame scriptGame;
     private final @NotNull ScriptUnitCore unitCore;
+    private final @NotNull ScriptSpriteCore spriteCore;
     private final @NotNull ScriptResources resources;
 
     /**
@@ -82,11 +106,14 @@ final class ScriptGraphicsCore {
      *
      * @param scriptGame the game binding
      * @param unitCore   the unit functions, which read unit arguments
+     * @param spriteCore the sprite and image functions, which read image arguments
      * @param resources  the resources of the map
      */
-    ScriptGraphicsCore(@NotNull ScriptGame scriptGame, @NotNull ScriptUnitCore unitCore, @NotNull ScriptResources resources) {
+    ScriptGraphicsCore(@NotNull ScriptGame scriptGame, @NotNull ScriptUnitCore unitCore, @NotNull ScriptSpriteCore spriteCore,
+                       @NotNull ScriptResources resources) {
         this.scriptGame = scriptGame;
         this.unitCore   = unitCore;
+        this.spriteCore = spriteCore;
         this.resources  = resources;
 
         this.handles  = new ArrayList<>();
@@ -192,6 +219,35 @@ final class ScriptGraphicsCore {
             Unit unit = this.unitCore.readUnit(arguments, 0);
 
             this.getReplacements().restoreUnitImage(unit, readImageType(arguments, 1));
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "replaceImageGraphics", 4, (context, scope, thisObject, arguments) -> {
+            SpriteImage image = this.spriteCore.readImage(arguments, 0);
+            ImageGraphics graphics = this.readGraphics(arguments, 1);
+
+            this.getReplacements().replaceImageGraphics(image, graphics);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "restoreImageGraphics", 1, (context, scope, thisObject, arguments) -> {
+            this.getReplacements().restoreImageGraphics(this.spriteCore.readImage(arguments, 0));
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setImageFrame", 2, (context, scope, thisObject, arguments) -> {
+            SpriteImage image = this.spriteCore.readImage(arguments, 0);
+            int frame = readOptionalValue(arguments, 1, "frame", MAXIMUM_FRAME);
+
+            this.getReplacements().setImageFrame(image, frame);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setImageDrawFunction", 2, (context, scope, thisObject, arguments) -> {
+            SpriteImage image = this.spriteCore.readImage(arguments, 0);
+            int drawFunction = readOptionalValue(arguments, 1, "draw function", ClassicDatRegion.DRAW_FUNCTION_LIMIT - 1);
+
+            this.getReplacements().setImageDrawFunction(image, drawFunction);
 
             return Context.getUndefinedValue();
         });

@@ -1717,6 +1717,15 @@ interface Unit {
      * @returns false for a subunit, a subunit type, or a type whose turret does not match the unit's
      */
     setType(type: UnitType): boolean;
+    /**
+     * @returns the unit's sprite, null for none
+     */
+    getSprite(): Sprite | null;
+    /**
+     * Runs the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target, two for a weapon of damage
+     * factor 2, none for a weapon without a flingy; only in shared code.
+     */
+    useWeapon(weaponType: WeaponType): void;
 }
 
 /**
@@ -2223,10 +2232,32 @@ interface Game {
     getSpeed(): GameSpeed;
     isCheatEnabled(cheat: Cheat): boolean;
     /**
-     * Turns a cheat on or off: sets or clears its bit of the cheat flags ({@link core.game.setCheatFlags}), as an EUD write of the flags does.
-     * It works in a network game and where the game options forbid cheats; the native cheat routine is {@link core.game.applyCheats}.
+     * Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags ({@link core.game.setCheatFlags}), as an EUD write of
+     * the flags does, and writes the bit again at the start of every frame, as the always-running trigger of an EUD map does. It works in a
+     * network game and where the game options forbid cheats. A reveal cheat (BlackSheepWall, WarAintWhatItUsedToBe) reveals nothing at once:
+     * while its bit is set the game no longer marks the tiles unseen every 100 frames, so what the players saw stays seen; in a network game
+     * that tile update clears the reveal bits first and the next frame sets them again. Only in shared code. The native cheat routine, which
+     * reveals the map at once, is {@link core.game.applyCheats}.
      */
     setCheatEnabled(cheat: Cheat, enabled: boolean): void;
+    /**
+     * Creates a sprite that lives as long as its image scripts run, as the game creates the sprite of a spell or of dust, with its elevation and
+     * its visibility from the tile below it; only in shared code.
+     *
+     * @returns the sprite, or null when the pools are full
+     */
+    createEffect(spriteType: SpriteType, position: Position, options?: EffectOptions): Sprite | null;
+    /**
+     * @returns the active bullets, in the order of the active list
+     */
+    getBullets(): Bullet[];
+    /**
+     * Creates a bullet of a weapon at a position for a unit, aimed at the unit's order target unit, else its order target position, as the game
+     * creates one; only in shared code.
+     *
+     * @returns the bullet, or null when the game creates none (no free entry, no sprite, an attack the unit cannot make)
+     */
+    createBullet(weaponType: WeaponType, source: Unit, position: Position): Bullet | null;
     /**
      * The map: its size, tileset, terrain, locations and resource files.
      */
@@ -2263,6 +2294,130 @@ interface Game {
      * The combat tables.
      */
     readonly combat: GameCombat;
+}
+
+/**
+ * The options of {@link Game.createEffect}.
+ */
+interface EffectOptions {
+    /**
+     * The owner of the sprite, by default the player in slot 0.
+     */
+    owner?: Player;
+    /**
+     * The elevation from 0 to 255, by default 4, the elevation a new sprite starts with.
+     */
+    elevation?: number;
+}
+
+/**
+ * A sprite of the sprite pool. The object stays with its sprite: once the sprite is gone and its slot holds another one, exists() is false and
+ * every other method throws an Error. The pools of sprites and images also hold the buildings the local player remembers in the fog of war,
+ * so the slots can differ from peer to peer in a network game: shared code may show them but should not let them decide the game.
+ */
+interface Sprite {
+    /**
+     * @returns the slot in the sprite pool ({@link CoreSprite})
+     */
+    getId(): number;
+    exists(): boolean;
+    getType(): SpriteType;
+    getPosition(): Position;
+    getOwner(): Player | null;
+    getElevation(): number;
+    /**
+     * @returns the images of the sprite, from the one drawn on top; the local selection circles and health bars are not among them
+     */
+    getImages(): SpriteImage[];
+    getMainImage(): SpriteImage | null;
+    isVisibleTo(player: Player): boolean;
+}
+
+/**
+ * An image of the image pool ({@link CoreImage}). The object stays with its image: once the image is gone and its slot holds another one,
+ * exists() is false and every other method throws an Error. Its frame, draw function and graphics change only what is drawn: shared code
+ * changes them on every peer, local code on the local machine only.
+ */
+interface SpriteImage {
+    getId(): number;
+    exists(): boolean;
+    getType(): ImageType;
+    getSprite(): Sprite | null;
+    /**
+     * @returns the drawn frame
+     */
+    getFrame(): number;
+    /**
+     * Draws a frame (0 to 65535) until the image's own frame changes, as an EUD write of the frame does; null draws the image's own frame
+     * again.
+     */
+    setFrame(frame: number | null): void;
+    /**
+     * @returns the frame offset of the image's direction inside its frame group
+     */
+    getDirection(): number;
+    getDrawFunction(): DrawFunction;
+    /**
+     * Draws with a draw function until the image's own draw function changes, as an EUD write of the draw function does; null draws with
+     * the image's own again.
+     */
+    setDrawFunction(drawFunction: DrawFunction | null): void;
+    getOffsetX(): number;
+    getOffsetY(): number;
+    /**
+     * Replaces the graphics of this image while it lives; they win over those of its unit and of its image type.
+     */
+    replaceGraphics(images: ImageGraphics): void;
+    restoreGraphics(): void;
+}
+
+/**
+ * A bullet of the bullet table, from its creation until it is released after dying. The object stays with its bullet: once the bullet is gone
+ * and its entry holds another one, exists() is false and every other method throws an Error.
+ */
+interface Bullet {
+    /**
+     * @returns the entry in the bullet table ({@link CoreBullet})
+     */
+    getId(): number;
+    exists(): boolean;
+    getWeapon(): WeaponType;
+    getFlingyType(): FlingyType;
+    getPosition(): Position;
+    getPlayer(): Player | null;
+    /**
+     * @returns the unit that fired the bullet, null once it is gone
+     */
+    getSource(): Unit | null;
+    getTarget(): Unit | null;
+    /**
+     * @returns the center of the hit
+     */
+    getTargetPosition(): Position;
+    /**
+     * Sets the target unit (null for none) or the target position, as an EUD write of the bullet does: a following, bouncing or near-target
+     * bullet turns to a new target unit from the next frame, a moving bullet keeps its course; the hit damages the target unit and is centered
+     * on the target position. Only in shared code.
+     */
+    setTarget(target: Unit | Position | null): void;
+    /**
+     * @returns the frames a moving bullet still flies, or a bullet that persists on its target position still hits
+     */
+    getRemainingTime(): number;
+    /**
+     * Sets the remaining frames, 0 to 255; only in shared code.
+     */
+    setRemainingTime(frames: number): void;
+    getRemainingBounces(): number;
+    getState(): BulletState;
+    /**
+     * @returns the direction from 0 to 255
+     */
+    getDirection(): number;
+    /**
+     * @returns the sprite, null once its last image ended
+     */
+    getSprite(): Sprite | null;
 }
 
 /**
@@ -2659,6 +2814,43 @@ interface Terrain {
      * Copies the tiles one location covers onto the tiles of another location; both cover the same number of tiles across and down.
      */
     copyTiles(fromLocation: Location, toLocation: Location): void;
+    /**
+     * The creep of the map.
+     */
+    readonly creep: Creep;
+}
+
+/**
+ * The creep of the map, by tile coordinates ({@link Terrain.creep}). Creep these functions add has no source: it stays until it is removed or
+ * recedes. The changes work in shared code only.
+ */
+interface Creep {
+    /**
+     * @returns whether the tile has creep, by the creep flag the rules of the game read
+     */
+    has(tileX: number, tileY: number): boolean;
+    /**
+     * Covers the footprint of a building of the unit type at the position with creep and grows it until no tile is added, as the game does
+     * for a building that needs creep.
+     */
+    fill(unitType: UnitType, position: Position): void;
+    /**
+     * Runs one spread step of a creep source of the unit type at the position; a type that spreads creep keeps to its ellipse.
+     *
+     * @returns true when it added a tile
+     */
+    spread(unitType: UnitType, position: Position): boolean;
+    /**
+     * Removes the creep of the tile at once and gives back the terrain below it.
+     */
+    remove(tileX: number, tileY: number): void;
+    /**
+     * Makes the creep tile recede later, at the pace of the recession, as the creep of a removed building does.
+     *
+     * @returns false for a tile that is not creep, already recedes, lies under a building or that a Zerg building sustains, and when the
+     *          recession is full
+     */
+    recede(tileX: number, tileY: number): boolean;
 }
 
 /**
@@ -2756,7 +2948,7 @@ interface Local {
      */
     changeButtons(set: ButtonSet | UnitType | number): void;
     /**
-     * @returns the local state of a condition value (0 to 255) of the Script button condition; every state starts Disabled
+     * @returns the local state of a condition value (0 to 255) of the Script button condition; every state starts Hidden, the native zero value
      */
     getButtonState(conditionValue: number): ButtonState;
     setButtonState(conditionValue: number, state: ButtonState): void;
@@ -3376,6 +3568,10 @@ interface UnitUnloadedEvent extends UnitEvent {
 interface BulletEvent {
     getRecord(): CoreEventRecord;
     getFrame(): number;
+    /**
+     * @returns the bullet; once it is gone its exists() is false
+     */
+    getBullet(): Bullet;
     getWeapon(): WeaponType;
     getPlayer(): Player | null;
     getSource(): Unit | null;
@@ -3944,6 +4140,53 @@ interface LocationFlagTable {
 }
 
 declare const LocationFlag: LocationFlagTable;
+
+/**
+ * A draw function of images.dat, as SC:R's renderer names it; its id is the images.dat value.
+ */
+interface DrawFunction extends GameType {
+}
+
+interface DrawFunctionTable extends ConstantTable<DrawFunction> {
+    readonly Normal: DrawFunction;
+    readonly NormalUnchecked: DrawFunction;
+    readonly UnseenCloaking: DrawFunction;
+    readonly UnseenCloaked: DrawFunction;
+    readonly UnseenDecloaking: DrawFunction;
+    readonly Cloaking: DrawFunction;
+    readonly Cloaked: DrawFunction;
+    readonly Decloaking: DrawFunction;
+    readonly Distortion: DrawFunction;
+    readonly Remapping: DrawFunction;
+    readonly Shadow: DrawFunction;
+    readonly HealthBar: DrawFunction;
+    readonly WarpTexture: DrawFunction;
+    readonly SelectionCircle: DrawFunction;
+    readonly PlayerColor: DrawFunction;
+    readonly UpdateRectangle: DrawFunction;
+    readonly Hallucination: DrawFunction;
+    readonly WarpFlash: DrawFunction;
+}
+
+declare const DrawFunction: DrawFunctionTable;
+
+/**
+ * An order state of a bullet ({@link Bullet.getState}).
+ */
+interface BulletState extends GameType {
+}
+
+interface BulletStateTable extends ConstantTable<BulletState> {
+    readonly Init: BulletState;
+    readonly Move: BulletState;
+    readonly Follow: BulletState;
+    readonly Bounce: BulletState;
+    readonly DamageOverTime: BulletState;
+    readonly Dying: BulletState;
+    readonly HitNearTarget: BulletState;
+}
+
+declare const BulletState: BulletStateTable;
 
 interface MouseButtonTable extends ConstantTable<MouseButton> {
     readonly Left: MouseButton;

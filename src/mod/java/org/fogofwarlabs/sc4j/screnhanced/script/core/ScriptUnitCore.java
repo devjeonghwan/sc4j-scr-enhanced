@@ -47,9 +47,10 @@ import java.util.function.ToIntFunction;
  * Reads: {@code getType}, {@code getOwner}, {@code getX}, {@code getY}, {@code getHp}, {@code getShields}, {@code getEnergy},
  * {@code getMaxEnergy} (raw {@code 1/256} units, the maximum after the energy upgrades), {@code getOrder}, {@code getTarget} ({@code -1}
  * without a target unit), {@code getTargetX}, {@code getTargetY}, {@code getStatus} (the status flags), {@code getImageType} (the image type
- * of the main image of the unit's sprite), {@code getResources} (the resource amount of a resource container), {@code getHangarCount} (the
- * Interceptors or Scarabs inside and outside the hangar), {@code isCompleted}, {@code isCloaked}, {@code isBurrowed}, {@code isInvincible}
- * and {@code isDisabled} (the disabled status or a disabling status timer).
+ * of the main image of the unit's sprite), {@code getSprite} (the slot of the unit's sprite in {@code core.sprite}, {@code -1} for none),
+ * {@code getResources} (the resource amount of a resource container), {@code getHangarCount} (the Interceptors or Scarabs inside and outside
+ * the hangar), {@code isCompleted}, {@code isCloaked}, {@code isBurrowed}, {@code isInvincible} and {@code isDisabled} (the disabled status or a
+ * disabling status timer).
  * <p>
  * Writes of raw amounts: {@code setHp} (the hit point routine, at least {@code 1} and at most the maximum), {@code setShields} and
  * {@code setEnergy} (at most the maximum, {@code false} for a unit without shields or energy). Writes through the routines of the trigger
@@ -80,8 +81,10 @@ import java.util.function.ToIntFunction;
  * {@code getAddon} ({@code -1} for none). {@code setType(id, type)} changes the unit's type through the morph routine and returns
  * {@code false} for a subunit, a subunit type, or a type whose turret does not match the unit's.
  * <p>
- * Orders: {@code getOrderQueue(id)} (the orders waiting behind the current one, first to last, as records {@code order}, {@code target} and
- * {@code targetGeneration} ({@code -1} without a live target unit), {@code x}, {@code y} and {@code unitType} ({@code -1} for none)),
+ * Orders: {@code useWeapon(id, weapon)} (the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target,
+ * two for a weapon of damage factor {@code 2}, none for a weapon without a flingy), {@code getOrderQueue(id)} (the orders waiting behind the
+ * current one, first to last, as records {@code order}, {@code target} and {@code targetGeneration} ({@code -1} without a live target unit),
+ * {@code x}, {@code y} and {@code unitType} ({@code -1} for none)),
  * {@code getSecondaryOrder}, {@code getSecondaryOrderState} and {@code setSecondaryOrder(id, order)} (the native routine: a changed order
  * clears the state and the unit in production). {@code getButtonSet} and {@code setButtonSet} (the WORD of the unit's command card button set,
  * which the native routines of morphs, completion and burrowing write again). The construction fields as an EUD write stores them:
@@ -241,6 +244,11 @@ final class ScriptUnitCore {
             SpriteImage image = sprite == null ? null : sprite.getMainImage();
 
             return image == null ? ScriptCoreUtils.NO_ID : image.getImageTypeId();
+        });
+        this.defineRead(namespace, global, "getSprite", unit -> {
+            Sprite sprite = unit.getSpriteOrNull();
+
+            return sprite == null ? ScriptCoreUtils.NO_ID : sprite.getPoolIndex();
         });
         this.defineRead(namespace, global, "getResources", Unit::getResources);
         this.defineRead(namespace, global, "getHangarCount", unit -> unit.getHangarCount(false) + unit.getHangarCount(true));
@@ -896,6 +904,16 @@ final class ScriptUnitCore {
      * Defines the order queue, the secondary order and the construction gains of a unit.
      */
     private void defineOrderFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "useWeapon", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int weapon = ScriptBulletCore.readWeapon(arguments, 1);
+
+            this.getGame().getProjectilePhase().useWeapon(unit, weapon, this.scriptGame.getInstructionLimit());
+
+            return Context.getUndefinedValue();
+        });
         ScriptCoreUtils.defineFunction(global, namespace, "getOrderQueue", 1, (context, scope, thisObject, arguments) -> {
             Unit unit = this.readUnit(arguments, 0);
             UnitPool pool = this.getPool();

@@ -56,6 +56,10 @@ final class ClassicImageGraphicsTest {
      */
     private static final int WRITTEN_FRAME = 5;
     private static final int UNKNOWN_RENDER_FUNCTION = 0x401000;
+    /**
+     * The frame a script sets, other than {@link #WRITTEN_FRAME}.
+     */
+    private static final int SCRIPT_FRAME = 3;
 
     /**
      * The memory the anim tests write to, the place of their GRP in it and of their anims after it.
@@ -556,5 +560,54 @@ final class ClassicImageGraphicsTest {
 
         Assertions.assertNotNull(graphics.findImageSheet(image), "the EUD GRP applies again");
         Assertions.assertNull(graphics.findImageAnimation(image));
+    }
+
+    @Test
+    void a_script_frame_draw_function_and_graphics_of_one_image_win_until_the_image_changes_or_its_slot_is_reused() throws IOException {
+        ClassicAddressSpace space = createSpace();
+        SpriteImagePool pool = new SpriteImagePool(1);
+        ImageReplacements replacements = new ImageReplacements(() -> null);
+        ClassicImageGraphics graphics = new ClassicImageGraphics(() -> pool, () -> replacements);
+        byte[] anim = ImageFileScenario.createAnim(EmbeddedAnim.HD_SCALE);
+        ImageGraphics replaced = ImageGraphics.of(null, replacements.readAnim(anim, 0, anim.length, "replaced.anim"), null);
+
+        graphics.onAddressSpaceCreated(new ClassicMemoryView(space));
+
+        SpriteImage image = createImage(pool);
+        int frameField = ClassicImageGraphics.IMAGE_ARRAY + image.getIndex() * ClassicImageGraphics.IMAGE_ENTRY_SIZE +
+                         ClassicImageGraphics.IMAGE_FRAME_OFFSET;
+
+        space.writeDword(frameField, WRITTEN_FRAME << Short.SIZE);
+        replacements.setImageFrame(image, SCRIPT_FRAME);
+        replacements.setImageDrawFunction(image, SpriteImage.MODIFIER_HALLUCINATION);
+        replacements.replaceImageGraphics(image, replaced);
+
+        Assertions.assertEquals(SCRIPT_FRAME, graphics.findImageFrame(image), "the script frame wins over the EUD write");
+        Assertions.assertEquals(SpriteImage.MODIFIER_HALLUCINATION, graphics.findImageDrawFunction(image));
+        Assertions.assertSame(replaced, graphics.findImageAnimation(image));
+
+        replacements.setImageFrame(image, -1);
+
+        Assertions.assertEquals(WRITTEN_FRAME, graphics.findImageFrame(image), "the EUD frame applies again");
+
+        replacements.setImageFrame(image, SCRIPT_FRAME);
+        image.setFrameIndex(1);
+        image.setModifier(SpriteImage.MODIFIER_SHADOW);
+
+        Assertions.assertEquals(-1, graphics.findImageFrame(image), "the image changed its own frame");
+        Assertions.assertEquals(-1, graphics.findImageDrawFunction(image), "the image changed its own draw function");
+        Assertions.assertSame(replaced, graphics.findImageAnimation(image), "the graphics last while the image lives");
+
+        pool.recycle(image);
+
+        SpriteImage reused = createImage(pool);
+
+        Assertions.assertSame(image, reused);
+        Assertions.assertNull(graphics.findImageAnimation(reused), "a new image in the slot has no script graphics");
+
+        pool.recycle(reused);
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> replacements.setImageFrame(reused, SCRIPT_FRAME),
+                                "a free slot takes no frame");
     }
 }

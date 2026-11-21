@@ -56,7 +56,7 @@
         changeButtons: function (set) {
             core.local.changeButtons(readButtonSetId(set));
         },
-        // The local state of a condition value of the Script button condition; every state starts Disabled.
+        // The local state of a condition value of the Script button condition; every state starts Hidden, the native zero value.
         getButtonState: function (conditionValue) {
             return ButtonState.get(core.local.getButtonState(conditionValue));
         },

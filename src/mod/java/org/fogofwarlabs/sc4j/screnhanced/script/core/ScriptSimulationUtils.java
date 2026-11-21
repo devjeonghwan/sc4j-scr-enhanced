@@ -39,7 +39,8 @@ import org.mozilla.javascript.ScriptableObject;
  * <p>
  * A record is a plain object of numbers and booleans with the {@code kind} of the event or decision: a unit is its slot id under its name and
  * the slot's generation under the name followed by {@code Generation} ({@code -1} for no unit), the main unit of an event also its captured
- * {@code unitType} and {@code owner}; players, types and orders are their ids ({@code -1} for none); hit points are raw {@code 1/256} units. A
+ * {@code unitType} and {@code owner}; a bullet is its entry of the bullet table under {@code bullet} and the generation it had then under
+ * {@code bulletGeneration}; players, types and orders are their ids ({@code -1} for none); hit points are raw {@code 1/256} units. A
  * decision value that is missing, not an integer or out of its range in the record leaves the decision's value as it is.
  */
 final class ScriptSimulationUtils {
@@ -114,6 +115,8 @@ final class ScriptSimulationUtils {
                 putNumber(values, "targetY", spell.getPositionY());
             }
             case BulletCreatedEvent bullet -> {
+                putNumber(values, "bullet", bullet.getBullet().getPoolIndex());
+                values.put("bullet" + GENERATION_SUFFIX, values, (double) bullet.getBulletGeneration());
                 putNumber(values, "weapon", bullet.getWeapon());
                 putNumber(values, "player", bullet.getOwnerIndex());
                 putUnit(values, pool, "source", bullet.getSource());
@@ -122,6 +125,8 @@ final class ScriptSimulationUtils {
                 putNumber(values, "targetY", bullet.getTargetY());
             }
             case BulletHitEvent bullet -> {
+                putNumber(values, "bullet", bullet.getBullet().getPoolIndex());
+                values.put("bullet" + GENERATION_SUFFIX, values, (double) bullet.getBulletGeneration());
                 putNumber(values, "weapon", bullet.getWeapon());
                 putNumber(values, "player", bullet.getOwnerIndex());
                 putUnit(values, pool, "source", bullet.getSource());

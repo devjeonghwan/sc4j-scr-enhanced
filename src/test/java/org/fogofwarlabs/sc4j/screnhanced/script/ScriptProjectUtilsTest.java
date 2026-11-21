@@ -119,6 +119,11 @@ final class ScriptProjectUtilsTest {
             Map.entry("UnitSize", "UnitSize.get(0)"),
             Map.entry("DamageType", "DamageType.get(0)"),
             Map.entry("LocationFlag", "LocationFlag.LowGround"),
+            Map.entry("DrawFunction", "DrawFunction.get(0)"),
+            Map.entry("BulletState", "BulletState.get(0)"),
+            Map.entry("Sprite", "game.createEffect(SpriteType.get(0), Position.of(1, 2))"),
+            Map.entry("SpriteImage", "game.createEffect(SpriteType.get(0), Position.of(1, 2)).getMainImage()"),
+            Map.entry("Bullet", "prelude.createEvent(record(EventKind.BulletCreated.id)).getBullet()"),
             Map.entry("EventKind", "EventKind.get(0)"),
             Map.entry("InputKind", "InputKind.get(0)"),
             Map.entry("DecisionKind", "DecisionKind.get(0)"),
@@ -140,7 +145,7 @@ final class ScriptProjectUtilsTest {
     );
     /**
      * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player, one location
-     * and every tile, no live unit.
+     * and every tile, no live unit or bullet, one sprite with its main image.
      */
     private static final @NotNull String STUB_CORE = """
             (function () {
@@ -157,6 +162,10 @@ final class ScriptProjectUtilsTest {
                     unit: {exists: function () { return false; }},
                     location: {getCount: function () { return 1; }},
                     terrain: {isValidTile: function () { return true; }},
+                    sprite: {exists: function () { return true; }, getGeneration: function () { return 1; },
+                             createEffect: function () { return 0; }, getMainImage: function () { return 0; }},
+                    image: {exists: function () { return true; }, getGeneration: function () { return 1; }},
+                    bullet: {exists: function () { return false; }},
                     game: {getFrame: function () { return 0; }, getFrameDuration: function () { return 42; }},
                     resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }, getImage: function () { return 2; }},
                     buttons: {getSetCount: function () { return 250; }, getConditionCount: function () { return 1; },
@@ -176,7 +185,8 @@ final class ScriptProjectUtilsTest {
                           sourceGeneration: -1, killer: -1, killerGeneration: -1, killerPlayer: 0, sourcePlayer: 0, producer: -1,
                           producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
                           key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, text: '', consumed: false, cancelled: false,
-                          rejected: false, set: 0, position: 1, condition: 0, conditionValue: 0, action: 0, actionValue: 0, hotkey: false};
+                          rejected: false, set: 0, position: 1, condition: 0, conditionValue: 0, action: 0, actionValue: 0, hotkey: false,
+                          bullet: 0, bulletGeneration: 1};
             function record(kind) {
                 var copy = {kind: kind};
                 for (var key in values) {

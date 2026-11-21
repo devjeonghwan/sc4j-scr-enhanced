@@ -3,12 +3,12 @@
 // of core.events.getFrameEvents, the decision objects the records of the decide entry point and the local input objects the records of the
 // localInput entry point; each object's getRecord() returns its record.
 //
-// The entry points: frame(frame) calls onStart at the first frame, then the due timers, the channel handlers of the frame's commands, the
-// event hooks of the frame's events and onFrame; decide(kind, record) calls the decision hooks; localFrame(frame), render() and
-// localInput(record) call the local hooks, and localInput returns true when a hook consumed the input. localFrame first sets the states of
-// the script buttons, and localInput hands a command card button input that no hook consumed to the script buttons. The runtime's host runs each call of
-// a hook, timer or handler (host.call), lists the loaded modules (host.getModules) and learns which decisions have hooks
-// (host.setDecisionHooks).
+// The entry points: frame(frame) writes the cheat bits game.setCheatEnabled keeps, calls onStart at the first frame, then the due timers, the
+// channel handlers of the frame's commands, the event hooks of the frame's events and onFrame; decide(kind, record) calls the decision hooks;
+// localFrame(frame), render() and localInput(record) call the local hooks, and localInput returns true when a hook consumed the input. localFrame
+// first sets the states of the script buttons, and localInput hands a command card button input that no hook consumed to the script buttons. The
+// runtime's host runs each call of a hook, timer or handler (host.call), lists the loaded modules (host.getModules) and learns which decisions have
+// hooks (host.setDecisionHooks).
 (function (core, prelude) {
     'use strict';
 
@@ -37,6 +37,8 @@
     var getPlayer = prelude.getPlayer;
     var getUnit = prelude.getUnit;
     var getCapturedUnit = prelude.getCapturedUnit;
+    var getCapturedBullet = prelude.getCapturedBullet;
+    var applyKeptCheats = prelude.applyKeptCheats;
     var requireUnitId = prelude.requireUnitId;
     var pollDueTimer = prelude.pollDueTimer;
     var hasChannels = prelude.hasChannels;
@@ -64,7 +66,7 @@
     var CHANNEL_CALL = 'Channel handler';
     var BOOLEAN_FIELDS = {queued: true, missed: true, hotkey: true};
     var UNIT_FIELDS = ['frame', 'unit', 'unitType', 'owner'];
-    var BULLET_FIELDS = ['frame', 'weapon', 'player', 'source', 'target', 'targetPosition'];
+    var BULLET_FIELDS = ['frame', 'bullet', 'weapon', 'player', 'source', 'target', 'targetPosition'];
     var LOCAL_KEY_FIELDS = ['key', 'modifiers', 'mousePosition'];
     var LOCAL_BUTTON_FIELDS = ['button', 'modifiers', 'mousePosition'];
     var COMMAND_BUTTON_FIELDS = ['buttonSet', 'button', 'position', 'condition', 'conditionValue', 'action', 'actionValue', 'queued', 'hotkey'];
@@ -119,6 +121,7 @@
     function readBulletFields(record) {
         return {
             frame: record.frame,
+            bullet: getCapturedBullet(record.bullet, record.bulletGeneration),
             weapon: WeaponType.get(record.weapon),
             player: getPlayer(record.player),
             source: getCapturedUnit(record.source, record.sourceGeneration),
@@ -597,6 +600,8 @@
 
         function frame(frameNumber) {
             execution.local = false;
+
+            applyKeptCheats();
 
             if (!started) {
                 started = true;

@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.content.ScrImages;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImagePool;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.jetbrains.annotations.NotNull;
@@ -12,7 +13,9 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -24,10 +27,20 @@ import java.util.function.Supplier;
  * A unit's graphics last while its unit pool slot holds the same unit (the slot is allocated and keeps its generation), its death animation
  * included; {@link #removeFreedUnits()} forgets those of freed slots. The replacements change only what is drawn, never the simulation.
  * <p>
+ * One image of the image pool takes graphics, a frame and a draw function of its own while its slot holds the same image (the slot keeps its
+ * generation, {@link SpriteImagePool#getGeneration(int)}). Its graphics win over those of its unit and of its image type. Its frame and its
+ * draw function last until the image's own drawn frame, or its own draw function, changes: the next change of the image's own state replaces
+ * them, as for an EUD write of the image's entry ({@link ClassicImageGraphics}).
+ * <p>
  * The GRPs and anims are read from byte ranges that are not copied ({@link #readGrp}, {@link #readAnim}); the parsed anims of the game are kept
  * within {@code 256} MiB, as those of the classic image graphics.
  */
 public final class ImageReplacements {
+    /**
+     * The value of no frame and no draw function.
+     */
+    private static final int NONE = -1;
+
     /**
      * The graphics of one unit's images of one image type.
      */
@@ -46,6 +59,51 @@ public final class ImageReplacements {
             this.graphics = graphics;
         }
     }
+
+    /**
+     * The graphics, frame and draw function of one image of the image pool.
+     */
+    private static final class ImageOverride {
+        private final @NotNull SpriteImagePool pool;
+        private final long generation;
+
+        private @Nullable ImageGraphics graphics;
+        /**
+         * The frame drawn instead of the image's own, {@code -1} for none.
+         */
+        private int frame;
+        /**
+         * The image's own drawn frame when the frame was set.
+         */
+        private int ownFrame;
+        /**
+         * The draw function drawn with instead of the image's own, {@code -1} for none.
+         */
+        private int drawFunction;
+        /**
+         * The image's own draw function when the draw function was set.
+         */
+        private int ownDrawFunction;
+
+        private ImageOverride(@NotNull SpriteImagePool pool, long generation) {
+            this.pool       = pool;
+            this.generation = generation;
+
+            this.graphics        = null;
+            this.frame           = NONE;
+            this.ownFrame        = 0;
+            this.drawFunction    = NONE;
+            this.ownDrawFunction = 0;
+        }
+
+        /**
+         * @return {@code true} if the override has no graphics, frame and draw function, {@code false} otherwise
+         */
+        private boolean isEmpty() {
+            return this.graphics == null && this.frame == NONE && this.drawFunction == NONE;
+        }
+    }
+
 
 
     /**
@@ -89,6 +147,10 @@ public final class ImageReplacements {
      */
     private final @Nullable ImageGraphics @NotNull [] typeGraphics;
     private final @NotNull List<UnitReplacement> unitReplacements;
+    /**
+     * The overrides of single images by image pool slot.
+     */
+    private final @NotNull Map<Integer, ImageOverride> imageOverrides;
 
     /**
      * Creates an {@link ImageReplacements} instance without replacements.
@@ -101,6 +163,7 @@ public final class ImageReplacements {
 
         this.typeGraphics     = new ImageGraphics[ScrImages.COUNT];
         this.unitReplacements = new ArrayList<>();
+        this.imageOverrides   = new HashMap<>();
     }
 
     /**
@@ -168,6 +231,33 @@ public final class ImageReplacements {
         UnitReplacement replacement = this.findUnitReplacement(unit, imageTypeId);
 
         return replacement == null ? null : replacement.graphics;
+    }
+
+    /**
+     * Finds the frame a sprite image draws instead of its own: the frame set for it ({@link #setImageFrame}) while its own drawn frame is the
+     * one it had then.
+     *
+     * @param image an image of a drawn sprite
+     * @return the frame index, or {@code -1} for the image's own frame
+     */
+    public int findImageFrame(@NotNull SpriteImage image) {
+        ImageOverride override = this.findImageOverride(image);
+
+        return override == null || override.frame == NONE || override.ownFrame != image.getDrawnFrameIndex() ? NONE : override.frame;
+    }
+
+    /**
+     * Finds the draw function a sprite image draws with instead of its own: the draw function set for it ({@link #setImageDrawFunction}) while
+     * its own draw function is the one it had then.
+     *
+     * @param image an image of a drawn sprite
+     * @return the draw function, or {@code -1} for the image's own
+     */
+    public int findImageDrawFunction(@NotNull SpriteImage image) {
+        ImageOverride override = this.findImageOverride(image);
+
+        return override == null || override.drawFunction == NONE || override.ownDrawFunction != image.getModifier() ? NONE
+                                                                                                                  : override.drawFunction;
     }
 
     /**
@@ -244,9 +334,86 @@ public final class ImageReplacements {
     }
 
     /**
-     * Forgets the graphics of the units whose slot was freed or holds another unit.
+     * Replaces the graphics of one image while its slot holds it.
+     *
+     * @param image    an allocated image of the image pool
+     * @param graphics the graphics
+     */
+    public void replaceImageGraphics(@NotNull SpriteImage image, @NotNull ImageGraphics graphics) {
+        this.requireImageOverride(image).graphics = graphics;
+    }
+
+    /**
+     * Restores the graphics of one image: those of its unit or image type, else the installed graphics.
+     *
+     * @param image an image of the image pool
+     */
+    public void restoreImageGraphics(@NotNull SpriteImage image) {
+        ImageOverride override = this.findImageOverride(image);
+
+        if (override != null) {
+            override.graphics = null;
+            this.removeIfEmpty(image, override);
+        }
+    }
+
+    /**
+     * Sets the frame one image draws until its own drawn frame changes.
+     *
+     * @param image an allocated image of the image pool
+     * @param frame the frame index, or {@code -1} for the image's own frame
+     */
+    public void setImageFrame(@NotNull SpriteImage image, int frame) {
+        if (frame < 0) {
+            ImageOverride override = this.findImageOverride(image);
+
+            if (override != null) {
+                override.frame = NONE;
+                this.removeIfEmpty(image, override);
+            }
+
+            return;
+        }
+
+        ImageOverride override = this.requireImageOverride(image);
+
+        override.frame    = frame;
+        override.ownFrame = image.getDrawnFrameIndex();
+    }
+
+    /**
+     * Sets the draw function one image draws with until its own draw function changes.
+     *
+     * @param image        an allocated image of the image pool
+     * @param drawFunction the draw function, or {@code -1} for the image's own
+     */
+    public void setImageDrawFunction(@NotNull SpriteImage image, int drawFunction) {
+        if (drawFunction < 0) {
+            ImageOverride override = this.findImageOverride(image);
+
+            if (override != null) {
+                override.drawFunction = NONE;
+                this.removeIfEmpty(image, override);
+            }
+
+            return;
+        }
+
+        ImageOverride override = this.requireImageOverride(image);
+
+        override.drawFunction    = drawFunction;
+        override.ownDrawFunction = image.getModifier();
+    }
+
+    /**
+     * Forgets the graphics of the units whose slot was freed or holds another unit, and the overrides of the images whose slot was freed or
+     * holds another image.
      */
     public void removeFreedUnits() {
+        if (!this.imageOverrides.isEmpty()) {
+            this.imageOverrides.entrySet().removeIf(entry -> !isHeld(entry.getValue(), entry.getKey()));
+        }
+
         if (this.unitReplacements.isEmpty()) {
             return;
         }
@@ -264,6 +431,12 @@ public final class ImageReplacements {
      * @return the graphics, or {@code null} for the installed graphics
      */
     public @Nullable ImageGraphics findGraphics(@NotNull SpriteImage image) {
+        ImageOverride override = this.findImageOverride(image);
+
+        if (override != null && override.graphics != null) {
+            return override.graphics;
+        }
+
         int imageTypeId = image.getImageTypeId();
 
         if (imageTypeId < 0 || imageTypeId >= ScrImages.COUNT) {
@@ -300,6 +473,58 @@ public final class ImageReplacements {
         }
 
         return null;
+    }
+
+    /**
+     * Checks whether an override's image is still in its slot.
+     *
+     * @return {@code true} if the slot is allocated and keeps the generation of the override's image, {@code false} otherwise
+     */
+    private static boolean isHeld(@NotNull ImageOverride override, int slot) {
+        return slot < override.pool.getCapacity() && override.pool.isAllocated(slot) && override.pool.getGeneration(slot) == override.generation;
+    }
+
+    /**
+     * Finds the override of an image while its slot holds it.
+     */
+    private @Nullable ImageOverride findImageOverride(@NotNull SpriteImage image) {
+        if (this.imageOverrides.isEmpty()) {
+            return null;
+        }
+
+        int slot = image.getIndex();
+        ImageOverride override = this.imageOverrides.get(slot);
+
+        return override != null && override.pool == image.getPool() && isHeld(override, slot) ? override : null;
+    }
+
+    /**
+     * Finds the override of an allocated image, creating it for the image in its slot.
+     *
+     * @throws IllegalArgumentException if the image's slot is not allocated
+     */
+    private @NotNull ImageOverride requireImageOverride(@NotNull SpriteImage image) {
+        SpriteImagePool pool = image.getPool();
+        int slot = image.getIndex();
+
+        if (!pool.isAllocated(slot)) {
+            throw Exceptions.newIllegalArgumentException("The image slot {0} is not allocated.", slot);
+        }
+
+        ImageOverride override = this.findImageOverride(image);
+
+        if (override == null) {
+            override = new ImageOverride(pool, pool.getGeneration(slot));
+            this.imageOverrides.put(slot, override);
+        }
+
+        return override;
+    }
+
+    private void removeIfEmpty(@NotNull SpriteImage image, @NotNull ImageOverride override) {
+        if (override.isEmpty()) {
+            this.imageOverrides.remove(image.getIndex());
+        }
     }
 
     private @NotNull UnitPool requireUnitPool() {

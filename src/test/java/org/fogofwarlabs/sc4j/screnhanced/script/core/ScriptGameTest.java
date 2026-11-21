@@ -129,8 +129,8 @@ final class ScriptGameTest {
                 """);
 
         Assertions.assertEquals(List.of("true ",
-                                        "getFrame getElapsedTime isReadOnly print every after getSpeed isCheatEnabled setCheatEnabled map players units " +
-                                        "switches countdown leaderboard settings vision combat",
+                                        "getFrame getElapsedTime isReadOnly print every after getSpeed isCheatEnabled setCheatEnabled createEffect " +
+                                        "getBullets createBullet map players units switches countdown leaderboard settings vision combat",
                                         "getWidth getHeight getTileWidth getTileHeight tileset terrain locations resources",
                                         "console strings messages images commandCard",
                                         "undefined undefined undefined undefined undefined undefined",

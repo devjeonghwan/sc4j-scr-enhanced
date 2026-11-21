@@ -1,7 +1,7 @@
-// The type and value tables of the upper layer: the globals UnitType, WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType,
-// Order, Key, MouseButton, Modifier, UnitGroup, ScoreType, ResourceType, Alliance, EventKind, InputKind, DecisionKind, GameSpeed, Cheat,
-// GameMode, UnitSize, DamageType and LocationFlag. The DAT methods of the type objects come from the DAT tables (prelude.datTables) over
-// core.dat, with its raw values.
+// The type and value tables of the upper layer: the globals UnitType, WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType, Order,
+// Key, MouseButton, Modifier, UnitGroup, ScoreType, ResourceType, Alliance, EventKind, InputKind, DecisionKind, GameSpeed, Cheat, GameMode,
+// UnitSize, DamageType, LocationFlag, DrawFunction and BulletState. The DAT methods of the type objects come from the DAT tables
+// (prelude.datTables) over core.dat, with its raw values.
 (function (core, prelude) {
     'use strict';
 
@@ -66,6 +66,12 @@
     var DAMAGE_TYPE_NAMES = ['Independent', 'Explosive', 'Concussive', 'Normal', 'IgnoreArmor'];
     // The elevation flags of a location: a set flag leaves the units at the elevation out of the location.
     var LOCATION_FLAGS = [[0x1, 'LowGround'], [0x2, 'MiddleGround'], [0x4, 'HighGround'], [0x8, 'LowAir'], [0x10, 'MiddleAir'], [0x20, 'HighAir']];
+    // The draw functions of images.dat by id, as SC:R's renderer names them.
+    var DRAW_FUNCTION_NAMES = ['Normal', 'NormalUnchecked', 'UnseenCloaking', 'UnseenCloaked', 'UnseenDecloaking', 'Cloaking', 'Cloaked',
+                               'Decloaking', 'Distortion', 'Remapping', 'Shadow', 'HealthBar', 'WarpTexture', 'SelectionCircle', 'PlayerColor',
+                               'UpdateRectangle', 'Hallucination', 'WarpFlash'];
+    // The order states of a bullet.
+    var BULLET_STATE_NAMES = ['Init', 'Move', 'Follow', 'Bounce', 'DamageOverTime', 'Dying', 'HitNearTarget'];
 
     var unitTypePrototype = create(typePrototype);
     var weaponTypePrototype = create(typePrototype);
@@ -300,6 +306,8 @@
     var unitSizePrototype = create(typePrototype);
     var damageTypePrototype = create(typePrototype);
     var locationFlagPrototype = create(typePrototype);
+    var drawFunctionPrototype = create(typePrototype);
+    var bulletStatePrototype = create(typePrototype);
 
     // The factor that scales the damage of the damage type against a unit size, 1 for full damage.
     damageTypePrototype.getMultiplier = function (size) {
@@ -317,6 +325,8 @@
     var UnitSize = createConstantTable(unitSizePrototype, UNIT_SIZE_NAMES, UNIT_SIZE_NAMES.length, 'Size ');
     var DamageType = createConstantTable(damageTypePrototype, DAMAGE_TYPE_NAMES, DAMAGE_TYPE_NAMES.length, 'Damage type ');
     var LocationFlag = createBitTable(locationFlagPrototype, LOCATION_FLAGS);
+    var DrawFunction = createConstantTable(drawFunctionPrototype, DRAW_FUNCTION_NAMES, DRAW_FUNCTION_NAMES.length, 'Draw function ');
+    var BulletState = createConstantTable(bulletStatePrototype, BULLET_STATE_NAMES, BULLET_STATE_NAMES.length, 'Bullet state ');
 
     // The kinds of the lower records: the events of core.events.getFrameEvents by their names in core.events, the local inputs and the
     // decisions.
@@ -350,7 +360,7 @@
     [unitTypePrototype, weaponTypePrototype, flingyTypePrototype, spriteTypePrototype, imageTypePrototype, upgradeTypePrototype,
      techTypePrototype, orderPrototype, keyPrototype, mouseButtonPrototype, unitGroupPrototype, scoreTypePrototype, resourceTypePrototype,
      alliancePrototype, eventKindPrototype, inputKindPrototype, decisionKindPrototype, gameSpeedPrototype, cheatPrototype, gameModePrototype,
-     unitSizePrototype, damageTypePrototype, locationFlagPrototype].forEach(freeze);
+     unitSizePrototype, damageTypePrototype, locationFlagPrototype, drawFunctionPrototype, bulletStatePrototype].forEach(freeze);
 
     return {
         exports: {
@@ -377,13 +387,18 @@
             GameMode: GameMode,
             UnitSize: UnitSize,
             DamageType: DamageType,
-            LocationFlag: LocationFlag
+            LocationFlag: LocationFlag,
+            DrawFunction: DrawFunction,
+            BulletState: BulletState
         },
         shared: {
             GameSpeed: GameSpeed,
             GameMode: GameMode,
             cheatPrototype: cheatPrototype,
             locationFlagPrototype: locationFlagPrototype,
+            drawFunctionPrototype: drawFunctionPrototype,
+            spriteTypePrototype: spriteTypePrototype,
+            weaponTypePrototype: weaponTypePrototype,
             unitTypePrototype: unitTypePrototype,
             imageTypePrototype: imageTypePrototype,
             upgradeTypePrototype: upgradeTypePrototype,

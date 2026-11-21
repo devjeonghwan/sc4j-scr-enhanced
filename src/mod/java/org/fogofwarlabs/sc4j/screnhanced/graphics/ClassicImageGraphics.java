@@ -32,7 +32,8 @@ import java.util.function.Supplier;
  * <p>
  * A script's replacement of an image's graphics ({@link ImageReplacements}, found through {@link ImageReplacementSource}) wins over every EUD
  * GRP and anim pointer of the image: the image draws the replacement's GRP and anims, the installed graphics where the replacement has none, and
- * never the graphics its pointer names or another image's installed graphics. Written frames and render functions still apply to it.
+ * never the graphics its pointer names or another image's installed graphics. Written frames and render functions still apply to it, and a
+ * frame or draw function a script set for the image wins over them.
  * <p>
  * The plugin observes the writes through the game's memory view and never changes the game: the simulation keeps the installed GRP's dimensions.
  * A GRP in memory is read at its pointer when it is first drawn and its frames are decoded when they are drawn ({@link EmbeddedGrp}); an anim is
@@ -294,13 +295,21 @@ public final class ClassicImageGraphics implements ScrGamePlugin {
     /**
      * Finds the frame a sprite image draws instead of its own: the frame index written to its image array entry while it held the entry, until its
      * own frame changes, in the graphics the image draws; an image whose graphics in memory cannot be read draws its own frame, and an image with a
-     * script replacement draws the written frame in the replacement.
+     * script replacement draws the written frame in the replacement. A frame a script set for the image ({@link ImageReplacements#findImageFrame})
+     * wins over the written one.
      *
      * @param image an image of a drawn sprite
      * @return the frame index, or {@code -1} for the image's own frame
      */
     @Override
     public int findImageFrame(@NotNull SpriteImage image) {
+        ImageReplacements current = this.replacements.get();
+        int scriptFrame = current == null ? -1 : current.findImageFrame(image);
+
+        if (scriptFrame >= 0) {
+            return scriptFrame;
+        }
+
         int slot = image.getIndex();
 
         if (slot < 0 || slot >= IMAGE_ENTRIES || this.frameGenerations[slot] < image.getPool().getGeneration(slot) ||
@@ -323,13 +332,21 @@ public final class ClassicImageGraphics implements ScrGamePlugin {
 
     /**
      * Finds the draw function a sprite image draws with instead of its own: the draw function of the render function written to its image array
-     * entry while it held the entry, until its own draw function changes.
+     * entry while it held the entry, until its own draw function changes. A draw function a script set for the image
+     * ({@link ImageReplacements#findImageDrawFunction}) wins over the written one.
      *
      * @param image an image of a drawn sprite
      * @return the draw function, or {@code -1} for the image's own
      */
     @Override
     public int findImageDrawFunction(@NotNull SpriteImage image) {
+        ImageReplacements current = this.replacements.get();
+        int scriptDrawFunction = current == null ? -1 : current.findImageDrawFunction(image);
+
+        if (scriptDrawFunction >= 0) {
+            return scriptDrawFunction;
+        }
+
         int slot = image.getIndex();
 
         if (slot < 0 || slot >= IMAGE_ENTRIES || this.drawGenerations[slot] < image.getPool().getGeneration(slot) ||

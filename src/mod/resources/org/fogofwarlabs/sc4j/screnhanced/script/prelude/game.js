@@ -1,10 +1,11 @@
-// The game of the upper layer: the global game with its groups (game.map with the tileset, the terrain, the locations and the resources,
-// game.players, game.units, game.switches, game.countdown, game.leaderboard, game.settings, game.vision, game.combat), and the Unit, Player,
-// Location, Tile, Timer, Grp, Anim and Image objects they return. One unit, player, location, tile or resource is always the same object, and
-// one object always has the same groups (player.upgrades, player.vision, unit.timers ...); a unit object stays with its unit, and exists()
-// becomes false once the unit is gone. Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or
-// energy for a unit without them), supply the shown supply (core's half units divided by 2). The timers of game.every and game.after are
-// counted here, by frames.
+// The game of the upper layer: the global game with its groups (game.map with the tileset, the terrain with its creep, the locations and the
+// resources, game.players, game.units, game.switches, game.countdown, game.leaderboard, game.settings, game.vision, game.combat), and the Unit,
+// Player, Location, Tile, Timer, Grp, Anim, Image, Sprite, SpriteImage and Bullet objects they return. One unit, player, location, tile, resource,
+// sprite, sprite image or bullet is always the same object, and one object always has the same groups (player.upgrades, player.vision, unit.timers
+// ...); a unit, sprite, sprite image or bullet object stays with its unit, sprite, image or bullet, and exists() becomes false once it is gone,
+// when its slot holds another one. Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or energy for
+// a unit without them), supply the shown supply (core's half units divided by 2). The timers of game.every and game.after are counted here, by
+// frames.
 (function (core, prelude) {
     'use strict';
 
@@ -41,6 +42,14 @@
     var locationFlagPrototype = prelude.locationFlagPrototype;
     var getButtonSet = prelude.getButtonSet;
     var readButtonSetId = prelude.readButtonSetId;
+    var SpriteType = prelude.SpriteType;
+    var WeaponType = prelude.WeaponType;
+    var FlingyType = prelude.FlingyType;
+    var DrawFunction = prelude.DrawFunction;
+    var BulletState = prelude.BulletState;
+    var spriteTypePrototype = prelude.spriteTypePrototype;
+    var weaponTypePrototype = prelude.weaponTypePrototype;
+    var drawFunctionPrototype = prelude.drawFunctionPrototype;
 
     var create = Object.create;
     var freeze = Object.freeze;
@@ -73,8 +82,15 @@
     // The status timers of unit.timers: the core fields get<Name>Timer and set<Name>Timer.
     var UNIT_TIMER_NAMES = ['Stim', 'Ensnare', 'Lockdown', 'Stasis', 'Maelstrom', 'Plague', 'Irradiate', 'Storm', 'DefensiveMatrix', 'Remove'];
     var UNIT_TIMER_SUFFIX = 'Timer';
+    // The elevation a new sprite starts with, which game.createEffect gives by default.
+    var DEFAULT_EFFECT_ELEVATION = 4;
+    // The owner byte the effects of the game take.
+    var DEFAULT_EFFECT_OWNER = 0;
 
     var playerCount = core.player.getCount();
+    // The cheat bits game.setCheatEnabled turned on and off, which the frame entry point writes again every frame.
+    var keptCheatsOn = 0;
+    var keptCheatsOff = 0;
     var playerObjects = [];
     var unitObjects = [];
     var locationObjects = [];
@@ -129,6 +145,60 @@
         }
 
         return createObject(unitPrototype, {id: id, generation: generation});
+    }
+
+    // Creates the objects of the slots of a pool of core whose slots tell their tenants apart by generation (core.sprite, core.image,
+    // core.bullet): get(id) the cached object of the tenant of a slot, getCaptured(id, generation) that of a tenant a record captured and
+    // requireId(object) the slot of an object whose tenant still holds it.
+    function createSlotObjects(pool, prototype, kind) {
+        var objects = [];
+
+        function get(id) {
+            if (id === NONE || !pool.exists(id)) {
+                return null;
+            }
+
+            var generation = pool.getGeneration(id);
+            var object = objects[id];
+
+            if (object === undefined || object.generation !== generation) {
+                object = createObject(prototype, {id: id, generation: generation});
+                objects[id] = object;
+            }
+
+            return object;
+        }
+
+        return {
+            get: get,
+            getCaptured: function (id, generation) {
+                if (id === NONE) {
+                    return null;
+                }
+
+                var object = objects[id];
+
+                if (object !== undefined && object.generation === generation) {
+                    return object;
+                }
+
+                if (pool.exists(id) && pool.getGeneration(id) === generation) {
+                    return get(id);
+                }
+
+                return createObject(prototype, {id: id, generation: generation});
+            },
+            exists: function (object) {
+                return pool.exists(object.id) && pool.getGeneration(object.id) === object.generation;
+            },
+            requireId: function (object) {
+                if (!requireObject(object, prototype, 'A ' + kind).exists()) {
+                    throw new Error('The ' + kind + ' ' + object.id + ' does not exist.');
+                }
+
+                return object.id;
+            }
+        };
     }
 
     function getLocation(id) {
@@ -330,6 +400,13 @@
         // The image type of the unit's main image.
         getImageType: function () {
             return ImageType.get(core.unit.getImageType(requireUnitId(this)));
+        },
+        getSprite: function () {
+            return sprites.get(core.unit.getSprite(requireUnitId(this)));
+        },
+        // Runs the use-weapon routine of the unit scripts: the bullets of a WeaponType toward the unit's order target; only in shared code.
+        useWeapon: function (weaponType) {
+            core.unit.useWeapon(requireUnitId(this), requireObject(weaponType, weaponTypePrototype, 'A weapon type').id);
         },
         setInvincible: function (invincible) {
             core.unit.setInvincible(requireUnitId(this), invincible);
@@ -1084,9 +1161,205 @@
         }
     });
 
+    // A sprite of the sprite pool. The pools of sprites and images also hold the buildings the local player remembers in the fog of war, so
+    // the slots can differ from peer to peer: shared code may show them but should not let them decide the game.
+    var spritePrototype = {
+        getId: function () {
+            return this.id;
+        },
+        exists: function () {
+            return sprites.exists(this);
+        },
+        getType: function () {
+            return SpriteType.get(core.sprite.getType(sprites.requireId(this)));
+        },
+        getPosition: function () {
+            var id = sprites.requireId(this);
+
+            return createPosition(core.sprite.getX(id), core.sprite.getY(id));
+        },
+        getOwner: function () {
+            return getPlayer(core.sprite.getOwner(sprites.requireId(this)));
+        },
+        getElevation: function () {
+            return core.sprite.getElevation(sprites.requireId(this));
+        },
+        // The images of the sprite, from the one drawn on top.
+        getImages: function () {
+            return core.sprite.getImages(sprites.requireId(this)).map(function (id) {
+                return spriteImages.get(id);
+            });
+        },
+        getMainImage: function () {
+            return spriteImages.get(core.sprite.getMainImage(sprites.requireId(this)));
+        },
+        isVisibleTo: function (player) {
+            var bit = 1 << requireObject(player, playerPrototype, 'A player').id;
+
+            return (core.sprite.getVisibilityFlags(sprites.requireId(this)) & bit) !== 0;
+        }
+    };
+
+    // An image of the image pool. Its frame, draw function and graphics change only what is drawn: shared code changes them on every peer,
+    // local code on the local machine only.
+    var spriteImagePrototype = {
+        getId: function () {
+            return this.id;
+        },
+        exists: function () {
+            return spriteImages.exists(this);
+        },
+        getType: function () {
+            return ImageType.get(core.image.getType(spriteImages.requireId(this)));
+        },
+        getSprite: function () {
+            return sprites.get(core.image.getSprite(spriteImages.requireId(this)));
+        },
+        // The drawn frame.
+        getFrame: function () {
+            return core.image.getFrame(spriteImages.requireId(this));
+        },
+        // Draws a frame until the image's own frame changes, as an EUD write of the frame does; null draws the image's own frame again.
+        setFrame: function (frame) {
+            core.graphics.setImageFrame(spriteImages.requireId(this), frame === null ? NONE : frame);
+        },
+        // The frame offset of the image's direction inside its frame group.
+        getDirection: function () {
+            return core.image.getDirection(spriteImages.requireId(this));
+        },
+        getDrawFunction: function () {
+            return DrawFunction.get(core.image.getDrawFunction(spriteImages.requireId(this)));
+        },
+        // Draws with a DrawFunction until the image's own draw function changes; null draws with its own again.
+        setDrawFunction: function (drawFunction) {
+            var value = drawFunction === null ? NONE : requireObject(drawFunction, drawFunctionPrototype, 'A draw function').id;
+
+            core.graphics.setImageDrawFunction(spriteImages.requireId(this), value);
+        },
+        getOffsetX: function () {
+            return core.image.getOffsetX(spriteImages.requireId(this));
+        },
+        getOffsetY: function () {
+            return core.image.getOffsetY(spriteImages.requireId(this));
+        },
+        // Replaces the graphics of this image with {sd: a GRP, hd: an HD anim, hd2: an HD2 anim} while it lives.
+        replaceGraphics: function (images) {
+            var id = spriteImages.requireId(this);
+            var ids = readGraphicsIds(images);
+
+            core.graphics.replaceImageGraphics(id, ids[0], ids[1], ids[2]);
+        },
+        restoreGraphics: function () {
+            core.graphics.restoreImageGraphics(spriteImages.requireId(this));
+        }
+    };
+
+    // A bullet of the bullet table, from its creation until it is released after dying.
+    var bulletPrototype = {
+        getId: function () {
+            return this.id;
+        },
+        exists: function () {
+            return bullets.exists(this);
+        },
+        getWeapon: function () {
+            return WeaponType.get(core.bullet.getWeapon(bullets.requireId(this)));
+        },
+        getFlingyType: function () {
+            return FlingyType.get(core.bullet.getFlingyType(bullets.requireId(this)));
+        },
+        getPosition: function () {
+            var id = bullets.requireId(this);
+
+            return createPosition(core.bullet.getX(id), core.bullet.getY(id));
+        },
+        getPlayer: function () {
+            return getPlayer(core.bullet.getPlayer(bullets.requireId(this)));
+        },
+        // The unit that fired the bullet, null once it is gone.
+        getSource: function () {
+            return getUnit(core.bullet.getSource(bullets.requireId(this)));
+        },
+        getTarget: function () {
+            return getUnit(core.bullet.getTarget(bullets.requireId(this)));
+        },
+        // The center of the hit.
+        getTargetPosition: function () {
+            var id = bullets.requireId(this);
+
+            return createPosition(core.bullet.getTargetX(id), core.bullet.getTargetY(id));
+        },
+        // Sets the target Unit (null for none) or the target Position, as an EUD write of the bullet does: a following, bouncing or
+        // near-target bullet turns to a new target unit, a moving bullet keeps its course; the hit damages the target unit and is centered on
+        // the target position. Only in shared code.
+        setTarget: function (target) {
+            var id = bullets.requireId(this);
+
+            if (isObjectOf(target, positionPrototype)) {
+                core.bullet.setTargetPosition(id, target.x, target.y);
+            } else {
+                core.bullet.setTarget(id, target === null ? NONE : requireUnitId(target));
+            }
+        },
+        // The frames a moving bullet still flies, or a bullet that persists on its target position still hits; at most 255.
+        getRemainingTime: function () {
+            return core.bullet.getRemainingTime(bullets.requireId(this));
+        },
+        setRemainingTime: function (frames) {
+            core.bullet.setRemainingTime(bullets.requireId(this), frames);
+        },
+        getRemainingBounces: function () {
+            return core.bullet.getRemainingBounces(bullets.requireId(this));
+        },
+        getState: function () {
+            return BulletState.get(core.bullet.getState(bullets.requireId(this)));
+        },
+        getDirection: function () {
+            return core.bullet.getDirection(bullets.requireId(this));
+        },
+        // The sprite, null once its last image ended.
+        getSprite: function () {
+            return sprites.get(core.bullet.getSprite(bullets.requireId(this)));
+        }
+    };
+
+    var sprites = createSlotObjects(core.sprite, spritePrototype, 'sprite');
+    var spriteImages = createSlotObjects(core.image, spriteImagePrototype, 'sprite image');
+    var bullets = createSlotObjects(core.bullet, bulletPrototype, 'bullet');
+
+    // The creep of the map, by tile coordinates. Creep that these functions add has no source: it stays until it is removed or recedes.
+    var creep = freeze({
+        // Whether a tile has creep, by the creep flag the rules of the game read.
+        has: function (tileX, tileY) {
+            return core.terrain.hasCreep(tileX, tileY);
+        },
+        // Covers the footprint of a building of a UnitType at a position with creep and grows it until no tile is added, as the game does
+        // for a building that needs creep; only in shared code.
+        fill: function (unitType, position) {
+            requireObject(position, positionPrototype, 'A position');
+            core.creep.fill(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y);
+        },
+        // Runs one spread step of a creep source of a UnitType at a position: true when it added a tile; only in shared code.
+        spread: function (unitType, position) {
+            requireObject(position, positionPrototype, 'A position');
+
+            return core.creep.spread(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y) === 1;
+        },
+        // Removes the creep of a tile at once; only in shared code.
+        remove: function (tileX, tileY) {
+            core.creep.removeTile(tileX, tileY);
+        },
+        // Makes a creep tile recede later, as the creep of a removed building does: false for a tile that is not creep, already recedes, lies
+        // under a building or that a Zerg building sustains, and when the recession is full; only in shared code.
+        recede: function (tileX, tileY) {
+            return core.creep.recede(tileX, tileY);
+        }
+    });
+
     // The tiles of the map. The changes apply at the next trigger step, after the frame start hooks and before the triggers; reads see the
     // changes made so far.
     var terrain = freeze({
+        creep: creep,
         getTile: function (tileX, tileY) {
             return getTileObject(core.terrain.getTile(tileX, tileY));
         },
@@ -1154,6 +1427,20 @@
     var grpPrototype = create(resourcePrototype);
     var animPrototype = create(resourcePrototype);
     var imagePrototype = create(resourcePrototype);
+
+    function readResourceId(resource, prototype, kind) {
+        return resource === undefined || resource === null ? NONE : requireObject(resource, prototype, kind).id;
+    }
+
+    // Returns the handle ids of the graphics {sd, hd, hd2}: a GRP, an HD anim and an HD2 anim, each optional.
+    function readGraphicsIds(images) {
+        if (images === null || typeof images !== 'object') {
+            throw new TypeError('The graphics {sd, hd, hd2} are needed, not ' + images + '.');
+        }
+
+        return [readResourceId(images.sd, grpPrototype, 'A GRP'), readResourceId(images.hd, animPrototype, 'An anim'),
+                readResourceId(images.hd2, animPrototype, 'An anim')];
+    }
     var resourceObjects = [];
 
     // The pixel size of an image.
@@ -1553,13 +1840,44 @@
         isCheatEnabled: function (cheat) {
             return (core.game.getCheatFlags() & requireObject(cheat, cheatPrototype, 'A cheat').id) !== 0;
         },
-        // Turns a cheat on or off: sets or clears its bit of the cheat flags, as an EUD write of the flags does, also in a network game and
-        // where the game options forbid cheats.
+        // Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags, as an EUD write of the flags does, also in a
+        // network game and where the game options forbid cheats, and writes the bit again at the start of every frame, as the always-running
+        // trigger of an EUD map does.
         setCheatEnabled: function (cheat, enabled) {
             var bit = requireObject(cheat, cheatPrototype, 'A cheat').id;
             var flags = core.game.getCheatFlags();
 
             core.game.setCheatFlags((enabled ? flags | bit : flags & ~bit) >>> 0);
+
+            keptCheatsOn = (enabled ? keptCheatsOn | bit : keptCheatsOn & ~bit) >>> 0;
+            keptCheatsOff = (enabled ? keptCheatsOff & ~bit : keptCheatsOff | bit) >>> 0;
+        },
+        // Creates a sprite of a SpriteType at a position that lives as long as its image scripts run, as the game creates the sprite of a spell
+        // or of dust: {owner: a Player, elevation: 0 to 255}; the sprite, or null when the pools are full. Only in shared code.
+        createEffect: function (spriteType, position, options) {
+            var values = readOptions(options);
+            var owner = values.owner === undefined ? DEFAULT_EFFECT_OWNER : requireObject(values.owner, playerPrototype, 'A player').id;
+            var elevation = values.elevation === undefined ? DEFAULT_EFFECT_ELEVATION : values.elevation;
+
+            requireObject(position, positionPrototype, 'A position');
+
+            return sprites.get(core.sprite.createEffect(requireObject(spriteType, spriteTypePrototype, 'A sprite type').id, position.x,
+                                                        position.y, owner, elevation));
+        },
+        // The active bullets, in the order of the active list.
+        getBullets: function () {
+            return core.bullet.getIds().map(function (id) {
+                return bullets.get(id);
+            });
+        },
+        // Creates a bullet of a WeaponType at a position for a unit, aimed at the unit's order target, as the game creates one: the bullet,
+        // or null when the game creates none. Only in shared code.
+        createBullet: function (weaponType, source, position) {
+            var weapon = requireObject(weaponType, weaponTypePrototype, 'A weapon type').id;
+
+            requireObject(position, positionPrototype, 'A position');
+
+            return bullets.get(core.bullet.create(weapon, requireUnitId(source), position.x, position.y));
         },
         map: gameMap,
         players: players,
@@ -1572,9 +1890,24 @@
         combat: combat
     });
 
+    // Writes the cheat bits game.setCheatEnabled keeps again, at the start of every frame in shared code.
+    function applyKeptCheats() {
+        if ((keptCheatsOn | keptCheatsOff) === 0) {
+            return;
+        }
+
+        var flags = core.game.getCheatFlags();
+        var kept = ((flags | keptCheatsOn) & ~keptCheatsOff) >>> 0;
+
+        if (kept !== flags) {
+            core.game.setCheatFlags(kept);
+        }
+    }
+
     [unitPrototype, unitTimersPrototype, playerPrototype, playerUpgradesPrototype, playerTechsPrototype, playerUnitsPrototype,
      playerDeathsPrototype, playerKillsPrototype, playerScorePrototype, playerVisionPrototype, locationPrototype, tilePrototype,
-     resourcePrototype, grpPrototype, animPrototype, imagePrototype, timerPrototype].forEach(freeze);
+     resourcePrototype, grpPrototype, animPrototype, imagePrototype, timerPrototype, spritePrototype, spriteImagePrototype,
+     bulletPrototype].forEach(freeze);
 
     return {
         exports: {
@@ -1591,7 +1924,10 @@
             getCapturedUnit: getCapturedUnit,
             toUnits: toUnits,
             requireUnitId: requireUnitId,
-            pollDueTimer: pollDueTimer
+            pollDueTimer: pollDueTimer,
+            getCapturedBullet: bullets.getCaptured,
+            readGraphicsIds: readGraphicsIds,
+            applyKeptCheats: applyKeptCheats
         }
     };
 });
