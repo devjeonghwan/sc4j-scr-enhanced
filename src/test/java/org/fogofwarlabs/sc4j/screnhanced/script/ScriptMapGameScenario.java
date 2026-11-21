@@ -148,6 +148,17 @@ final class ScriptMapGameScenario {
 
 
     /**
+     * Queues a command of the human player into the outgoing turn, which runs on a later frame.
+     *
+     * @param typeId  the command type byte
+     * @param payload the command bytes after the type byte
+     * @return {@code true} if queued, {@code false} otherwise
+     */
+    boolean submit(int typeId, byte @NotNull [] payload) {
+        return this.live.submit(typeId, payload);
+    }
+
+    /**
      * Writes the replay of the frames played so far.
      *
      * @return the replay file bytes

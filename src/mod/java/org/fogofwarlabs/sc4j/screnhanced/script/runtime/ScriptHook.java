@@ -36,8 +36,8 @@ import java.util.Map;
  * decision object while the game routine waits for the decision. The kind of such a hook is the class of the SC:R simulation event or
  * decision it receives. These hooks run on every peer, as does the rest of the shared code.
  * <p>
- * A local hook ({@code onLocal*}) has no kind: it receives one local event of the local player's input at once, on the local machine only, with
- * the game read-only ({@link #isLocal()}).
+ * A local hook ({@code onLocal*}) has no kind: it receives one local event of the local player's input at once, or the frame number after a
+ * played frame ({@link #LOCAL_FRAME}), on the local machine only, with the game read-only ({@link #isLocal()}).
  */
 public enum ScriptHook {
     /**
@@ -138,6 +138,10 @@ public enum ScriptHook {
      * Called on the local machine with the event of a mouse button the local player released.
      */
     LOCAL_MOUSE_UP("onLocalMouseUp", null),
+    /**
+     * Called on the local machine with the frame number after each game frame the machine plays, live or replayed.
+     */
+    LOCAL_FRAME("onLocalFrame", null),
 
     /**
      * Called with the decision on the damage of a weapon hit.

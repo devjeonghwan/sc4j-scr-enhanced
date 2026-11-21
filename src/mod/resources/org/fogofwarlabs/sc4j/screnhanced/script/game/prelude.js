@@ -1,6 +1,6 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, UnitGroup,
 // WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType, Order, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier,
-// resources, graphics, tileset, terrain and sync, and the Unit, Player, Location, Tile, Channel and PlayerValue objects they return. One unit,
+// resources, graphics, tileset, terrain, sync and local, and the Unit, Player, Location, Tile, Channel and PlayerValue objects they return. One unit,
 // player, location or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone.
 // Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them), supply
 // the shown supply (core's half units divided by 2). The DAT methods of the type objects come from the DAT tables the game passes
@@ -523,6 +523,13 @@
         return location;
     }
 
+    // Returns the objects of the units of ids.
+    function toUnits(ids) {
+        return ids.map(function (id) {
+            return getUnit(id);
+        });
+    }
+
     function requireUnitId(unit) {
         if (!requireObject(unit, unitPrototype, 'A unit').exists()) {
             throw new Error('The unit ' + unit.id + ' does not exist.');
@@ -1026,6 +1033,30 @@
         centerView: function (position) {
             requireObject(position, positionPrototype, 'A position');
             core.player.centerView(this.id, position.x, position.y);
+        },
+        // The player's selection, which the selection commands change and every peer holds: the live units in selection order.
+        getSelection: function () {
+            return toUnits(core.player.getSelection(this.id));
+        },
+        // Replaces the selection as a selection command of the player does, with at most 12 units; the command's rules may leave some out (a
+        // hidden unit, and in a selection of more than one unit a building, another player's unit and the like). True if every unit was
+        // selected.
+        setSelection: function (units) {
+            if (!Array.isArray(units)) {
+                throw new TypeError('An array of units is needed, not ' + units + '.');
+            }
+
+            var ids = units.map(function (unit) {
+                return requireUnitId(unit);
+            });
+
+            core.player.setSelection(this.id, ids);
+
+            var selected = core.player.getSelection(this.id);
+
+            return ids.every(function (id) {
+                return selected.indexOf(id) >= 0;
+            });
         },
         toString: function () {
             return 'Player ' + this.id;
@@ -1716,6 +1747,40 @@
         }
     });
 
+    // What only the local machine knows, which differs from peer to peer: readable only in local code (the onLocal* hooks), elsewhere every
+    // function throws a TypeError. The player is null in a replay and for an observer; the screen and pointer positions are null while the
+    // client has not supplied them.
+    var local = freeze({
+        getPlayer: function () {
+            return getPlayer(core.local.getPlayer());
+        },
+        isReplay: function () {
+            return core.local.isReplay();
+        },
+        isChatOpen: function () {
+            return core.local.isChatOpen();
+        },
+        // The map position of the local screen's top left.
+        getScreenPosition: function () {
+            return core.local.isViewKnown() ? createPosition(core.local.getScreenX(), core.local.getScreenY()) : null;
+        },
+        // Moves only the local screen's top left to a map position at once, kept inside the map; false while the screen is unknown.
+        setScreenPosition: function (position) {
+            requireObject(position, positionPrototype, 'A position');
+
+            return core.local.setScreenPosition(position.x, position.y);
+        },
+        // The map position under the pointer.
+        getMousePosition: function () {
+            return core.local.isViewKnown() ? createPosition(core.local.getMouseX(), core.local.getMouseY()) : null;
+        },
+        // The units of the local interface's selection, which may differ from the local player's synchronized selection until its selection
+        // command runs.
+        getSelection: function () {
+            return toUnits(core.local.getSelection());
+        }
+    });
+
     // The functions the game calls, which the scripts do not see.
     var gameFunctions = freeze({
         createEvent: function (hookName, values) {
@@ -1937,6 +2002,7 @@
     defineGlobal('tileset', tileset);
     defineGlobal('terrain', terrain);
     defineGlobal('sync', sync);
+    defineGlobal('local', local);
 
     return gameFunctions;
 });

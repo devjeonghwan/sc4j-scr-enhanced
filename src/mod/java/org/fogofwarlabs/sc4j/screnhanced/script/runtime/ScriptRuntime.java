@@ -43,15 +43,15 @@ import java.util.List;
  * with the game read-only and copies what a hook decided back into the decision; {@link #setReadOnly(boolean)} makes the functions that
  * change the game state throw. All of this is shared code, which runs the same on every peer.
  * <p>
- * {@link #callLocalHook} calls a local hook at once, on the local machine only, with the game read-only and local: no timer, no random number,
- * no new module. The values a script sends wait in the game's channel outbox until {@link #submitCommands} hands them to the local player's
- * submitter.
+ * {@link #callLocalHook} and {@link #callLocalFrame} call a local hook at once, on the local machine only, with the game read-only and local:
+ * no timer, no random number, no new module, and the local information of {@code core.local} readable. The values a script sends wait in the
+ * game's channel outbox until {@link #submitCommands} hands them to the local player's submitter.
  * <p>
- * Each call of {@link #start()}, {@link #runFrame(int)}, {@link #decide} and {@link #callLocalHook} has an instruction budget; a decision that
- * a running call causes, as when a hook issues an order, shares the budget of that call. A shared call that exceeds it, or overflows the Java
- * stack, stops the script: the runtime calls no hook for the rest of the game. An uncaught script error ends only the hook call (or the module
- * loading) it happened in; a decision hook that fails leaves the decision as it was. A local call that fails in any of these ways ends only
- * that call and never stops the script. Every such event is written to the log output once, with the module name.
+ * Each call of {@link #start()}, {@link #runFrame(int)}, {@link #decide}, {@link #callLocalHook} and {@link #callLocalFrame} has an instruction
+ * budget; a decision that a running call causes, as when a hook issues an order, shares the budget of that call. A shared call that exceeds it,
+ * or overflows the Java stack, stops the script: the runtime calls no hook for the rest of the game. An uncaught script error ends only the
+ * hook call (or the module loading) it happened in; a decision hook that fails leaves the decision as it was. A local call that fails in any of
+ * these ways ends only that call and never stops the script. Every such event is written to the log output once, with the module name.
  * <p>
  * Every method runs on the caller's thread; the runtime starts no thread. It is not thread-safe.
  */
@@ -366,9 +366,38 @@ public final class ScriptRuntime {
 
         ScriptGame game = this.requireScriptGame();
         ScriptHook hook = input.getHook();
+        Scriptable[] values = new Scriptable[1];
 
+        this.callLocal(game, hook, context -> {
+            values[0] = game.createLocalValues(context, input);
+
+            return game.createLocalEvent(context, hook.getFunctionName(), values[0]);
+        });
+
+        return values[0] != null && game.isConsumed(values[0]);
+    }
+
+    /**
+     * Calls the {@link ScriptHook#LOCAL_FRAME} hook in every module that has it, in load order, with the frame number, the game read-only and
+     * local as for {@link #callLocalHook}. Does nothing before {@link #start()}, once the script stopped, while another call runs, or when no
+     * module has the hook.
+     *
+     * @param frame the number of the frame the local machine played
+     * @throws IllegalStateException if the runtime has no game or is disposed
+     */
+    public void callLocalFrame(int frame) {
+        this.checkNotDisposed();
+        this.callLocal(this.requireScriptGame(), ScriptHook.LOCAL_FRAME, context -> (double) frame);
+    }
+
+    /**
+     * Calls a local hook with one argument within one instruction budget, the game read-only and local.
+     *
+     * @param argument creates the argument of the hook in the call's context
+     */
+    private void callLocal(@NotNull ScriptGame game, @NotNull ScriptHook hook, java.util.function.@NotNull Function<Context, Object> argument) {
         if (!this.started || this.running || !this.hasHook(hook)) {
-            return false;
+            return;
         }
 
         boolean readOnly = game.isReadOnly();
@@ -378,12 +407,7 @@ public final class ScriptRuntime {
             this.setLocal(game, true);
 
             try {
-                Scriptable values = game.createLocalValues(context, input);
-                Scriptable event = game.createLocalEvent(context, hook.getFunctionName(), values);
-
-                this.callHook(context, hook, event);
-
-                return game.isConsumed(values);
+                this.callHook(context, hook, argument.apply(context));
             } finally {
                 this.setLocal(game, false);
                 game.setReadOnly(readOnly);
@@ -756,7 +780,8 @@ public final class ScriptRuntime {
      * Disposes resources.
      * <p>
      * The runtime forgets its modules, events, timers and waiting channel commands; later calls of {@link #start()}, {@link #runFrame(int)},
-     * {@link #queueEvent}, {@link #queueModCommand}, {@link #decide}, {@link #callLocalHook} and {@link #submitCommands} fail.
+     * {@link #queueEvent}, {@link #queueModCommand}, {@link #decide}, {@link #callLocalHook}, {@link #callLocalFrame} and
+     * {@link #submitCommands} fail.
      */
     public void dispose() {
         this.disposed = true;

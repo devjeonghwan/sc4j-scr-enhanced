@@ -10,6 +10,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.LambdaFunction;
+import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -85,11 +86,44 @@ final class ScriptCoreUtils {
     static int readInteger(@NotNull Object @NotNull [] arguments, int index) {
         double value = index < arguments.length && arguments[index] instanceof Number number ? number.doubleValue() : Double.NaN;
 
-        if (!(value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) || value != StrictMath.floor(value)) {
+        if (!isInteger(value)) {
             throw ScriptRuntime.typeError(Exceptions.format("Argument {0} is not an integer.", index + 1));
         }
 
         return (int) value;
+    }
+
+    /**
+     * Reads an array argument of integers.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the integers in array order
+     * @throws EcmaError if the argument is missing or not an array, or an element is not an integral number inside the 32-bit range
+     */
+    static int @NotNull [] readIntegers(@NotNull Object @NotNull [] arguments, int index) {
+        if (index >= arguments.length || !(arguments[index] instanceof NativeArray array)) {
+            throw ScriptRuntime.typeError(Exceptions.format("Argument {0} is not an array.", index + 1));
+        }
+
+        Object[] elements = array.toArray();
+        int[] values = new int[elements.length];
+
+        for (int element = 0; element < elements.length; element++) {
+            double value = elements[element] instanceof Number number ? number.doubleValue() : Double.NaN;
+
+            if (!isInteger(value)) {
+                throw ScriptRuntime.typeError(Exceptions.format("Element {0} of argument {1} is not an integer.", element, index + 1));
+            }
+
+            values[element] = (int) value;
+        }
+
+        return values;
+    }
+
+    private static boolean isInteger(double value) {
+        return value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE && value == StrictMath.floor(value);
     }
 
     /**

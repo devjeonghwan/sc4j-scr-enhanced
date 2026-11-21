@@ -1,16 +1,27 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
+import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandCodecs;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayFile;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplaySelectionCommand;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.SelectionRequest;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrInputModifiers;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
+import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
+import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.fogofwarlabs.sc4j.scr.game.test.RunningGameScenario;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
+import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
+import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
+import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -20,7 +31,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
@@ -64,6 +79,11 @@ final class ScriptSimulationPluginTest {
     private static final int KEY_Q = 0x51;
     private static final int KEY_W = 0x57;
     /**
+     * The frames the selection test runs before the start units are in place, and the slot of the human player.
+     */
+    private static final int START_FRAMES = 8;
+    private static final int HUMAN = 0;
+    /**
      * The switches the channel test reads: the 32 bits of the digest of the handler calls, then one switch per call.
      */
     private static final int CHANNEL_SWITCHES = 36;
@@ -76,6 +96,24 @@ final class ScriptSimulationPluginTest {
         }
 
         return Assertions.fail("The game has no script input plugin.");
+    }
+
+    /**
+     * Plays a replay up to a frame.
+     *
+     * @return the game of the replay at the frame
+     */
+    private static @NotNull Game playReplay(@NotNull InstallationTestResources resources, byte @NotNull [] replay, int frames) throws IOException {
+        ReplayRuntime playback = RunningGameScenario.createRuntime(ReplayFile.parse(replay), resources.getGameData());
+        Game game = playback.getGame();
+
+        playback.start(0, 0);
+
+        while (game.getCurrentFrame() < frames) {
+            Assertions.assertTrue(playback.step(0, game.getCurrentFrame() * playback.getFrameDuration()));
+        }
+
+        return game;
     }
 
     private static @NotNull String readSwitches(@NotNull Game game) {
@@ -388,6 +426,125 @@ final class ScriptSimulationPluginTest {
 
         Assertions.assertEquals(readSwitches(scenario.getGame()), readSwitches(game), "the replay calls the handler with the recorded commands");
         Assertions.assertFalse(findInputPlugin(game).onKeyInput(new ScrKeyInput(KEY_Q, true, 0)), "a replay calls no local hook");
+    }
+
+    @Test
+    void player_selections_follow_the_selection_commands_and_set_selection_live_and_in_the_replay(@NotNull InstallationTestResources resources,
+                                                                                                    @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
+                var human, computer, last = null, set = false;
+                function describe(units) {
+                    return units.map(function (unit) { return unit.getId(); }).join(',');
+                }
+                function onStart() {
+                    human = game.getHumanPlayers()[0];
+                    computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
+                }
+                function onFrame(frame) {
+                    var selection = human.getSelection();
+                    var text = describe(selection);
+                    if (text !== last) {
+                        last = text;
+                        game.print('ES selection [' + text + ']');
+                    }
+                    if (selection.length === 4 && !set) {
+                        set = true;
+                        var scvs = game.findUnits({type: UnitType.TerranSCV, owner: human});
+                        var center = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
+                        var neutral = game.findUnit(function (unit) { return unit.getOwner().getId() === 11; });
+                        var drones = game.findUnits({type: UnitType.ZergDrone, owner: computer});
+                        var tooMany = 'none';
+                        try {
+                            human.setSelection(scvs.concat(scvs, scvs, scvs));
+                        } catch (error) {
+                            tooMany = error.name;
+                        }
+                        var mixed = human.setSelection([scvs[1], center, neutral, scvs[2]]);
+                        var computerSet = computer.setSelection(drones.slice(0, 2));
+                        game.print('ES set ' + tooMany + ' ' + mixed + ' [' + describe(human.getSelection()) + '] ' + computerSet + ' ' +
+                                   (describe(computer.getSelection()) === describe(drones.slice(0, 2))));
+                    }
+                }
+                function onLocalFrame(frame) {
+                    game.print('ES local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
+                    if (local.isReplay() && local.getPlayer() === null && local.getSelection().length === 0) {
+                        local.setScreenPosition(Position.of(64, 96));
+                    }
+                }
+                """);
+
+        scenario.stepFrames(START_FRAMES);
+
+        Game live = scenario.getGame();
+        UnitPool pool = live.getUnitSystem().requireUnitPool();
+        List<Integer> scvs = new ArrayList<>();
+
+        for (int id = 1; id <= pool.getCapacity(); id++) {
+            Unit unit = pool.isAllocated(id) ? pool.getUnit(id) : null;
+
+            if (unit != null && unit.getSpriteOrNull() != null && unit.getUnitId() == ScrUnitIds.TERRAN_SCV && unit.getOwnerIndex() == HUMAN) {
+                scvs.add(id);
+            }
+        }
+
+        long[] handles = new long[scvs.size()];
+
+        for (int index = 0; index < handles.length; index++) {
+            handles[index] = Integer.toUnsignedLong(pool.getHandle(scvs.get(index)));
+        }
+
+        Assertions.assertEquals(4, scvs.size(), "the start SCVs");
+        Assertions.assertTrue(scenario.submit(ReplayCommandIds.SELECT_121, ReplayCommandCodecs.encode(
+                ReplayCommandCodecs.SELECT_121, ReplaySelectionCommand.create(SelectionRequest.Operation.REPLACE, Integer.BYTES, handles)
+        )));
+
+        scenario.stepUntilPrinted("set", FIGHT_FRAMES);
+        scenario.stepFrames(1);
+
+        String all = scvs.stream().map(String::valueOf).collect(Collectors.joining(","));
+        String kept = scvs.get(1) + "," + scvs.get(2);
+
+        Assertions.assertEquals(List.of("selection []", "selection [" + all + "]", "set RangeError false [" + kept + "] true true",
+                                        "selection [" + kept + "]"), scenario.getPrints());
+
+        LocalSelection shown = live.getInterfaceLink().getLocalSelection();
+
+        Assertions.assertEquals(scvs.get(1), shown.getSelectedPoolIndex(0), "the local player sees the selection the script set");
+        Assertions.assertEquals(scvs.get(2), shown.getSelectedPoolIndex(1));
+        Assertions.assertEquals(LocalSelection.EMPTY_SLOT, shown.getSelectedPoolIndex(2));
+
+        Set<String> livePrints = new LinkedHashSet<>();
+
+        findInputPlugin(live).onFramePlayed(live.getCurrentFrame());
+        ScriptMapGameScenario.collectPrints(live, livePrints);
+
+        Assertions.assertTrue(livePrints.contains("local Player 0 false [" + kept + "]"), "onLocalFrame reads the local values: " + livePrints);
+
+        int frames = live.getCurrentFrame();
+        byte[] replay = scenario.writeReplay();
+        Game game = playReplay(resources, replay, frames);
+        Game otherPeer = playReplay(resources, replay, frames);
+
+        UnitSelection liveSelection = live.requireSelection();
+        UnitSelection replaySelection = game.requireSelection();
+
+        for (int player = 0; player < PlayerTable.PLAYABLE_PLAYER_SLOTS; player++) {
+            for (int position = 0; position < UnitSelection.MAXIMUM_SELECTED; position++) {
+                Assertions.assertEquals(liveSelection.getSelectedPoolIndexRaw(player, position), replaySelection.getSelectedPoolIndexRaw(player, position),
+                                        "the selection of player " + player + " at " + position);
+            }
+        }
+
+        Assertions.assertEquals(game.computeStateHash(), otherPeer.computeStateHash(), "two peers of one identity have one state");
+
+        LocalView view = game.getInterfaceLink().getLocalView();
+
+        view.setView(0, 0, 0, 0);
+        view.setScreenGeometry(640, 480, 2000, 1000);
+        findInputPlugin(game).onFramePlayed(game.getCurrentFrame());
+
+        Assertions.assertEquals(64, view.getScreenX(), "a replay calls onLocalFrame without a local player or a local selection");
+        Assertions.assertEquals(96, view.getScreenY());
     }
 
     @Test

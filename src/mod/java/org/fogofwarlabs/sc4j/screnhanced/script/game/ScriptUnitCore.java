@@ -9,7 +9,9 @@ import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
+import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
+import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
@@ -27,6 +29,7 @@ import org.mozilla.javascript.Scriptable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntUnaryOperator;
 import java.util.function.ObjIntConsumer;
 import java.util.function.ToIntFunction;
 
@@ -117,6 +120,36 @@ final class ScriptUnitCore {
         Unit unit = pool.getUnit(id);
 
         return unit.getSpriteOrNull() != null && unit.getPrimaryOrder() != ScrOrderIds.DIE;
+    }
+
+    /**
+     * Creates the array of the live units of a selection: the units of its positions up to the first empty one, in position order, without the
+     * units that are not live.
+     *
+     * @param context   the current context
+     * @param global    the global scope
+     * @param pool      the unit pool
+     * @param selection the pool index at a position from {@code 0} to {@link UnitSelection#MAXIMUM_SELECTED} minus one, {@code 0} for an empty
+     *                  position
+     * @return the array of the unit ids
+     */
+    static @NotNull Scriptable createSelectionIds(@NotNull Context context, @NotNull Scriptable global, @NotNull UnitPool pool,
+                                                  @NotNull IntUnaryOperator selection) {
+        List<Object> ids = new ArrayList<>();
+
+        for (int position = 0; position < UnitSelection.MAXIMUM_SELECTED; position++) {
+            int id = selection.applyAsInt(position);
+
+            if (id == LocalSelection.EMPTY_SLOT) {
+                break;
+            }
+
+            if (isLive(pool, id)) {
+                ids.add((double) id);
+            }
+        }
+
+        return context.newArray(global, ids.toArray());
     }
 
     /**

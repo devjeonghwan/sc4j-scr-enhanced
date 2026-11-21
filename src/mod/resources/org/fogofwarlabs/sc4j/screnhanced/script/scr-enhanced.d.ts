@@ -539,9 +539,10 @@ declare const random: Random;
  * change the decision. Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
  *
  * Shared code (module top level, onStart, onFrame, the event and decision hooks, channel handlers, timers) runs the same on every peer and may
- * change the game. Local hooks ({@code onLocal*}) run on the local machine only, at once, not in replays and not for observers: they may read
- * the game, center the view, print and send ({@link Channel.send}, {@link PlayerValue.set}), but changing the game, adding or cancelling a
- * timer, drawing a random number or loading a new module throws. They must not change variables that shared code reads.
+ * change the game. Local hooks ({@code onLocal*}) run on the local machine only, at once; the input hooks not in replays and not for
+ * observers, onLocalFrame also there. They may read the game and the local information ({@link local}), move the local screen, print and send
+ * ({@link Channel.send}, {@link PlayerValue.set}; nothing is sent in a replay or by an observer), but changing the game, adding or cancelling
+ * a timer, drawing a random number or loading a new module throws. They must not change variables that shared code reads.
  */
 interface Hooks {
     /**
@@ -610,6 +611,10 @@ interface Hooks {
      * Local: called for a mouse button the local player released.
      */
     onLocalMouseUp?(event: LocalMouseButtonEvent): void;
+    /**
+     * Local: called after each game frame this machine plays, live or in a replay, with the frame number that onFrame received.
+     */
+    onLocalFrame?(frame: number): void;
     /**
      * Decides the damage of a weapon hit.
      */
@@ -2225,6 +2230,21 @@ interface Player {
      * Centers the screen on a position when the player is the local player; the screens of the other peers stay.
      */
     centerView(position: Position): void;
+    /**
+     * @returns the player's selection, which the selection commands change and every peer holds: the live units in selection order, empty
+     *          for players 8 to 11
+     */
+    getSelection(): Unit[];
+    /**
+     * Replaces the player's selection as a selection command of the player does, on every peer at the same frame, and shows it as the local
+     * selection when the player is the local player. Shared code only. The command's rules may leave units out: a hidden unit, and in a
+     * selection of more than one unit a building, a unit of another player or one that cannot join a group. An empty array clears the
+     * selection.
+     *
+     * @param units at most 12 units that exist; more throw a RangeError
+     * @returns true if every unit was selected, false if the rules left some out
+     */
+    setSelection(units: Unit[]): boolean;
 }
 
 /**
@@ -2499,6 +2519,43 @@ interface Sync {
 }
 
 declare const sync: Sync;
+
+/**
+ * What only this machine knows, which differs from peer to peer. Readable only in local code (the onLocal* hooks); anywhere else every
+ * function throws a TypeError.
+ */
+interface Local {
+    /**
+     * @returns the local player, null in a replay and for an observer
+     */
+    getPlayer(): Player | null;
+    isReplay(): boolean;
+    /**
+     * @returns true while the chat box is open
+     */
+    isChatOpen(): boolean;
+    /**
+     * @returns the map position of the local screen's top left, null while the client has not supplied it
+     */
+    getScreenPosition(): Position | null;
+    /**
+     * Moves only the local screen's top left to a map position at once, kept inside the map.
+     *
+     * @returns false while the screen is unknown
+     */
+    setScreenPosition(position: Position): boolean;
+    /**
+     * @returns the map position under the pointer, null while the client has not supplied it
+     */
+    getMousePosition(): Position | null;
+    /**
+     * @returns the units of the local interface's selection; it may differ from the local player's {@link Player.getSelection} until the
+     *          selection command runs
+     */
+    getSelection(): Unit[];
+}
+
+declare const local: Local;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The events and decisions of the hooks.
@@ -3676,6 +3733,17 @@ interface CorePlayer {
     isTechInProgress(player: number, techType: number): boolean;
     isUnitAvailable(player: number, unitType: number): boolean;
     setUnitAvailable(player: number, unitType: number, available: boolean): void;
+    /**
+     * @returns the ids of the live units of the player's selection, empty for players 8 to 11
+     */
+    getSelection(player: number): number[];
+    /**
+     * Replaces the player's selection as a selection command of the player does ({@link Player.setSelection}).
+     *
+     * @param units at most 12 ids of live units
+     * @returns the number of selected units
+     */
+    setSelection(player: number, units: number[]): number;
 }
 
 interface CoreUnit {
@@ -3908,6 +3976,34 @@ interface CoreSync {
     send(channel: number, value: any): void;
 }
 
+/**
+ * The local information ({@link Local}), readable only in local code.
+ */
+interface CoreLocal {
+    /**
+     * @returns the local player's id, -1 in a replay and for an observer
+     */
+    getPlayer(): number;
+    isReplay(): boolean;
+    isChatOpen(): boolean;
+    /**
+     * @returns true once the client supplied the screen and pointer positions
+     */
+    isViewKnown(): boolean;
+    getScreenX(): number;
+    getScreenY(): number;
+    /**
+     * @returns the map X under the pointer
+     */
+    getMouseX(): number;
+    getMouseY(): number;
+    /**
+     * @returns false while the screen is unknown
+     */
+    setScreenPosition(x: number, y: number): boolean;
+    getSelection(): number[];
+}
+
 interface Core {
     readonly game: CoreGame;
     readonly player: CorePlayer;
@@ -3927,6 +4023,7 @@ interface Core {
     readonly resources: CoreResources;
     readonly graphics: CoreGraphics;
     readonly sync: CoreSync;
+    readonly local: CoreLocal;
 }
 
 declare const core: Core;

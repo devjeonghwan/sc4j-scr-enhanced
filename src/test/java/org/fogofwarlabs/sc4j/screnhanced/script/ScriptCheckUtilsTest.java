@@ -157,6 +157,27 @@ final class ScriptCheckUtilsTest {
     }
 
     @Test
+    void check_should_report_the_local_information_in_shared_code(@TempDir @NotNull Path folder) throws IOException {
+        Assertions.assertEquals(List.of("main.js:1: error: local.getPlayer throws in the top level of a module, which is shared code: read it in a " +
+                                        "local hook (onLocal*).",
+                                        "main.js:3: error: local.getSelection throws in onFrame, which is shared code: read it in a local hook " +
+                                        "(onLocal*)."),
+                                check(folder, withManifest("main.js", """
+                                        var first = local.getPlayer();
+                                        function onFrame(frame) {
+                                            log.info(local.getSelection());
+                                            game.every(1, function () { log.info(local.isReplay()); });
+                                        }
+                                        function onLocalFrame(frame) {
+                                            log.info(local.getMousePosition());
+                                        }
+                                        function helper() {
+                                            return local.getScreenPosition();
+                                        }
+                                        """, "own.js", "var local = {getPlayer: function () { return 1; }};\nlog.info(local.getPlayer());\n")));
+    }
+
+    @Test
     void check_should_warn_of_a_const_in_a_loop(@TempDir @NotNull Path folder) throws IOException {
         Assertions.assertEquals(List.of("main.js:4: warning: The const value in a loop keeps its first value in Rhino 1.8.1; use let.",
                                         "main.js:8: warning: The const next in a loop keeps its first value in Rhino 1.8.1; use let."),

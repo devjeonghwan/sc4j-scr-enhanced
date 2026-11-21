@@ -5,6 +5,7 @@ import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
@@ -38,12 +39,13 @@ import java.util.Map;
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
  * {@code terrain}, {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType},
- * {@code upgradeType}, {@code techType}, {@code orderType}, {@code dat}, {@code resources}, {@code graphics} and {@code sync} take and return
- * ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them); a write takes the routine that the trigger action or the order system runs for it. A text
- * that a routine shows as a map string takes a registered map string ({@link #findStringIndex}). The graphics replacements
- * ({@link ScriptGraphicsCore}) change only what is drawn and count as writes. The channels ({@link ScriptSyncCore}) carry values from one
- * peer to every peer. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as
- * read-only globals over {@code core}.
+ * {@code upgradeType}, {@code techType}, {@code orderType}, {@code dat}, {@code resources}, {@code graphics}, {@code sync} and {@code local}
+ * take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables
+ * hold them); a write takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a map string
+ * takes a registered map string ({@link #findStringIndex}). The graphics replacements ({@link ScriptGraphicsCore}) change only what is drawn
+ * and count as writes. The channels ({@link ScriptSyncCore}) carry values from one peer to every peer. The local information
+ * ({@link ScriptLocalCore}) is readable only in local code. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own
+ * and defines the upper layer as read-only globals over {@code core}.
  * <p>
  * A timer of {@code core.game.every} runs first at the frame its interval after the current game frame, then every interval; the timers of a
  * frame run in the order of their due frames, then of their registration. While the game is read-only, every {@code core} function that
@@ -130,6 +132,7 @@ public final class ScriptGame {
         graphicsCore.defineResources(ScriptCoreUtils.createNamespace(context, global, core, "resources"), global);
         graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
         scriptGame.sync.define(ScriptCoreUtils.createNamespace(context, global, core, "sync"));
+        new ScriptLocalCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "local"), global);
 
         for (Object name : core.getAllIds()) {
             ((ScriptableObject) core.get((String) name, core)).preventExtensions();
@@ -284,6 +287,34 @@ public final class ScriptGame {
         if (this.readOnly) {
             throw ScriptRuntime.typeError("The game state cannot change here: the game is read-only.");
         }
+    }
+
+    /**
+     * Checks that local code runs, which alone reads the local information.
+     *
+     * @throws EcmaError if no local code runs
+     */
+    void checkLocal() {
+        if (!this.local) {
+            throw ScriptRuntime.typeError("The local information is readable only in local code, the local hooks.");
+        }
+    }
+
+    /**
+     * Finds the local player: the local player of the trigger evaluation in a live game when it is a playable player.
+     *
+     * @return the slot id of the local player, or {@code -1} in a replay, for an observer and in a game without trigger state
+     */
+    int findLocalPlayer() {
+        TriggerContext context = this.game.getTriggerContext();
+
+        if (this.game.isReplayPlayback() || context == null) {
+            return ScriptCoreUtils.NO_ID;
+        }
+
+        int player = context.getLocalPlayer();
+
+        return player >= 0 && player < PlayerTable.PLAYABLE_PLAYER_SLOTS ? player : ScriptCoreUtils.NO_ID;
     }
 
     /**

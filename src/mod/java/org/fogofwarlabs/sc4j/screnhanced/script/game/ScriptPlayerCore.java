@@ -7,6 +7,7 @@ import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUpgradeIds;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayHeaderBuilder;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
+import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
@@ -15,6 +16,8 @@ import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerUnitAvailability;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerUpgrades;
 import org.fogofwarlabs.sc4j.scr.game.player.UnitAccounting;
+import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerConditions;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
@@ -22,6 +25,8 @@ import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerPlayerResults;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerScoreActionsUtils;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerUnitActions;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
+import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
+import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
@@ -73,6 +78,12 @@ import java.nio.charset.StandardCharsets;
  * available)}, {@code isTechInProgress(player, tech)}, {@code isUnitAvailable(player, unitType)} and {@code setUnitAvailable(player,
  * unitType, available)} (the map settings' production availability; a game without map settings allows every unit type, and making a type
  * unavailable there throws a {@code TypeError}).
+ * <p>
+ * The selections of the players from {@code 0} to {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one, which the selection commands change
+ * and every peer holds: {@code getSelection(player)} (the ids of the live units up to the first empty position, empty for the other players)
+ * and {@code setSelection(player, ids)}, which replaces the selection as a replacing selection command of the player does
+ * ({@link UnitSelection#select}): at most {@value UnitSelection#MAXIMUM_SELECTED} live units, of which the command's rules take some; it
+ * returns the number of selected units and shows the selection to the local player as the local selection.
  * <p>
  * {@code endGame} ends the game for a player from {@code 0} to {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one as the Victory
  * ({@value TriggerPlayerResults#VICTORY}), Defeat ({@value TriggerPlayerResults#DEFEAT}) and Draw ({@value TriggerPlayerResults#DRAW})
@@ -135,6 +146,7 @@ final class ScriptPlayerCore {
         this.defineAllianceFunctions(namespace, global);
         this.defineDisplayFunctions(namespace, global);
         this.defineProgressFunctions(namespace, global);
+        this.defineSelectionFunctions(namespace, global);
 
         ScriptCoreUtils.defineFunction(global, namespace, "setMissionObjectives", 2, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
@@ -549,6 +561,76 @@ final class ScriptPlayerCore {
             }
 
             return Context.getUndefinedValue();
+        });
+    }
+
+    /**
+     * Defines the selections of the players, the synchronized selections that the selection commands change.
+     */
+    private void defineSelectionFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getSelection", 1, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            Game game = this.scriptGame.getGame();
+            UnitSelection selection = game.getSelection();
+
+            if (selection == null || player >= PlayerTable.PLAYABLE_PLAYER_SLOTS) {
+                return context.newArray(global, 0);
+            }
+
+            return ScriptUnitCore.createSelectionIds(context, global, game.getUnitSystem().requireUnitPool(),
+                                                     position -> selection.getSelectedPoolIndexRaw(player, position));
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setSelection", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int[] ids = ScriptCoreUtils.readIntegers(arguments, 1);
+            Game game = this.scriptGame.getGame();
+            UnitSelection selection = game.getSelection();
+            UnitPool pool = game.getUnitSystem().requireUnitPool();
+
+            if (selection == null) {
+                throw ScriptRuntime.typeError("The game has no player selections.");
+            }
+
+            if (player >= PlayerTable.PLAYABLE_PLAYER_SLOTS) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The player {0} has no selection.", player));
+            }
+
+            if (ids.length > UnitSelection.MAXIMUM_SELECTED) {
+                throw ScriptRuntime.rangeError(Exceptions.format("A selection holds at most {0} units, not {1}.", UnitSelection.MAXIMUM_SELECTED,
+                                                                 ids.length));
+            }
+
+            Unit[] units = new Unit[ids.length];
+
+            for (int index = 0; index < ids.length; index++) {
+                if (!ScriptUnitCore.isLive(pool, ids[index])) {
+                    throw ScriptRuntime.rangeError(Exceptions.format("The unit {0} does not exist.", ids[index]));
+                }
+
+                units[index] = pool.getUnit(ids[index]);
+            }
+
+            selection.select(game, player, units);
+
+            int count = 0;
+
+            while (count < UnitSelection.MAXIMUM_SELECTED && selection.getSelectedPoolIndexRaw(player, count) != LocalSelection.EMPTY_SLOT) {
+                count++;
+            }
+
+            if (player == this.scriptGame.findLocalPlayer()) {
+                Unit[] selected = new Unit[count];
+
+                for (int position = 0; position < count; position++) {
+                    selected[position] = pool.getUnit(selection.getSelectedPoolIndexRaw(player, position));
+                }
+
+                game.getInterfaceLink().getLocalSelection().showSelection(selected);
+            }
+
+            return (double) count;
         });
     }
 

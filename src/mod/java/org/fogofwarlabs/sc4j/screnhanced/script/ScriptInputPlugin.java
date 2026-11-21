@@ -14,12 +14,14 @@ import java.util.function.Supplier;
 
 /**
  * Hands the local player's keys, mouse buttons and chat lines to the local hooks of the game's script ({@link ScriptRuntime#callLocalHook}),
- * then the channel commands that wait to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}).
+ * and each frame the local machine plays to {@code onLocalFrame} ({@link ScriptRuntime#callLocalFrame}), then the channel commands that wait
+ * to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}).
  * <p>
  * A key event has the map position under the pointer while the local view is known; a mouse button event has the map position under the
  * pointer. An input that a hook consumes reaches neither the later plugins nor the game; the consumption of a release has no effect.
  * <p>
- * A game without a submitter (a replay, or a local observer) or without a script calls no local hook and consumes nothing.
+ * A game without a submitter (a replay, or a local observer) calls no input hook and consumes nothing, but calls {@code onLocalFrame}, whose
+ * channel commands are dropped. A game without a script calls no local hook.
  */
 public final class ScriptInputPlugin implements ScrGamePlugin {
     private final @NotNull Supplier<@Nullable ScriptRuntime> runtime;
@@ -95,6 +97,27 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
     @Override
     public boolean onChatInput(@NotNull String text) {
         return this.callLocalHook(ScriptLocalInput.ofChat(text));
+    }
+
+    /**
+     * Called on the local machine after each game frame the client plays, live or replayed, at every playback speed and for a single step of a
+     * paused replay; not for the frames a replay seek runs.
+     * <p>
+     * The frame number goes to {@code onLocalFrame} when the game has a script, also in a replay and for an observer; the channel commands that
+     * wait then go to the submitter, or are dropped without one.
+     *
+     * @param frame the number of the frame that ran, the game's current frame
+     */
+    @Override
+    public void onFramePlayed(int frame) {
+        ScriptRuntime scriptRuntime = this.runtime.get();
+
+        if (scriptRuntime == null) {
+            return;
+        }
+
+        scriptRuntime.callLocalFrame(frame);
+        scriptRuntime.submitCommands(this.submitter.get());
     }
 
     /**

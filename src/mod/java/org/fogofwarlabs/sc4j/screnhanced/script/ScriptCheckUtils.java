@@ -60,7 +60,9 @@ import java.util.regex.Pattern;
  * constructor (errors) unless the script declares the name, top-level functions with the form of a hook name that no hook has (warnings, as
  * the runtime warns), a {@code const} in a loop, which keeps its first value in Rhino 1.8.1 (a warning), and functions in the body of a
  * {@code for (let ...)} loop that use its variables, which all iterations share in Rhino 1.8.1 (a warning), and names under {@code core.dat}
- * that the DAT tables do not have, a table or a function of a table (errors), unless the script declares {@code core}.
+ * that the DAT tables do not have, a table or a function of a table (errors), unless the script declares {@code core}, and uses of
+ * {@code local.*} at the top level of a module or directly in a shared hook, where they throw (errors), unless the script declares
+ * {@code local}.
  * <p>
  * Each resource named {@code *.grp} or {@code *.anim}, read as the runtime reads a GRP or an anim. The size: the script trailer with every file
  * stored as it is against the largest map file (a warning).
@@ -80,6 +82,10 @@ public final class ScriptCheckUtils {
      * The namespace of the DAT tables under {@code core}.
      */
     private static final @NotNull String DAT_NAMESPACE = "dat";
+    /**
+     * The global of the local information.
+     */
+    private static final @NotNull String LOCAL_NAME = "local";
     private static final @NotNull String GETTER_PREFIX = "get";
     private static final @NotNull String SETTER_PREFIX = "set";
     /**
@@ -342,8 +348,14 @@ public final class ScriptCheckUtils {
                 checkDeclaration(scriptName, declaration, findings);
             } else if (node instanceof Loop loop) {
                 checkLetLoop(scriptName, loop, findings);
-            } else if (node instanceof PropertyGet get && !declaredNames.contains(ScriptGame.CORE_NAME)) {
-                checkDatName(scriptName, get, findings);
+            } else if (node instanceof PropertyGet get) {
+                if (!declaredNames.contains(ScriptGame.CORE_NAME)) {
+                    checkDatName(scriptName, get, findings);
+                }
+
+                if (!declaredNames.contains(LOCAL_NAME)) {
+                    checkLocalUse(scriptName, get, findings);
+                }
             }
 
             return true;
@@ -382,6 +394,36 @@ public final class ScriptCheckUtils {
 
         findings.add(new ScriptFinding(scriptName, get.getLineno(), Severity.ERROR,
                                        Exceptions.format("core.dat.{0} has no function {1}.", table.getName(), name)));
+    }
+
+    /**
+     * Reports a use of the local information ({@code local.*}) that always runs as shared code, where it throws: at the top level of a module or
+     * directly in a top-level hook function that is not a local hook. A use in a nested function is not reported.
+     */
+    private static void checkLocalUse(@NotNull String scriptName, @NotNull PropertyGet get, @NotNull List<ScriptFinding> findings) {
+        if (!(get.getTarget() instanceof Name target) || !target.getIdentifier().equals(LOCAL_NAME)) {
+            return;
+        }
+
+        FunctionNode function = get.getEnclosingFunction();
+        String place = "the top level of a module";
+
+        if (function != null) {
+            Name functionName = function.getFunctionName();
+            ScriptHook hook = functionName != null && function.getEnclosingFunction() == null
+                              ? ScriptHook.findByFunctionName(functionName.getIdentifier())
+                              : null;
+
+            if (hook == null || hook.isLocal()) {
+                return;
+            }
+
+            place = hook.getFunctionName();
+        }
+
+        findings.add(new ScriptFinding(scriptName, get.getLineno(), Severity.ERROR,
+                                       Exceptions.format("local.{0} throws in {1}, which is shared code: read it in a local hook (onLocal*).",
+                                                         get.getProperty().getIdentifier(), place)));
     }
 
     /**
