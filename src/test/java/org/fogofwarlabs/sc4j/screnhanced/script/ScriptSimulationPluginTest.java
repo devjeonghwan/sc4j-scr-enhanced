@@ -32,9 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -78,6 +76,10 @@ final class ScriptSimulationPluginTest {
     private static final int FIGHT_FRAMES = 400;
     private static final int KEY_Q = 0x51;
     private static final int KEY_W = 0x57;
+    /**
+     * The stat_txt string that onLocalFrame writes what it reads to.
+     */
+    private static final int LOCAL_TEXT = 1000;
     /**
      * The frames the selection test runs before the start units are in place, and the slot of the human player.
      */
@@ -433,6 +435,7 @@ final class ScriptSimulationPluginTest {
                                                                                                     @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
                 var human, computer, last = null, set = false;
+                var LOCAL_TEXT = 1000;
                 function describe(units) {
                     return units.map(function (unit) { return unit.getId(); }).join(',');
                 }
@@ -466,7 +469,7 @@ final class ScriptSimulationPluginTest {
                     }
                 }
                 function onLocalFrame(frame) {
-                    game.print('ES local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
+                    strings.setStatText(LOCAL_TEXT, 'local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
                     if (local.isReplay() && local.getPlayer() === null && local.getSelection().length === 0) {
                         local.setScreenPosition(Position.of(64, 96));
                     }
@@ -513,12 +516,10 @@ final class ScriptSimulationPluginTest {
         Assertions.assertEquals(scvs.get(2), shown.getSelectedPoolIndex(1));
         Assertions.assertEquals(LocalSelection.EMPTY_SLOT, shown.getSelectedPoolIndex(2));
 
-        Set<String> livePrints = new LinkedHashSet<>();
-
         findInputPlugin(live).onFramePlayed(live.getCurrentFrame());
-        ScriptMapGameScenario.collectPrints(live, livePrints);
 
-        Assertions.assertTrue(livePrints.contains("local Player 0 false [" + kept + "]"), "onLocalFrame reads the local values: " + livePrints);
+        Assertions.assertEquals("local Player 0 false [" + kept + "]", live.getInterfaceLink().getStatTextOverrides().find(LOCAL_TEXT),
+                                "onLocalFrame reads the local values");
 
         int frames = live.getCurrentFrame();
         byte[] replay = scenario.writeReplay();

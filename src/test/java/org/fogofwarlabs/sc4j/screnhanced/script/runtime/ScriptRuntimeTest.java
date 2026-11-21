@@ -1,8 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.PlayerResultEvent;
-import org.fogofwarlabs.sc4j.scr.game.extension.simulation.WeaponDamageDecision;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,7 @@ final class ScriptRuntimeTest {
     @Test
     void globals_expose_no_java_access_clock_or_code_loading() throws IOException {
         List<String> names = List.of("java", "javax", "Packages", "getClass", "importPackage", "importClass", "JavaAdapter", "JavaImporter",
-                                     "JavaException", "load", "loadClass", "print", "readFile", "runCommand", "spawn", "sync", "quit",
+                                     "JavaException", "load", "loadClass", "print", "readFile", "runCommand", "spawn", "quit",
                                      "Date", "setTimeout", "setInterval", "eval", "Script", "Continuation", "With", "Call", "XML", "XMLList",
                                      "Namespace", "QName", "isXMLName", "__GeneratorFunction");
         StringBuilder script = new StringBuilder("var own = Object.getOwnPropertyNames(globalThis);\n");
@@ -234,8 +233,6 @@ final class ScriptRuntimeTest {
 
         Assertions.assertEquals(List.of("WARN main.js: onUnitDance is not a known hook and is not called.", "INFO main.js: start"),
                                 scenario.getLines());
-        Assertions.assertTrue(scenario.getRuntime().hasHook(ScriptHook.START));
-        Assertions.assertFalse(scenario.getRuntime().hasHook(ScriptHook.FRAME));
     }
 
     @Test
@@ -248,12 +245,6 @@ final class ScriptRuntimeTest {
                 """);
 
         Assertions.assertEquals(List.of(), scenario.getLines());
-        Assertions.assertTrue(scenario.getRuntime().hasHook(ScriptHook.UNIT_DIED));
-        Assertions.assertTrue(scenario.getRuntime().hasHook(ScriptHook.BEFORE_TARGET_ACQUIRED));
-        Assertions.assertFalse(scenario.getRuntime().hasHook(ScriptHook.BEFORE_ORDER));
-        Assertions.assertEquals(ScriptHook.BEFORE_DAMAGE, ScriptHook.findByKind(WeaponDamageDecision.class));
-        Assertions.assertEquals(ScriptHook.PLAYER_RESULT, ScriptHook.findByKind(PlayerResultEvent.class));
-        Assertions.assertNull(ScriptHook.findByKind(String.class));
     }
 
     @Test
@@ -285,7 +276,6 @@ final class ScriptRuntimeTest {
                                         "ERROR main.js: onFrame ran more than the budget of instructions; the script stopped."),
                                 scenario.getLines());
         Assertions.assertTrue(scenario.getRuntime().isStopped());
-        Assertions.assertFalse(scenario.getRuntime().hasHook(ScriptHook.FRAME));
     }
 
     @Test
@@ -309,7 +299,7 @@ final class ScriptRuntimeTest {
     }
 
     @Test
-    void the_budget_covers_loading_and_on_start() throws IOException {
+    void the_budget_covers_loading() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(ScriptRuntimeScenario.MAIN_NAME, """
                 for (;;) {}
                 """);
@@ -386,6 +376,8 @@ final class ScriptRuntimeTest {
                 function onStart() { down(0); }
                 """);
 
+        scenario.getRuntime().runFrame(0);
+
         Assertions.assertTrue(scenario.getRuntime().isStopped());
         Assertions.assertEquals(List.of("ERROR main.js: onStart overflowed the stack; the script stopped."), scenario.getLines());
     }
@@ -408,7 +400,8 @@ final class ScriptRuntimeTest {
         Assertions.assertThrows(IllegalStateException.class, () -> runtime.runFrame(1));
         Assertions.assertTrue(runtime.isStopped());
         Assertions.assertThrows(IllegalArgumentException.class,
-                                () -> ScriptRuntime.create(scriptPackage, ScriptRuntimeScenario.SEED, 0, scenario));
+                                () -> ScriptRuntime.create(scriptPackage, ScriptRuntimeScenario.createGame(), ScriptResources.EMPTY,
+                                                           ScriptRuntimeScenario.SEED, 0, scenario));
     }
 
     @Test

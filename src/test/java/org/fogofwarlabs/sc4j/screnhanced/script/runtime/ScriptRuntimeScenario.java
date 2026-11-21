@@ -1,8 +1,12 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
 import org.fogofwarlabs.sc4j.base.log.LogLevel;
+import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptManifest;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -13,13 +17,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Creates script runtimes of the runtime tests from script texts and records their log output as lines {@code LEVEL module: message}.
+ * Creates script runtimes of the runtime tests from script texts, on a game without game data, and records their log output as lines
+ * {@code LEVEL module: message}.
  */
 final class ScriptRuntimeScenario implements ScriptLogOutput {
     static final @NotNull String MAIN_NAME = "main.js";
     static final long SEED = 0x5C4E5L;
 
     private static final @NotNull String MANIFEST = "{\"name\": \"Test\", \"main\": \"" + MAIN_NAME + "\", \"api\": \"1\"}";
+    private static final int MAP_TILE_SIZE = 4;
+
+    /**
+     * Creates a game without game data.
+     */
+    static @NotNull Game createGame() {
+        return Game.create(null, new GameMap(MAP_TILE_SIZE, MAP_TILE_SIZE, 0, new int[MAP_TILE_SIZE * MAP_TILE_SIZE]), new LcgRandom(0));
+    }
 
     /**
      * Creates a script package.
@@ -69,11 +82,18 @@ final class ScriptRuntimeScenario implements ScriptLogOutput {
     private final @NotNull ScriptRuntime runtime;
 
     /**
-     * Creates a {@link ScriptRuntimeScenario} instance with a runtime that is not started.
+     * Creates a {@link ScriptRuntimeScenario} instance on a new game without game data, with a runtime that is not started.
      */
     ScriptRuntimeScenario(@NotNull ScriptPackage scriptPackage, long seed, int instructionBudget) {
+        this(scriptPackage, createGame(), seed, instructionBudget);
+    }
+
+    /**
+     * Creates a {@link ScriptRuntimeScenario} instance on a game, with a runtime that is not started.
+     */
+    ScriptRuntimeScenario(@NotNull ScriptPackage scriptPackage, @NotNull Game game, long seed, int instructionBudget) {
         this.lines   = new ArrayList<>();
-        this.runtime = ScriptRuntime.create(scriptPackage, seed, instructionBudget, this);
+        this.runtime = ScriptRuntime.create(scriptPackage, game, ScriptResources.EMPTY, seed, instructionBudget, this);
     }
 
     @NotNull ScriptRuntime getRuntime() {

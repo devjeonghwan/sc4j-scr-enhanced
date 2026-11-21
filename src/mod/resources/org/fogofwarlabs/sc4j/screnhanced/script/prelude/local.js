@@ -1,0 +1,50 @@
+// The local information of the upper layer: the global local. What only the local machine knows differs from peer to peer, so it is readable
+// only in local code (onLocalFrame, onRender and the local input hooks); elsewhere every function throws a TypeError. The player is null in a
+// replay and for an observer; the screen and pointer positions are null while the client has not supplied them.
+(function (core, prelude) {
+    'use strict';
+
+    var requireObject = prelude.requireObject;
+    var positionPrototype = prelude.positionPrototype;
+    var createPosition = prelude.createPosition;
+    var getPlayer = prelude.getPlayer;
+    var toUnits = prelude.toUnits;
+
+    var local = Object.freeze({
+        getPlayer: function () {
+            return getPlayer(core.local.getPlayer());
+        },
+        isReplay: function () {
+            return core.local.isReplay();
+        },
+        isChatOpen: function () {
+            return core.local.isChatOpen();
+        },
+        // The map position of the local screen's top left.
+        getScreenPosition: function () {
+            return core.local.isViewKnown() ? createPosition(core.local.getScreenX(), core.local.getScreenY()) : null;
+        },
+        // Moves only the local screen's top left to a map position at once, kept inside the map; false while the screen is unknown.
+        setScreenPosition: function (position) {
+            requireObject(position, positionPrototype, 'A position');
+
+            return core.local.setScreenPosition(position.x, position.y);
+        },
+        // The map position under the pointer.
+        getMousePosition: function () {
+            return core.local.isViewKnown() ? createPosition(core.local.getMouseX(), core.local.getMouseY()) : null;
+        },
+        // The units of the local interface's selection, which may differ from the local player's synchronized selection until its selection
+        // command runs.
+        getSelection: function () {
+            return toUnits(core.local.getSelection());
+        }
+    });
+
+    return {
+        exports: {
+            local: local
+        },
+        shared: {}
+    };
+});

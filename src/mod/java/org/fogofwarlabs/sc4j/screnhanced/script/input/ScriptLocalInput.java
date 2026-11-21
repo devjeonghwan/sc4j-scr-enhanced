@@ -1,11 +1,10 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.input;
 
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrInputModifiers;
-import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptHook;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * One input of the local player that a local hook receives: a key or mouse button change with the held modifiers and the map position under
+ * One input of the local player that the local input hooks receive: a key or mouse button change with the held modifiers and the map position under
  * the pointer when known, or a chat line.
  */
 public final class ScriptLocalInput {
@@ -28,7 +27,7 @@ public final class ScriptLocalInput {
      * @return the created {@link ScriptLocalInput} instance
      */
     public static @NotNull ScriptLocalInput ofKey(int virtualKey, boolean pressed, int modifiers, boolean positioned, int x, int y) {
-        return new ScriptLocalInput(pressed ? ScriptHook.LOCAL_KEY_DOWN : ScriptHook.LOCAL_KEY_UP, virtualKey, modifiers & MODIFIER_MASK,
+        return new ScriptLocalInput(pressed ? ScriptInputKind.KEY_DOWN : ScriptInputKind.KEY_UP, virtualKey, modifiers & MODIFIER_MASK,
                                     positioned, x, y, NO_TEXT);
     }
 
@@ -43,7 +42,7 @@ public final class ScriptLocalInput {
      * @return the created {@link ScriptLocalInput} instance
      */
     public static @NotNull ScriptLocalInput ofMouse(int button, boolean pressed, int modifiers, int x, int y) {
-        return new ScriptLocalInput(pressed ? ScriptHook.LOCAL_MOUSE_DOWN : ScriptHook.LOCAL_MOUSE_UP, button, modifiers & MODIFIER_MASK, true, x,
+        return new ScriptLocalInput(pressed ? ScriptInputKind.MOUSE_DOWN : ScriptInputKind.MOUSE_UP, button, modifiers & MODIFIER_MASK, true, x,
                                     y, NO_TEXT);
     }
 
@@ -54,11 +53,11 @@ public final class ScriptLocalInput {
      * @return the created {@link ScriptLocalInput} instance
      */
     public static @NotNull ScriptLocalInput ofChat(@NotNull String text) {
-        return new ScriptLocalInput(ScriptHook.LOCAL_CHAT, 0, 0, false, 0, 0, text);
+        return new ScriptLocalInput(ScriptInputKind.CHAT, 0, 0, false, 0, 0, text);
     }
 
 
-    private final @NotNull ScriptHook hook;
+    private final @NotNull ScriptInputKind kind;
     private final int code;
     private final int modifiers;
 
@@ -68,8 +67,8 @@ public final class ScriptLocalInput {
 
     private final @NotNull String text;
 
-    private ScriptLocalInput(@NotNull ScriptHook hook, int code, int modifiers, boolean positioned, int x, int y, @NotNull String text) {
-        this.hook      = hook;
+    private ScriptLocalInput(@NotNull ScriptInputKind kind, int code, int modifiers, boolean positioned, int x, int y, @NotNull String text) {
+        this.kind      = kind;
         this.code      = code;
         this.modifiers = modifiers;
 
@@ -81,10 +80,10 @@ public final class ScriptLocalInput {
     }
 
     /**
-     * @return the local hook that receives the input
+     * @return the kind of the input
      */
-    public @NotNull ScriptHook getHook() {
-        return this.hook;
+    public @NotNull ScriptInputKind getKind() {
+        return this.kind;
     }
 
     /**

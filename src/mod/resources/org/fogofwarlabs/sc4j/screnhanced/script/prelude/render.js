@@ -1,0 +1,130 @@
+// The drawing of the upper layer: the globals Font, Align and Graphics, and the screen object that onRender receives, over core.screen,
+// core.world and core.minimap. Colours are Color numbers, fonts and alignments their constants; the options objects become the positional
+// arguments of core.
+(function (core, prelude) {
+    'use strict';
+
+    var requireObject = prelude.requireObject;
+    var readOptions = prelude.readOptions;
+    var typePrototype = prelude.typePrototype;
+    var createConstantTable = prelude.createConstantTable;
+    var Color = prelude.Color;
+    var imagePrototype = prelude.imagePrototype;
+
+    var create = Object.create;
+    var freeze = Object.freeze;
+
+    var DEFAULT_THICKNESS = 1;
+    var DEFAULT_OPACITY = 1;
+
+    var fontPrototype = create(typePrototype);
+    var alignPrototype = create(typePrototype);
+    var graphicsPrototype = create(typePrototype);
+    // The four fonts of the game interface: font8, font10, font16 and font16x.
+    var Font = createConstantTable(fontPrototype, ['Small', 'Medium', 'Large', 'Huge'], 4, 'Font ');
+    var Align = createConstantTable(alignPrototype, ['Left', 'Center', 'Right'], 3, 'Align ');
+    var Graphics = createConstantTable(graphicsPrototype, ['SD', 'HD', 'HD2'], 3, 'Graphics ');
+
+    function readColorOption(color) {
+        return color === undefined ? Color.White : color;
+    }
+
+    function readThicknessOption(values) {
+        return values.thickness === undefined ? DEFAULT_THICKNESS : values.thickness;
+    }
+
+    function readFontOption(font) {
+        return font === undefined ? Font.Medium.id : requireObject(font, fontPrototype, 'A font').id;
+    }
+
+    // The drawing functions of one space over its core namespace: they work only in onRender.
+    function createDrawing(namespace) {
+        return {
+            fillRectangle: function (x, y, width, height, color) {
+                namespace.fillRectangle(x, y, width, height, readColorOption(color));
+            },
+            // Options {color, thickness}; the outline lies inside the rectangle.
+            drawRectangle: function (x, y, width, height, options) {
+                var values = readOptions(options);
+
+                namespace.drawRectangle(x, y, width, height, readColorOption(values.color), readThicknessOption(values));
+            },
+            fillCircle: function (x, y, radius, color) {
+                namespace.fillCircle(x, y, radius, readColorOption(color));
+            },
+            // Options {color, thickness}; the outline is centered on the circle.
+            drawCircle: function (x, y, radius, options) {
+                var values = readOptions(options);
+
+                namespace.drawCircle(x, y, radius, readColorOption(values.color), readThicknessOption(values));
+            },
+            // Options {color, thickness}.
+            drawLine: function (x1, y1, x2, y2, options) {
+                var values = readOptions(options);
+
+                namespace.drawLine(x1, y1, x2, y2, readColorOption(values.color), readThicknessOption(values));
+            },
+            drawPoint: function (x, y, color) {
+                namespace.drawPoint(x, y, readColorOption(color));
+            },
+            // Options {font, color, align}: the lines, broken at \n, from the top at y, each aligned on x; colour codes in the text work.
+            drawText: function (text, x, y, options) {
+                var values = readOptions(options);
+                var align = values.align === undefined ? Align.Left.id : requireObject(values.align, alignPrototype, 'An alignment').id;
+
+                namespace.drawText(x, y, String(text), readFontOption(values.font), readColorOption(values.color), align);
+            },
+            // Options {width, height, opacity}; the size is the image's pixel size in the space's units by default.
+            drawImage: function (image, x, y, options) {
+                var values = readOptions(options);
+                var id = requireObject(image, imagePrototype, 'An image').id;
+                var width = values.width === undefined ? image.getWidth() : values.width;
+                var height = values.height === undefined ? image.getHeight() : values.height;
+
+                namespace.drawImage(id, x, y, width, height, values.opacity === undefined ? DEFAULT_OPACITY : values.opacity);
+            },
+            // The width of the widest line in interface units, in the client's fonts; only in local code.
+            measureText: function (text, font) {
+                return namespace.measureText(String(text), readFontOption(font));
+            }
+        };
+    }
+
+    // The screen object of onRender: the game screen in interface units, its world (map pixels, following the camera) and its minimap.
+    var screen = createDrawing(core.screen);
+
+    screen.getWidth = function () {
+        return core.screen.getWidth();
+    };
+    screen.getHeight = function () {
+        return core.screen.getHeight();
+    };
+    screen.getScale = function () {
+        return core.screen.getScale();
+    };
+    screen.getGraphics = function () {
+        return Graphics.get(core.screen.getGraphics());
+    };
+    // Rounds an interface coordinate to the real pixel grid.
+    screen.snap = function (value) {
+        var scale = core.screen.getScale();
+
+        return Math.round(value * scale) / scale;
+    };
+    screen.world = freeze(createDrawing(core.world));
+    screen.minimap = freeze(createDrawing(core.minimap));
+    freeze(screen);
+
+    [fontPrototype, alignPrototype, graphicsPrototype].forEach(freeze);
+
+    return {
+        exports: {
+            Font: Font,
+            Align: Align,
+            Graphics: Graphics
+        },
+        shared: {
+            screen: screen
+        }
+    };
+});

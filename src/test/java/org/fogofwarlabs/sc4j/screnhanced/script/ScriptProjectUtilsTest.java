@@ -5,7 +5,7 @@ import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
-import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptDatTables;
+import org.fogofwarlabs.sc4j.screnhanced.script.core.ScriptDatTables;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptHook;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptLogOutput;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
@@ -28,7 +28,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,9 +37,15 @@ import java.util.stream.Stream;
 /**
  * Tests the new script folder of {@link ScriptProjectUtils} and that its declarations name exactly what a script sees: every global, every
  * member of the game API objects, the hooks and their event and decision objects, and the type constants; declared standard objects exist.
+ * The prelude's hooks are those the runtime knows ({@link ScriptHook}).
  */
 final class ScriptProjectUtilsTest {
-    private static final @NotNull String PRELUDE_RESOURCE = "/org/fogofwarlabs/sc4j/screnhanced/script/game/prelude.js";
+    private static final @NotNull String PRELUDE_FOLDER = "/org/fogofwarlabs/sc4j/screnhanced/script/prelude/";
+    /**
+     * The area files of the prelude, in load order.
+     */
+    private static final @NotNull List<String> PRELUDE_FILES = List.of("values.js", "types.js", "game.js", "presentation.js", "sync.js",
+                                                                       "local.js", "render.js", "hooks.js");
     private static final int MAP_TILE_SIZE = 4;
     private static final int MAP_TILESET = 0;
     private static final long SEED = 1;
@@ -62,6 +67,18 @@ final class ScriptProjectUtilsTest {
      */
     private static final @NotNull List<String> GENERATED_TABLES = List.of("UnitType", "WeaponType", "UpgradeType", "TechType", "Order", "Key");
     private static final @NotNull String GENERATED_COMMENT = "    // GENERATED ";
+    private static final @NotNull String DECISION_HOOK_PREFIX = "onBefore";
+    /**
+     * The key of the prelude's hook names among the instance names.
+     */
+    private static final @NotNull String HOOK_NAMES = "hookNames";
+    /**
+     * The event kinds the stub {@code core} names, those of the runtime's {@code core.events}.
+     */
+    private static final @NotNull List<String> EVENT_KINDS = List.of("UnitCreated", "UnitCompleted", "UnitDied", "UnitDamaged", "OrderIssued",
+                                                                     "TargetAcquired", "UnitTrained", "ResearchCompleted", "UpgradeCompleted",
+                                                                     "SpellCast", "OwnerChanged", "UnitLoaded", "UnitUnloaded", "BulletCreated",
+                                                                     "BulletHit", "PlayerLeft", "PlayerResult");
     /**
      * The instances of the upper layer that the prelude makes over a stub {@code core}, by their interface.
      */
@@ -73,7 +90,7 @@ final class ScriptProjectUtilsTest {
             Map.entry("Grp", "resources.getGrp('a.grp')"),
             Map.entry("Anim", "resources.getAnim('a.anim')"),
             Map.entry("Position", "Position.of(1, 2)"),
-            Map.entry("Unit", "bridge.createEvent('onUnitCreated', values).getUnit()"),
+            Map.entry("Unit", "prelude.createEvent(record(EventKind.UnitCreated.id)).getUnit()"),
             Map.entry("UnitType", "UnitType.get(0)"),
             Map.entry("WeaponType", "WeaponType.get(0)"),
             Map.entry("FlingyType", "FlingyType.get(0)"),
@@ -88,6 +105,9 @@ final class ScriptProjectUtilsTest {
             Map.entry("ScoreType", "ScoreType.get(0)"),
             Map.entry("ResourceType", "ResourceType.get(0)"),
             Map.entry("Alliance", "Alliance.get(0)"),
+            Map.entry("EventKind", "EventKind.get(0)"),
+            Map.entry("InputKind", "InputKind.get(0)"),
+            Map.entry("DecisionKind", "DecisionKind.get(0)"),
             Map.entry("Channel", "sync.createChannel(function () {})"),
             Map.entry("PlayerValue", "sync.createPlayerValue(0)"),
             Map.entry("Image", "resources.getImage('a.png')"),
@@ -111,18 +131,21 @@ final class ScriptProjectUtilsTest {
                     unitType: types(), weaponType: types(), flingyType: types(), spriteType: types(), imageType: types(), upgradeType: types(),
                     techType: types(), orderType: types(),
                     dat: {units: {}, weapons: {}, flingy: {}, sprites: {}, images: {}, upgrades: {}, techdata: {}, orders: {}},
+                    events: {getKindCount: function () { return KINDS.length; }, getKindName: function (kind) { return KINDS[kind]; }},
+                    command: {submit: function () {}},
                     player: {getCount: function () { return 1; }},
                     unit: {exists: function () { return false; }},
                     location: {getCount: function () { return 1; }},
                     terrain: {isValidTile: function () { return true; }},
-                    game: {every: function () { return 1; }, getFrameDuration: function () { return 42; }},
+                    game: {getFrame: function () { return 0; }, getFrameDuration: function () { return 42; }},
                     resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }, getImage: function () { return 2; }},
-                    sync: {createChannel: function () { return 0; }, send: function () {}}
+                    screen: {}, world: {}, minimap: {}
                 };
             })()
             """;
     /**
-     * The captured values of every event and decision: one unit that no longer exists, no other unit.
+     * The values of every event, decision and input record: one unit that no longer exists, no other unit; record(kind) copies them with a
+     * kind.
      */
     private static final @NotNull String EVENT_VALUES = """
             var values = {frame: 0, unit: 1, unitGeneration: 0, unitType: 0, owner: 0, player: 0, weapon: 0, amount: 0, order: 0, target: -1,
@@ -131,6 +154,13 @@ final class ScriptProjectUtilsTest {
                           producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
                           key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, text: '', consumed: false, cancelled: false,
                           rejected: false};
+            function record(kind) {
+                var copy = {kind: kind};
+                for (var key in values) {
+                    copy[key] = values[key];
+                }
+                return copy;
+            }
             """;
     /**
      * Reads the names of the module scope and the global scope, which of the declared globals a script reaches, the own and the prototype
@@ -175,13 +205,22 @@ final class ScriptProjectUtilsTest {
             })(this, DECLARED, PATHS, TABLES);
             """;
 
+    /**
+     * Reads the declarations of every declarations file as one text.
+     */
     private static @NotNull ScriptDeclarationsCheck readDeclarations() throws IOException {
-        return new ScriptDeclarationsCheck(new String(ScriptProjectUtils.readDeclarations(), StandardCharsets.UTF_8));
+        StringBuilder text = new StringBuilder();
+
+        for (String fileName : ScriptProjectUtils.DECLARATION_FILE_NAMES) {
+            text.append(new String(ScriptProjectUtils.readDeclarations(fileName), StandardCharsets.UTF_8)).append('\n');
+        }
+
+        return new ScriptDeclarationsCheck(text.toString());
     }
 
-    private static @NotNull String readPrelude() throws IOException {
-        try (InputStream input = ScriptProjectUtilsTest.class.getResourceAsStream(PRELUDE_RESOURCE)) {
-            Assertions.assertNotNull(input, PRELUDE_RESOURCE);
+    private static @NotNull String readPreludeFile(@NotNull String fileName) throws IOException {
+        try (InputStream input = ScriptProjectUtilsTest.class.getResourceAsStream(PRELUDE_FOLDER + fileName)) {
+            Assertions.assertNotNull(input, fileName);
 
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
@@ -233,6 +272,24 @@ final class ScriptProjectUtilsTest {
         return (Map<?, ?>) JsonReader.parse(messages.getFirst().getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Creates the expression of the object a hook receives: a decision object ({@code onBefore*}), a local input object ({@code onLocal*}) or
+     * an event object over a record of the hook's kind.
+     */
+    private static @NotNull String createHookObjectExpression(@NotNull String hookName) {
+        if (hookName.startsWith(DECISION_HOOK_PREFIX)) {
+            String kind = "DecisionKind." + hookName.substring(DECISION_HOOK_PREFIX.length()) + ".id";
+
+            return "prelude.createDecision(" + kind + ", record(" + kind + "))";
+        }
+
+        if (hookName.startsWith(ScriptHook.LOCAL_NAME_PREFIX)) {
+            return "prelude.createInputEvent(record(InputKind." + hookName.substring(ScriptHook.LOCAL_NAME_PREFIX.length()) + ".id))";
+        }
+
+        return "prelude.createEvent(record(EventKind." + hookName.substring(ScriptHook.NAME_PREFIX.length()) + ".id))";
+    }
+
     private static @NotNull String toJsonArray(@NotNull List<String> values, boolean quoted) {
         List<String> items = new ArrayList<>();
 
@@ -248,11 +305,10 @@ final class ScriptProjectUtilsTest {
     }
 
     /**
-     * Runs the prelude over the stub {@code core} and returns the enumerable inherited names of each expression's object, without
-     * {@code toString}.
+     * Runs the prelude's area files over the stub {@code core} as the runtime does, with their names in the global {@code prelude}, and returns
+     * the enumerable inherited names of each expression's object, without {@code toString}.
      */
     private static @NotNull Map<String, Set<String>> readInstanceNames(@NotNull Map<String, String> expressions) throws IOException {
-        String prelude = readPrelude();
         Map<String, Set<String>> names = new LinkedHashMap<>();
 
         try (Context context = new ContextFactory().enterContext()) {
@@ -262,14 +318,36 @@ final class ScriptProjectUtilsTest {
             TopLevel global = new TopLevel();
 
             context.initSafeStandardObjects(global, false);
+            ScriptableObject.putProperty(global, "KINDS", context.newArray(global, EVENT_KINDS.toArray()));
 
-            Function preludeFunction = (Function) context.evaluateString(global, prelude, "prelude.js", 1, null);
             Object core = context.evaluateString(global, STUB_CORE, "core.js", 1, null);
-            Scriptable datTables = ScriptDatTables.createPreludeTables(context, global);
-            Object bridge = preludeFunction.call(context, global, global, new Object[]{global, core, datTables});
+            Scriptable prelude = context.newObject(global);
 
-            ScriptableObject.putProperty(global, "bridge", bridge);
+            ScriptableObject.putProperty(prelude, "datTables", ScriptDatTables.createPreludeTables(context, global));
+
+            for (String fileName : PRELUDE_FILES) {
+                Function area = (Function) context.evaluateString(global, readPreludeFile(fileName), fileName, 1, null);
+                Scriptable result = (Scriptable) area.call(context, global, global, new Object[]{core, prelude});
+
+                for (String part : List.of("exports", "shared")) {
+                    Scriptable values = (Scriptable) ScriptableObject.getProperty(result, part);
+
+                    for (Object id : values.getIds()) {
+                        Object value = ScriptableObject.getProperty(values, (String) id);
+
+                        ScriptableObject.putProperty(prelude, (String) id, value);
+
+                        if (part.equals("exports")) {
+                            ScriptableObject.putProperty(global, (String) id, value);
+                        }
+                    }
+                }
+            }
+
+            ScriptableObject.putProperty(global, "prelude", prelude);
             context.evaluateString(global, EVENT_VALUES, "values.js", 1, null);
+            names.put(HOOK_NAMES, new TreeSet<>(List.of(Context.toString(context.evaluateString(global, "prelude.hookNames.join(',')", "hooks", 1,
+                                                                                                    null)).split(","))));
 
             for (Map.Entry<String, String> expression : expressions.entrySet()) {
                 String code = "(function (object) { var names = []; for (var name in object) { if (name !== 'toString' && " +
@@ -366,16 +444,21 @@ final class ScriptProjectUtilsTest {
         Assertions.assertEquals(Set.of(ScriptProjectUtils.MAIN_FILE_NAME), scriptPackage.getScripts().keySet());
         Assertions.assertTrue(scriptPackage.getResources().isEmpty());
         Assertions.assertTrue(Files.isDirectory(project.resolve(ScriptPackage.RESOURCE_FOLDER)));
-        Assertions.assertArrayEquals(ScriptProjectUtils.readDeclarations(),
-                                     Files.readAllBytes(project.resolve(ScriptProjectUtils.DECLARATIONS_FILE_NAME)));
+
+        for (String fileName : ScriptProjectUtils.DECLARATION_FILE_NAMES) {
+            Assertions.assertArrayEquals(ScriptProjectUtils.readDeclarations(fileName), Files.readAllBytes(project.resolve(fileName)));
+        }
+
         Assertions.assertEquals(true, options.get("noLib"));
         Assertions.assertEquals(true, options.get("checkJs"));
-        Assertions.assertEquals(List.of(ScriptProjectUtils.DECLARATIONS_FILE_NAME, "**/*.js"), jsconfig.get("include"));
+        Assertions.assertEquals(List.of(ScriptProjectUtils.CORE_DECLARATIONS_FILE_NAME, ScriptProjectUtils.DECLARATIONS_FILE_NAME, "**/*.js"),
+                                jsconfig.get("include"));
         Assertions.assertEquals(List.of(), ScriptCheckUtils.check(project).stream().map(ScriptFinding::toString).toList());
 
         try (Stream<Path> files = Files.list(project)) {
             Assertions.assertEquals(Set.of(ScriptManifest.FILE_NAME, ScriptProjectUtils.MAIN_FILE_NAME, ScriptProjectUtils.JSCONFIG_FILE_NAME,
-                                           ScriptProjectUtils.DECLARATIONS_FILE_NAME, ScriptPackage.RESOURCE_FOLDER),
+                                           ScriptProjectUtils.CORE_DECLARATIONS_FILE_NAME, ScriptProjectUtils.DECLARATIONS_FILE_NAME,
+                                           ScriptPackage.RESOURCE_FOLDER),
                                     new HashSet<>(files.map(file -> file.getFileName().toString()).toList()));
         }
     }
@@ -444,7 +527,7 @@ final class ScriptProjectUtilsTest {
     void declarations_name_every_hook_and_the_members_of_its_object() throws IOException {
         ScriptDeclarationsCheck declarations = readDeclarations();
         Map<String, ScriptDeclarationsCheck.Member> hooks = declarations.getMembers(List.of("Hooks"));
-        Set<String> hookNames = new LinkedHashSet<>();
+        Set<String> hookNames = new TreeSet<>();
         Map<String, String> expressions = new LinkedHashMap<>();
         Map<String, String> interfaces = new LinkedHashMap<>();
         List<String> problems = new ArrayList<>();
@@ -457,9 +540,7 @@ final class ScriptProjectUtilsTest {
             ScriptDeclarationsCheck.Member member = hooks.get(name);
 
             if (member != null && declarations.isInterface(member.getType()) && hook != ScriptHook.RENDER) {
-                String factory = name.startsWith("onBefore") ? "createDecision" : "createEvent";
-
-                expressions.put(name, "bridge." + factory + "('" + name + "', values)");
+                expressions.put(name, createHookObjectExpression(name));
                 interfaces.put(name, member.getType());
             }
         }
@@ -471,7 +552,11 @@ final class ScriptProjectUtilsTest {
 
         compareNames("Hooks", hooks.keySet(), hookNames, true, false, problems);
 
-        for (Map.Entry<String, Set<String>> names : readInstanceNames(expressions).entrySet()) {
+        Map<String, Set<String>> instanceNames = readInstanceNames(expressions);
+
+        compareNames("The prelude's hooks", instanceNames.remove(HOOK_NAMES), hookNames, true, false, problems);
+
+        for (Map.Entry<String, Set<String>> names : instanceNames.entrySet()) {
             String declared = interfaces.get(names.getKey());
 
             compareNames(names.getKey() + " (" + declared + ")", declarations.getMembers(List.of(declared)).keySet(), names.getValue(), true,

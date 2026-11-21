@@ -14,16 +14,16 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Supplier;
 
 /**
- * Hands the local player's keys, mouse buttons and chat lines to the local hooks of the game's script ({@link ScriptRuntime#callLocalHook}),
- * and each frame the local machine plays to {@code onLocalFrame} ({@link ScriptRuntime#callLocalFrame}) and {@code onRender}
- * ({@link ScriptRuntime#callRender}), then the channel commands that wait to the local player's outgoing turn
+ * Hands the local player's keys, mouse buttons and chat lines to the local input hooks of the game's script
+ * ({@link ScriptRuntime#callLocalInput}), and each frame the local machine plays to {@code onLocalFrame} ({@link ScriptRuntime#callLocalFrame})
+ * and {@code onRender} ({@link ScriptRuntime#callRender}), then the script commands that wait to the local player's outgoing turn
  * ({@link ScriptRuntime#submitCommands}). The client draws what {@code onRender} drew last ({@link #findDrawList()}).
  * <p>
  * A key event has the map position under the pointer while the local view is known; a mouse button event has the map position under the
  * pointer. An input that a hook consumes reaches neither the later plugins nor the game; the consumption of a release has no effect.
  * <p>
  * A game without a submitter (a replay, or a local observer) calls no input hook and consumes nothing, but calls {@code onLocalFrame} and
- * {@code onRender}, whose channel commands are dropped. A game without a script calls no local hook and draws nothing.
+ * {@code onRender}, whose script commands are dropped. A game without a script calls no local hook and draws nothing.
  */
 public final class ScriptInputPlugin implements ScrGamePlugin {
     private final @NotNull Supplier<@Nullable ScriptRuntime> runtime;
@@ -66,7 +66,7 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
         int x = positioned ? this.localView.getScreenX() + this.localView.getMouseX() : 0;
         int y = positioned ? this.localView.getScreenY() + this.localView.getMouseY() : 0;
 
-        return this.callLocalHook(ScriptLocalInput.ofKey(input.getVirtualKey(), input.isPressed(), input.getModifiers(), positioned, x, y));
+        return this.callLocalInput(ScriptLocalInput.ofKey(input.getVirtualKey(), input.isPressed(), input.getModifiers(), positioned, x, y));
     }
 
     /**
@@ -82,8 +82,8 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
      */
     @Override
     public boolean onMouseInput(@NotNull ScrMouseInput input) {
-        return this.callLocalHook(ScriptLocalInput.ofMouse(input.getButton().ordinal(), input.isPressed(), input.getModifiers(), input.getMapX(),
-                                                           input.getMapY()));
+        return this.callLocalInput(ScriptLocalInput.ofMouse(input.getButton().ordinal(), input.isPressed(), input.getModifiers(), input.getMapX(),
+                                                            input.getMapY()));
     }
 
     /**
@@ -98,7 +98,7 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
      */
     @Override
     public boolean onChatInput(@NotNull String text) {
-        return this.callLocalHook(ScriptLocalInput.ofChat(text));
+        return this.callLocalInput(ScriptLocalInput.ofChat(text));
     }
 
     /**
@@ -106,7 +106,7 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
      * paused replay; not for the frames a replay seek runs.
      * <p>
      * The frame number goes to {@code onLocalFrame}, then {@code onRender} draws, when the game has a script, also in a replay and for an
-     * observer; the channel commands that wait then go to the submitter, or are dropped without one.
+     * observer; the script commands that wait then go to the submitter, or are dropped without one.
      *
      * @param frame the number of the frame that ran, the game's current frame
      */
@@ -142,11 +142,11 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
     }
 
     /**
-     * Calls the local hook of an input when the game has a script and a submitter, then submits the channel commands that wait.
+     * Calls the local input hooks of an input when the game has a script and a submitter, then submits the script commands that wait.
      *
      * @return {@code true} if a hook consumed the input, {@code false} otherwise
      */
-    private boolean callLocalHook(@NotNull ScriptLocalInput input) {
+    private boolean callLocalInput(@NotNull ScriptLocalInput input) {
         ScriptRuntime scriptRuntime = this.runtime.get();
         ScrModCommandSubmitter commands = this.submitter.get();
 
@@ -154,7 +154,7 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
             return false;
         }
 
-        boolean consumed = scriptRuntime.callLocalHook(input);
+        boolean consumed = scriptRuntime.callLocalInput(input);
 
         scriptRuntime.submitCommands(commands);
 

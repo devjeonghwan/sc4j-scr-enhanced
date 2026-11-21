@@ -28,8 +28,8 @@ import java.util.Map;
  * relative to the package root, and {@value ScriptPackage#SCRIPT_EXTENSION} is added when the id does not end with it. A module loads at
  * its first {@code require}; later calls return the cached module, and a module that is still loading returns its current
  * {@code module.exports}, so cycles end. A module whose loading fails is forgotten. Local code ({@link #setLocal}) loads no new module, which
- * would run on one machine only. When a module has loaded, its hooks are collected and each top-level function with a hook name that no hook
- * has logs one warning.
+ * would run on one machine only. When a module has loaded, it joins the loaded modules that the prelude collects the hooks of
+ * ({@link #getLoadedRecords}), and each top-level function with a hook name that no hook has logs one warning.
  */
 final class ScriptModuleLoader {
     private static final char NAME_SEPARATOR = '/';
@@ -114,6 +114,8 @@ final class ScriptModuleLoader {
 
     private final @NotNull Map<String, ScriptModule> modulesByName;
     private final @NotNull List<ScriptModule> modules;
+    private @Nullable Scriptable loadedRecords;
+    private int loadCount;
 
     private boolean local;
 
@@ -131,6 +133,8 @@ final class ScriptModuleLoader {
 
         this.modulesByName = new HashMap<>();
         this.modules       = new ArrayList<>();
+        this.loadedRecords = null;
+        this.loadCount     = 0;
 
         this.local = false;
     }
@@ -145,26 +149,55 @@ final class ScriptModuleLoader {
     }
 
     /**
-     * @return the modules that are loaded or loading, in the order their loading started
+     * @return the number of modules that have loaded so far
      */
-    @NotNull ScriptModule @NotNull [] getModules() {
-        return this.modules.toArray(new ScriptModule[0]);
+    int getLoadCount() {
+        return this.loadCount;
     }
 
     /**
-     * Checks whether a module has a hook.
+     * Finds the loaded module of a top-level scope.
      *
-     * @param hook the hook
-     * @return {@code true} if a loaded or loading module has the hook, {@code false} otherwise
+     * @param scope the scope
+     * @return the module, or {@code null} if no loaded or loading module has the scope
      */
-    boolean hasHook(@NotNull ScriptHook hook) {
+    @Nullable ScriptModule findModule(@NotNull Scriptable scope) {
         for (ScriptModule module : this.modules) {
-            if (module.getHook(hook) != null) {
-                return true;
+            if (module.getScope() == scope) {
+                return module;
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /**
+     * Returns the records of the loaded modules ({@link ScriptModule#getRecord}) in the order their loading started, as a script array: the
+     * same array until another module has loaded.
+     *
+     * @param context the current context
+     * @return the array of the records
+     */
+    @NotNull Scriptable getLoadedRecords(@NotNull Context context) {
+        Scriptable records = this.loadedRecords;
+
+        if (records != null) {
+            return records;
+        }
+
+        List<Object> loaded = new ArrayList<>();
+
+        for (ScriptModule module : this.modules) {
+            if (module.isLoaded()) {
+                loaded.add(module.getRecord(context, this.global));
+            }
+        }
+
+        records = context.newArray(this.global, loaded.toArray());
+
+        this.loadedRecords = records;
+
+        return records;
     }
 
     /**
@@ -231,7 +264,12 @@ final class ScriptModuleLoader {
             throw exception;
         }
 
-        for (String unknownName : module.collectHooks()) {
+        module.setLoaded();
+
+        this.loadedRecords = null;
+        this.loadCount++;
+
+        for (String unknownName : module.findUnknownHookNames()) {
             this.logOutput.write(LogLevel.WARNING, name, Exceptions.format("{0} is not a known hook and is not called.", unknownName));
         }
 
@@ -288,5 +326,7 @@ final class ScriptModuleLoader {
     void clear() {
         this.modulesByName.clear();
         this.modules.clear();
+
+        this.loadedRecords = null;
     }
 }

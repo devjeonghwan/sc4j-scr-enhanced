@@ -23,7 +23,7 @@ import java.util.Map;
 
 /**
  * Tests how {@link ScriptInputPlugin} hands the local keys, mouse buttons, chat lines and played frames to the local hooks: the event values,
- * the consumption, the channel commands the hooks send, the local information and the local screen move of {@code onLocalFrame}, a replay,
+ * the consumption, the script commands the hooks send, the local information and the local screen move of {@code onLocalFrame}, a replay,
  * a game without a submitter or a script, and the refusal of the local information in shared code.
  */
 final class ScriptInputPluginTest {

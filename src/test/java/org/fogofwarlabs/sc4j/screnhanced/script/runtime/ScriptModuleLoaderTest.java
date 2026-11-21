@@ -86,17 +86,17 @@ final class ScriptModuleLoaderTest {
                         """,
                 "broken.js", """
                         log.info('broken runs');
-                        function onFrame() {}
+                        function onFrame() { log.info('broken frame'); }
                         throw new Error('broken fails');
                         """
         );
         ScriptRuntimeScenario scenario = new ScriptRuntimeScenario(scriptPackage, ScriptRuntimeScenario.SEED, ScriptRuntime.INSTRUCTION_BUDGET);
 
         scenario.getRuntime().start();
+        scenario.getRuntime().runFrame(0);
 
         Assertions.assertEquals(List.of("Error The script package has no script missing.js.", "Error The script name ../outside is not valid.",
                                         "Error The script name /absolute is not valid.", "broken runs", "Error broken fails", "broken runs",
                                         "Error broken fails", "undefined"), scenario.getInfoMessages(), scenario.getLines()::toString);
-        Assertions.assertFalse(scenario.getRuntime().hasHook(ScriptHook.FRAME));
     }
 }

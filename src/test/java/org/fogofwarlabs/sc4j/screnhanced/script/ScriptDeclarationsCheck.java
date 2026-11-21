@@ -13,9 +13,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Reads the names of TypeScript declarations as {@code scr-enhanced.d.ts} writes them: the global declarations ({@code declare const},
- * {@code declare var}, {@code declare function}) with their types, and the interfaces with their bases and members. It reads names and
- * simple types only; call, construct and computed members are skipped.
+ * Reads the names of TypeScript declarations as {@code scr-enhanced.d.ts} and {@code core.d.ts} write them: the global declarations
+ * ({@code declare const}, {@code declare var}, {@code declare function}) with their types, and the interfaces with their bases and members. It
+ * reads names and simple types only; call, construct and computed members are skipped.
  */
 final class ScriptDeclarationsCheck {
     private static final @NotNull Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);

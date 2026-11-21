@@ -19,14 +19,23 @@ import java.util.stream.Stream;
  * <p>
  * A new script folder holds {@value ScriptManifest#FILE_NAME} (the folder name, the main script {@value #MAIN_FILE_NAME} and the script API
  * {@value #API_VERSION}), {@value #MAIN_FILE_NAME} (a commented example with {@code onStart} and {@code onFrame}), {@value #JSCONFIG_FILE_NAME}
- * (the editor settings: no library globals, checked scripts, every file its own module), {@value #DECLARATIONS_FILE_NAME} (the declarations
- * of everything a script sees) and the empty resource folder {@value ScriptPackage#RESOURCE_FOLDER}.
+ * (the editor settings: no library globals, checked scripts, every file its own module), {@value #CORE_DECLARATIONS_FILE_NAME} (the
+ * declarations of the lower layer {@code core}), {@value #DECLARATIONS_FILE_NAME} (the declarations of everything else a script sees) and
+ * the empty resource folder {@value ScriptPackage#RESOURCE_FOLDER}.
  */
 public final class ScriptProjectUtils {
     /**
-     * The file name of the script API declarations, a resource next to this class.
+     * The file name of the declarations of the upper layer, the runtime and the standard objects, a resource next to this class.
      */
     public static final @NotNull String DECLARATIONS_FILE_NAME = "scr-enhanced.d.ts";
+    /**
+     * The file name of the declarations of the lower layer {@code core}, a resource next to this class.
+     */
+    public static final @NotNull String CORE_DECLARATIONS_FILE_NAME = "core.d.ts";
+    /**
+     * The file names of the script API declarations, which a new script folder holds.
+     */
+    public static final @NotNull List<@NotNull String> DECLARATION_FILE_NAMES = List.of(CORE_DECLARATIONS_FILE_NAME, DECLARATIONS_FILE_NAME);
     /**
      * The file name of the editor settings.
      */
@@ -42,12 +51,12 @@ public final class ScriptProjectUtils {
 
     private static final @NotNull String MAIN_SCRIPT = """
             // The main script of the map: SC:R Enhanced runs it when the map starts; require('./other.js') loads another script.
-            // scr-enhanced.d.ts declares the script API, and jsconfig.json makes the editor check the scripts against it.
+            // scr-enhanced.d.ts and core.d.ts declare the script API, and jsconfig.json makes the editor check the scripts against them.
             // Hooks are top-level functions with known names. Type the event of a hook with JSDoc, such as
             // /** @param {UnitDiedEvent} event */ before function onUnitDied(event).
 
             /**
-             * Called once after the main script has loaded.
+             * Called once at the first frame, before the other hooks of the frame.
              */
             function onStart() {
                 game.print('The script runs.');
@@ -101,19 +110,23 @@ public final class ScriptProjectUtils {
         Files.writeString(absoluteFolder.resolve(ScriptManifest.FILE_NAME), JsonWriterUtils.write(manifest), StandardCharsets.UTF_8);
         Files.writeString(absoluteFolder.resolve(MAIN_FILE_NAME), MAIN_SCRIPT, StandardCharsets.UTF_8);
         Files.writeString(absoluteFolder.resolve(JSCONFIG_FILE_NAME), JsonWriterUtils.write(createJsconfig()), StandardCharsets.UTF_8);
-        Files.write(absoluteFolder.resolve(DECLARATIONS_FILE_NAME), readDeclarations());
+
+        for (String fileName : DECLARATION_FILE_NAMES) {
+            Files.write(absoluteFolder.resolve(fileName), readDeclarations(fileName));
+        }
     }
 
     /**
-     * Reads the script API declarations ({@value #DECLARATIONS_FILE_NAME}).
+     * Reads a file of the script API declarations ({@link #DECLARATION_FILE_NAMES}).
      *
+     * @param fileName the file name
      * @return the UTF-8 text of the declarations
      * @throws IOException if the resource is missing or cannot be read
      */
-    public static byte @NotNull [] readDeclarations() throws IOException {
-        try (InputStream input = ScriptProjectUtils.class.getResourceAsStream(DECLARATIONS_FILE_NAME)) {
+    public static byte @NotNull [] readDeclarations(@NotNull String fileName) throws IOException {
+        try (InputStream input = ScriptProjectUtils.class.getResourceAsStream(fileName)) {
             if (input == null) {
-                throw Exceptions.newIOException("The script API declarations {0} are missing.", DECLARATIONS_FILE_NAME);
+                throw Exceptions.newIOException("The script API declarations {0} are missing.", fileName);
             }
 
             return input.readAllBytes();
@@ -139,7 +152,7 @@ public final class ScriptProjectUtils {
         options.put("paths", paths);
 
         jsconfig.put("compilerOptions", options);
-        jsconfig.put("include", List.of(DECLARATIONS_FILE_NAME, "**/*.js"));
+        jsconfig.put("include", List.of(CORE_DECLARATIONS_FILE_NAME, DECLARATIONS_FILE_NAME, "**/*.js"));
         jsconfig.put("exclude", List.of(ScriptPackage.RESOURCE_FOLDER));
 
         return jsconfig;

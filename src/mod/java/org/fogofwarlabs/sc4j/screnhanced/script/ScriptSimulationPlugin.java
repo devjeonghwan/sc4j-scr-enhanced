@@ -23,9 +23,9 @@ import org.jetbrains.annotations.NotNull;
  * The events of the game go into the runtime's queue with their frame, the events from before the first frame (the units the map and the
  * game start create) as well, and the runtime delivers them at the next frame start, before the triggers. A frame start whose frame number
  * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. The mod commands of the players go to
- * the runtime, which joins the channel commands into messages and queues them like the other events. After each frame start the channel
- * commands the script sent go to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}); the game's
- * {@link ScriptInputPlugin} sends those of the local hooks at once.
+ * the runtime, which joins the script commands into values and delivers them at the next frame start. After each frame start the script
+ * commands the script submitted go to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}); the game's
+ * {@link ScriptInputPlugin} sends those of the local code at once.
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
  * forgets the replacements of units whose slot was freed. The classic console of the game merges the console settings of the script
@@ -82,7 +82,7 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
      * trigger step also runs while the game is paused.
      * <p>
      * Every call forgets the image replacements of units whose slot was freed; the first call starts the script; the first call and every
-     * call whose frame number advanced run the script's frame; every call then hands the waiting channel commands to the game's mod command
+     * call whose frame number advanced run the script's frame; every call then hands the waiting script commands to the game's mod command
      * submitter, which drops them in a replay or for an observer.
      */
     @Override
@@ -138,8 +138,8 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
      * live game queues the mod commands of the local player through the game's mod command submitter
      * ({@link InterfaceLink#getModCommandSubmitter()}).
      * <p>
-     * The data goes to the runtime with the slot of the player and the current frame ({@link ScriptRuntime#queueModCommand}); the data of a
-     * player without a slot is ignored.
+     * The data goes to the runtime with the slot of the player ({@link ScriptRuntime#queueModCommand}); the data of a player without a slot is
+     * ignored.
      *
      * @param player the issuing player's record
      * @param data   the command data, which every plugin of the game receives; the plugin does not change it
@@ -149,7 +149,7 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
         int slot = this.findSlot(player);
 
         if (slot >= 0) {
-            this.runtime.queueModCommand(slot, data, this.game.getCurrentFrame());
+            this.runtime.queueModCommand(slot, data);
         }
     }
 

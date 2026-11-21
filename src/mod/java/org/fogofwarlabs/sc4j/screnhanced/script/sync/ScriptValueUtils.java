@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Encodes the values that the scripts send through a channel and decodes them back into script values.
+ * Encodes the values that the scripts submit as script commands and decodes them back into script values.
  * <p>
  * A value is {@code null}, a boolean, a number, a string, an array of values or a plain object (an object whose prototype is
  * {@code Object.prototype} or {@code null}) with values in its own enumerable string-keyed properties; symbol keys are skipped. Each value
