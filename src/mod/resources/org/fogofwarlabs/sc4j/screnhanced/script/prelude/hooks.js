@@ -71,6 +71,7 @@
     var LOCAL_BUTTON_FIELDS = ['button', 'modifiers', 'mousePosition'];
     var COMMAND_BUTTON_FIELDS = ['buttonSet', 'button', 'position', 'condition', 'conditionValue', 'action', 'actionValue', 'queued', 'hotkey'];
 
+    // Copies methods onto a prototype.
     function addMethods(prototype, methods) {
         for (var name in methods) {
             prototype[name] = methods[name];
@@ -98,6 +99,7 @@
         return prototype;
     }
 
+    // Reads the fields every unit event has: the frame, the unit, its type and its owner.
     function readUnitFields(record) {
         return {
             frame: record.frame,
@@ -118,6 +120,7 @@
         };
     }
 
+    // Reads the fields of a bullet event.
     function readBulletFields(record) {
         return {
             frame: record.frame,
@@ -350,6 +353,7 @@
                 };
             },
             methods: {
+                // The damage in shown hit points; setAmount takes a shown amount of at least 0 and throws a RangeError otherwise.
                 getAmount: function () {
                     return this.record.amount / RAW_SCALE;
                 },
@@ -362,6 +366,7 @@
 
                     this.record.amount = raw;
                 },
+                // Cancels the damage: the hit deals none.
                 cancel: function () {
                     this.record.cancelled = true;
                 },
@@ -416,6 +421,7 @@
                         this.record.targetY = target.y;
                     }
                 },
+                // Rejects the order: the unit does not take it.
                 reject: function () {
                     this.record.rejected = true;
                 },
@@ -505,6 +511,7 @@
         return freeze(createObject(kind.prototype, fields));
     }
 
+    // Creates the event, local input and decision objects of records.
     function createEvent(record) {
         return createKindObject(eventKinds[record.kind], record);
     }
@@ -530,6 +537,7 @@
         return hooks;
     }
 
+    // Copies the own fields of a record into a new object.
     function copyRecord(record) {
         var copy = {};
 
@@ -598,6 +606,7 @@
             }
         }
 
+        // The frame start in shared code: the kept cheats, onStart, the due timers, the channel handlers, the event hooks and onFrame.
         function frame(frameNumber) {
             execution.local = false;
 
@@ -681,17 +690,20 @@
             return result;
         }
 
+        // Local code after a played frame: the script button states, then onLocalFrame.
         function localFrame(frameNumber) {
             execution.local = true;
             updateScriptButtons(callForValue);
             callHooks(LOCAL_FRAME_HOOK, [frameNumber]);
         }
 
+        // Local code: onRender with the screen object.
         function render() {
             execution.local = true;
             callHooks(RENDER_HOOK, [screen]);
         }
 
+        // Local code: the hook of a local input, then the script buttons; returns true when the input was consumed.
         function localInput(record) {
             execution.local = true;
 

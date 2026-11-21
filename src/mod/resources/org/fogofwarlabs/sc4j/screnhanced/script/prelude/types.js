@@ -82,7 +82,7 @@
     var techTypePrototype = create(typePrototype);
     var orderPrototype = create(typePrototype);
 
-    // The image type whose HD anim this image type draws (images.rel), this image type for one with its own anim.
+    // The image type whose HD anim this image type draws (images.rel); this image type when it has its own anim.
     imageTypePrototype.getAnimImageType = function () {
         return ImageType.get(core.imageType.getAnimImageType(this.id));
     };
@@ -90,6 +90,7 @@
     imageTypePrototype.getDamageOverlayCount = function () {
         return core.imageType.getDamageOverlayCount(this.id);
     };
+    // Sets the damage overlay byte, 0 to 255. Shared code only.
     imageTypePrototype.setDamageOverlayCount = function (count) {
         core.imageType.setDamageOverlayCount(this.id, count);
     };
@@ -98,11 +99,13 @@
     unitTypePrototype.getAiStrength = function (air) {
         return core.ai.getUnitStrength(this.id, air);
     };
+    // Sets the strength against air or ground targets. Shared code only.
     unitTypePrototype.setAiStrength = function (air, strength) {
         core.ai.setUnitStrength(this.id, air, strength);
     };
 
-    // The shown maximum hit points and shields of a unit type: units.dat stores hit points in 1/256 and shields as shown.
+    // The shown maximum hit points and shields of a unit type: units.dat stores hit points in 1/256 and shields as shown. The setters are
+    // shared code only.
     unitTypePrototype.getMaxHp = function () {
         return this.getHitPoints() / RAW_SCALE;
     };
@@ -140,7 +143,7 @@
     };
 
     // Defines the methods of a DAT column on the type objects: get<Column>() and, for a writable column, set<Column>(value) with the raw
-    // value, or the type object a reference names (null for its none id).
+    // value, or the type object a reference names (null for its none id). The setters are shared code only.
     function defineDatColumn(prototype, namespace, column) {
         var read = namespace['get' + column.name];
         var write = column.writable ? namespace['set' + column.name] : null;
@@ -173,7 +176,7 @@
         }
     }
 
-    // Defines is<Flag>() and, for a writable column, set<Flag>(set) for each named bit of a DAT flag column.
+    // Defines is<Flag>() and, for a writable column, set<Flag>(set), shared code only, for a named bit of a DAT flag column.
     function defineDatFlag(prototype, namespace, column, flag) {
         var read = namespace['get' + column.name];
         var write = column.writable ? namespace['set' + column.name] : null;
@@ -195,6 +198,7 @@
         }
     }
 
+    // Defines the DAT methods of every table's type objects.
     function defineDatMethods(tables) {
         for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
             var table = tables[tableIndex];
@@ -217,6 +221,7 @@
 
     defineDatMethods(prelude.datTables);
 
+    // The names of the Key constants by virtual-key code.
     function createKeyNames() {
         var names = [];
 
@@ -254,6 +259,7 @@
     var resourceTypePrototype = create(typePrototype);
     var alliancePrototype = create(typePrototype);
 
+    // Creates the UnitGroup constants, their ids the unit operands from FIRST_UNIT_GROUP.
     function createUnitGroups() {
         var table = {};
 
@@ -291,7 +297,7 @@
         return createConstantTable(prototype, names, count, unnamedPrefix);
     }
 
-    // The game speeds, which name the entries of the frame duration table.
+    // The game speeds, which name the entries of the frame duration table; setFrameDuration (milliseconds) is shared code only.
     var gameSpeedPrototype = create(typePrototype);
 
     gameSpeedPrototype.getFrameDuration = function () {
@@ -309,7 +315,7 @@
     var drawFunctionPrototype = create(typePrototype);
     var bulletStatePrototype = create(typePrototype);
 
-    // The factor that scales the damage of the damage type against a unit size, 1 for full damage.
+    // The factor that scales the damage of the damage type against a unit size, 1 for full damage; setMultiplier is shared code only.
     damageTypePrototype.getMultiplier = function (size) {
         return core.combat.getDamageMultiplier(this.id, requireObject(size, unitSizePrototype, 'A unit size').id) / RAW_SCALE;
     };

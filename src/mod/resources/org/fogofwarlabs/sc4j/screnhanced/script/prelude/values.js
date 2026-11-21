@@ -16,7 +16,7 @@
     var SECONDS_PER_MINUTE = 60;
     // The victory states of core.player.endGame and of the result events.
     var VictoryState = Object.freeze({Dropped: 1, Defeat: 2, Victory: 3, Secured: 4, Draw: 5});
-    // Colours are numbers, packed 0xAARRGGBB with straight alpha.
+    // Colors are numbers, packed 0xAARRGGBB with straight alpha.
     var MAXIMUM_CHANNEL = 255;
     var ALPHA_FACTOR = 0x1000000;
     var RED_SHIFT = 16;
@@ -80,10 +80,12 @@
         });
     }
 
+    // Whether a value is an object made directly of the prototype.
     function isObjectOf(value, prototype) {
         return value !== null && typeof value === 'object' && getPrototypeOf(value) === prototype;
     }
 
+    // Returns the value when it is an object of the prototype; throws a TypeError otherwise.
     function requireObject(value, prototype, kind) {
         if (!isObjectOf(value, prototype)) {
             throw new TypeError(kind + ' is needed, not ' + value + '.');
@@ -121,6 +123,7 @@
         return identifier;
     }
 
+    // The prototype of the type objects and constants: getId(), getName() and toString(), which returns the name.
     var typePrototype = {
         getId: function () {
             return this.id;
@@ -133,6 +136,7 @@
         }
     };
 
+    // Adds get(id), null for an id outside the table, and getCount() to a constant table and freezes it.
     function defineTableFunctions(table, constants, count) {
         defineProperty(table, 'get', {
             value: function (id) {
@@ -185,6 +189,7 @@
         return defineTableFunctions(table, constants, count);
     }
 
+    // The prototype of the positions: an x and a y in map pixels.
     var positionPrototype = {
         getX: function () {
             return this.x;
@@ -201,6 +206,7 @@
         return freeze(createObject(positionPrototype, {x: x, y: y}));
     }
 
+    // Position.of(x, y) creates a position.
     var Position = freeze({
                               of: function (x, y) {
                                   return createPosition(x, y);
@@ -222,6 +228,7 @@
                           }
                       });
 
+    // Reads a color channel: an integer from 0 to 255, or a RangeError.
     function readChannel(value, name) {
         var channel = Number(value);
 
@@ -243,6 +250,8 @@
         return Math.round(alpha * MAXIMUM_CHANNEL);
     }
 
+    // The color constants and fromRgb (opaque), fromRgba (alpha from 0 to 1) and fromPalette; a channel outside its range throws a
+    // RangeError.
     var Color = freeze({
                            Transparent: 0x00000000,
                            Black: 0xFF000000,
@@ -262,7 +271,7 @@
                                return readAlpha(alpha) * ALPHA_FACTOR +
                                       (readChannel(red, 'red') << RED_SHIFT | readChannel(green, 'green') << GREEN_SHIFT | readChannel(blue, 'blue'));
                            },
-                           // The colour of a palette index of the map's tileset palette, opaque.
+                           // The color of a palette index of the map's tileset palette, opaque.
                            fromPalette: function (index) {
                                return core.screen.getPaletteColor(index);
                            }

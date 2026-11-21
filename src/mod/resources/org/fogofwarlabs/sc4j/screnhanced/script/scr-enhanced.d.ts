@@ -1,10 +1,23 @@
-// The declarations of SC:R Enhanced Script (script API version 1): everything a map script sees but the lower layer core (core.d.ts).
-// They stand alone: use them with "noLib": true, so that no browser or Node.js global is offered (jsconfig.json of `init`).
-// The scripts run in Rhino's interpreter: no class, async/await, spread (...) or for (const ... of ...); a const in a loop keeps its first
-// value and the closures of one for (let ...) loop share one binding. No eval, Function from strings, Date, timer or Java access.
+// SC:R Enhanced Script, script API version 1: the declarations of everything a map script sees except the lower layer core (core.d.ts).
+// The declarations stand alone: use them with "noLib": true, as the jsconfig.json of a new script project does, so that no browser or
+// Node.js global is offered.
+//
+// Scripts run in Rhino's interpreter: no class, async/await, spread (...) or for (const ... of ...); a const in a loop keeps its first value
+// and the closures of one for (let ...) loop share one binding. There is no eval, no Function from strings, and no Date, timer or Java access.
+//
+// Shared code is the module top level, onStart, onFrame, the event and decision hooks, the timers of game.every and game.after, and the
+// channel handlers. It runs identically on every player's game and may change the game state. Local code is onLocalFrame, onRender and the
+// local input hooks (onLocal...). It runs only on this player's machine, for display and input, and must not change anything shared code
+// reads. A member documented "Shared code only." throws a TypeError in local code, "Local code only." throws a TypeError in shared code, and
+// "Only in onRender." throws a TypeError outside onRender; a member without such a note works in both. A member that changes the game state
+// also throws a TypeError while the game is read-only, inside a decision hook ({@link Game.isReadOnly}).
+//
+// Positions and distances are map pixels unless a member names tiles (32 pixels); type and player ids are 0-based. An object that stays with a
+// unit, sprite, image or bullet throws an Error ("... does not exist") once that thing is gone; values outside their range throw a RangeError
+// and arguments of the wrong kind a TypeError.
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// The standard objects the scripts have.
+// The ECMAScript standard objects the runtime provides, as far as Rhino implements them.
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 interface Object {
@@ -716,46 +729,61 @@ interface Math {
 declare var Math: Math;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// The script runtime: modules, log and the script RNG.
+// The script runtime: modules, log and the script random numbers.
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * Writes to the SC:R Enhanced log with the module name: the values converted to strings and joined with spaces.
+ * Writes lines to the SC:R Enhanced log, prefixed with the module name: the values are converted to strings and joined with spaces.
  */
 interface Log {
+    /**
+     * Writes the values at the info level.
+     */
     info(...values: any[]): void;
 
+    /**
+     * Writes the values at the warning level.
+     */
     warn(...values: any[]): void;
 
+    /**
+     * Writes the values at the error level.
+     */
     error(...values: any[]): void;
 }
 
 /**
- * The log of the module.
+ * The log of the current module.
  */
 declare const log: Log;
 
 /**
- * The random numbers of the script, seeded from the game seed, the same on every peer and separate from the game's own random numbers.
+ * The random numbers of the script: seeded from the game seed, the same on every player's game and separate from the game's own random
+ * numbers. Shared code only.
  */
 interface Random {
     /**
-     * @returns a number at least 0 and below 1
+     * @returns a number from 0 inclusive to 1 exclusive
      */
     next(): number;
 
     /**
-     * @param bound a positive integer up to 2^53
-     * @returns an integer at least 0 and below the bound
+     * @param bound an integer from 1 to 2^53
+     * @returns an integer from 0 inclusive to the bound exclusive
+     * @throws RangeError if the bound is not an integer from 1 to 2^53
      */
     nextInt(bound: number): number;
 
     /**
+     * @param probability the probability from 0 to 1
      * @returns true with the probability
      */
     chance(probability: number): boolean;
 }
 
+/**
+ * The random numbers of the script.
+ */
 declare const random: Random;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -763,18 +791,17 @@ declare const random: Random;
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * The hooks a script may define, as top-level functions: {@code function onUnitDied(event) { ... }}. The prelude collects them per module
- * once the module has loaded and calls them from the game's entry points. A frame calls onStart (the first frame only), the due timers, the
- * channel handlers of the frame's commands, the event hooks ({@code on*}) of the frame's events ({@link CoreEvents.getFrameEvents}) and
- * onFrame, in this order, at the frame start before the triggers. Decision hooks ({@code onBefore*}) run inside the game routine and may only
- * change the decision. Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
+ * The hooks a script may define, as top-level functions: {@code function onUnitDied(event) { ... }}. The runtime collects them per module once
+ * the module has loaded and calls them from the game. A frame calls onStart (the first frame only), the due timers, the channel handlers of
+ * the frame's commands, the event hooks ({@code on*}) of the frame's events ({@link CoreEvents.getFrameEvents}) and onFrame, in this order, at
+ * the frame start before the triggers. The decision hooks ({@code onBefore*}) run inside the game routine and may change only the decision.
+ * Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
  *
- * Shared code (module top level, onStart, onFrame, the event and decision hooks, channel handlers, timers) runs the same on every peer and may
- * change the game. Local hooks ({@code onLocal*}, onRender) run on the local machine only, at once; the input hooks not in replays and not
- * for observers, onLocalFrame and onRender also there. They may read the game and the local information ({@link local}), move the local
- * screen and send ({@link Channel.send}, {@link PlayerValue.set}, {@link CoreCommand.submit}; nothing is sent in a replay or by an
- * observer), but changing the game, adding or cancelling a timer, creating a channel, drawing a random number or loading a new module throws.
- * They must not change variables that shared code reads.
+ * The local hooks ({@code onLocal*}, onRender) are local code and run on this player's machine only, at once. The input hooks do not run in
+ * replays or for observers; onLocalFrame and onRender do. Local code may read the game and the local information ({@link local}), move the
+ * local screen and send ({@link Channel.send}, {@link PlayerValue.set}, {@link CoreCommand.submit}; nothing is sent in a replay or by an
+ * observer), but changing the game, adding or cancelling a timer, creating a channel, drawing a random number or loading a new module throws a
+ * TypeError.
  */
 interface Hooks {
     /**
@@ -784,11 +811,19 @@ interface Hooks {
 
     /**
      * Called every game frame, before the triggers, after the timers, the channel handlers and the event hooks of the frame.
+     *
+     * @param frame the number of the game frame
      */
     onFrame?(frame: number): void;
 
+    /**
+     * Called for a unit that was created.
+     */
     onUnitCreated?(event: UnitCreatedEvent): void;
 
+    /**
+     * Called for a unit whose construction or training finished.
+     */
     onUnitCompleted?(event: UnitCompletedEvent): void;
 
     /**
@@ -801,6 +836,9 @@ interface Hooks {
      */
     onUnitDamaged?(event: UnitDamagedEvent): void;
 
+    /**
+     * Called for an order issued to a unit.
+     */
     onOrderIssued?(event: OrderIssuedEvent): void;
 
     /**
@@ -808,18 +846,39 @@ interface Hooks {
      */
     onTargetAcquired?(event: TargetAcquiredEvent): void;
 
+    /**
+     * Called for a unit that a producer trained, with the producer.
+     */
     onUnitTrained?(event: UnitTrainedEvent): void;
 
+    /**
+     * Called for a technology whose research finished.
+     */
     onResearchCompleted?(event: ResearchCompletedEvent): void;
 
+    /**
+     * Called for an upgrade level whose research finished.
+     */
     onUpgradeCompleted?(event: UpgradeCompletedEvent): void;
 
+    /**
+     * Called for a spell a unit cast.
+     */
     onSpellCast?(event: SpellCastEvent): void;
 
+    /**
+     * Called for a bullet the game created.
+     */
     onBulletCreated?(event: BulletCreatedEvent): void;
 
+    /**
+     * Called for a bullet that hit or missed its target.
+     */
     onBulletHit?(event: BulletHitEvent): void;
 
+    /**
+     * Called for a unit that changed its owner.
+     */
     onOwnerChanged?(event: OwnerChangedEvent): void;
 
     /**
@@ -843,65 +902,69 @@ interface Hooks {
     onPlayerResult?(event: PlayerResultEvent): void;
 
     /**
-     * Local: called for a chat line the local player submitted, before it is sent.
+     * Local code: called for a chat line the local player submitted, before it is sent.
      */
     onLocalChat?(event: LocalChatEvent): void;
 
     /**
-     * Local: called for a key the local player pressed while the game takes play keys, before the game's own keys.
+     * Local code: called for a key the local player pressed while the game takes play keys, before the game's own keys.
      */
     onLocalKeyDown?(event: LocalKeyEvent): void;
 
     /**
-     * Local: called for a key the local player released.
+     * Local code: called for a key the local player released.
      */
     onLocalKeyUp?(event: LocalKeyEvent): void;
 
     /**
-     * Local: called for a mouse button the local player pressed over the map, before the game's own handling.
+     * Local code: called for a mouse button the local player pressed over the map, before the game's own handling.
      */
     onLocalMouseDown?(event: LocalMouseButtonEvent): void;
 
     /**
-     * Local: called for a mouse button the local player released.
+     * Local code: called for a mouse button the local player released.
      */
     onLocalMouseUp?(event: LocalMouseButtonEvent): void;
 
     /**
-     * Local: called for an enabled command card button the local player pressed, by a click or a hotkey, before its action runs; consuming the
-     * press runs no action. Called in a live game only.
+     * Local code: called for an enabled command card button the local player pressed, by a click or a hotkey, before its action runs;
+     * consuming the press runs no action. Called in a live game only.
      */
     onLocalButtonPressed?(event: LocalButtonPressedEvent): void;
 
     /**
-     * Local: called for the unit or map point the local player targeted with a ScriptTarget button; consuming the target keeps the targeting
-     * mode, as a refused target of an order does.
+     * Local code: called for the unit or map point the local player targeted with a ScriptTarget button; consuming the target keeps the
+     * targeting mode, as a refused target of an order does.
      */
     onLocalButtonTargeted?(event: LocalButtonTargetedEvent): void;
 
     /**
-     * Local: called after each game frame this machine plays, live or in a replay, with the frame number that onFrame received.
+     * Local code: called after each game frame this machine plays, live or in a replay.
+     *
+     * @param frame the frame number that onFrame received
      */
     onLocalFrame?(frame: number): void;
 
     /**
-     * Local: called after onLocalFrame to draw; what it draws stays on screen until the next call. It has its own instruction budget: a call
-     * over it draws nothing; a call that throws keeps what it drew.
+     * Local code: called after onLocalFrame to draw; what it draws stays on screen until the next call. It has its own instruction budget: a
+     * call over the budget draws nothing; a call that throws keeps what it drew.
+     *
+     * @param screen the screen to draw on
      */
     onRender?(screen: Screen): void;
 
     /**
-     * Decides the damage of a weapon hit.
+     * Decides the damage of a weapon hit; the game is read-only meanwhile.
      */
     onBeforeDamage?(decision: DamageDecision): void;
 
     /**
-     * Decides an order issued to a unit.
+     * Decides an order issued to a unit; the game is read-only meanwhile.
      */
     onBeforeOrder?(decision: OrderDecision): void;
 
     /**
-     * Decides the target an automatic target search found.
+     * Decides the target an automatic target search found; the game is read-only meanwhile.
      */
     onBeforeTargetAcquired?(decision: TargetAcquisitionDecision): void;
 }
@@ -911,36 +974,43 @@ interface Hooks {
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * A type of the original data or a constant: the same object for the same id.
+ * A type of the game data or a constant: one object per id, so two of them compare with ===.
  */
 interface GameType {
     /**
-     * @returns the id, which the lower layer {@link core} takes
+     * @returns the 0-based id, which the lower layer {@link core} takes
      */
     getId(): number;
 
     /**
-     * @returns the original data name ("Terran Marine") or the constant's name
+     * @returns the game data name ("Terran Marine") or the constant's name
      */
     getName(): string;
 }
 
 /**
- * The constants of a table by id.
+ * A table of constants by id; the named constants are also its properties.
  */
 interface ConstantTable<T> {
     /**
+     * @param id the 0-based id
      * @returns the constant of the id, or null for an id outside the table
      */
     get(id: number): T | null;
 
+    /**
+     * @returns the number of ids, from 0 to the count minus one
+     */
     getCount(): number;
 }
 
-// BEGIN GENERATED DAT: the DAT columns of ScriptDatTables; ScriptDatTablesTest checks this block.
+// BEGIN GENERATED DAT: the DAT columns of the game data tables.
 
 /**
  * The units.dat values of the unit types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatUnits}).
  */
 interface UnitTypeData {
     /** Graphics (below 209) */
@@ -1426,6 +1496,9 @@ interface UnitTypeData {
 
 /**
  * The weapons.dat values of the weapon types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatWeapons}).
  */
 interface WeaponTypeData {
     /** Label */
@@ -1591,6 +1664,9 @@ interface WeaponTypeData {
 
 /**
  * The flingy.dat values of the flingy types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatFlingy}).
  */
 interface FlingyTypeData {
     /** Sprite */
@@ -1631,6 +1707,9 @@ interface FlingyTypeData {
 
 /**
  * The sprites.dat values of the sprite types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatSprites}).
  */
 interface SpriteTypeData {
     /** Image (below 999) */
@@ -1660,6 +1739,9 @@ interface SpriteTypeData {
 
 /**
  * The images.dat values of the image types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatImages}).
  */
 interface ImageTypeData {
     /** GRP File (read only) */
@@ -1721,6 +1803,9 @@ interface ImageTypeData {
 
 /**
  * The upgrades.dat values of the upgrade types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatUpgrades}).
  */
 interface UpgradeTypeData {
     /** Ore Cost */
@@ -1786,6 +1871,9 @@ interface UpgradeTypeData {
 
 /**
  * The techdata.dat values of the tech types: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatTechdata}).
  */
 interface TechTypeData {
     /** Ore Cost */
@@ -1846,6 +1934,9 @@ interface TechTypeData {
 
 /**
  * The orders.dat values of the orders: raw values of the current game.
+ * <p>
+ * The set functions change the game and work in shared code only. They throw a RangeError where the lower layer's
+ * set functions do ({@link CoreDatOrders}).
  */
 interface OrderData {
     /** Label */
@@ -1943,7 +2034,6 @@ interface OrderData {
 
     setObscuredOrder(order: Order | null): void;
 }
-
 // END GENERATED DAT
 
 /**
@@ -1951,12 +2041,14 @@ interface OrderData {
  */
 interface UnitType extends GameType, UnitTypeData {
     /**
-     * @returns the shown maximum hit points: {@link UnitTypeData.getHitPoints} / 256
+     * @returns the shown maximum hit points: {@link UnitTypeData.getHitPoints} divided by 256
      */
     getMaxHp(): number;
 
     /**
-     * Sets the shown maximum hit points: {@link UnitTypeData.setHitPoints} with the value times 256, rounded.
+     * Sets the shown maximum hit points: {@link UnitTypeData.setHitPoints} with the value times 256, rounded. Shared code only.
+     *
+     * @param hp the shown hit points
      */
     setMaxHp(hp: number): void;
 
@@ -1966,103 +2058,134 @@ interface UnitType extends GameType, UnitTypeData {
     getMaxShields(): number;
 
     /**
-     * Sets the maximum shields, the same as {@link UnitTypeData.setShieldAmount}.
+     * Sets the maximum shields, the same as {@link UnitTypeData.setShieldAmount}. Shared code only.
+     *
+     * @param shields the shown shields
      */
     setMaxShields(shields: number): void;
 
     /**
-     * Shows a name instead of the type's stat_txt name (tooltips, the selection, messages), also over the map's name of the type; null shows
-     * the game's name again. Shared code sets it on every peer, local code only on this machine.
+     * Shows a name instead of the type's stat_txt name (tooltips, the selection, messages), also over the map's name of the type. Shared code
+     * sets it on every player's game, local code only on this machine.
+     *
+     * @param text the name, or null to show the game's name again
      */
     setName(text: string | null): void;
 
     /**
-     * @returns the strength of the unit type against air or ground targets for the computer players
+     * @param air true for the strength against air targets, false against ground targets
+     * @returns the strength of the unit type for the computer players
      */
     getAiStrength(air: boolean): number;
 
+    /**
+     * Sets the strength of the unit type against air or ground targets for the computer players. Shared code only.
+     *
+     * @param air      true for the strength against air targets, false against ground targets
+     * @param strength the strength, at least 0
+     * @throws RangeError if the strength is negative
+     */
     setAiStrength(air: boolean, strength: number): void;
 }
 
 /**
- * A weapon type (weapons.dat).
+ * A weapon type (weapons.dat); its DAT values are those of {@link WeaponTypeData}.
  */
 interface WeaponType extends GameType, WeaponTypeData {
 }
 
 /**
- * A flingy type (flingy.dat), named after the sprite type of its sprite.
+ * A flingy type (flingy.dat), named after the sprite type of its sprite; its DAT values are those of {@link FlingyTypeData}.
  */
 interface FlingyType extends GameType, FlingyTypeData {
 }
 
 /**
- * A sprite type (sprites.dat), named after the image type of its image.
+ * A sprite type (sprites.dat), named after the image type of its image; its DAT values are those of {@link SpriteTypeData}.
  */
 interface SpriteType extends GameType, SpriteTypeData {
 }
 
 /**
- * An upgrade type (upgrades.dat).
+ * An upgrade type (upgrades.dat); its DAT values are those of {@link UpgradeTypeData}.
  */
 interface UpgradeType extends GameType, UpgradeTypeData {
 }
 
 /**
- * A technology (techdata.dat).
+ * A technology (techdata.dat); its DAT values are those of {@link TechTypeData}.
  */
 interface TechType extends GameType, TechTypeData {
 }
 
 /**
- * An order (orders.dat).
+ * An order (orders.dat); its DAT values are those of {@link OrderData}.
  */
 interface Order extends GameType, OrderData {
 }
 
 /**
- * An image type (images.dat), named after its GRP path in images.tbl ("unit\terran\marine.grp" is UnitTerranMarine).
+ * An image type (images.dat), named after its GRP path in images.tbl ("unit\terran\marine.grp" is UnitTerranMarine); its DAT values are those
+ * of {@link ImageTypeData}.
  */
 interface ImageType extends GameType, ImageTypeData {
     /**
-     * @returns the image type whose HD anim this image type draws (images.rel), this image type for one with its own anim
+     * @returns the image type whose HD anim this image type draws (images.rel), or this image type when it has its own anim
      */
     getAnimImageType(): ImageType;
 
     /**
-     * @returns the damage overlay byte: twice the flame positions of the image's damage overlay, a unit's damage states
+     * @returns the damage overlay byte: twice the flame positions of the image's damage overlay, which set a unit's damage states
      */
     getDamageOverlayCount(): number;
 
+    /**
+     * Sets the damage overlay byte. Shared code only.
+     *
+     * @param count the byte, 0 to 255
+     * @throws RangeError if the count is outside 0 to 255
+     */
     setDamageOverlayCount(count: number): void;
 }
 
 /**
- * A key by its Windows virtual-key code.
+ * A key by its Windows virtual-key code, which is its id.
  */
 interface Key extends GameType {
 }
 
+/**
+ * A mouse button: 0 left, 1 right, 2 middle.
+ */
 interface MouseButton extends GameType {
 }
 
 /**
- * A unit group of the trigger conditions and actions, which counts where a unit type does.
+ * A unit group of the trigger conditions and actions (any unit, men, buildings, factories), which counts where a unit type does.
  */
 interface UnitGroup extends GameType {
 }
 
+/**
+ * A score type of the Score condition and the Set Score action, 0 (total) to 7 (custom).
+ */
 interface ScoreType extends GameType {
 }
 
+/**
+ * A resource type: 0 minerals, 1 gas, 2 minerals and gas, 3 supply (the supply icon of the console only).
+ */
 interface ResourceType extends GameType {
 }
 
+/**
+ * An alliance status: 0 enemy, 1 ally, 2 allied victory.
+ */
 interface Alliance extends GameType {
 }
 
 /**
- * A game speed, which names an entry of the frame duration table.
+ * A game speed, which names an entry of the frame duration table: 0 slowest to 6 fastest.
  */
 interface GameSpeed extends GameType {
     /**
@@ -2072,7 +2195,10 @@ interface GameSpeed extends GameType {
 
     /**
      * Sets the milliseconds of a frame at the speed, as an EUD write does: the game takes it at once unless the game name overrides the
-     * speed; the turn timeouts of a network game keep their last durations.
+     * speed; the turn timeouts of a network game keep their last durations. Shared code only.
+     *
+     * @param milliseconds the frame duration, at least 0
+     * @throws RangeError if the duration is negative
      */
     setFrameDuration(milliseconds: number): void;
 }
@@ -2084,51 +2210,73 @@ interface Cheat extends GameType {
 }
 
 /**
- * A game type of the game header.
+ * A game type of the game header (Melee, Use Map Settings ...); its id is the header value.
  */
 interface GameMode extends GameType {
 }
 
 /**
- * A unit size of units.dat.
+ * A unit size of units.dat: 0 independent, 1 small, 2 medium, 3 large.
  */
 interface UnitSize extends GameType {
 }
 
 /**
- * A damage type of weapons.dat.
+ * A damage type of weapons.dat: 0 independent, 1 explosive, 2 concussive, 3 normal, 4 ignore armor.
  */
 interface DamageType extends GameType {
     /**
+     * @param size the unit size of the target
      * @returns the factor that scales the damage against the size, 1 for full damage
      */
     getMultiplier(size: UnitSize): number;
 
     /**
-     * Sets the factor, stored in 1/256.
+     * Sets the factor that scales the damage against the size; it is stored in 1/256, rounded. Shared code only.
+     *
+     * @param size   the unit size of the target
+     * @param factor the factor, at least 0; 1 for full damage
+     * @throws RangeError if the factor is negative
      */
     setMultiplier(size: UnitSize, factor: number): void;
 }
 
 /**
- * An elevation flag of a location; its id is its bit.
+ * An elevation flag of a location; its id is its bit of the location flags.
  */
 interface LocationFlag extends GameType {
 }
 
 /**
- * A map position in pixels.
+ * A map position in pixels; positions are immutable.
  */
 interface Position {
+    /**
+     * @returns the x in map pixels
+     */
     getX(): number;
 
+    /**
+     * @returns the y in map pixels
+     */
     getY(): number;
 }
 
+/**
+ * Creates positions.
+ */
 interface PositionStatic {
+    /**
+     * @param x the x in map pixels
+     * @param y the y in map pixels
+     * @returns the position
+     */
     of(x: number, y: number): Position;
 }
 
+/**
+ * Creates positions: {@code Position.of(x, y)}.
+ */
 declare const Position: PositionStatic;
 
 /**
@@ -2151,47 +2299,79 @@ interface TimeStatic {
     fromMilliseconds(milliseconds: number): number;
 }
 
+/**
+ * Converts durations to frames, for {@link Game.every} and {@link Game.after}.
+ */
 declare const Time: TimeStatic;
 
 /**
- * A unit filter: a function of the unit, or a unit type and an owner, each optional.
+ * A unit filter: a function that returns true for the units to take, or a unit type and an owner, each optional.
  */
 type UnitFilter = ((unit: Unit) => boolean) | { type?: UnitType; owner?: Player };
 
 /**
- * A unit: the same object while the unit lives. Every method but {@link Unit.exists} and {@link Unit.getId} throws once the unit is gone.
- * Hit points, shields and energy are the shown values.
+ * A unit: one object while the unit lives. Every method but {@link Unit.exists} and {@link Unit.getId} throws an Error once the unit is gone.
+ * Hit points, shields and energy are the shown values (the raw values divided by 256); setting them rounds to 1/256. A negative amount throws
+ * a RangeError.
  */
 interface Unit {
     /**
-     * @returns the unit's slot index, which the lower layer {@link core} takes
+     * @returns the unit's slot in the unit pool, from 1, which the lower layer {@link core} takes
      */
     getId(): number;
 
+    /**
+     * @returns true while the unit lives, false once it is gone and its slot holds another unit or none
+     */
     exists(): boolean;
 
+    /**
+     * @returns the unit type
+     */
     getType(): UnitType;
 
+    /**
+     * @returns the player who owns the unit
+     */
     getOwner(): Player;
 
     /**
-     * Gives the unit to a player as Give Units to Player does.
+     * Gives the unit to a player as Give Units to Player does. Shared code only.
+     *
+     * @returns false when the routine refuses
      */
     setOwner(player: Player): boolean;
 
+    /**
+     * @returns the x of the unit's center in map pixels
+     */
     getX(): number;
 
+    /**
+     * @returns the y of the unit's center in map pixels
+     */
     getY(): number;
 
+    /**
+     * @returns the unit's center in map pixels
+     */
     getPosition(): Position;
 
     /**
-     * Moves the unit as Move Unit does.
+     * Moves the unit as Move Unit does. Shared code only.
+     *
+     * @returns false when the routine refuses
      */
     setPosition(position: Position): boolean;
 
+    /**
+     * @returns the shown hit points
+     */
     getHp(): number;
 
+    /**
+     * Sets the hit points through the hit point routine, kept above 0 and at most the maximum. Shared code only.
+     */
     setHp(hp: number): void;
 
     /**
@@ -2199,9 +2379,14 @@ interface Unit {
      */
     getMaxHp(): number;
 
+    /**
+     * @returns the shields, 0 for a unit without shields
+     */
     getShields(): number;
 
     /**
+     * Sets the shields, at most the maximum. Shared code only.
+     *
      * @returns false for a unit without shields
      */
     setShields(shields: number): boolean;
@@ -2211,36 +2396,75 @@ interface Unit {
      */
     getMaxShields(): number;
 
+    /**
+     * @returns the energy, 0 for a unit without energy
+     */
     getEnergy(): number;
 
     /**
+     * Sets the energy, at most the maximum. Shared code only.
+     *
      * @returns false for a unit without energy
      */
     setEnergy(energy: number): boolean;
 
+    /**
+     * @returns the maximum energy after the energy upgrades of the unit's owner, 0 for a unit without energy
+     */
     getMaxEnergy(): number;
 
     /**
-     * Sets the hit points to a percentage of the maximum, as Modify Unit Hit Points does.
+     * Sets the hit points to a percentage of the maximum, as Modify Unit Hit Points does. Shared code only.
      */
     setHpPercent(percent: number): void;
 
+    /**
+     * Sets the shields to a percentage of the maximum, as Modify Unit Shield Points does. Shared code only.
+     *
+     * @returns false when the routine refuses
+     */
     setShieldsPercent(percent: number): boolean;
 
+    /**
+     * Sets the energy to a percentage of the maximum, as Modify Unit Energy does. Shared code only.
+     *
+     * @returns false when the routine refuses
+     */
     setEnergyPercent(percent: number): boolean;
 
+    /**
+     * @returns the current order
+     */
     getOrder(): Order;
 
+    /**
+     * @returns the target unit of the current order, or null for none
+     */
     getTarget(): Unit | null;
 
+    /**
+     * @returns the target position of the current order
+     */
     getTargetPosition(): Position;
 
+    /**
+     * @returns true once the unit is completed
+     */
     isCompleted(): boolean;
 
+    /**
+     * @returns true while the unit is cloaked, passive cloaking included
+     */
     isCloaked(): boolean;
 
+    /**
+     * @returns true while the unit is burrowed
+     */
     isBurrowed(): boolean;
 
+    /**
+     * @returns true while the unit is invincible
+     */
     isInvincible(): boolean;
 
     /**
@@ -2248,15 +2472,24 @@ interface Unit {
      */
     getImageType(): ImageType;
 
+    /**
+     * Makes the unit invincible or not, as Set Invincibility does. Shared code only.
+     */
     setInvincible(invincible: boolean): void;
 
     /**
-     * @returns the disabled status of a doodad, or of a unit under Lockdown, Stasis Field or Maelstrom
+     * @returns true for a disabled doodad, or a unit under Lockdown, Stasis Field or Maelstrom
      */
     isDisabled(): boolean;
 
+    /**
+     * Enables a doodad as Set Doodad State does. Shared code only.
+     */
     enableDoodad(): void;
 
+    /**
+     * Disables a doodad as Set Doodad State does. Shared code only.
+     */
     disableDoodad(): void;
 
     /**
@@ -2265,29 +2498,46 @@ interface Unit {
     getResources(): number;
 
     /**
+     * Sets the resource amount as Modify Unit Resource Amount does. Shared code only.
+     *
+     * @param amount the amount, 0 to 65535
      * @returns false for a unit that holds no resources
+     * @throws RangeError if the amount is outside 0 to 65535
      */
     setResources(amount: number): boolean;
 
     /**
-     * @returns the Interceptors or Scarabs of a Carrier or Reaver
+     * @returns the Interceptors or Scarabs of a Carrier or Reaver, inside and outside the hangar
      */
     getHangarCount(): number;
 
     /**
-     * Builds up to count Interceptors or Scarabs while the hangar takes another one.
+     * Builds up to count Interceptors or Scarabs while the hangar takes another one, as Modify Unit Hanger Count does. Shared code only.
      *
      * @returns false for a unit without a hangar
      */
     addHangarCount(count: number): boolean;
 
+    /**
+     * Kills the unit as Kill Unit does. Shared code only.
+     *
+     * @returns false when the routine refuses
+     */
     kill(): boolean;
 
+    /**
+     * Removes the unit as Remove Unit does. Shared code only.
+     *
+     * @returns false when the routine refuses
+     */
     remove(): boolean;
 
     /**
-     * Issues an order to a target unit or a position; without a target the unit's own position is the target. With {queued: true} the order
-     * goes behind the unit's queue when the order takes one, as a queued command does.
+     * Issues an order to a target unit or a position; without a target the unit's own position is the target. An order to a position without
+     * {queued: true} runs as the Order action does; a queued order or one to a unit goes through the order system after the order requirement
+     * test, and with {queued: true} it goes behind the unit's queue when the order takes one, as a queued command does. Shared code only.
+     *
+     * @throws RangeError if the order cannot be issued
      */
     issueOrder(order: Order, target?: Unit | Position | null, options?: IssueOrderOptions): void;
 
@@ -2296,22 +2546,32 @@ interface Unit {
      */
     getOrderQueue(): QueuedOrder[];
 
+    /**
+     * @returns the secondary order
+     */
     getSecondaryOrder(): Order;
 
+    /**
+     * @returns the state byte of the secondary order
+     */
     getSecondaryOrderState(): number;
 
     /**
-     * Sets the secondary order as the native routine does: a changed order starts from its first state.
+     * Sets the secondary order as the game does: a changed order starts from its first state and clears the unit in production. Shared code
+     * only.
      */
     setSecondaryOrder(order: Order): void;
 
     /**
-     * @returns the unit's command card button set, null for a set outside the table
+     * @returns the unit's command card button set, or null for a set outside the table
      */
     getButtonSet(): ButtonSet | null;
 
     /**
-     * Sets the unit's button set; the native routines of morphs, completion and burrowing set it again.
+     * Sets the unit's command card button set; the game sets it again when the unit morphs, completes or burrows. Shared code only.
+     *
+     * @param set a button set, a unit type (its set) or a set id
+     * @throws TypeError if the set is none of these or the id is outside the table
      */
     setButtonSet(set: ButtonSet | UnitType | number): void;
 
@@ -2320,6 +2580,9 @@ interface Unit {
      */
     getHpGain(): number;
 
+    /**
+     * Sets the shown hit points a unit under construction gains each frame, up to 65535/256. Shared code only.
+     */
     setHpGain(hp: number): void;
 
     /**
@@ -2327,10 +2590,13 @@ interface Unit {
      */
     getShieldGain(): number;
 
+    /**
+     * Sets the shown shields a unit under construction gains each frame, up to 65535/256. Shared code only.
+     */
     setShieldGain(shields: number): void;
 
     /**
-     * @returns the shown hit points the unit had before it morphed, which a cancelled Zerg building gives back
+     * @returns the whole hit points the unit had before it morphed, which a cancelled Zerg building gives back
      */
     getPreviousHp(): number;
 
@@ -2339,6 +2605,9 @@ interface Unit {
      */
     isVisibleTo(player: Player): boolean;
 
+    /**
+     * @returns true when the player detects the unit
+     */
     isDetectedBy(player: Player): boolean;
 
     /**
@@ -2347,7 +2616,8 @@ interface Unit {
     getVisibleTo(): Player[];
 
     /**
-     * @returns the unit's strength against air or ground targets for the computer players
+     * @param air true for the strength against air targets, false against ground targets
+     * @returns the unit's strength for the computer players
      */
     getAiStrength(air: boolean): number;
 
@@ -2356,90 +2626,182 @@ interface Unit {
      */
     readonly timers: UnitTimers;
 
+    /**
+     * @returns the shown hit points of the unit's Defensive Matrix
+     */
     getDefensiveMatrixHp(): number;
 
+    /**
+     * Sets the shown hit points of the unit's Defensive Matrix, up to 65535/256, as an EUD write stores them. Shared code only.
+     */
     setDefensiveMatrixHp(hp: number): void;
 
     /**
-     * Setting a count shows its overlay; 0 removes the spores.
+     * @returns the number of Acid Spores on the unit
      */
     getAcidSporeCount(): number;
 
+    /**
+     * Sets the number of Acid Spores on the unit, 0 to 255: a count shows its overlay, 0 removes the spores. Shared code only.
+     *
+     * @throws RangeError if the count is outside 0 to 255
+     */
     setAcidSporeCount(count: number): void;
 
+    /**
+     * @returns true when the player's Parasite is on the unit
+     */
     isParasitedBy(player: Player): boolean;
 
+    /**
+     * Puts the player's Parasite on the unit or takes it off. Shared code only.
+     */
     setParasitedBy(player: Player, parasited: boolean): void;
 
+    /**
+     * @returns true when an Optical Flare blinded the unit
+     */
     isBlind(): boolean;
 
+    /**
+     * @returns true when the player's Optical Flare blinded the unit
+     */
     isBlindedBy(player: Player): boolean;
 
+    /**
+     * Sets or clears the player's blindness bit of the unit. Shared code only.
+     */
     setBlindedBy(player: Player, blinded: boolean): void;
 
     /**
-     * The weapon and spell cooldowns in frames.
+     * @returns the frames until the ground weapon can fire again
      */
     getGroundCooldown(): number;
 
+    /**
+     * Sets the frames until the ground weapon can fire again, 0 to 255. Shared code only.
+     *
+     * @throws RangeError if the frames are outside 0 to 255
+     */
     setGroundCooldown(frames: number): void;
 
+    /**
+     * @returns the frames until the air weapon can fire again
+     */
     getAirCooldown(): number;
 
+    /**
+     * Sets the frames until the air weapon can fire again, 0 to 255. Shared code only.
+     *
+     * @throws RangeError if the frames are outside 0 to 255
+     */
     setAirCooldown(frames: number): void;
 
+    /**
+     * @returns the frames until the unit can cast a spell again
+     */
     getSpellCooldown(): number;
 
+    /**
+     * Sets the frames until the unit can cast a spell again, 0 to 255. Shared code only.
+     *
+     * @throws RangeError if the frames are outside 0 to 255
+     */
     setSpellCooldown(frames: number): void;
 
+    /**
+     * @returns the unit's kill count
+     */
     getKillCount(): number;
 
+    /**
+     * Sets the unit's kill count, 0 to 255. Shared code only.
+     *
+     * @throws RangeError if the kills are outside 0 to 255
+     */
     setKillCount(kills: number): void;
 
     /**
-     * @returns the unit types in the build queue from the current one
+     * @returns the unit types in the build queue, from the current one
      */
     getBuildQueue(): UnitType[];
 
     /**
-     * The frames left of the current construction or training.
+     * @returns the frames left of the current construction or training
      */
     getRemainingBuildTime(): number;
 
+    /**
+     * Sets the frames left of the current construction or training, 0 to 65535. Shared code only.
+     *
+     * @throws RangeError if the frames are outside 0 to 65535
+     */
     setRemainingBuildTime(frames: number): void;
 
     /**
-     * The frames left of the current research or upgrade.
+     * @returns the frames left of the current research or upgrade
      */
     getRemainingResearchTime(): number;
 
+    /**
+     * Sets the frames left of the current research or upgrade, 0 to 65535. Shared code only.
+     *
+     * @throws RangeError if the frames are outside 0 to 65535
+     */
     setRemainingResearchTime(frames: number): void;
 
+    /**
+     * @returns the technology in research, or null for none
+     */
     getResearch(): TechType | null;
 
+    /**
+     * @returns the upgrade in research, or null for none
+     */
     getUpgrade(): UpgradeType | null;
 
+    /**
+     * @returns the add-on, or null for none
+     */
     getAddon(): Unit | null;
 
+    /**
+     * @returns the rally point in map pixels
+     */
     getRallyPosition(): Position;
 
     /**
+     * Sets the rally point to a position, x and y from 0 to 65535. Shared code only.
+     *
      * @returns false for a unit type without a rally point
+     * @throws RangeError if a coordinate is outside 0 to 65535
      */
     setRallyPosition(position: Position): boolean;
 
+    /**
+     * @returns the rally unit, or null for none
+     */
     getRallyUnit(): Unit | null;
 
     /**
+     * Sets the rally unit. Shared code only.
+     *
+     * @param unit the rally unit, or null for none
      * @returns false for a unit type without a rally point
      */
     setRallyUnit(unit: Unit | null): boolean;
 
     /**
-     * The direction from 0 to 255; setting it turns the unit at once.
+     * @returns the direction, 0 to 255
      */
     getDirection(): number;
 
+    /**
+     * Turns the unit to a direction at once. Shared code only.
+     *
+     * @param direction the direction, 0 to 255
+     * @throws RangeError if the direction is outside 0 to 255
+     */
     setDirection(direction: number): void;
 
     /**
@@ -2447,27 +2809,38 @@ interface Unit {
      */
     getCurrentSpeed(): number;
 
+    /**
+     * @returns the top speed in 1/256 pixels per frame
+     */
     getTopSpeed(): number;
 
+    /**
+     * @returns the position the unit moves to
+     */
     getMoveTarget(): Position;
 
+    /**
+     * Sets the position the unit moves to, x and y from 0 to 65535. Shared code only.
+     *
+     * @throws RangeError if a coordinate is outside 0 to 65535
+     */
     setMoveTarget(position: Position): void;
 
     /**
-     * Changes the unit's type through the morph routine, which keeps the unit, scales its hit points and rebuilds its sprite.
+     * Changes the unit's type through the morph routine, which keeps the unit, scales its hit points and rebuilds its sprite. Shared code only.
      *
      * @returns false for a subunit, a subunit type, or a type whose turret does not match the unit's
      */
     setType(type: UnitType): boolean;
 
     /**
-     * @returns the unit's sprite, null for none
+     * @returns the unit's sprite, or null for none
      */
     getSprite(): Sprite | null;
 
     /**
      * Runs the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target, two for a weapon of damage
-     * factor 2, none for a weapon without a flingy; only in shared code.
+     * factor 2, none for a weapon without a flingy. Shared code only.
      */
     useWeapon(weaponType: WeaponType): void;
 }
@@ -2476,6 +2849,9 @@ interface Unit {
  * The options of {@link Unit.issueOrder}.
  */
 interface IssueOrderOptions {
+    /**
+     * True to put the order behind the unit's queue, as a queued command does; false by default.
+     */
     queued?: boolean;
 }
 
@@ -2483,18 +2859,29 @@ interface IssueOrderOptions {
  * An order waiting in a unit's queue ({@link Unit.getOrderQueue}).
  */
 interface QueuedOrder {
+    /**
+     * The order.
+     */
     readonly order: Order;
+    /**
+     * The target unit, or null for none or a unit that is gone.
+     */
     readonly target: Unit | null;
+    /**
+     * The target position.
+     */
     readonly position: Position;
     /**
-     * The unit type the order builds or trains, null for none.
+     * The unit type the order builds or trains, or null for none.
      */
     readonly unitType: UnitType | null;
 }
 
 /**
- * The timers of a unit ({@link Unit.timers}). The status timers count status steps of eight frames: a timer that starts runs the effect's apply
- * routine (overlay, disabling, speed) before it takes the value; 0 runs the effect's end routine. Every method throws once the unit is gone.
+ * The timers of a unit ({@link Unit.timers}). The status timers count status steps of eight frames, 0 to 255. Starting the Ensnare, Lockdown,
+ * Stasis Field, Maelstrom, Plague or Irradiate timer runs the effect's apply routine (overlay, disabling, slowing) before it takes the value,
+ * and 0 runs the effect's end routine. Every method throws an Error once the unit is gone; the setters are shared code only and throw a
+ * RangeError for a value outside their range.
  */
 interface UnitTimers {
     /**
@@ -2503,7 +2890,7 @@ interface UnitTimers {
     getStim(): number;
 
     /**
-     * Sets the Stim Packs timer in status steps.
+     * Sets the Stim Packs timer in status steps, 0 to 255; starting or ending it refreshes the unit's speed. Shared code only.
      */
     setStim(timer: number): void;
 
@@ -2513,7 +2900,7 @@ interface UnitTimers {
     getEnsnare(): number;
 
     /**
-     * Sets the Ensnare timer in status steps.
+     * Sets the Ensnare timer in status steps, 0 to 255. Shared code only.
      */
     setEnsnare(timer: number): void;
 
@@ -2523,7 +2910,7 @@ interface UnitTimers {
     getLockdown(): number;
 
     /**
-     * Sets the Lockdown timer in status steps.
+     * Sets the Lockdown timer in status steps, 0 to 255. Shared code only.
      */
     setLockdown(timer: number): void;
 
@@ -2533,7 +2920,7 @@ interface UnitTimers {
     getStasis(): number;
 
     /**
-     * Sets the Stasis Field timer in status steps.
+     * Sets the Stasis Field timer in status steps, 0 to 255. Shared code only.
      */
     setStasis(timer: number): void;
 
@@ -2543,7 +2930,7 @@ interface UnitTimers {
     getMaelstrom(): number;
 
     /**
-     * Sets the Maelstrom timer in status steps.
+     * Sets the Maelstrom timer in status steps, 0 to 255. Shared code only.
      */
     setMaelstrom(timer: number): void;
 
@@ -2553,7 +2940,7 @@ interface UnitTimers {
     getPlague(): number;
 
     /**
-     * Sets the Plague timer in status steps.
+     * Sets the Plague timer in status steps, 0 to 255. Shared code only.
      */
     setPlague(timer: number): void;
 
@@ -2563,17 +2950,17 @@ interface UnitTimers {
     getIrradiate(): number;
 
     /**
-     * Sets the Irradiate timer in status steps.
+     * Sets the Irradiate timer in status steps, 0 to 255. Shared code only.
      */
     setIrradiate(timer: number): void;
 
     /**
-     * @returns the Psionic Storm timer in status steps
+     * @returns the Psionic Storm timer
      */
     getStorm(): number;
 
     /**
-     * Sets the Psionic Storm timer in status steps.
+     * Sets the Psionic Storm timer, 0 to 255, as an EUD write stores it. Shared code only.
      */
     setStorm(timer: number): void;
 
@@ -2583,7 +2970,8 @@ interface UnitTimers {
     getDefensiveMatrix(): number;
 
     /**
-     * Sets the Defensive Matrix timer in status steps.
+     * Sets the Defensive Matrix timer in status steps, 0 to 255: starting it adds the overlays, 0 ends the matrix as its expiry does. Shared
+     * code only.
      */
     setDefensiveMatrix(timer: number): void;
 
@@ -2593,33 +2981,52 @@ interface UnitTimers {
     getRemove(): number;
 
     /**
-     * Sets the frames until the unit is removed.
+     * Sets the frames until the unit is removed, 0 to 65535. Shared code only.
      */
     setRemove(frames: number): void;
 }
 
 /**
- * The options of a unit count: only the units at a location, only completed units.
+ * The options of a unit count ({@link PlayerUnits.count}).
  */
 interface UnitCountOptions {
+    /**
+     * Counts only the units at the location; null or none counts everywhere.
+     */
     location?: Location | null;
+    /**
+     * True to count only completed units; false by default.
+     */
     completed?: boolean;
 }
 
 /**
- * The options of a unit removal: only the units at a location, at most count units (all without one).
+ * The options of a unit removal ({@link PlayerUnits.kill}, {@link PlayerUnits.remove}).
  */
 interface UnitRemovalOptions {
+    /**
+     * Takes only the units at the location; null or none takes them everywhere.
+     */
     location?: Location | null;
+    /**
+     * The most units to take, at least 1; all without one.
+     */
     count?: number;
 }
 
 /**
- * A player by slot, from 0 (the original player 1).
+ * A player by slot, from 0 (the game's player 1) to 11; one object per slot. The resource writes leave players 8 to 11 unchanged, as Set
+ * Resources does.
  */
 interface Player {
+    /**
+     * @returns the slot, from 0
+     */
     getId(): number;
 
+    /**
+     * @returns the player's name
+     */
     getName(): string;
 
     /**
@@ -2627,61 +3034,112 @@ interface Player {
      */
     getRace(): number;
 
+    /**
+     * @returns true for a human player
+     */
     isHuman(): boolean;
 
+    /**
+     * @returns the player's minerals
+     */
     getMinerals(): number;
 
+    /**
+     * Sets the minerals as Set Resources does, the gathered total too. Shared code only.
+     */
     setMinerals(minerals: number): void;
 
+    /**
+     * Adds minerals as Set Resources does, to the gathered total too. Shared code only.
+     */
     addMinerals(minerals: number): void;
 
+    /**
+     * Subtracts minerals as Set Resources does: 0 when the amount is not below the current one. Shared code only.
+     */
     subtractMinerals(minerals: number): void;
 
+    /**
+     * @returns the player's gas
+     */
     getGas(): number;
 
+    /**
+     * Sets the gas as Set Resources does, the gathered total too. Shared code only.
+     */
     setGas(gas: number): void;
 
+    /**
+     * Adds gas as Set Resources does, to the gathered total too. Shared code only.
+     */
     addGas(gas: number): void;
 
+    /**
+     * Subtracts gas as Set Resources does: 0 when the amount is not below the current one. Shared code only.
+     */
     subtractGas(gas: number): void;
 
     /**
-     * Ends the game for the player as Victory does.
+     * Ends the game for the player, one from 0 to 7, as Victory does. Shared code only.
      */
     win(): boolean;
 
     /**
-     * Ends the game for the player as Defeat does; false after a victory.
+     * Ends the game for the player, one from 0 to 7, as Defeat does. Shared code only.
+     *
+     * @returns false after a victory
      */
     lose(): boolean;
 
     /**
-     * Ends the game for the player as Draw does; false after a victory.
+     * Ends the game for the player, one from 0 to 7, as Draw does. Shared code only.
+     *
+     * @returns false after a victory
      */
     draw(): boolean;
 
     /**
      * @param race the race from 0 (Zerg) to 2 (Protoss), the player's race without one
+     * @returns the shown supply the player's units of the race use
      */
     getSupplyUsed(race?: number): number;
 
+    /**
+     * @param race the race from 0 (Zerg) to 2 (Protoss), the player's race without one
+     * @returns the shown supply the player's units of the race provide
+     */
     getSupplyProvided(race?: number): number;
 
+    /**
+     * @param race the race from 0 (Zerg) to 2 (Protoss), the player's race without one
+     * @returns the shown supply limit of the race
+     */
     getSupplyMax(race?: number): number;
 
+    /**
+     * @returns true when this player is allied with the other player
+     */
     isAlliedWith(player: Player): boolean;
 
+    /**
+     * @returns true when this player is an enemy of the other player
+     */
     isEnemyOf(player: Player): boolean;
 
+    /**
+     * @returns this player's alliance status toward the other player
+     */
     getAlliance(player: Player): Alliance;
 
     /**
-     * Sets the alliance toward another player as Set Alliance Status does.
+     * Sets the alliance status toward another player, one from 0 to 7, as Set Alliance Status does. Shared code only.
      */
     setAlliance(player: Player, alliance: Alliance): void;
 
     /**
-     * @returns minerals, gas, or minerals and gas, as the Accumulate condition reads them
+     * @param resourceType minerals, gas, or minerals and gas
+     * @returns the resources as the Accumulate condition reads them
+     * @throws RangeError for the supply resource type
      */
     getResources(resourceType: ResourceType): number;
 
@@ -2691,52 +3149,69 @@ interface Player {
     countOpponents(): number;
 
     /**
-     * Starts an AI script by its four-character name ("EnBk"), at a location when one is given.
+     * Starts an AI script, at a location when one is given. Shared code only.
      *
+     * @param name the four-character name of the script ("EnBk"), each character up to 0xFF
      * @returns false when the player may not run it
+     * @throws RangeError if the name is not four such characters
      */
     runAiScript(name: string, location?: Location | null): boolean;
 
+    /**
+     * Sets the player's mission objectives as Set Mission Objectives does. Shared code only.
+     */
     setMissionObjectives(text: string): void;
 
     /**
-     * Shows a text on the player's screen; with {forced: false} only when the subtitle option is on.
+     * Shows a text on the player's screen as Display Text Message does, when the player is the local player; with {forced: false} only when
+     * the subtitle option is on. Shared code only.
      */
     print(text: string, options?: { forced?: boolean }): void;
 
+    /**
+     * Pings the minimap at a position as Minimap Ping does, when the player is the local player. Shared code only.
+     */
     pingMinimap(position: Position): void;
 
     /**
-     * Plays a sound file of the map archive by its path.
+     * Plays a sound file of the map archive by its path, as Play WAV does, when the player is the local player. Shared code only.
      */
     playSound(path: string): void;
 
     /**
-     * Shows the talking portrait of a unit type for a number of frames.
+     * Shows the talking portrait of a unit type as Talking Portrait does, when the player is the local player. Shared code only.
+     *
+     * @param frames the duration in frames, at least 0
+     * @throws RangeError if the duration is negative
      */
     showTalkingPortrait(unitType: UnitType, frames: number): void;
 
+    /**
+     * Mutes or unmutes unit speech as Mute and Unmute Unit Speech do, when the player is the local player. Shared code only.
+     */
     setUnitSpeechMuted(muted: boolean): void;
 
     /**
-     * Centers the screen on a position when the player is the local player; the screens of the other peers stay.
+     * Centers the screen on a position when the player is the local player; the screens of the other players stay. Shared code only.
      */
     centerView(position: Position): void;
 
     /**
-     * @returns the player's selection, which the selection commands change and every peer holds: the live units in selection order, empty
-     *          for players 8 to 11
+     * Returns the player's selection as every player's game holds it; the selection commands change it.
+     *
+     * @returns the live units in selection order, empty for players 8 to 11
      */
     getSelection(): Unit[];
 
     /**
-     * Replaces the player's selection as a selection command of the player does, on every peer at the same frame, and shows it as the local
-     * selection when the player is the local player. Shared code only. The command's rules may leave units out: a hidden unit, and in a
-     * selection of more than one unit a building, a unit of another player or one that cannot join a group. An empty array clears the
-     * selection.
+     * Replaces the player's selection as a selection command of the player does, on every player's game at the same frame, and shows it as
+     * the local selection when the player is the local player. The command's rules may leave units out: a hidden unit, and in a selection of
+     * more than one unit a building, a unit of another player or one that cannot join a group. An empty array clears the selection. Shared
+     * code only.
      *
-     * @param units at most 12 units that exist; more throw a RangeError
+     * @param units at most 12 units that exist
      * @returns true if every unit was selected, false if the rules left some out
+     * @throws RangeError for more than 12 units
      */
     setSelection(units: Unit[]): boolean;
 
@@ -2774,10 +3249,19 @@ interface Player {
      */
     getGatheredMinerals(): number;
 
+    /**
+     * Sets the minerals of the gathered total of the score. Shared code only.
+     */
     setGatheredMinerals(minerals: number): void;
 
+    /**
+     * @returns the gas of the gathered total of the score
+     */
     getGatheredGas(): number;
 
+    /**
+     * Sets the gas of the gathered total of the score. Shared code only.
+     */
     setGatheredGas(gas: number): void;
 
     /**
@@ -2785,6 +3269,11 @@ interface Player {
      */
     getPausesLeft(): number;
 
+    /**
+     * Sets the pauses a player from 0 to 7 has left in a network game, 0 to 255. Shared code only.
+     *
+     * @throws RangeError if the pauses are outside 0 to 255
+     */
     setPausesLeft(pauses: number): void;
 
     /**
@@ -2793,19 +3282,24 @@ interface Player {
     getStartLocation(): Position | null;
 
     /**
+     * Moves the start location, x and y from 0 to 65535. Shared code only.
+     *
      * @returns false for a player without a start location
      */
     setStartLocation(position: Position): boolean;
 
     /**
-     * @returns the palette indices of the player's unit color row, the eight remapped colors of a unit frame; the first one is also the HD team
-     *          color
+     * @returns the eight palette indices of the player's unit color row, the remapped colors of a unit frame; the first one is also the HD team color
      */
     getColor(): number[];
 
     /**
-     * Sets the eight palette indices (0 to 255) of the player's unit color row, as an EUD write does; the next drawn frame shows them. Shared code
-     * sets them on every peer, local code only on this machine. A player shown in a custom color of the game keeps it as its HD team color.
+     * Sets the eight palette indices (0 to 255) of the player's unit color row, as an EUD write does; the next drawn frame shows them. Shared
+     * code sets them on every player's game, local code only on this machine. A player shown in a custom color of the game keeps it as its HD
+     * team color.
+     *
+     * @throws TypeError if the argument is not an array of eight numbers
+     * @throws RangeError if an index is outside 0 to 255
      */
     setColor(paletteIndices: number[]): void;
 
@@ -2815,7 +3309,8 @@ interface Player {
     getMinimapColor(): number;
 
     /**
-     * Sets the palette index of the player's minimap dots; a player shown in a custom color of the game keeps it on the minimap.
+     * Sets the palette index (0 to 255) of the player's minimap dots; a player shown in a custom color of the game keeps it on the minimap.
+     * Shared code sets it on every player's game, local code only on this machine.
      */
     setMinimapColor(paletteIndex: number): void;
 }
@@ -2831,12 +3326,18 @@ interface PlayerVision {
 
     /**
      * Sets the players that see what this player's units see, without the vision command's permission test; the player sees its own units'
-     * sight only while it is among them.
+     * sight only while it is among them. Shared code only.
      */
     setSharedWith(players: Player[]): void;
 
+    /**
+     * @returns true when the other player sees what this player's units see
+     */
     isSharedWith(player: Player): boolean;
 
+    /**
+     * Shares this player's vision with another player or stops sharing it. Shared code only.
+     */
     shareWith(player: Player, shared: boolean): void;
 
     /**
@@ -2844,11 +3345,16 @@ interface PlayerVision {
      */
     canSee(position: Position): boolean;
 
+    /**
+     * @returns true when the player has explored the position
+     */
     hasExplored(position: Position): boolean;
 
     /**
-     * Marks the tile at a position explored by the player, still unseen until a unit of the player sees it, or unexplored and unseen; for a
-     * player from 0 to 7, only in shared code.
+     * Marks the tile at a position explored by the player, still unseen until a unit of the player sees it, or unexplored and unseen. Shared
+     * code only.
+     *
+     * @throws RangeError for a player from 8 to 11, who has no tile vision
      */
     setExplored(position: Position, explored: boolean): void;
 }
@@ -2863,7 +3369,7 @@ interface PlayerUpgrades {
     getLevel(upgrade: UpgradeType): number;
 
     /**
-     * Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
+     * Sets the level, 0 to 255, and refreshes the upgrade flags of the player's units, as a finished upgrade does. Shared code only.
      */
     setLevel(upgrade: UpgradeType, level: number): void;
 
@@ -2873,7 +3379,7 @@ interface PlayerUpgrades {
     getMaxLevel(upgrade: UpgradeType): number;
 
     /**
-     * Sets the highest level the player may research.
+     * Sets the highest level the player may research, 0 to 255. Shared code only.
      */
     setMaxLevel(upgrade: UpgradeType, level: number): void;
 
@@ -2893,7 +3399,7 @@ interface PlayerTechs {
     isResearched(tech: TechType): boolean;
 
     /**
-     * Marks the technology researched or not researched.
+     * Marks the technology researched or not researched. Shared code only.
      */
     setResearched(tech: TechType, researched: boolean): void;
 
@@ -2903,7 +3409,7 @@ interface PlayerTechs {
     isAvailable(tech: TechType): boolean;
 
     /**
-     * Allows or forbids researching the technology.
+     * Allows or forbids researching the technology. Shared code only.
      */
     setAvailable(tech: TechType, available: boolean): void;
 
@@ -2918,22 +3424,26 @@ interface PlayerTechs {
  */
 interface PlayerUnits {
     /**
-     * @returns the player's live units
+     * @returns the player's live units, in slot order
      */
     getAll(): Unit[];
 
     /**
-     * Counts the player's units as the Command and Bring conditions do.
+     * Counts the player's units as the Command condition does, or as the Bring condition does with a location.
      */
     count(unit: UnitType | UnitGroup, options?: UnitCountOptions): number;
 
     /**
-     * Kills the player's units as Kill Unit does.
+     * Kills the player's units as Kill Unit does. Shared code only.
+     *
+     * @throws RangeError if the count option is not positive
      */
     kill(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
 
     /**
-     * Removes the player's units as Remove Unit does.
+     * Removes the player's units as Remove Unit does. Shared code only.
+     *
+     * @throws RangeError if the count option is not positive
      */
     remove(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
 
@@ -2943,7 +3453,9 @@ interface PlayerUnits {
     isAvailable(unitType: UnitType): boolean;
 
     /**
-     * Sets the production availability of the map settings; a game without map settings throws when a type is made unavailable.
+     * Sets the production availability of the map settings. Shared code only.
+     *
+     * @throws TypeError if a type is made unavailable in a game without map settings
      */
     setAvailable(unitType: UnitType, available: boolean): void;
 }
@@ -2958,17 +3470,17 @@ interface PlayerDeaths {
     get(unit: UnitType | UnitGroup): number;
 
     /**
-     * Sets the deaths as Set Deaths does.
+     * Sets the deaths as Set Deaths does. Shared code only.
      */
     set(unit: UnitType | UnitGroup, amount: number): void;
 
     /**
-     * Adds to the deaths as Set Deaths does.
+     * Adds to the deaths as Set Deaths does. Shared code only.
      */
     add(unit: UnitType | UnitGroup, amount: number): void;
 
     /**
-     * Subtracts from the deaths as Set Deaths does.
+     * Subtracts from the deaths as Set Deaths does. Shared code only.
      */
     subtract(unit: UnitType | UnitGroup, amount: number): void;
 }
@@ -2993,43 +3505,67 @@ interface PlayerScore {
     get(scoreType: ScoreType): number;
 
     /**
-     * Sets the score as Set Score does.
+     * Sets the score as Set Score does. Shared code only.
      */
     set(scoreType: ScoreType, amount: number): void;
 
     /**
-     * Adds to the score as Set Score does.
+     * Adds to the score as Set Score does. Shared code only.
      */
     add(scoreType: ScoreType, amount: number): void;
 
     /**
-     * Subtracts from the score as Set Score does.
+     * Subtracts from the score as Set Score does. Shared code only.
      */
     subtract(scoreType: ScoreType, amount: number): void;
 }
 
 /**
- * A map location; the bounds are map pixels.
+ * A map location by its 0-based index; one object per location. The bounds are map pixels.
  */
 interface Location {
+    /**
+     * @returns the 0-based index of the location
+     */
     getId(): number;
 
+    /**
+     * @returns the location's name, or null for a location without one
+     */
     getName(): string | null;
 
+    /**
+     * @returns the left edge in map pixels
+     */
     getLeft(): number;
 
+    /**
+     * @returns the top edge in map pixels
+     */
     getTop(): number;
 
+    /**
+     * @returns the right edge in map pixels
+     */
     getRight(): number;
 
+    /**
+     * @returns the bottom edge in map pixels
+     */
     getBottom(): number;
 
+    /**
+     * @returns the center of the location's rectangle in map pixels
+     */
     getCenter(): Position;
 
+    /**
+     * Sets the bounds in map pixels. Shared code only.
+     */
     setBounds(left: number, top: number, right: number, bottom: number): void;
 
     /**
-     * Moves the location so the position is its center, kept inside the map as Move Location keeps it.
+     * Moves the location so the position is its center, kept inside the map as Move Location keeps it. Shared code only.
      */
     setCenter(position: Position): void;
 
@@ -3038,37 +3574,52 @@ interface Location {
      */
     hasFlag(flag: LocationFlag): boolean;
 
+    /**
+     * Sets or clears an elevation flag. Shared code only.
+     */
     setFlag(flag: LocationFlag, set: boolean): void;
 }
 
+/**
+ * A timer of {@link Game.every} or {@link Game.after}.
+ */
 interface Timer {
+    /**
+     * @returns the timer's id, unique in the game
+     */
     getId(): number;
 
     /**
-     * Cancels the timer; only in shared code, local code throws a TypeError.
+     * Cancels the timer. Shared code only.
      *
-     * @returns false when the timer was already cancelled
+     * @returns false when the timer was already cancelled or has run its only call
      */
     cancel(): boolean;
 }
 
 /**
- * The options of a leaderboard: the goal form with a goal.
+ * The options of a leaderboard.
  */
 interface LeaderboardOptions {
+    /**
+     * The goal, which shows the goal form of the leaderboard; none shows the plain form.
+     */
     goal?: number;
 }
 
 /**
- * The options of a control leaderboard: the goal form with a goal, Leader Board Control At Location with a location.
+ * The options of a control leaderboard.
  */
 interface ControlLeaderboardOptions extends LeaderboardOptions {
+    /**
+     * The location, which shows Leader Board Control At Location; null or none counts everywhere.
+     */
     location?: Location | null;
 }
 
 /**
- * The shared game: the same on every peer. Its groups are {@link map}, {@link players}, {@link units}, {@link switches}, {@link countdown} and
- * {@link leaderboard}.
+ * The game: the same on every player's game. Its groups are {@link map}, {@link players}, {@link units}, {@link switches}, {@link countdown},
+ * {@link leaderboard}, {@link settings}, {@link vision} and {@link combat}.
  */
 interface Game {
     /**
@@ -3087,7 +3638,7 @@ interface Game {
     isReadOnly(): boolean;
 
     /**
-     * Shows a text to all players.
+     * Shows a text to all players. Shared code only.
      */
     print(text: string): void;
 
@@ -3099,30 +3650,44 @@ interface Game {
     /**
      * Pauses the game as the Pause Game action does, at this frame's trigger step: nothing in a multiplayer session or while it is paused so
      * already. The paused game runs no frame, but onFrame keeps running at every trigger step with the frame number unchanged, so that it can
-     * call {@link Game.resume}. Only in shared code.
+     * call {@link Game.resume}. Shared code only.
      */
     pause(): void;
 
     /**
-     * Resumes the game that {@link Game.pause} or Pause Game paused, as the Unpause Game action does, at this frame's trigger step. Only in shared
-     * code.
+     * Resumes the game that {@link Game.pause} or Pause Game paused, as the Unpause Game action does, at this frame's trigger step: nothing in a
+     * multiplayer session. Shared code only.
      */
     resume(): void;
 
     /**
-     * Calls a function every given number of frames, first that many frames from now ({@link Time}), at the frame start before the hooks
-     * of the frame; only in shared code, local code throws a TypeError.
+     * Calls a function every given number of frames, first that many frames from now ({@link Time}), at the frame start before the hooks of
+     * the frame. The timers due at one frame run in the order of their due frames, then of their adding. Shared code only.
+     *
+     * @param frames the interval in frames, an integer of at least 1
+     * @throws TypeError if the interval is not an integer or the callback not a function
+     * @throws RangeError if the interval is below 1
      */
     every(frames: number, callback: () => void): Timer;
 
     /**
-     * Calls a function once, the given number of frames from now ({@link Time}), at the frame start before the hooks of the frame; only in
-     * shared code, local code throws a TypeError.
+     * Calls a function once, the given number of frames from now ({@link Time}), at the frame start before the hooks of the frame. Shared code
+     * only.
+     *
+     * @param frames the delay in frames, an integer of at least 1
+     * @throws TypeError if the delay is not an integer or the callback not a function
+     * @throws RangeError if the delay is below 1
      */
     after(frames: number, callback: () => void): Timer;
 
+    /**
+     * @returns the current game speed
+     */
     getSpeed(): GameSpeed;
 
+    /**
+     * @returns true while the cheat's bit of the cheat flags is set
+     */
     isCheatEnabled(cheat: Cheat): boolean;
 
     /**
@@ -3130,14 +3695,14 @@ interface Game {
      * the flags does, and writes the bit again at the start of every frame, as the always-running trigger of an EUD map does. It works in a
      * network game and where the game options forbid cheats. A reveal cheat (BlackSheepWall, WarAintWhatItUsedToBe) reveals nothing at once:
      * while its bit is set the game no longer marks the tiles unseen every 100 frames, so what the players saw stays seen; in a network game
-     * that tile update clears the reveal bits first and the next frame sets them again. Only in shared code. The native cheat routine, which
-     * reveals the map at once, is {@link core.game.applyCheats}.
+     * that tile update clears the reveal bits first and the next frame sets them again. The cheat routine of the game, which reveals the map at
+     * once, is {@link core.game.applyCheats}. Shared code only.
      */
     setCheatEnabled(cheat: Cheat, enabled: boolean): void;
 
     /**
      * Creates a sprite that lives as long as its image scripts run, as the game creates the sprite of a spell or of dust, with its elevation and
-     * its visibility from the tile below it; only in shared code.
+     * its visibility from the tile below it. Shared code only.
      *
      * @returns the sprite, or null when the pools are full
      */
@@ -3150,7 +3715,7 @@ interface Game {
 
     /**
      * Creates a bullet of a weapon at a position for a unit, aimed at the unit's order target unit, else its order target position, as the game
-     * creates one; only in shared code.
+     * creates one. Shared code only.
      *
      * @returns the bullet, or null when the game creates none (no free entry, no sprite, an attack the unit cannot make)
      */
@@ -3211,7 +3776,7 @@ interface EffectOptions {
 /**
  * A sprite of the sprite pool. The object stays with its sprite: once the sprite is gone and its slot holds another one, exists() is false and
  * every other method throws an Error. The pools of sprites and images also hold the buildings the local player remembers in the fog of war,
- * so the slots can differ from peer to peer in a network game: shared code may show them but should not let them decide the game.
+ * so the slots can differ from player to player in a network game: shared code may show them but should not let them decide the game.
  */
 interface Sprite {
     /**
@@ -3219,14 +3784,29 @@ interface Sprite {
      */
     getId(): number;
 
+    /**
+     * @returns true while the slot holds this sprite
+     */
     exists(): boolean;
 
+    /**
+     * @returns the sprite type
+     */
     getType(): SpriteType;
 
+    /**
+     * @returns the sprite's position in map pixels
+     */
     getPosition(): Position;
 
+    /**
+     * @returns the owner, or null for an owner byte that is no player slot
+     */
     getOwner(): Player | null;
 
+    /**
+     * @returns the elevation, 0 to 255
+     */
     getElevation(): number;
 
     /**
@@ -3234,23 +3814,41 @@ interface Sprite {
      */
     getImages(): SpriteImage[];
 
+    /**
+     * @returns the main image, or null for none
+     */
     getMainImage(): SpriteImage | null;
 
+    /**
+     * @returns true when the player sees the sprite
+     */
     isVisibleTo(player: Player): boolean;
 }
 
 /**
  * An image of the image pool ({@link CoreImage}). The object stays with its image: once the image is gone and its slot holds another one,
  * exists() is false and every other method throws an Error. Its frame, draw function and graphics change only what is drawn: shared code
- * changes them on every peer, local code on the local machine only.
+ * changes them on every player's game, local code on this machine only.
  */
 interface SpriteImage {
+    /**
+     * @returns the slot in the image pool
+     */
     getId(): number;
 
+    /**
+     * @returns true while the slot holds this image
+     */
     exists(): boolean;
 
+    /**
+     * @returns the image type
+     */
     getType(): ImageType;
 
+    /**
+     * @returns the sprite the image belongs to, or null for none
+     */
     getSprite(): Sprite | null;
 
     /**
@@ -3259,8 +3857,9 @@ interface SpriteImage {
     getFrame(): number;
 
     /**
-     * Draws a frame (0 to 65535) until the image's own frame changes, as an EUD write of the frame does; null draws the image's own frame
-     * again.
+     * Draws a frame until the image's own frame changes, as an EUD write of the frame does.
+     *
+     * @param frame the frame, 0 to 65535, or null to draw the image's own frame again
      */
     setFrame(frame: number | null): void;
 
@@ -3269,23 +3868,38 @@ interface SpriteImage {
      */
     getDirection(): number;
 
+    /**
+     * @returns the image's draw function
+     */
     getDrawFunction(): DrawFunction;
 
     /**
-     * Draws with a draw function until the image's own draw function changes, as an EUD write of the draw function does; null draws with
-     * the image's own again.
+     * Draws with a draw function until the image's own draw function changes, as an EUD write of the draw function does.
+     *
+     * @param drawFunction the draw function, or null to draw with the image's own again
      */
     setDrawFunction(drawFunction: DrawFunction | null): void;
 
+    /**
+     * @returns the x offset from the sprite's position in pixels
+     */
     getOffsetX(): number;
 
+    /**
+     * @returns the y offset from the sprite's position in pixels
+     */
     getOffsetY(): number;
 
     /**
      * Replaces the graphics of this image while it lives; they win over those of its unit and of its image type.
+     *
+     * @throws TypeError if the graphics are not an object of GRP and anim resources
      */
     replaceGraphics(images: ImageGraphics): void;
 
+    /**
+     * Restores the graphics of this image that {@link SpriteImage.replaceGraphics} replaced.
+     */
     restoreGraphics(): void;
 }
 
@@ -3299,21 +3913,39 @@ interface Bullet {
      */
     getId(): number;
 
+    /**
+     * @returns true while the entry holds this bullet
+     */
     exists(): boolean;
 
+    /**
+     * @returns the weapon type that fired the bullet
+     */
     getWeapon(): WeaponType;
 
+    /**
+     * @returns the bullet's flingy type
+     */
     getFlingyType(): FlingyType;
 
+    /**
+     * @returns the bullet's position in map pixels
+     */
     getPosition(): Position;
 
+    /**
+     * @returns the player of the bullet, or null for an owner byte that is no player slot
+     */
     getPlayer(): Player | null;
 
     /**
-     * @returns the unit that fired the bullet, null once it is gone
+     * @returns the unit that fired the bullet, or null once it is gone
      */
     getSource(): Unit | null;
 
+    /**
+     * @returns the target unit, or null for none
+     */
     getTarget(): Unit | null;
 
     /**
@@ -3324,7 +3956,7 @@ interface Bullet {
     /**
      * Sets the target unit (null for none) or the target position, as an EUD write of the bullet does: a following, bouncing or near-target
      * bullet turns to a new target unit from the next frame, a moving bullet keeps its course; the hit damages the target unit and is centered
-     * on the target position. Only in shared code.
+     * on the target position. Shared code only.
      */
     setTarget(target: Unit | Position | null): void;
 
@@ -3334,21 +3966,29 @@ interface Bullet {
     getRemainingTime(): number;
 
     /**
-     * Sets the remaining frames, 0 to 255; only in shared code.
+     * Sets the remaining frames, 0 to 255. Shared code only.
+     *
+     * @throws RangeError if the frames are outside 0 to 255
      */
     setRemainingTime(frames: number): void;
 
+    /**
+     * @returns the bounces left of a bouncing bullet
+     */
     getRemainingBounces(): number;
 
+    /**
+     * @returns the bullet's state
+     */
     getState(): BulletState;
 
     /**
-     * @returns the direction from 0 to 255
+     * @returns the direction, 0 to 255
      */
     getDirection(): number;
 
     /**
-     * @returns the sprite, null once its last image ended
+     * @returns the sprite, or null once its last image ended
      */
     getSprite(): Sprite | null;
 }
@@ -3357,10 +3997,19 @@ interface Bullet {
  * The settings the game started with ({@link Game.settings}).
  */
 interface GameSettings {
+    /**
+     * @returns the game type of the game header
+     */
     getMode(): GameMode;
 
+    /**
+     * @returns the raw game subtype of the game header
+     */
     getSubtype(): number;
 
+    /**
+     * @returns true for a multiplayer game
+     */
     isMultiplayer(): boolean;
 
     /**
@@ -3373,6 +4022,9 @@ interface GameSettings {
      */
     getResourceType(): number;
 
+    /**
+     * @returns the starting minerals of the game options
+     */
     getStartingMinerals(): number;
 
     /**
@@ -3380,6 +4032,9 @@ interface GameSettings {
      */
     getStartingUnits(): number;
 
+    /**
+     * @returns the raw tournament mode of the game options
+     */
     getTournamentMode(): number;
 
     /**
@@ -3388,10 +4043,13 @@ interface GameSettings {
     areCheatsAllowed(): boolean;
 
     /**
-     * @returns true when Brood War content is on
+     * @returns true when Brood War content is on: the expansion byte is not 0
      */
     isExpansion(): boolean;
 
+    /**
+     * Turns Brood War content on or off: sets the expansion byte to 1 or 0. Shared code only.
+     */
     setExpansion(expansion: boolean): void;
 }
 
@@ -3399,6 +4057,9 @@ interface GameSettings {
  * The options of {@link GameVision.reveal}.
  */
 interface RevealOptions {
+    /**
+     * True to see as an air unit does, over higher ground; false by default.
+     */
     air?: boolean;
 }
 
@@ -3407,19 +4068,28 @@ interface RevealOptions {
  */
 interface GameVision {
     /**
-     * Reveals the tiles around a position to players from 0 to 7 as a unit's sight with a sight range from 0 to 11 does, until the game marks
-     * the tiles unseen again; {air: true} sees over higher ground.
+     * Reveals the tiles around a position to players from 0 to 7 as a unit's sight does, until the game marks the tiles unseen again. Shared
+     * code only.
+     *
+     * @param players    a player or players from 0 to 7
+     * @param sightRange the sight range in tiles, 0 to 11
+     * @throws RangeError if the sight range is outside 0 to 11
      */
     reveal(players: Player | Player[], position: Position, sightRange: number, options?: RevealOptions): void;
 
     /**
-     * @returns the fog brightness of visible tiles (0 to 255, default 31): the world's fog draws visible tiles at this level, explored tiles at
-     *          half of it and unexplored tiles black; the minimap does not use it
+     * Returns the fog brightness of visible tiles: the world's fog draws visible tiles at this level, explored tiles at half of it and
+     * unexplored tiles black. The minimap does not use it.
+     *
+     * @returns the brightness, 0 to 255, default 31
      */
     getFogBrightness(): number;
 
     /**
-     * Sets the fog brightness of visible tiles; shared code sets it on every peer, local code only on this machine.
+     * Sets the fog brightness of visible tiles; shared code sets it on every player's game, local code only on this machine.
+     *
+     * @param level the brightness, 0 to 255
+     * @throws RangeError if the level is outside 0 to 255
      */
     setFogBrightness(level: number): void;
 }
@@ -3433,13 +4103,22 @@ interface GameCombat {
      */
     getFleeDistances(): number[];
 
+    /**
+     * Sets the distances in pixels a fleeing unit tries, in order. Shared code only.
+     *
+     * @param distances as many distances as {@link GameCombat.getFleeDistances} returns, each at least 0
+     * @throws TypeError if the array has another length
+     * @throws RangeError if a distance is negative
+     */
     setFleeDistances(distances: number[]): void;
 }
-
+/**
+ * The game: its map, players, units, trigger state and timers.
+ */
 declare const game: Game;
 
 /**
- * The map of the game ({@link Game.map}); positions and sizes are map pixels, tile positions and sizes tiles of 32 pixels.
+ * The map of the game ({@link Game.map}). Positions and sizes are in map pixels; tile coordinates and sizes are in tiles of 32 pixels.
  */
 interface GameMap {
     /**
@@ -3481,15 +4160,17 @@ interface GameMap {
 }
 
 /**
- * The locations of the map ({@link GameMap.locations}).
+ * The locations of the map ({@link GameMap.locations}); one location is always the same object.
  */
 interface Locations {
     /**
-     * @returns the location of an id, or null for an id outside the map's locations
+     * @param id the 0-based location id
+     * @returns the location, or null for an id outside the map's locations
      */
     get(id: number): Location | null;
 
     /**
+     * @param name the location name as the map stores it
      * @returns the first location with the name, or null when no location has it
      */
     findByName(name: string): Location | null;
@@ -3500,114 +4181,140 @@ interface Locations {
  */
 interface Players {
     /**
-     * @returns the player of a slot, or null for a slot outside 0 to 11
+     * @param id the 0-based player slot
+     * @returns the player of the slot, or null for a slot outside 0 to 11
      */
     get(id: number): Player | null;
 
     /**
-     * @returns the players of every slot, from 0
+     * @returns the players of every slot, in slot order
      */
     getAll(): Player[];
 
     /**
-     * @returns the human players
+     * @returns the human players, in slot order
      */
     getHumans(): Player[];
 }
 
 /**
- * The units of the game ({@link Game.units}); one live unit is always the same object.
+ * The units of the game ({@link Game.units}); one live unit is always the same object. Searches return live units only.
  */
 interface Units {
     /**
-     * @returns the unit in a slot, or null for an empty slot
+     * @param id the unit's slot index ({@link Unit.getId})
+     * @returns the unit in the slot, or null for an empty slot or an id outside the unit table
      */
     get(id: number): Unit | null;
 
     /**
-     * @returns every live unit
+     * @returns every live unit, in slot order
      */
     getAll(): Unit[];
 
     /**
-     * @returns the live units that pass the filter, every live unit without one
+     * @param filter the test of a unit; every live unit passes without one
+     * @returns the live units that pass the filter, in slot order
      */
     find(filter?: UnitFilter): Unit[];
 
     /**
-     * @returns the first live unit that passes the filter, or null
+     * @param filter the test of a unit; every live unit passes without one
+     * @returns the first live unit in slot order that passes the filter, or null for none
      */
     findOne(filter?: UnitFilter): Unit | null;
 
     /**
+     * @param filter the test of a unit; every live unit passes without one
      * @returns the number of live units that pass the filter
      */
     count(filter?: UnitFilter): number;
 
     /**
-     * Searches the unit finder; only in shared code, local code throws a TypeError.
+     * Searches the unit finder of the game for the units whose bounds meet a rectangle. Shared code only.
      *
-     * @returns the live units whose bounds meet the rectangle of the two corners, in the finder's order, that pass the filter
+     * @param corner      a corner of the rectangle, in map pixels
+     * @param otherCorner the opposite corner, in map pixels
+     * @param filter      the test of a unit; every found unit passes without one
+     * @returns the found units that pass the filter, in the finder's order
      */
     findInRectangle(corner: Position, otherCorner: Position, filter?: UnitFilter): Unit[];
 
     /**
-     * Searches the unit finder; only in shared code, local code throws a TypeError.
+     * Searches the unit finder of the game for the units whose position lies within a radius of a position. Shared code only.
      *
-     * @returns the live units near the position whose position lies within the radius, in the finder's order, that pass the filter
+     * @param position the center, in map pixels
+     * @param radius   the radius in pixels, at least 0; a negative radius throws a RangeError
+     * @param filter   the test of a unit; every found unit passes without one
+     * @returns the found units that pass the filter, in the finder's order
      */
     findInRadius(position: Position, radius: number, filter?: UnitFilter): Unit[];
 
     /**
-     * Creates a unit as Create Unit does.
+     * Creates a unit as the Create Unit action does. Shared code only.
      *
-     * @returns the unit, or null when it could not be placed
+     * @param type     the unit type
+     * @param player   the owner
+     * @param position the position in map pixels
+     * @returns the new unit, or null when it could not be placed
      */
     create(type: UnitType, player: Player, position: Position): Unit | null;
 }
 
 /**
- * The switches 0 to 255 of the trigger state ({@link Game.switches}).
+ * The switches of the trigger state ({@link Game.switches}), 0 to 255. An index outside that range throws a RangeError.
  */
 interface Switches {
     /**
-     * @param index a switch from 0 to 255
+     * @param index the switch, 0 to 255
      * @returns true when the switch is set
      */
     isSet(index: number): boolean;
 
     /**
-     * Sets or clears a switch as Set Switch does.
+     * Sets or clears a switch as the Set Switch action does. Shared code only.
+     *
+     * @param index the switch, 0 to 255
+     * @param set   true to set, false to clear
      */
     set(index: number, set: boolean): void;
 
     /**
-     * Toggles a switch as Set Switch does.
+     * Toggles a switch as the Set Switch action does. Shared code only.
+     *
+     * @param index the switch, 0 to 255
      */
     toggle(index: number): void;
 }
 
 /**
- * The countdown timer of the trigger state ({@link Game.countdown}), in seconds of the trigger clock (16 frames a second).
+ * The countdown timer of the trigger state ({@link Game.countdown}), in seconds of the trigger clock (16 frames a second), kept from 0 to
+ * 359999.
  */
 interface Countdown {
     /**
-     * @returns the countdown timer in seconds of the trigger clock
+     * @returns the countdown timer in seconds
      */
     get(): number;
 
     /**
-     * Sets the countdown timer as Set Countdown Timer does.
+     * Sets the countdown timer as the Set Countdown Timer action does. Shared code only.
+     *
+     * @param seconds the new value in seconds
      */
     set(seconds: number): void;
 
     /**
-     * Adds seconds to the countdown timer.
+     * Adds seconds to the countdown timer. Shared code only.
+     *
+     * @param seconds the seconds to add
      */
     add(seconds: number): void;
 
     /**
-     * Subtracts seconds from the countdown timer.
+     * Subtracts seconds from the countdown timer. Shared code only.
+     *
+     * @param seconds the seconds to subtract
      */
     subtract(seconds: number): void;
 
@@ -3617,42 +4324,61 @@ interface Countdown {
     isPaused(): boolean;
 
     /**
-     * Pauses the countdown timer as Pause Timer does.
+     * Pauses the countdown timer as the Pause Timer action does. Shared code only.
      */
     pause(): void;
 
     /**
-     * Resumes the countdown timer as Unpause Timer does.
+     * Resumes the countdown timer as the Unpause Timer action does. Shared code only.
      */
     resume(): void;
 }
 
 /**
- * The leaderboards of the leaderboard actions with a text label ({@link Game.leaderboard}).
+ * The leaderboards of the leaderboard actions, with a text label ({@link Game.leaderboard}).
  */
 interface Leaderboard {
     /**
-     * Shows the Control leaderboard of a unit type or group: the goal form with a goal, Control At Location with a location.
+     * Shows the Control leaderboard of a unit type or group: the goal form with a goal option, Control At Location with a location option.
+     * Shared code only.
+     *
+     * @param label   the label text
+     * @param unit    the counted unit type or group
+     * @param options the goal and the location, both optional
      */
     showControl(label: string, unit: UnitType | UnitGroup, options?: ControlLeaderboardOptions): void;
 
     /**
-     * Shows the Resources leaderboard of a resource type.
+     * Shows the Resources leaderboard of a resource type; {@link ResourceType.Supply} throws a RangeError. Shared code only.
+     *
+     * @param label        the label text
+     * @param resourceType the counted resource
+     * @param options      the goal, optional
      */
     showResources(label: string, resourceType: ResourceType, options?: LeaderboardOptions): void;
 
     /**
-     * Shows the Kills leaderboard of a unit type or group.
+     * Shows the Kills leaderboard of a unit type or group. Shared code only.
+     *
+     * @param label   the label text
+     * @param unit    the counted unit type or group
+     * @param options the goal, optional
      */
     showKills(label: string, unit: UnitType | UnitGroup, options?: LeaderboardOptions): void;
 
     /**
-     * Shows the Points leaderboard of a score type.
+     * Shows the Points leaderboard of a score type. Shared code only.
+     *
+     * @param label     the label text
+     * @param scoreType the counted score
+     * @param options   the goal, optional
      */
     showPoints(label: string, scoreType: ScoreType, options?: LeaderboardOptions): void;
 
     /**
-     * Shows the Greed leaderboard of the minerals and gas of every player, toward a goal.
+     * Shows the Greed leaderboard of the minerals and gas of every player. Shared code only.
+     *
+     * @param goal the resource goal
      */
     showGreed(goal: number): void;
 
@@ -3662,28 +4388,42 @@ interface Leaderboard {
     areComputersIncluded(): boolean;
 
     /**
-     * Includes or leaves out computer players, as Leaderboard Computer Players does.
+     * Includes or leaves out computer players, as the Leaderboard Computer Players action does. Shared code only.
+     *
+     * @param included true to include them
      */
     setComputersIncluded(included: boolean): void;
 }
 
 /**
- * A resource of the map's resource folder by its name relative to resources/, with / separators.
+ * A file of the map's resource folder, named by its path relative to resources/ with / separators. One file is always the same object.
  */
 interface Resource {
+    /**
+     * @returns the resource handle, which the lower layer {@link core} takes
+     */
     getId(): number;
 
+    /**
+     * @returns the path relative to resources/
+     */
     getName(): string;
 }
 
+/**
+ * An SD GRP file of the resource folder ({@link Resources.getGrp}).
+ */
 interface Grp extends Resource {
 }
 
+/**
+ * A single-entry HD or HD2 anim file of the resource folder ({@link Resources.getAnim}).
+ */
 interface Anim extends Resource {
 }
 
 /**
- * A PNG or DDS picture to draw ({@link Drawing.drawImage}) or to show on the console.
+ * A PNG or DDS picture of the resource folder to draw ({@link Drawing.drawImage}) or to show on the console.
  */
 interface Image extends Resource {
     /**
@@ -3698,36 +4438,57 @@ interface Image extends Resource {
 }
 
 /**
- * The files of the map's resource folder ({@link GameMap.resources}).
+ * The files of the map's resource folder ({@link GameMap.resources}). A file is read once; later calls with the same name return the same
+ * object. A missing file or one that is not valid for the kind throws an Error.
  */
 interface Resources {
     /**
+     * @param name the path relative to resources/
      * @returns true when the resource folder has a file of the name
      */
     has(name: string): boolean;
 
     /**
-     * Reads a GRP; a missing or invalid one throws.
+     * Reads an SD GRP.
+     *
+     * @param name the path relative to resources/
+     * @returns the GRP
      */
     getGrp(name: string): Grp;
 
     /**
-     * Reads a single-entry HD or HD2 anim; a missing or invalid one throws.
+     * Reads a single-entry HD or HD2 anim.
+     *
+     * @param name the path relative to resources/
+     * @returns the anim
      */
     getAnim(name: string): Anim;
 
     /**
-     * Reads a PNG or DDS picture once; a missing or invalid one throws.
+     * Reads a PNG or DDS picture.
+     *
+     * @param name the path relative to resources/
+     * @returns the picture
      */
     getImage(name: string): Image;
 }
 
 /**
- * The graphics of an image: an SD GRP, an HD anim and an HD2 anim, at least one.
+ * Replacement graphics: an SD GRP, an HD anim and an HD2 anim, at least one of them. The classic graphics draw the GRP, else the installed GRP;
+ * HD draws the HD anim, else the HD2 anim; HD2 draws the HD2 anim, else the HD anim at half size; without an anim HD and HD2 draw the GRP.
  */
 interface ImageGraphics {
+    /**
+     * The GRP of the SD graphics.
+     */
     sd?: Grp | null;
+    /**
+     * The anim of the HD graphics.
+     */
     hd?: Anim | null;
+    /**
+     * The anim of the HD2 graphics.
+     */
     hd2?: Anim | null;
 }
 
@@ -3736,12 +4497,18 @@ interface ImageGraphics {
  */
 interface Tile {
     /**
-     * @returns the MTXM value, group << 4 | index, the value core.terrain takes
+     * @returns the MTXM value, group << 4 | index, which the lower layer core.terrain takes
      */
     getId(): number;
 
+    /**
+     * @returns the CV5 group
+     */
     getGroup(): number;
 
+    /**
+     * @returns the index in the group, 0 to 15
+     */
     getIndex(): number;
 
     /**
@@ -3754,8 +4521,14 @@ interface Tile {
      */
     isPartiallyWalkable(): boolean;
 
+    /**
+     * @returns true when buildings may be placed on it
+     */
     isBuildable(): boolean;
 
+    /**
+     * @returns true for a creep tile of the tileset
+     */
     hasCreep(): boolean;
 
     /**
@@ -3764,7 +4537,7 @@ interface Tile {
     getElevation(): number;
 
     /**
-     * @returns true when ground units see past it from no elevation
+     * @returns true for a tile that blocks the sight of ground units at every elevation
      */
     isBlockingSight(): boolean;
 }
@@ -3784,35 +4557,49 @@ interface Tileset {
     getGroupCount(): number;
 
     /**
-     * @returns the tile of a CV5 group and an index from 0 to 15; a RangeError for a tile the tileset does not have
+     * @param group the CV5 group
+     * @param index the index in the group, 0 to 15
+     * @returns the tile; a RangeError for a tile the tileset does not have
      */
     getTile(group: number, index: number): Tile;
 }
 
 /**
- * The tiles of the map ({@link GameMap.terrain}), by tile coordinates (32 pixels). The changes apply together at the next trigger step, after the frame start hooks
- * (onFrame, the events, the timers) and before the triggers, as on a map that had the tiles from the start: walkability, pathing regions,
- * buildability, sight and the minimap follow, and ground units on tiles that became unwalkable move to walkable ground nearby. Reads see the
- * changes made so far.
+ * The tiles of the map by tile coordinates ({@link GameMap.terrain}); a coordinate outside the map throws a RangeError. The changes apply
+ * together at the next trigger step, after the frame start hooks (onFrame, the events, the timers) and before the triggers, as on a map that
+ * had the tiles from the start: walkability, pathing regions, buildability, sight and the minimap follow, and ground units on tiles that became
+ * unwalkable move to walkable ground nearby. Reads see the changes made so far.
  */
 interface Terrain {
     /**
-     * @returns the tile, the one below creep for a tile with creep
+     * @param tileX the tile column
+     * @param tileY the tile row
+     * @returns the tile, for a tile with creep the one below the creep
      */
     getTile(tileX: number, tileY: number): Tile;
 
     /**
-     * Sets a tile.
+     * Sets a tile. Shared code only.
+     *
+     * @param tileX the tile column
+     * @param tileY the tile row
+     * @param tile  the new tile
      */
     setTile(tileX: number, tileY: number, tile: Tile): void;
 
     /**
-     * Sets every tile the location covers.
+     * Sets every tile a location covers, clipped to the map. Shared code only.
+     *
+     * @param location the covered area
+     * @param tile     the new tile
      */
     fillTiles(location: Location, tile: Tile): void;
 
     /**
-     * Copies the tiles one location covers onto the tiles of another location; both cover the same number of tiles across and down.
+     * Copies the tiles one location covers onto the tiles another location covers. Shared code only.
+     *
+     * @param fromLocation the source area
+     * @param toLocation   the target area; a RangeError when it does not cover as many tiles across and down as the source
      */
     copyTiles(fromLocation: Location, toLocation: Location): void;
 
@@ -3823,45 +4610,57 @@ interface Terrain {
 }
 
 /**
- * The creep of the map, by tile coordinates ({@link Terrain.creep}). Creep these functions add has no source: it stays until it is removed or
- * recedes. The changes work in shared code only.
+ * The creep of the map by tile coordinates ({@link Terrain.creep}); a coordinate outside the map throws a RangeError. Creep these functions add
+ * has no source: it stays until it is removed or recedes.
  */
 interface Creep {
     /**
-     * @returns whether the tile has creep, by the creep flag the rules of the game read
+     * @param tileX the tile column
+     * @param tileY the tile row
+     * @returns true when the tile has the creep flag that the rules of the game read (placement, larvae, spells)
      */
     has(tileX: number, tileY: number): boolean;
 
     /**
-     * Covers the footprint of a building of the unit type at the position with creep and grows it until no tile is added, as the game does
-     * for a building that needs creep.
+     * Covers the footprint of a building of the unit type centered at a position with creep and grows it until no tile is added, as the game
+     * does for a building that needs creep. A footprint that leaves the map throws a RangeError. Shared code only.
+     *
+     * @param unitType the building type whose footprint is covered
+     * @param position the center in map pixels
      */
     fill(unitType: UnitType, position: Position): void;
 
     /**
-     * Runs one spread step of a creep source of the unit type at the position; a type that spreads creep keeps to its ellipse.
+     * Runs one spread step of a creep source of the unit type at a position; a type that spreads creep keeps to its ellipse. Shared code only.
      *
+     * @param unitType the type of the creep source
+     * @param position the source position in map pixels
      * @returns true when it added a tile
      */
     spread(unitType: UnitType, position: Position): boolean;
 
     /**
-     * Removes the creep of the tile at once and gives back the terrain below it.
+     * Removes the creep of a tile at once and gives back the terrain below it. Shared code only.
+     *
+     * @param tileX the tile column
+     * @param tileY the tile row
      */
     remove(tileX: number, tileY: number): void;
 
     /**
-     * Makes the creep tile recede later, at the pace of the recession, as the creep of a removed building does.
+     * Makes a creep tile recede later, at the pace of the recession, as the creep of a removed building does. Shared code only.
      *
-     * @returns false for a tile that is not creep, already recedes, lies under a building or that a Zerg building sustains, and when the
-     *          recession is full
+     * @param tileX the tile column
+     * @param tileY the tile row
+     * @returns false for a tile that is not creep, already recedes, is occupied or that a Zerg building sustains, and when the recession is full
      */
     recede(tileX: number, tileY: number): boolean;
 }
 
 /**
- * A channel: a value one peer sends reaches the channel's handler on every peer, the sender's included, and in every replay, at the frame the
- * game runs it, in the order the game runs them. It sends the script command {c: id, v: value} ({@link CoreCommand.submit}).
+ * A channel ({@link Sync.createChannel}): a value one player sends reaches the channel's handler on every player's game, the sender's
+ * included, and in every replay, at the frame the game runs the command, in the order the game runs them. A value travels as the script
+ * command {c: id, v: value} ({@link CoreCommand.submit}).
  */
 interface Channel<T> {
     /**
@@ -3870,121 +4669,175 @@ interface Channel<T> {
     getId(): number;
 
     /**
-     * Sends a value: null, a boolean, a number, a string, an array or a plain object of these; anything else throws a TypeError. The handler
-     * receives a copy. Shared code and local code may send; shared code sends once from every human peer, so the handler runs once per such
-     * player.
+     * Sends a value in the local player's next outgoing turn; a replay and an observer send nothing. Shared code sends once from every human
+     * player's game, so the handler runs once per such player. The handler receives a copy of the value.
+     *
+     * @param value null, a boolean, a number, a string, or an array or plain object of these
+     * @throws TypeError if the value holds anything else
      */
     send(value: T): void;
 }
 
 /**
- * A value per player, on a channel of its own: a change reaches every peer at the frame the game runs it.
+ * A value per player on a channel of its own ({@link Sync.createPlayerValue}): a change reaches every player's game at the frame the game runs
+ * it.
  */
 interface PlayerValue<T> {
     /**
+     * @param player the player
      * @returns the player's value, the initial value until one was set
      */
     get(player: Player): T;
 
     /**
      * Sets the value of the sending player.
+     *
+     * @param value the new value, of the kinds {@link Channel.send} takes
      */
     set(value: T): void;
 
     /**
      * Sets the value of a player.
+     *
+     * @param player the player whose value changes
+     * @param value  the new value, of the kinds {@link Channel.send} takes
      */
     set(player: Player, value: T): void;
 }
 
 /**
- * Creates the channels. Create them in shared code, which runs the same on every peer, so that every peer gives them the same ids: local code
- * throws a TypeError.
+ * Creates channels. Every player's game must create the same channels in the same order, so they are created in shared code, best at the
+ * module top level or in onStart.
  */
 interface Sync {
     /**
-     * Creates a channel whose handler runs as shared code with the sending player, the value, and the live units the player had selected
-     * when the command ran.
+     * Creates a channel. The handler runs as shared code with the sending player, the value, and the live units the player had selected when
+     * the command ran. Shared code only.
+     *
+     * @param handler the function that receives the sent values
+     * @returns the channel
+     * @throws TypeError if the handler is no function
      */
     createChannel<T>(handler: (player: Player, value: T, units: Unit[]) => void): Channel<T>;
 
     /**
-     * Creates a value per player over a new channel.
+     * Creates a value per player over a new channel. Shared code only.
+     *
+     * @param initial the value of every player until one is set
+     * @returns the player value
      */
     createPlayerValue<T>(initial: T): PlayerValue<T>;
 }
 
+/**
+ * The channels between the players' games.
+ */
 declare const sync: Sync;
 
 /**
- * What only this machine knows, which differs from peer to peer. Readable only in local code (the onLocal* hooks and onRender); anywhere else
- * every function throws a TypeError.
+ * What only this player's machine knows, which differs from player to player. Every function works in local code only and throws a TypeError
+ * in shared code.
  */
 interface Local {
     /**
-     * @returns the local player, null in a replay and for an observer
+     * Local code only.
+     *
+     * @returns the local player, or null in a replay and for an observer
      */
     getPlayer(): Player | null;
 
+    /**
+     * Local code only.
+     *
+     * @returns true while this machine plays a replay
+     */
     isReplay(): boolean;
 
     /**
+     * Local code only.
+     *
      * @returns true while the chat box is open
      */
     isChatOpen(): boolean;
 
     /**
-     * @returns the map position of the local screen's top left, null while the client has not supplied it
+     * Local code only.
+     *
+     * @returns the map position of the local screen's top left in pixels, or null while the client has not supplied it
      */
     getScreenPosition(): Position | null;
 
     /**
-     * Moves only the local screen's top left to a map position at once, kept inside the map.
+     * Moves the local screen's top left to a map position at once, kept inside the map; the other players' screens stay. Local code only.
      *
+     * @param position the new top left in map pixels
      * @returns false while the screen is unknown
      */
     setScreenPosition(position: Position): boolean;
 
     /**
-     * @returns the map position under the pointer, null while the client has not supplied it
+     * Local code only.
+     *
+     * @returns the map position under the pointer in pixels, or null while the client has not supplied it
      */
     getMousePosition(): Position | null;
 
     /**
-     * @returns the units of the local interface's selection; it may differ from the local player's {@link Player.getSelection} until the
-     *          selection command runs
+     * Returns the units of the local interface's selection, which may differ from the local player's {@link Player.getSelection} until the
+     * selection command runs. Local code only.
+     *
+     * @returns the selected units
      */
     getSelection(): Unit[];
 
     /**
-     * @returns the button set the local command card shows, null for none
+     * Local code only.
+     *
+     * @returns the button set the local command card shows, or null for none
      */
     getDisplayedButtonSet(): ButtonSet | null;
 
     /**
      * Shows a button set on the local command card at its next refresh, as the Change Buttons action does, until the selection changes.
+     * Local code only.
+     *
+     * @param set the button set, a unit type for its set, or a set id; anything else throws a TypeError
      */
     changeButtons(set: ButtonSet | UnitType | number): void;
 
     /**
-     * @returns the local state of a condition value (0 to 255) of the Script button condition; every state starts Hidden, the native zero value
+     * Local code only.
+     *
+     * @param conditionValue the condition value of a Script button, 0 to 255
+     * @returns the local state of the condition value; every state starts Hidden
      */
     getButtonState(conditionValue: number): ButtonState;
 
+    /**
+     * Sets the local state that the Script button condition gives for a condition value. Local code only.
+     *
+     * @param conditionValue the condition value of a Script button, 0 to 255
+     * @param state          the new state
+     */
     setButtonState(conditionValue: number, state: ButtonState): void;
 
     /**
-     * Pauses the game as the game menu does: the local player's Pause command runs in a later turn on every peer, and a network pause takes one
-     * of the player's pauses left ({@link Player.getPausesLeft}). Nothing in a replay or while the game is paused.
+     * Pauses the game as the game menu does: the local player's Pause command runs in a later turn on every player's game, and a network
+     * pause takes one of the player's pauses left ({@link Player.getPausesLeft}). Nothing in a replay or while the game is paused. Local code
+     * only.
      */
     requestPause(): void;
 
     /**
-     * Resumes the game as the game menu does, with the local player's Resume command. Nothing in a replay or while the game runs.
+     * Resumes the game as the game menu does, with the local player's Resume command. Nothing in a replay or while the game runs. Local code
+     * only.
      */
     requestResume(): void;
 }
 
+/**
+ * The local information of this player's machine.
+ */
 declare const local: Local;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -3992,39 +4845,64 @@ declare const local: Local;
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * A colour: a number packed 0xAARRGGBB with straight alpha.
+ * A color: an unsigned 32-bit number packed 0xAARRGGBB with straight alpha.
  */
 type Color = number;
 
+/**
+ * The color constants and the color constructors ({@link Color}).
+ */
 interface ColorStatic {
+    /** Fully transparent black, 0x00000000. */
     readonly Transparent: Color;
+    /** 0xFF000000. */
     readonly Black: Color;
+    /** 0xFFFFFFFF. */
     readonly White: Color;
+    /** 0xFF808080. */
     readonly Gray: Color;
+    /** 0xFFFF0000. */
     readonly Red: Color;
+    /** 0xFF00FF00. */
     readonly Green: Color;
+    /** 0xFF0000FF. */
     readonly Blue: Color;
+    /** 0xFFFFFF00. */
     readonly Yellow: Color;
+    /** 0xFF00FFFF. */
     readonly Cyan: Color;
+    /** 0xFFFF00FF. */
     readonly Magenta: Color;
+    /** 0xFFFFA500. */
     readonly Orange: Color;
 
     /**
-     * @returns the opaque colour; a channel is an integer from 0 to 255, else it throws a RangeError
+     * @param red   the red channel, an integer from 0 to 255
+     * @param green the green channel, an integer from 0 to 255
+     * @param blue  the blue channel, an integer from 0 to 255
+     * @returns the opaque color; a channel outside its range throws a RangeError
      */
     fromRgb(red: number, green: number, blue: number): Color;
 
     /**
-     * @returns the colour; red, green and blue are integers from 0 to 255 and alpha is the opacity from 0 to 1, else it throws a RangeError
+     * @param red   the red channel, an integer from 0 to 255
+     * @param green the green channel, an integer from 0 to 255
+     * @param blue  the blue channel, an integer from 0 to 255
+     * @param alpha the opacity from 0 to 1, stored rounded to a byte
+     * @returns the color; a value outside its range throws a RangeError
      */
     fromRgba(red: number, green: number, blue: number, alpha: number): Color;
 
     /**
-     * @returns the opaque colour of a palette index of the map's tileset palette
+     * @param index the palette index, 0 to 255
+     * @returns the opaque color of the palette index in the map's tileset palette; an index outside 0 to 255 throws a RangeError
      */
     fromPalette(index: number): Color;
 }
 
+/**
+ * The color constants and constructors.
+ */
 declare const Color: ColorStatic;
 
 /**
@@ -4033,156 +4911,277 @@ declare const Color: ColorStatic;
 interface Font extends GameType {
 }
 
+/**
+ * The fonts of the game interface.
+ */
 interface FontTable extends ConstantTable<Font> {
     /**
-     * font8
+     * font8.
      */
     readonly Small: Font;
     /**
-     * font10, the default
+     * font10, the default.
      */
     readonly Medium: Font;
     /**
-     * font16
+     * font16.
      */
     readonly Large: Font;
     /**
-     * font16x
+     * font16x.
      */
     readonly Huge: Font;
 }
 
+/**
+ * The fonts of the game interface.
+ */
 declare const Font: FontTable;
 
 /**
- * How the lines of a text stand from its x.
+ * How each line of a text stands from its x.
  */
 interface Align extends GameType {
 }
 
+/**
+ * The text alignments.
+ */
 interface AlignTable extends ConstantTable<Align> {
+    /** The line starts at x; the default. */
     readonly Left: Align;
+    /** The line is centered on x. */
     readonly Center: Align;
+    /** The line ends at x. */
     readonly Right: Align;
 }
 
+/**
+ * The text alignments.
+ */
 declare const Align: AlignTable;
 
 /**
- * The graphics this machine draws.
+ * A graphics set this machine draws ({@link Screen.getGraphics}).
  */
 interface GraphicsKind extends GameType {
 }
 
+/**
+ * The graphics sets.
+ */
 interface GraphicsTable extends ConstantTable<GraphicsKind> {
+    /** The classic SD graphics. */
     readonly SD: GraphicsKind;
+    /** The HD graphics. */
     readonly HD: GraphicsKind;
+    /** The HD2 graphics. */
     readonly HD2: GraphicsKind;
 }
 
+/**
+ * The graphics sets.
+ */
 declare const Graphics: GraphicsTable;
 
+/**
+ * The options of an outline or a line.
+ */
 interface LineOptions {
     /**
-     * Color.White by default.
+     * The color, Color.White by default.
      */
     color?: Color;
     /**
-     * 1 by default.
+     * The line thickness in the drawing's units, at least 0; 1 by default.
      */
     thickness?: number;
 }
 
+/**
+ * The options of a text.
+ */
 interface TextOptions {
     /**
-     * Font.Medium by default.
+     * The font, Font.Medium by default.
      */
     font?: Font;
     /**
-     * Color.White by default; colour codes in the text switch it.
+     * The color, Color.White by default; color codes in the text switch it.
      */
     color?: Color;
     /**
-     * Align.Left by default.
+     * The alignment of each line on x, Align.Left by default.
      */
     align?: Align;
 }
 
+/**
+ * The options of a drawn image.
+ */
 interface ImageOptions {
     /**
-     * The image's pixel width in the drawing's units by default.
+     * The drawn width in the drawing's units, the image's pixel width by default.
      */
     width?: number;
+    /**
+     * The drawn height in the drawing's units, the image's pixel height by default.
+     */
     height?: number;
     /**
-     * From 0 to 1, 1 by default.
+     * The opacity from 0 to 1, 1 by default; values outside are clamped.
      */
     opacity?: number;
 }
 
 /**
- * Draws in one space, only in onRender (anywhere else every drawing function throws a TypeError). Coordinates are numbers with fractions,
- * drawn at the real resolution; what a call draws is drawn in call order and stays until the next onRender call.
+ * Draws in one space ({@link Screen}, {@link Screen.world}, {@link Screen.minimap}). The drawing functions work only in onRender and throw a
+ * TypeError anywhere else. Coordinates are numbers with fractions, drawn at the real resolution; what a call draws is drawn in call order and
+ * stays until the next onRender call. A negative size or thickness throws a RangeError; a color outside 0 to 0xFFFFFFFF throws.
  */
 interface Drawing {
+    /**
+     * Fills a rectangle. Only in onRender.
+     *
+     * @param x      the left
+     * @param y      the top
+     * @param width  the width, at least 0
+     * @param height the height, at least 0
+     * @param color  the color, Color.White by default
+     */
     fillRectangle(x: number, y: number, width: number, height: number, color?: Color): void;
 
     /**
-     * The outline lies inside the rectangle.
+     * Draws the outline of a rectangle; the outline lies inside the rectangle. Only in onRender.
+     *
+     * @param x       the left
+     * @param y       the top
+     * @param width   the width, at least 0
+     * @param height  the height, at least 0
+     * @param options the color and the thickness
      */
     drawRectangle(x: number, y: number, width: number, height: number, options?: LineOptions): void;
 
+    /**
+     * Fills a circle. Only in onRender.
+     *
+     * @param x      the center x
+     * @param y      the center y
+     * @param radius the radius, at least 0
+     * @param color  the color, Color.White by default
+     */
     fillCircle(x: number, y: number, radius: number, color?: Color): void;
 
     /**
-     * The outline is centered on the circle.
+     * Draws the outline of a circle; the outline is centered on the circle. Only in onRender.
+     *
+     * @param x       the center x
+     * @param y       the center y
+     * @param radius  the radius, at least 0
+     * @param options the color and the thickness
      */
     drawCircle(x: number, y: number, radius: number, options?: LineOptions): void;
 
+    /**
+     * Draws a line between two points. Only in onRender.
+     *
+     * @param x1      the x of the start
+     * @param y1      the y of the start
+     * @param x2      the x of the end
+     * @param y2      the y of the end
+     * @param options the color and the thickness
+     */
     drawLine(x1: number, y1: number, x2: number, y2: number, options?: LineOptions): void;
 
     /**
-     * A square of one unit of line thickness with its top left at the position.
+     * Draws a square of one unit of line thickness with its top left at the position. Only in onRender.
+     *
+     * @param x     the left
+     * @param y     the top
+     * @param color the color, Color.White by default
      */
     drawPoint(x: number, y: number, color?: Color): void;
 
     /**
-     * Draws the lines, broken at \n, from the top at y, each aligned on x.
+     * Draws a text: the lines, broken at \n, from the top at y, each aligned on x. Only in onRender.
+     *
+     * @param text    the text
+     * @param x       the x each line is aligned on
+     * @param y       the top of the first line
+     * @param options the font, the color and the alignment
      */
     drawText(text: string, x: number, y: number, options?: TextOptions): void;
 
+    /**
+     * Draws an image of the resource folder. Only in onRender.
+     *
+     * @param image   the image
+     * @param x       the left
+     * @param y       the top
+     * @param options the size and the opacity
+     */
     drawImage(image: Image, x: number, y: number, options?: ImageOptions): void;
 
     /**
-     * @returns the width of the widest line in interface units in this machine's fonts, 0 before the client drew a frame; only in local code
+     * Measures a text in this machine's fonts. Local code only.
+     *
+     * @param text the text, its lines broken at \n
+     * @param font the font, Font.Medium by default
+     * @returns the width of the widest line in interface units, 0 before the client drew a frame
      */
     measureText(text: string, font?: Font): number;
 }
 
 /**
- * The game screen of onRender in interface units: 480 high, as wide as the interface (640, 853, ...), drawn above the console and below the
- * game menus. Sizes, line thicknesses and texts are in interface units. {@link world} draws in map pixels following the camera, above the units
- * and below the console (thicknesses and texts in map pixels, so they follow the zoom); {@link minimap} in map pixels on the minimap (thicknesses,
- * points and texts in interface units). The screen's size, scale and graphics are readable only in local code.
+ * The game screen that onRender receives, in interface units: 480 high, as wide as the interface (640, 853, ...), drawn above the console and
+ * below the game menus; sizes, line thicknesses and texts are in interface units. {@link Screen.world} draws in map pixels following the
+ * camera, above the units and below the console (thicknesses and texts in map pixels, so they follow the zoom); {@link Screen.minimap} draws
+ * in map pixels on the minimap (thicknesses, points and texts in interface units).
  */
 interface Screen extends Drawing {
+    /**
+     * Local code only.
+     *
+     * @returns the interface width in interface units
+     */
     getWidth(): number;
 
+    /**
+     * Local code only.
+     *
+     * @returns the interface height in interface units, 480
+     */
     getHeight(): number;
 
     /**
+     * Local code only.
+     *
      * @returns the real pixels per interface unit
      */
     getScale(): number;
 
+    /**
+     * Local code only.
+     *
+     * @returns the graphics set this machine draws
+     */
     getGraphics(): GraphicsKind;
 
     /**
-     * @returns the interface coordinate rounded to the real pixel grid
+     * Rounds an interface coordinate to the real pixel grid. Local code only.
+     *
+     * @param value the coordinate in interface units
+     * @returns the rounded coordinate in interface units
      */
     snap(value: number): number;
 
+    /**
+     * The drawing in map pixels above the units, following the camera.
+     */
     readonly world: Drawing;
+    /**
+     * The drawing in map pixels on the minimap.
+     */
     readonly minimap: Drawing;
 }
 
@@ -4192,6 +5191,9 @@ interface Screen extends Drawing {
 interface ConsoleControl extends GameType {
 }
 
+/**
+ * The console dialogs, by the names of the console parts.
+ */
 interface ConsoleControlTable extends ConstantTable<ConsoleControl> {
     readonly CommandCard: ConsoleControl;
     readonly Selection: ConsoleControl;
@@ -4202,6 +5204,9 @@ interface ConsoleControlTable extends ConstantTable<ConsoleControl> {
     readonly TextBox: ConsoleControl;
 }
 
+/**
+ * The console dialogs.
+ */
 declare const ConsoleControl: ConsoleControlTable;
 
 /**
@@ -4212,6 +5217,9 @@ declare const ConsoleControl: ConsoleControlTable;
 interface ConsoleImage extends GameType {
 }
 
+/**
+ * The art files of the console.
+ */
 interface ConsoleImageTable extends ConstantTable<ConsoleImage> {
     /**
      * The SD console frame (game/tconsole.DDS and the Zerg and Protoss files).
@@ -4243,46 +5251,75 @@ interface ConsoleImageTable extends ConstantTable<ConsoleImage> {
     readonly Conover: ConsoleImage;
 }
 
+/**
+ * The art files of the console.
+ */
 declare const ConsoleImage: ConsoleImageTable;
 
 /**
- * One console dialog, placed by its top left in the classic 640 by 480 screen.
+ * One console dialog ({@link Console.getControl}), placed by its top left in the classic 640 by 480 screen. A setting wins over EUD memory.
  */
 interface ConsoleControlHandle {
+    /**
+     * @returns the dialog
+     */
     getControl(): ConsoleControl;
 
+    /**
+     * Places the dialog by its top left.
+     *
+     * @param x the left in classic screen pixels, rounded
+     * @param y the top in classic screen pixels, rounded
+     */
     setPosition(x: number, y: number): void;
 
+    /**
+     * Shows or hides the dialog.
+     *
+     * @param visible true to show it
+     */
     setVisible(visible: boolean): void;
 
+    /**
+     * @returns false while the script hides the dialog
+     */
     isVisible(): boolean;
 
     /**
-     * Shows or hides a control of the dialog by its identifier in the dialog's definition; it wins over EUD memory until
-     * {@link ConsoleControlHandle.restoreChild}.
+     * Shows or hides a control of the dialog; it wins over EUD memory until {@link ConsoleControlHandle.restoreChild}.
+     *
+     * @param id      the control's identifier in the dialog's definition, -32768 to 32767
+     * @param visible true to show it
      */
     setChildVisible(id: number, visible: boolean): void;
 
     /**
-     * Places a control of the dialog by its top left in the classic 640 by 480 screen; it wins over EUD memory until
-     * {@link ConsoleControlHandle.restoreChild}.
+     * Places a control of the dialog by its top left; it wins over EUD memory until {@link ConsoleControlHandle.restoreChild}.
+     *
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @param x  the left in classic screen pixels, rounded
+     * @param y  the top in classic screen pixels, rounded
      */
     setChildPosition(id: number, x: number, y: number): void;
 
     /**
-     * Forgets what was set on a control of the dialog, so that EUD memory drives it again.
+     * Forgets the visibility and the position set on a control of the dialog, so that EUD memory drives it again.
+     *
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767
      */
     restoreChild(id: number): void;
 }
 
 /**
- * The console ({@link Display.console}). Shared code sets it on every peer, local code only on this machine; it changes no game state. A setting
- * wins over what EUD memory gives for the same item (the console, a dialog's position, a dialog's visibility, a console art file, a resource
- * icon); EUD memory still drives the items the script never set.
+ * The console ({@link Display.console}). Shared code sets it on every player's game, local code only on this machine; it changes no game
+ * state. A setting wins over what EUD memory gives for the same item (the console, a dialog's position, a dialog's visibility, a console art
+ * file, a resource icon); EUD memory still drives the items the script never set.
  */
 interface Console {
     /**
      * Shows or hides the whole console.
+     *
+     * @param visible true to show it
      */
     setVisible(visible: boolean): void;
 
@@ -4292,28 +5329,37 @@ interface Console {
     isVisible(): boolean;
 
     /**
-     * @returns the object of a console dialog, the same for the same dialog
+     * @param control the dialog
+     * @returns the object of the dialog, the same for the same dialog
      */
     getControl(control: ConsoleControl): ConsoleControlHandle;
 
     /**
-     * Draws an image instead of a console art file of the shown race console; null for the installed file.
+     * Draws an image instead of a console art file of the shown race console.
+     *
+     * @param consoleImage the art file
+     * @param image        the image, or null for the installed file
      */
     replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
 
     /**
-     * Draws an image for the console icon of Minerals, Gas or Supply (every race's icon), fitted into the icon's box; null for the icon of EUD
-     * memory or the installed one.
+     * Draws an image for the console icon of a resource, every race's icon, fitted into the icon's box.
+     *
+     * @param resourceType Minerals, Gas or Supply; MineralsAndGas throws a TypeError
+     * @param image        the image, or null for the icon of EUD memory or the installed one
      */
     setResourceIcon(resourceType: ResourceType, image: Image | null): void;
 }
 
 /**
- * The stat_txt strings by their one-based ids ({@link Display.strings}). Shared code sets them on every peer, local code only on this machine.
+ * The stat_txt strings ({@link Display.strings}). Shared code sets them on every player's game, local code only on this machine.
  */
 interface Strings {
     /**
-     * Shows a text instead of a string; null shows the game's string again. It wins over the installed table and the table EUD memory commits.
+     * Shows a text instead of a stat_txt string. It wins over the installed table and the table EUD memory commits.
+     *
+     * @param id   the one-based string id, 1 to 65535
+     * @param text the text, or null to show the game's string again
      */
     setStatText(id: number, text: string | null): void;
 }
@@ -4321,18 +5367,26 @@ interface Strings {
 /**
  * The message lines on the screen ({@link Display.messages}), 0 to 12: lines 0 to 10 take the messages in turn from the cursor, line 12 the
  * status texts. A written line keeps the expiry time of the message it held, as an EUD write does, so a line whose message expired is cleared at
- * the next drawn frame.
+ * the next drawn frame. A line outside 0 to 12 throws a RangeError. Shared code changes the lines on every player's game, local code only on
+ * this machine.
  */
 interface Messages {
     /**
-     * Empties the message lines on the screen.
+     * Empties every message line on the screen.
      */
     clear(): void;
 
+    /**
+     * @param line the line, 0 to 12
+     * @returns the text of the line
+     */
     getLine(line: number): string;
 
     /**
-     * Stores a text in a line, at most 217 UTF-8 bytes.
+     * Stores a text in a line.
+     *
+     * @param line the line, 0 to 12
+     * @param text the text; its UTF-8 bytes past the first 217 are cut
      */
     setLine(line: number, text: string): void;
 
@@ -4341,48 +5395,70 @@ interface Messages {
      */
     getCursor(): number;
 
+    /**
+     * Sets the line the next message starts at.
+     *
+     * @param line the line, 0 to 255; 11 or more starts at line 0
+     */
     setCursor(line: number): void;
 }
 
 /**
- * The game sounds ({@link Display.sound}). Shared code plays them on every peer, local code only on this machine.
+ * The game sounds ({@link Display.sound}). Shared code plays them on every player's game, local code only on this machine.
  */
 interface DisplaySound {
     /**
-     * Plays a sound of sfxdata.dat by its id (0 to 1143) at a position, louder the nearer it is to the screen, whether the players see the
-     * position or not. A sound of local code plays with the sounds of the next frame start.
+     * Plays a sound at a position, louder the nearer it is to the screen, whether the players see the position or not. A sound of local code
+     * plays with the sounds of the next frame start.
+     *
+     * @param soundId  the sfxdata.dat id, 0 to 1143
+     * @param position the position in map pixels
      */
     playAt(soundId: number, position: Position): void;
 }
 
 /**
- * The graphics of the game's images ({@link Display.images}). Shared code replaces them on every peer, local code only on this machine.
+ * The graphics of the game's images ({@link Display.images}). Shared code replaces them on every player's game, local code only on this
+ * machine.
  */
 interface DisplayImages {
     /**
      * Replaces the graphics of every image of an image type.
+     *
+     * @param imageType the image type
+     * @param images    the new graphics; a value that is no object throws a TypeError
      */
     replace(imageType: ImageType, images: ImageGraphics): void;
 
     /**
      * Restores the installed graphics of an image type.
+     *
+     * @param imageType the image type
      */
     restore(imageType: ImageType): void;
 
     /**
-     * Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
+     * Replaces the graphics of a unit's images of an image type while the unit lives. A gone unit throws an Error.
+     *
+     * @param unit      the unit
+     * @param images    the new graphics
+     * @param imageType the image type, by default that of the unit's main image now
      */
     replaceUnit(unit: Unit, images: ImageGraphics, imageType?: ImageType): void;
 
     /**
-     * Restores the graphics of a unit's images of an image type, by default that of its main image now.
+     * Restores the graphics of a unit's images of an image type. A gone unit throws an Error.
+     *
+     * @param unit      the unit
+     * @param imageType the image type, by default that of the unit's main image now
      */
     restoreUnit(unit: Unit, imageType?: ImageType): void;
 }
 
 /**
- * The presentation that stays until it is changed: the console, the texts, the messages and the image graphics. Shared code changes it on every
- * peer, local code only on this machine; it changes no game state. Drawing is the {@link Screen} of {@link Hooks.onRender}.
+ * The presentation that stays until it is changed: the console, the texts, the messages, the sounds, the image graphics and the command
+ * card. Shared code changes it on every player's game, local code only on this machine; it changes no game state. Drawing is the
+ * {@link Screen} of {@link Hooks.onRender}.
  */
 interface Display {
     /**
@@ -4411,33 +5487,76 @@ interface Display {
     readonly commandCard: CommandCard;
 }
 
+/**
+ * The presentation of the game.
+ */
 declare const display: Display;
 
 /**
- * The options of a button: its position from 1 to 9, its cmdicons frame, its condition and action with their values (0 by default), and its
- * texts: the text and disabled text replace the stat_txt strings and may hold line breaks and the text color control characters; the hotkey
- * (one character) and the kind lead the text as in the native button strings.
+ * The options of a button inserted into a button set ({@link ButtonSet.insertButton}).
  */
 interface ButtonOptions {
+    /**
+     * The position on the card, 1 to 9 (left to right, top to bottom).
+     */
     position: number;
+    /**
+     * The cmdicons frame, 0 to 65535; 0 by default.
+     */
     icon?: number;
+    /**
+     * The condition that decides whether the button is shown, enabled or disabled.
+     */
     condition: ButtonCondition;
+    /**
+     * The condition's value, 0 to 255; 0 by default.
+     */
     conditionValue?: number;
+    /**
+     * The action a press runs.
+     */
     action: ButtonAction;
+    /**
+     * The action's value, 0 to 65535; 0 by default.
+     */
     actionValue?: number;
+    /**
+     * The text shown instead of the enabled string; it may hold line breaks and the text color control characters.
+     */
     text?: string;
+    /**
+     * The hotkey of the text, one character; none by default.
+     */
     hotkey?: string;
+    /**
+     * The kind of the text, ButtonKind.None by default.
+     */
     kind?: ButtonKind;
+    /**
+     * The text shown instead of the disabled string.
+     */
     disabledText?: string;
+    /**
+     * The one-based stat_txt id of the enabled string, 0 to 65535; 0 (none) by default.
+     */
     enabledString?: number;
+    /**
+     * The one-based stat_txt id of the disabled string, 0 to 65535; 0 (none) by default.
+     */
     disabledString?: number;
 }
 
 /**
- * The target of a script target button: the targeted map position and the unit there, null for the ground or a unit that is gone.
+ * The target of a script target button that onPressed receives.
  */
 interface ButtonTarget {
+    /**
+     * The targeted map position in pixels.
+     */
     readonly position: Position;
+    /**
+     * The targeted unit, or null for the ground; a unit that is gone since has exists() false.
+     */
     readonly unit: Unit | null;
 }
 
@@ -4446,55 +5565,87 @@ interface ButtonTarget {
  */
 interface ScriptButtonOptions {
     /**
-     * The unit type whose button set gets the button, or the button set itself.
+     * The unit type whose button set gets the button; buttonSet wins when both are given.
      */
     unitType?: UnitType;
+    /**
+     * The button set that gets the button, or its id.
+     */
     buttonSet?: ButtonSet | number;
+    /**
+     * The position on the card, 1 to 9 (left to right, top to bottom).
+     */
     position: number;
+    /**
+     * The cmdicons frame, 0 to 65535.
+     */
     icon: number;
+    /**
+     * The text of the enabled button; it may hold line breaks and the text color control characters.
+     */
     text?: string;
+    /**
+     * The hotkey of the text, one character.
+     */
     hotkey?: string;
+    /**
+     * The kind of the text, ButtonKind.None by default.
+     */
     kind?: ButtonKind;
     /**
-     * The text of the gray button.
+     * The text of the disabled (gray) button.
      */
     disabledText?: string;
     /**
-     * Whether a press enters a targeting mode whose target, a unit or the ground, goes to onPressed.
+     * True for a button whose press enters a targeting mode; the target, a unit or the ground, goes to onPressed.
      */
     target?: boolean;
 
     /**
-     * Tells for a unit whether the button acts for it: true enabled, false disabled (gray), null hidden. Each local frame the button is
-     * enabled when it returns true for a unit of the local selection, else disabled when it returns false for one, else hidden; and when a
-     * press runs, every peer calls it again for each unit the sender had selected and passes only those for which it returned true. It must
-     * read the game state only, never local information. Without it the button is enabled and every selected unit passes.
+     * Tells for a unit whether the button acts for it. Each local frame the button is enabled when it returns true for a unit of the local
+     * selection, else disabled when it returns false for one, else hidden; and when a press runs, every player's game calls it again for
+     * each unit the sender had selected and passes only those for which it returned true. It must read the game state only, never local
+     * information. Without it the button is enabled and every selected unit passes.
+     *
+     * @param unit the unit
+     * @returns true enabled, false disabled (gray), null hidden
      */
     isEnabled?(unit: Unit): boolean | null;
 
     /**
-     * Local: called for the press, or the target of a target button, on the pressing machine; consuming it sends nothing, and keeps the
-     * targeting mode of a target button.
+     * Called as local code on the pressing machine for the press, or for the target of a target button; consuming the event sends nothing,
+     * and keeps the targeting mode of a target button.
+     *
+     * @param event the press, or the target of a target button
      */
     onLocalPressed?(event: LocalButtonPressedEvent | LocalButtonTargetedEvent): void;
 
     /**
-     * Shared: called on every peer and in every replay when the press runs, with the player, the selected units that isEnabled passed and the
-     * target (null for a button without target).
+     * Called as shared code on every player's game and in every replay when the press runs.
+     *
+     * @param player the player who pressed the button
+     * @param units  the units the player had selected that isEnabled passed
+     * @param target the target, or null for a button without target
      */
     onPressed?(player: Player, units: Unit[], target: ButtonTarget | null): void;
 }
 
 /**
- * A script button: its id, from 0 to 255, is its condition value and action value.
+ * A script button ({@link CommandCard.createButton}): its id is its condition value and action value.
  */
 interface ScriptButton {
+    /**
+     * @returns the id, 0 to 255, in the order the buttons were created
+     */
     getId(): number;
 
+    /**
+     * @returns the button set that holds the button
+     */
     getButtonSet(): ButtonSet;
 
     /**
-     * @returns the button in its set's table, null once it was removed
+     * @returns the button in its set's table, or null once it was removed
      */
     getButton(): Button | null;
 }
@@ -4504,43 +5655,69 @@ interface ScriptButton {
  */
 interface CommandCard {
     /**
-     * @returns the button set of a unit type or an id, null for an id outside the table
+     * @param set a unit type for its set, or a set id
+     * @returns the button set, or null for an id outside the table
      */
     getButtonSet(set: UnitType | number): ButtonSet | null;
 
     /**
-     * Creates a script button in shared code (local code throws a TypeError), at most 256 per game. The button goes after the set's buttons
-     * up to its position, with the condition Script and the action Script, or ScriptTarget for a target button.
+     * Creates a script button, at most 256 per game; one more throws a RangeError. The button goes after the set's buttons up to its
+     * position, with the condition Script and the action Script, or ScriptTarget for a target button. Shared code only.
+     *
+     * @param options the set, the look and the callbacks of the button
+     * @returns the script button
      */
     createButton(options: ScriptButtonOptions): ScriptButton;
 }
 
 /**
- * A button set of the command card's table: the same object for the same id. Its buttons are in the order the card tries them for each
- * position. Shared code changes the table on every peer, local code only on this machine; sets may share one array of buttons, and a change
- * changes every set that shares it. An EUD write of the table replaces the changes.
+ * A button set of the command card's table, 0 to 249 (a unit type's set has the unit type's id); one set is always the same object. Its buttons
+ * are in the order the card tries them for each position. Shared code changes the table on every player's game, local code only on this
+ * machine; it changes no game state. Sets may share one array of buttons, and a change changes every set that shares it. An EUD write of the
+ * table replaces the changes. A button index outside the set throws a RangeError.
  */
 interface ButtonSet {
+    /**
+     * @returns the set id, 0 to 249
+     */
     getId(): number;
 
+    /**
+     * @returns the number of buttons in the set's array
+     */
     getButtonCount(): number;
 
+    /**
+     * @returns the buttons in table order
+     */
     getButtons(): Button[];
 
     /**
-     * @returns the button at an index, null outside the set
+     * @param index the 0-based index in the table
+     * @returns the button, or null outside the set
      */
     getButton(index: number): Button | null;
 
     /**
-     * Inserts a button before an index, or at the end for the button count.
+     * Inserts a button.
+     *
+     * @param index   the 0-based index it is inserted before, or the button count for the end
+     * @param options the button
+     * @returns the inserted button
      */
     insertButton(index: number, options: ButtonOptions): Button;
 
+    /**
+     * Removes a button; the buttons after it move up.
+     *
+     * @param index the 0-based index of the button
+     */
     removeButton(index: number): void;
 
     /**
-     * Takes the array of another set.
+     * Takes the array of another set, so that a change of either changes both.
+     *
+     * @param other the set, a unit type for its set, or a set id
      */
     share(other: ButtonSet | UnitType | number): void;
 
@@ -4550,7 +5727,7 @@ interface ButtonSet {
     unshare(): void;
 
     /**
-     * @returns the first set that holds this set's array
+     * @returns the first set that holds this set's array, the same for the sets that share it
      */
     getArray(): ButtonSet;
 
@@ -4559,54 +5736,103 @@ interface ButtonSet {
      */
     restore(): void;
 
+    /**
+     * @returns the connected set, or null for none
+     */
     getConnectedSet(): ButtonSet | null;
 
+    /**
+     * Sets the connected set.
+     *
+     * @param set the set, a unit type for its set, a set id, or null for none
+     */
     setConnectedSet(set: ButtonSet | UnitType | number | null): void;
 }
 
 /**
- * A button of a set by its index: after a button before it is inserted or removed, the object names another button.
+ * A button of a set by its index: after a button before it is inserted or removed, the object names another button. Once the index is outside
+ * the set, every method but getButtonSet and getIndex throws a RangeError. Shared code changes the button on every player's game, local code
+ * only on this machine.
  */
 interface Button {
+    /**
+     * @returns the set whose table holds the button
+     */
     getButtonSet(): ButtonSet;
 
+    /**
+     * @returns the 0-based index in the set's table
+     */
     getIndex(): number;
 
+    /**
+     * @returns the position on the card, 1 to 9
+     */
     getPosition(): number;
 
+    /**
+     * @param position the position on the card, 1 to 9
+     */
     setPosition(position: number): void;
 
+    /**
+     * @returns the cmdicons frame
+     */
     getIcon(): number;
 
+    /**
+     * @param icon the cmdicons frame, 0 to 65535
+     */
     setIcon(icon: number): void;
 
     /**
-     * @returns the condition, null for an unknown function
+     * @returns the condition, or null for an unknown function
      */
     getCondition(): ButtonCondition | null;
 
+    /**
+     * @param condition the condition
+     */
     setCondition(condition: ButtonCondition): void;
 
+    /**
+     * @returns the condition's value, 0 to 255
+     */
     getConditionValue(): number;
 
+    /**
+     * @param value the condition's value, 0 to 255
+     */
     setConditionValue(value: number): void;
 
     /**
-     * @returns the action, null for an unknown function
+     * @returns the action, or null for an unknown function
      */
     getAction(): ButtonAction | null;
 
+    /**
+     * @param action the action
+     */
     setAction(action: ButtonAction): void;
 
+    /**
+     * @returns the action's value, 0 to 65535
+     */
     getActionValue(): number;
 
+    /**
+     * @param value the action's value, 0 to 65535
+     */
     setActionValue(value: number): void;
 
     /**
-     * @returns the one-based stat_txt id of the enabled string
+     * @returns the one-based stat_txt id of the enabled string, 0 for none
      */
     getEnabledString(): number;
 
+    /**
+     * @returns the one-based stat_txt id of the disabled string, 0 for none
+     */
     getDisabledString(): number;
 
     /**
@@ -4614,17 +5840,35 @@ interface Button {
      */
     getText(): string | null;
 
+    /**
+     * @returns the hotkey character of the text, or null without a text or a hotkey
+     */
     getHotkey(): string | null;
 
+    /**
+     * @returns the kind of the text, or null without a text
+     */
     getKind(): ButtonKind | null;
 
     /**
-     * Sets the text, keeping the current hotkey and kind unless given; null shows the enabled string again.
+     * Sets the text shown instead of the enabled string.
+     *
+     * @param text    the text, or null to show the enabled string again
+     * @param options the hotkey (one character, null for none) and the kind; a left-out option keeps the current one
+     * @throws TypeError if the hotkey is neither one character nor null
      */
     setText(text: string | null, options?: { hotkey?: string | null; kind?: ButtonKind }): void;
 
+    /**
+     * @returns the text shown instead of the disabled string, or null while the button shows its string
+     */
     getDisabledText(): string | null;
 
+    /**
+     * Sets the text a disabled button shows.
+     *
+     * @param text the text, or null to show the disabled string again
+     */
     setDisabledText(text: string | null): void;
 }
 
@@ -4633,7 +5877,7 @@ interface Button {
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * An event of a unit, with the values of the moment it happened; the unit may be gone ({@link Unit.exists}).
+ * An event of a unit, with the values of the moment it happened. A unit of an event may be gone since ({@link Unit.exists}).
  */
 interface UnitEvent {
     /**
@@ -4641,92 +5885,221 @@ interface UnitEvent {
      */
     getRecord(): CoreEventRecord;
 
+    /**
+     * @returns the frame the event happened in
+     */
     getFrame(): number;
 
+    /**
+     * @returns the unit
+     */
     getUnit(): Unit;
 
+    /**
+     * @returns the unit's type then
+     */
     getUnitType(): UnitType;
 
+    /**
+     * @returns the unit's owner then
+     */
     getOwner(): Player;
 }
 
+/**
+ * A unit that was created ({@link Hooks.onUnitCreated}).
+ */
 interface UnitCreatedEvent extends UnitEvent {
 }
 
+/**
+ * A unit whose construction, training or morph completed ({@link Hooks.onUnitCompleted}).
+ */
 interface UnitCompletedEvent extends UnitEvent {
 }
 
+/**
+ * A unit that started to die ({@link Hooks.onUnitDied}).
+ */
 interface UnitDiedEvent extends UnitEvent {
+    /**
+     * @returns the unit that killed it, or null when unknown
+     */
     getKiller(): Unit | null;
 
+    /**
+     * @returns the player of the killer, or null when unknown
+     */
     getKillerPlayer(): Player | null;
 
+    /**
+     * @returns the weapon that killed it, or null when unknown
+     */
     getWeapon(): WeaponType | null;
 }
 
+/**
+ * Hit point damage to a unit ({@link Hooks.onUnitDamaged}).
+ */
 interface UnitDamagedEvent extends UnitEvent {
+    /**
+     * @returns the attacking unit, or null when unknown
+     */
     getSource(): Unit | null;
 
+    /**
+     * @returns the player of the attack, or null when unknown
+     */
     getSourcePlayer(): Player | null;
 
+    /**
+     * @returns the weapon, or null when unknown
+     */
     getWeapon(): WeaponType | null;
 
+    /**
+     * @returns the damage in shown hit points, with fractions
+     */
     getAmount(): number;
 }
 
+/**
+ * An order issued to a unit ({@link Hooks.onOrderIssued}).
+ */
 interface OrderIssuedEvent extends UnitEvent {
+    /**
+     * @returns the order
+     */
     getOrder(): Order;
 
+    /**
+     * @returns the target unit, or null for none
+     */
     getTarget(): Unit | null;
 
+    /**
+     * @returns the target position in map pixels
+     */
     getTargetPosition(): Position;
 
+    /**
+     * @returns the unit type the order builds or trains, or null for none
+     */
     getBuildType(): UnitType | null;
 
+    /**
+     * @returns true for an order queued with Shift
+     */
     isQueued(): boolean;
 }
 
+/**
+ * A target that an automatic target search found ({@link Hooks.onTargetAcquired}).
+ */
 interface TargetAcquiredEvent extends UnitEvent {
+    /**
+     * @returns the found target, or null for none
+     */
     getTarget(): Unit | null;
 }
 
+/**
+ * A unit that a producer trained ({@link Hooks.onUnitTrained}).
+ */
 interface UnitTrainedEvent extends UnitEvent {
+    /**
+     * @returns the producing unit, or null when unknown
+     */
     getProducer(): Unit | null;
 }
 
+/**
+ * A tech that a unit finished researching ({@link Hooks.onResearchCompleted}).
+ */
 interface ResearchCompletedEvent extends UnitEvent {
+    /**
+     * @returns the researched tech
+     */
     getTech(): TechType;
 }
 
+/**
+ * An upgrade level that a unit finished ({@link Hooks.onUpgradeCompleted}).
+ */
 interface UpgradeCompletedEvent extends UnitEvent {
+    /**
+     * @returns the upgrade
+     */
     getUpgrade(): UpgradeType;
 
+    /**
+     * @returns the reached level
+     */
     getLevel(): number;
 }
 
+/**
+ * A spell that a unit cast ({@link Hooks.onSpellCast}).
+ */
 interface SpellCastEvent extends UnitEvent {
+    /**
+     * @returns the tech of the spell
+     */
     getTech(): TechType;
 
+    /**
+     * @returns the target unit, or null for none
+     */
     getTarget(): Unit | null;
 
+    /**
+     * @returns the target position in map pixels
+     */
     getTargetPosition(): Position;
 }
 
+/**
+ * A unit that changed its owner ({@link Hooks.onOwnerChanged}); {@link UnitEvent.getOwner} is the new owner.
+ */
 interface OwnerChangedEvent extends UnitEvent {
+    /**
+     * @returns the owner before the change
+     */
     getPreviousOwner(): Player;
 }
 
+/**
+ * A unit that entered a transport or a Bunker ({@link Hooks.onUnitLoaded}).
+ */
 interface UnitLoadedEvent extends UnitEvent {
+    /**
+     * @returns the transport or Bunker, or null when unknown
+     */
     getTransport(): Unit | null;
 }
 
+/**
+ * A unit that left a transport or a Bunker ({@link Hooks.onUnitUnloaded}).
+ */
 interface UnitUnloadedEvent extends UnitEvent {
+    /**
+     * @returns the transport or Bunker, or null when unknown
+     */
     getTransport(): Unit | null;
 }
 
+/**
+ * An event of a bullet, with the values of the moment it happened.
+ */
 interface BulletEvent {
+    /**
+     * @returns the event's record of {@link CoreEvents.getFrameEvents}
+     */
     getRecord(): CoreEventRecord;
 
+    /**
+     * @returns the frame the event happened in
+     */
     getFrame(): number;
 
     /**
@@ -4734,32 +6107,65 @@ interface BulletEvent {
      */
     getBullet(): Bullet;
 
+    /**
+     * @returns the bullet's weapon
+     */
     getWeapon(): WeaponType;
 
+    /**
+     * @returns the player of the bullet, or null for none
+     */
     getPlayer(): Player | null;
 
+    /**
+     * @returns the unit that fired it, or null for none
+     */
     getSource(): Unit | null;
 
+    /**
+     * @returns the target unit, or null for none
+     */
     getTarget(): Unit | null;
 
+    /**
+     * @returns the target position in map pixels
+     */
     getTargetPosition(): Position;
 }
 
+/**
+ * A bullet that was created ({@link Hooks.onBulletCreated}).
+ */
 interface BulletCreatedEvent extends BulletEvent {
 }
 
+/**
+ * A bullet that hit or missed ({@link Hooks.onBulletHit}).
+ */
 interface BulletHitEvent extends BulletEvent {
+    /**
+     * @returns true when the bullet missed its target
+     */
     isMissed(): boolean;
 }
 
 /**
- * A player who left the game or was dropped.
+ * A player who left the game or was dropped ({@link Hooks.onPlayerLeft}).
  */
 interface PlayerLeftEvent {
+    /**
+     * @returns the event's record of {@link CoreEvents.getFrameEvents}
+     */
     getRecord(): CoreEventRecord;
 
+    /**
+     * @returns the frame the event happened in
+     */
     getFrame(): number;
 
+    /**
+     * @returns the player who left
+     */
     getPlayer(): Player;
 
     /**
@@ -4769,13 +6175,22 @@ interface PlayerLeftEvent {
 }
 
 /**
- * The result a player received: the triggers ended the player's game, or the player left.
+ * The result a player received ({@link Hooks.onPlayerResult}): the triggers ended the player's game, or the player left.
  */
 interface PlayerResultEvent {
+    /**
+     * @returns the event's record of {@link CoreEvents.getFrameEvents}
+     */
     getRecord(): CoreEventRecord;
 
+    /**
+     * @returns the frame the event happened in
+     */
     getFrame(): number;
 
+    /**
+     * @returns the player who received the result
+     */
     getPlayer(): Player;
 
     /**
@@ -4784,81 +6199,143 @@ interface PlayerResultEvent {
     getResult(): number;
 
     /**
-     * @returns whether the result is a victory, secured or not
+     * @returns true for a victory, secured or not
      */
     isVictory(): boolean;
 
+    /**
+     * @returns true for a defeat
+     */
     isDefeat(): boolean;
 
+    /**
+     * @returns true for a draw
+     */
     isDraw(): boolean;
 
+    /**
+     * @returns true for a dropped player
+     */
     isDropped(): boolean;
 }
 
 /**
- * A local event of the local player's input, seen on the local machine only. Consuming it keeps it from the game.
+ * An input of the local player that a local input hook receives, seen on this machine only. Consuming it keeps it from the game.
  */
 interface LocalEvent {
     /**
-     * @returns the input's record of {@link CoreLocal.getInputEvents}, whose consumed this event's {@link consume} sets
+     * @returns the input's record of {@link CoreLocal.getInputEvents}, whose consumed field {@link LocalEvent.consume} sets
      */
     getRecord(): CoreInputRecord;
 
     /**
-     * Keeps a pressed key or button, or a chat line, from the game's own handling; it has no effect on a release.
+     * Keeps a pressed key or mouse button, a chat line or a command card press from the game's own handling; it has no effect on a release.
      */
     consume(): void;
 
+    /**
+     * @returns true once a hook consumed the input
+     */
     isConsumed(): boolean;
 }
 
 /**
- * A local key or mouse button event: the modifier mask ({@link Modifier}) and the map position under the pointer, or null while unknown.
+ * A key or mouse button input of the local player.
  */
 interface LocalInputEvent extends LocalEvent {
+    /**
+     * @returns the modifier mask ({@link Modifier})
+     */
     getModifiers(): number;
 
+    /**
+     * @returns the map position under the pointer in pixels, or null while unknown
+     */
     getMousePosition(): Position | null;
 
+    /**
+     * @returns true while Shift was held
+     */
     isShift(): boolean;
 
+    /**
+     * @returns true while Control was held
+     */
     isControl(): boolean;
 
+    /**
+     * @returns true while Alt was held
+     */
     isAlt(): boolean;
 }
 
+/**
+ * A key the local player pressed or released ({@link Hooks.onLocalKeyDown}, {@link Hooks.onLocalKeyUp}).
+ */
 interface LocalKeyEvent extends LocalInputEvent {
+    /**
+     * @returns the key
+     */
     getKey(): Key;
 }
 
+/**
+ * A mouse button the local player pressed or released ({@link Hooks.onLocalMouseDown}, {@link Hooks.onLocalMouseUp}).
+ */
 interface LocalMouseButtonEvent extends LocalInputEvent {
+    /**
+     * @returns the mouse button
+     */
     getButton(): MouseButton;
 }
 
 /**
- * A chat line of the local player; a consumed line is neither sent nor shown.
+ * A chat line of the local player ({@link Hooks.onLocalChat}); a consumed line is neither sent nor shown.
  */
 interface LocalChatEvent extends LocalEvent {
+    /**
+     * @returns the chat line
+     */
     getText(): string;
 }
 
 /**
- * A command card button the local player pressed: the shown set, the button of the set's table (null for a button of none), its position,
- * condition and action (null for unknown functions) with their values. A consumed press runs no action.
+ * A command card button the local player pressed ({@link Hooks.onLocalButtonPressed}). A consumed press runs no action.
  */
 interface LocalButtonPressedEvent extends LocalEvent {
+    /**
+     * @returns the shown button set
+     */
     getButtonSet(): ButtonSet;
 
+    /**
+     * @returns the button of the set's table, or null for a button of no table entry
+     */
     getButton(): Button | null;
 
+    /**
+     * @returns the position on the card, 1 to 9
+     */
     getPosition(): number;
 
+    /**
+     * @returns the condition, or null for an unknown function
+     */
     getCondition(): ButtonCondition | null;
 
+    /**
+     * @returns the condition's value
+     */
     getConditionValue(): number;
 
+    /**
+     * @returns the action, or null for an unknown function
+     */
     getAction(): ButtonAction | null;
 
+    /**
+     * @returns the action's value
+     */
     getActionValue(): number;
 
     /**
@@ -4873,95 +6350,190 @@ interface LocalButtonPressedEvent extends LocalEvent {
 }
 
 /**
- * The target of a ScriptTarget button: the unit (null for the ground or a unit that is gone) and the map position. A consumed target keeps the
- * targeting mode.
+ * The target of a ScriptTarget button ({@link Hooks.onLocalButtonTargeted}). A consumed target keeps the targeting mode.
  */
 interface LocalButtonTargetedEvent extends LocalButtonPressedEvent {
+    /**
+     * @returns the targeted unit, or null for the ground or a unit that is gone
+     */
     getTarget(): Unit | null;
 
+    /**
+     * @returns the targeted map position in pixels
+     */
     getTargetPosition(): Position;
 }
 
 /**
- * The damage of a weapon hit; the amount is in shown hit points.
+ * The damage of a weapon hit ({@link Hooks.onBeforeDamage}). The changes go to the next hook and to the game when the hook returns.
  */
 interface DamageDecision {
     /**
-     * @returns the decision's record, whose amount and cancelled the setters change; a hook may change them there too
+     * @returns the decision's record, whose amount (1/256) and cancelled the setters change; a hook may change them there too
      */
     getRecord(): CoreDecisionRecord;
 
+    /**
+     * @returns the damaged unit
+     */
     getTarget(): Unit;
 
+    /**
+     * @returns the damaged unit's type
+     */
     getTargetType(): UnitType;
 
+    /**
+     * @returns the damaged unit's owner
+     */
     getTargetOwner(): Player;
 
+    /**
+     * @returns the attacking unit, or null when unknown
+     */
     getSource(): Unit | null;
 
+    /**
+     * @returns the player of the attack, or null when unknown
+     */
     getSourcePlayer(): Player | null;
 
+    /**
+     * @returns the weapon, or null when unknown
+     */
     getWeapon(): WeaponType | null;
 
+    /**
+     * @returns the damage in shown hit points, with fractions
+     */
     getAmount(): number;
 
+    /**
+     * Sets the damage.
+     *
+     * @param amount the damage in shown hit points, at least 0 and rounded to 1/256; an amount outside the range throws a RangeError
+     */
     setAmount(amount: number): void;
 
+    /**
+     * Cancels the damage.
+     */
     cancel(): void;
 
+    /**
+     * @returns true once a hook cancelled the damage
+     */
     isCancelled(): boolean;
 }
 
+/**
+ * An order issued to a unit ({@link Hooks.onBeforeOrder}). The changes go to the next hook and to the game when the hook returns.
+ */
 interface OrderDecision {
     /**
      * @returns the decision's record, whose order, target, targetGeneration, targetX, targetY and rejected the setters change
      */
     getRecord(): CoreDecisionRecord;
 
+    /**
+     * @returns the ordered unit
+     */
     getUnit(): Unit;
 
+    /**
+     * @returns the ordered unit's type
+     */
     getUnitType(): UnitType;
 
+    /**
+     * @returns the ordered unit's owner
+     */
     getOwner(): Player;
 
+    /**
+     * @returns the unit type the order builds or trains, or null for none
+     */
     getBuildType(): UnitType | null;
 
+    /**
+     * @returns true for an order queued with Shift
+     */
     isQueued(): boolean;
 
+    /**
+     * @returns the order, as the hooks before changed it
+     */
     getOrder(): Order;
 
+    /**
+     * Replaces the order.
+     *
+     * @param order the new order
+     */
     setOrder(order: Order): void;
 
+    /**
+     * @returns the target unit, or null for none
+     */
     getTarget(): Unit | null;
 
+    /**
+     * @returns the target position in map pixels
+     */
     getTargetPosition(): Position;
 
     /**
-     * Sets a target unit (and its position), a position without a target unit, or no target unit for null.
+     * Replaces the target. A gone unit throws an Error.
+     *
+     * @param target a unit (the target position becomes its position), a position in map pixels without a target unit, or null for no target unit
      */
     setTarget(target: Unit | Position | null): void;
 
+    /**
+     * Rejects the order, so that the unit does not take it.
+     */
     reject(): void;
 
+    /**
+     * @returns true once a hook rejected the order
+     */
     isRejected(): boolean;
 }
 
+/**
+ * The target an automatic target search found ({@link Hooks.onBeforeTargetAcquired}). The changes go to the next hook and to the game when
+ * the hook returns.
+ */
 interface TargetAcquisitionDecision {
     /**
      * @returns the decision's record, whose target and targetGeneration the setter changes
      */
     getRecord(): CoreDecisionRecord;
 
+    /**
+     * @returns the searching unit
+     */
     getUnit(): Unit;
 
+    /**
+     * @returns the searching unit's type
+     */
     getUnitType(): UnitType;
 
+    /**
+     * @returns the searching unit's owner
+     */
     getOwner(): Player;
 
+    /**
+     * @returns the target, as the hooks before changed it, or null for none
+     */
     getTarget(): Unit | null;
 
     /**
-     * Sets the target unit, or no target for null.
+     * Replaces the target. A gone unit throws an Error.
+     *
+     * @param target the new target, or null for no target
      */
     setTarget(target: Unit | null): void;
 }
@@ -4976,26 +6548,49 @@ interface TargetAcquisitionDecision {
 interface EventKind extends GameType {
 }
 
+/**
+ * The event kinds, by the names of their hooks without on.
+ */
 interface EventKindTable extends ConstantTable<EventKind> {
+    /** The event of {@link Hooks.onUnitCreated}. */
     readonly UnitCreated: EventKind;
+    /** The event of {@link Hooks.onUnitCompleted}. */
     readonly UnitCompleted: EventKind;
+    /** The event of {@link Hooks.onUnitDied}. */
     readonly UnitDied: EventKind;
+    /** The event of {@link Hooks.onUnitDamaged}. */
     readonly UnitDamaged: EventKind;
+    /** The event of {@link Hooks.onOrderIssued}. */
     readonly OrderIssued: EventKind;
+    /** The event of {@link Hooks.onTargetAcquired}. */
     readonly TargetAcquired: EventKind;
+    /** The event of {@link Hooks.onUnitTrained}. */
     readonly UnitTrained: EventKind;
+    /** The event of {@link Hooks.onResearchCompleted}. */
     readonly ResearchCompleted: EventKind;
+    /** The event of {@link Hooks.onUpgradeCompleted}. */
     readonly UpgradeCompleted: EventKind;
+    /** The event of {@link Hooks.onSpellCast}. */
     readonly SpellCast: EventKind;
+    /** The event of {@link Hooks.onOwnerChanged}. */
     readonly OwnerChanged: EventKind;
+    /** The event of {@link Hooks.onUnitLoaded}. */
     readonly UnitLoaded: EventKind;
+    /** The event of {@link Hooks.onUnitUnloaded}. */
     readonly UnitUnloaded: EventKind;
+    /** The event of {@link Hooks.onBulletCreated}. */
     readonly BulletCreated: EventKind;
+    /** The event of {@link Hooks.onBulletHit}. */
     readonly BulletHit: EventKind;
+    /** The event of {@link Hooks.onPlayerLeft}. */
     readonly PlayerLeft: EventKind;
+    /** The event of {@link Hooks.onPlayerResult}. */
     readonly PlayerResult: EventKind;
 }
 
+/**
+ * The event kinds.
+ */
 declare const EventKind: EventKindTable;
 
 /**
@@ -5004,16 +6599,29 @@ declare const EventKind: EventKindTable;
 interface InputKind extends GameType {
 }
 
+/**
+ * The input kinds, by the names of their hooks without onLocal.
+ */
 interface InputKindTable extends ConstantTable<InputKind> {
+    /** A key press ({@link Hooks.onLocalKeyDown}). */
     readonly KeyDown: InputKind;
+    /** A key release ({@link Hooks.onLocalKeyUp}). */
     readonly KeyUp: InputKind;
+    /** A mouse button press ({@link Hooks.onLocalMouseDown}). */
     readonly MouseDown: InputKind;
+    /** A mouse button release ({@link Hooks.onLocalMouseUp}). */
     readonly MouseUp: InputKind;
+    /** A submitted chat line ({@link Hooks.onLocalChat}). */
     readonly Chat: InputKind;
+    /** A command card button press ({@link Hooks.onLocalButtonPressed}). */
     readonly ButtonPressed: InputKind;
+    /** The target of a ScriptTarget button ({@link Hooks.onLocalButtonTargeted}). */
     readonly ButtonTargeted: InputKind;
 }
 
+/**
+ * The input kinds.
+ */
 declare const InputKind: InputKindTable;
 
 /**
@@ -5023,6 +6631,9 @@ declare const InputKind: InputKindTable;
 interface ButtonCondition extends GameType {
 }
 
+/**
+ * The button conditions, in the order of SC:R's list.
+ */
 interface ButtonConditionTable extends ConstantTable<ButtonCondition> {
     readonly Always: ButtonCondition;
     readonly ReplaySlowDown: ButtonCondition;
@@ -5087,9 +6698,13 @@ interface ButtonConditionTable extends ConstantTable<ButtonCondition> {
     readonly TerranBasicStructures: ButtonCondition;
     readonly TerranAdvancedStructures: ButtonCondition;
     readonly SingleUnitRequirement: ButtonCondition;
+    /** The local state of the condition value ({@link Local.setButtonState}). */
     readonly Script: ButtonCondition;
 }
 
+/**
+ * The button conditions.
+ */
 declare const ButtonCondition: ButtonConditionTable;
 
 /**
@@ -5098,6 +6713,9 @@ declare const ButtonCondition: ButtonConditionTable;
 interface ButtonAction extends GameType {
 }
 
+/**
+ * The button actions, in the order of SC:R's list.
+ */
 interface ButtonActionTable extends ConstantTable<ButtonAction> {
     readonly Move: ButtonAction;
     readonly Stop: ButtonAction;
@@ -5159,29 +6777,44 @@ interface ButtonActionTable extends ConstantTable<ButtonAction> {
     readonly ReplayPlayPause: ButtonAction;
     readonly ReplaySlowDown: ButtonAction;
     readonly ReplaySpeedUp: ButtonAction;
+    /** A press reaches the local input hooks only; it sends no command. */
     readonly Script: ButtonAction;
+    /** A press enters a targeting mode whose target reaches the local input hooks only; it sends no command. */
     readonly ScriptTarget: ButtonAction;
 }
 
+/**
+ * The button actions.
+ */
 declare const ButtonAction: ButtonActionTable;
 
 /**
- * A state of the Script button condition, its id the native condition result: Enabled 1, Hidden 0, Disabled -1.
+ * A state of the Script button condition; its id is the native condition result.
  */
 interface ButtonState extends GameType {
 }
 
+/**
+ * The states of the Script button condition.
+ */
 interface ButtonStateTable {
+    /** The button is shown and works; id 1. */
     readonly Enabled: ButtonState;
+    /** The button is not shown; id 0, the state every condition value starts with. */
     readonly Hidden: ButtonState;
+    /** The button is shown gray; id -1. */
     readonly Disabled: ButtonState;
 
     /**
-     * @returns the state of a condition result, null for another value
+     * @param id the condition result: 1, 0 or -1
+     * @returns the state, or null for another value
      */
     get(id: number): ButtonState | null;
 }
 
+/**
+ * The states of the Script button condition.
+ */
 declare const ButtonState: ButtonStateTable;
 
 /**
@@ -5191,7 +6824,11 @@ declare const ButtonState: ButtonStateTable;
 interface ButtonKind extends GameType {
 }
 
+/**
+ * The kinds of a button's text, by the costs they show: none, a unit type's, an upgrade's, a tech's use, a tech's research and a morph's.
+ */
 interface ButtonKindTable extends ConstantTable<ButtonKind> {
+    /** No costs; the default. */
     readonly None: ButtonKind;
     readonly UnitProduction: ButtonKind;
     readonly Upgrade: ButtonKind;
@@ -5200,6 +6837,9 @@ interface ButtonKindTable extends ConstantTable<ButtonKind> {
     readonly Morph: ButtonKind;
 }
 
+/**
+ * The kinds of a button's text.
+ */
 declare const ButtonKind: ButtonKindTable;
 
 /**
@@ -5208,25 +6848,43 @@ declare const ButtonKind: ButtonKindTable;
 interface DecisionKind extends GameType {
 }
 
+/**
+ * The decision kinds, by the names of their hooks without onBefore.
+ */
 interface DecisionKindTable extends ConstantTable<DecisionKind> {
+    /** The damage of a weapon hit ({@link Hooks.onBeforeDamage}). */
     readonly Damage: DecisionKind;
+    /** An order issued to a unit ({@link Hooks.onBeforeOrder}). */
     readonly Order: DecisionKind;
+    /** The target an automatic target search found ({@link Hooks.onBeforeTargetAcquired}). */
     readonly TargetAcquired: DecisionKind;
 }
 
+/**
+ * The decision kinds.
+ */
 declare const DecisionKind: DecisionKindTable;
 
 /**
- * The bits of the modifier mask of a local key or mouse button event.
+ * The bits of the modifier mask of a local key or mouse button input ({@link LocalInputEvent.getModifiers}).
  */
 interface ModifierTable {
+    /** 1. */
     readonly Shift: number;
+    /** 2. */
     readonly Control: number;
+    /** 4. */
     readonly Alt: number;
 }
 
+/**
+ * The bits of the modifier mask.
+ */
 declare const Modifier: ModifierTable;
 
+/**
+ * The unit groups Any unit, Men, Buildings and Factories of the trigger conditions and actions; their ids are their unit operands, 229 to 232.
+ */
 interface UnitGroupTable {
     readonly AnyUnit: UnitGroup;
     readonly Men: UnitGroup;
@@ -5234,8 +6892,14 @@ interface UnitGroupTable {
     readonly Factories: UnitGroup;
 }
 
+/**
+ * The unit groups.
+ */
 declare const UnitGroup: UnitGroupTable;
 
+/**
+ * The score types of the trigger conditions and actions.
+ */
 interface ScoreTypeTable extends ConstantTable<ScoreType> {
     readonly Total: ScoreType;
     readonly Units: ScoreType;
@@ -5247,8 +6911,14 @@ interface ScoreTypeTable extends ConstantTable<ScoreType> {
     readonly Custom: ScoreType;
 }
 
+/**
+ * The score types.
+ */
 declare const ScoreType: ScoreTypeTable;
 
+/**
+ * The resource types of the trigger conditions and actions.
+ */
 interface ResourceTypeTable extends ConstantTable<ResourceType> {
     readonly Minerals: ResourceType;
     readonly Gas: ResourceType;
@@ -5259,16 +6929,28 @@ interface ResourceTypeTable extends ConstantTable<ResourceType> {
     readonly Supply: ResourceType;
 }
 
+/**
+ * The resource types.
+ */
 declare const ResourceType: ResourceTypeTable;
 
+/**
+ * The alliance states between two players.
+ */
 interface AllianceTable extends ConstantTable<Alliance> {
     readonly Enemy: Alliance;
     readonly Ally: Alliance;
     readonly AlliedVictory: Alliance;
 }
 
+/**
+ * The alliance states.
+ */
 declare const Alliance: AllianceTable;
 
+/**
+ * The game speeds, by their index in the frame duration table.
+ */
 interface GameSpeedTable extends ConstantTable<GameSpeed> {
     readonly Slowest: GameSpeed;
     readonly Slower: GameSpeed;
@@ -5279,10 +6961,13 @@ interface GameSpeedTable extends ConstantTable<GameSpeed> {
     readonly Fastest: GameSpeed;
 }
 
+/**
+ * The game speeds.
+ */
 declare const GameSpeed: GameSpeedTable;
 
 /**
- * The cheats by their bit of the cheat flags.
+ * The cheats, each with its bit of the cheat flags as its id.
  */
 interface CheatTable {
     readonly BlackSheepWall: Cheat;
@@ -5304,6 +6989,9 @@ interface CheatTable {
     readonly Noglues: Cheat;
 }
 
+/**
+ * The cheats.
+ */
 declare const Cheat: CheatTable;
 
 /**
@@ -5325,8 +7013,14 @@ interface GameModeTable extends ConstantTable<GameMode> {
     readonly TopVsBottom: GameMode;
 }
 
+/**
+ * The game types.
+ */
 declare const GameMode: GameModeTable;
 
+/**
+ * The unit sizes of units.dat.
+ */
 interface UnitSizeTable extends ConstantTable<UnitSize> {
     readonly Independent: UnitSize;
     readonly Small: UnitSize;
@@ -5334,8 +7028,14 @@ interface UnitSizeTable extends ConstantTable<UnitSize> {
     readonly Large: UnitSize;
 }
 
+/**
+ * The unit sizes.
+ */
 declare const UnitSize: UnitSizeTable;
 
+/**
+ * The damage types of weapons.dat.
+ */
 interface DamageTypeTable extends ConstantTable<DamageType> {
     readonly Independent: DamageType;
     readonly Explosive: DamageType;
@@ -5344,20 +7044,32 @@ interface DamageTypeTable extends ConstantTable<DamageType> {
     readonly IgnoreArmor: DamageType;
 }
 
+/**
+ * The damage types.
+ */
 declare const DamageType: DamageTypeTable;
 
 /**
- * The elevation flags of a location: a set flag leaves the units at its elevation out of the location.
+ * The elevation flags of a location, each with its bit as its id: a set flag leaves the units at its elevation out of the location.
  */
 interface LocationFlagTable {
+    /** 0x1. */
     readonly LowGround: LocationFlag;
+    /** 0x2. */
     readonly MiddleGround: LocationFlag;
+    /** 0x4. */
     readonly HighGround: LocationFlag;
+    /** 0x8. */
     readonly LowAir: LocationFlag;
+    /** 0x10. */
     readonly MiddleAir: LocationFlag;
+    /** 0x20. */
     readonly HighAir: LocationFlag;
 }
 
+/**
+ * The elevation flags of a location.
+ */
 declare const LocationFlag: LocationFlagTable;
 
 /**
@@ -5366,6 +7078,9 @@ declare const LocationFlag: LocationFlagTable;
 interface DrawFunction extends GameType {
 }
 
+/**
+ * The draw functions, 0 to 17.
+ */
 interface DrawFunctionTable extends ConstantTable<DrawFunction> {
     readonly Normal: DrawFunction;
     readonly NormalUnchecked: DrawFunction;
@@ -5387,6 +7102,9 @@ interface DrawFunctionTable extends ConstantTable<DrawFunction> {
     readonly WarpFlash: DrawFunction;
 }
 
+/**
+ * The draw functions.
+ */
 declare const DrawFunction: DrawFunctionTable;
 
 /**
@@ -5395,6 +7113,9 @@ declare const DrawFunction: DrawFunctionTable;
 interface BulletState extends GameType {
 }
 
+/**
+ * The order states of a bullet.
+ */
 interface BulletStateTable extends ConstantTable<BulletState> {
     readonly Init: BulletState;
     readonly Move: BulletState;
@@ -5405,18 +7126,27 @@ interface BulletStateTable extends ConstantTable<BulletState> {
     readonly HitNearTarget: BulletState;
 }
 
+/**
+ * The order states of a bullet.
+ */
 declare const BulletState: BulletStateTable;
 
+/**
+ * The mouse buttons of a local mouse button input.
+ */
 interface MouseButtonTable extends ConstantTable<MouseButton> {
     readonly Left: MouseButton;
     readonly Right: MouseButton;
     readonly Middle: MouseButton;
 }
 
+/**
+ * The mouse buttons.
+ */
 declare const MouseButton: MouseButtonTable;
 
 /**
- * The keys by Windows virtual-key code: the named ones, every other code by {@link ConstantTable.get}.
+ * The keys by Windows virtual-key code, 0 to 255: the named ones, every other code by {@link ConstantTable.get}, named "Key" and the code.
  */
 interface KeyTable extends ConstantTable<Key> {
     // GENERATED Key
@@ -5516,6 +7246,9 @@ interface KeyTable extends ConstantTable<Key> {
     /** 222 Quote */ readonly Quote: Key;
 }
 
+/**
+ * The keys.
+ */
 declare const Key: KeyTable;
 
 /**
@@ -5525,6 +7258,9 @@ interface ImageTypeNames {
     readonly [name: string]: ImageType;
 }
 
+/**
+ * The image types of images.dat.
+ */
 declare const ImageType: ConstantTable<ImageType> & ImageTypeNames;
 
 /**
@@ -5534,6 +7270,9 @@ interface SpriteTypeNames {
     readonly [name: string]: SpriteType;
 }
 
+/**
+ * The sprite types of sprites.dat.
+ */
 declare const SpriteType: ConstantTable<SpriteType> & SpriteTypeNames;
 
 /**
@@ -5543,8 +7282,14 @@ interface FlingyTypeNames {
     readonly [name: string]: FlingyType;
 }
 
+/**
+ * The flingy types of flingy.dat.
+ */
 declare const FlingyType: ConstantTable<FlingyType> & FlingyTypeNames;
 
+/**
+ * The unit types of units.dat, by the identifiers of their original names ("Terran Marine" is TerranMarine).
+ */
 interface UnitTypeTable extends ConstantTable<UnitType> {
     // GENERATED UnitType
     /** 0 Terran Marine */ readonly TerranMarine: UnitType;
@@ -5777,8 +7522,14 @@ interface UnitTypeTable extends ConstantTable<UnitType> {
     /** 227 Powerup Terran Gas Tank Type 2 */ readonly PowerupTerranGasTankType2: UnitType;
 }
 
+/**
+ * The unit types.
+ */
 declare const UnitType: UnitTypeTable;
 
+/**
+ * The weapon types of weapons.dat, by the identifiers of their original names.
+ */
 interface WeaponTypeTable extends ConstantTable<WeaponType> {
     // GENERATED WeaponType
     /** 0 Gauss Rifle */ readonly GaussRifle: WeaponType;
@@ -5913,8 +7664,14 @@ interface WeaponTypeTable extends ConstantTable<WeaponType> {
     /** 129 unknown entry 129 */ readonly UnknownEntry129: WeaponType;
 }
 
+/**
+ * The weapon types.
+ */
 declare const WeaponType: WeaponTypeTable;
 
+/**
+ * The upgrade types of upgrades.dat, by the identifiers of their original names.
+ */
 interface UpgradeTypeTable extends ConstantTable<UpgradeType> {
     // GENERATED UpgradeType
     /** 0 Terran Infantry Armor */ readonly TerranInfantryArmor: UpgradeType;
@@ -5980,8 +7737,14 @@ interface UpgradeTypeTable extends ConstantTable<UpgradeType> {
     /** 60 Unused 60 */ readonly Unused60: UpgradeType;
 }
 
+/**
+ * The upgrade types.
+ */
 declare const UpgradeType: UpgradeTypeTable;
 
+/**
+ * The tech types of techdata.dat, by the identifiers of their original names.
+ */
 interface TechTypeTable extends ConstantTable<TechType> {
     // GENERATED TechType
     /** 0 Stim Packs */ readonly StimPacks: TechType;
@@ -6030,8 +7793,14 @@ interface TechTypeTable extends ConstantTable<TechType> {
     /** 43 Unused 43 */ readonly Unused43: TechType;
 }
 
+/**
+ * The tech types.
+ */
 declare const TechType: TechTypeTable;
 
+/**
+ * The orders of orders.dat, by the identifiers of their original names.
+ */
 interface OrderTable extends ConstantTable<Order> {
     // GENERATED Order
     /** 0 Die */ readonly Die: Order;
@@ -6225,4 +7994,7 @@ interface OrderTable extends ConstantTable<Order> {
     /** 188 Fatal */ readonly Fatal: Order;
 }
 
+/**
+ * The orders.
+ */
 declare const Order: OrderTable;

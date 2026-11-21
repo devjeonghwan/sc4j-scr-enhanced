@@ -31,7 +31,8 @@
                                   getScreenPosition: function () {
                                       return core.local.isViewKnown() ? createPosition(core.local.getScreenX(), core.local.getScreenY()) : null;
                                   },
-                                  // Moves only the local screen's top left to a map position at once, kept inside the map; false while the screen is unknown.
+                                  // Moves only the local screen's top left to a map position at once, kept inside the map; false while the screen is
+                                  // unknown.
                                   setScreenPosition: function (position) {
                                       requireObject(position, positionPrototype, 'A position');
 
@@ -41,8 +42,8 @@
                                   getMousePosition: function () {
                                       return core.local.isViewKnown() ? createPosition(core.local.getMouseX(), core.local.getMouseY()) : null;
                                   },
-                                  // The units of the local interface's selection, which may differ from the local player's synchronized selection until its selection
-                                  // command runs.
+                                  // The units of the local interface's selection, which may differ from the local player's synchronized selection
+                                  // until its selection command runs.
                                   getSelection: function () {
                                       return toUnits(core.local.getSelection());
                                   },
@@ -52,19 +53,21 @@
 
                                       return set === NO_BUTTON_SET ? null : getButtonSet(set);
                                   },
-                                  // Shows a button set on the local command card at its next refresh, as the Change Buttons action does, until the selection changes.
+                                  // Shows a button set on the local command card at its next refresh, as the Change Buttons action does, until the
+                                  // selection changes.
                                   changeButtons: function (set) {
                                       core.local.changeButtons(readButtonSetId(set));
                                   },
-                                  // The local state of a condition value of the Script button condition; every state starts Hidden, the native zero value.
+                                  // The local state of a condition value of the Script button condition; every state starts Hidden, the native zero
+                                  // value.
                                   getButtonState: function (conditionValue) {
                                       return ButtonState.get(core.local.getButtonState(conditionValue));
                                   },
                                   setButtonState: function (conditionValue, state) {
                                       core.local.setButtonState(conditionValue, requireObject(state, buttonStatePrototype, 'A button state').id);
                                   },
-                                  // Pauses and resumes the game as the game menu does, with the local player's Pause and Resume commands, which run in a later turn on
-                                  // every peer; a network pause takes one of the player's pauses left. Nothing in a replay.
+                                  // Pauses and resumes the game as the game menu does, with the local player's Pause and Resume commands, which run
+                                  // in a later turn on every peer; a network pause takes one of the player's pauses left. Nothing in a replay.
                                   requestPause: function () {
                                       core.local.requestPause();
                                   },

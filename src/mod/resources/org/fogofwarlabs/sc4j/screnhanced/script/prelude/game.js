@@ -6,6 +6,11 @@
 // when its slot holds another one. Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or energy for
 // a unit without them), supply the shown supply (core's half units divided by 2). The timers of game.every and game.after are counted here, by
 // frames.
+//
+// The methods that change the game state (the setters, add and subtract, kill, remove, issueOrder, create ...) are shared code only: the core
+// function they call throws a TypeError in local code and while a decision hook runs. The presentation methods (colors, image frames, draw
+// functions and graphics, the fog brightness) work anywhere. A method of a gone unit, sprite, sprite image or bullet throws an Error that it
+// does not exist.
 (function (core, prelude) {
     'use strict';
 
@@ -100,6 +105,7 @@
     var unitObjects = [];
     var locationObjects = [];
 
+    // Returns the object of a player id, null outside the player slots.
     function getPlayer(id) {
         if (!(id >= 0 && id < playerCount)) {
             return null;
@@ -206,6 +212,7 @@
         };
     }
 
+    // Returns the object of a location id, null outside the location table.
     function getLocation(id) {
         if (!(id >= 0 && id < core.location.getCount())) {
             return null;
@@ -228,6 +235,7 @@
         });
     }
 
+    // Returns the slot id of a Unit; throws an Error when the unit no longer exists.
     function requireUnitId(unit) {
         if (!requireObject(unit, unitPrototype, 'A unit').exists()) {
             throw new Error('The unit ' + unit.id + ' does not exist.');
@@ -409,7 +417,7 @@
         getSprite: function () {
             return sprites.get(core.unit.getSprite(requireUnitId(this)));
         },
-        // Runs the use-weapon routine of the unit scripts: the bullets of a WeaponType toward the unit's order target; only in shared code.
+        // Runs the use-weapon routine of the unit scripts: the bullets of a WeaponType toward the unit's order target. Shared code only.
         useWeapon: function (weaponType) {
             core.unit.useWeapon(requireUnitId(this), requireObject(weaponType, weaponTypePrototype, 'A weapon type').id);
         },
@@ -803,7 +811,8 @@
             core.player.setMissionObjectives(this.id, String(text));
         },
         // The local display of the player's screen, as the trigger actions show it when the player is the local player. A printed text always
-        // shows; with {forced: false} it shows when the subtitle option is on.
+        // shows; with {forced: false} it shows when the subtitle option is on. The display functions (print, pingMinimap, playSound,
+        // showTalkingPortrait, setUnitSpeechMuted, centerView) are shared code only.
         print: function (text, options) {
             core.player.print(this.id, String(text), readOptions(options).forced !== false);
         },
@@ -947,7 +956,7 @@
             return core.vision.isExplored(this.owner.id, position.x, position.y);
         },
         // Marks the tile at a position explored by the player (still unseen until a unit sees it), or unexplored and unseen; players 0 to 7.
-        // Only in shared code.
+        // Shared code only.
         setExplored: function (position, explored) {
             var player = this.owner.id;
 
@@ -1342,7 +1351,7 @@
         },
         // Sets the target Unit (null for none) or the target Position, as an EUD write of the bullet does: a following, bouncing or
         // near-target bullet turns to a new target unit, a moving bullet keeps its course; the hit damages the target unit and is centered on
-        // the target position. Only in shared code.
+        // the target position. Shared code only.
         setTarget: function (target) {
             var id = bullets.requireId(this);
 
@@ -1384,24 +1393,24 @@
                            has: function (tileX, tileY) {
                                return core.terrain.hasCreep(tileX, tileY);
                            },
-                           // Covers the footprint of a building of a UnitType at a position with creep and grows it until no tile is added, as the game does
-                           // for a building that needs creep; only in shared code.
+                           // Covers the footprint of a building of a UnitType at a position with creep and grows it until no tile is added, as the
+                           // game does for a building that needs creep. Shared code only.
                            fill: function (unitType, position) {
                                requireObject(position, positionPrototype, 'A position');
                                core.creep.fill(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y);
                            },
-                           // Runs one spread step of a creep source of a UnitType at a position: true when it added a tile; only in shared code.
+                           // Runs one spread step of a creep source of a UnitType at a position: true when it added a tile. Shared code only.
                            spread: function (unitType, position) {
                                requireObject(position, positionPrototype, 'A position');
 
                                return core.creep.spread(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y) === 1;
                            },
-                           // Removes the creep of a tile at once; only in shared code.
+                           // Removes the creep of a tile at once. Shared code only.
                            remove: function (tileX, tileY) {
                                core.creep.removeTile(tileX, tileY);
                            },
-                           // Makes a creep tile recede later, as the creep of a removed building does: false for a tile that is not creep, already recedes, lies
-                           // under a building or that a Zerg building sustains, and when the recession is full; only in shared code.
+                           // Makes a creep tile recede later, as the creep of a removed building does: false for a tile that is not creep, already
+                           // recedes, lies under a building or that a Zerg building sustains, and when the recession is full. Shared code only.
                            recede: function (tileX, tileY) {
                                return core.creep.recede(tileX, tileY);
                            }
@@ -1479,6 +1488,7 @@
     var animPrototype = create(resourcePrototype);
     var imagePrototype = create(resourcePrototype);
 
+    // Returns the handle id of an optional resource, NONE when left out.
     function readResourceId(resource, prototype, kind) {
         return resource === undefined || resource === null ? NONE : requireObject(resource, prototype, kind).id;
     }
@@ -1594,7 +1604,8 @@
                            count: function (filter) {
                                return filterUnits(filter, Infinity).length;
                            },
-                           // The live units whose bounds meet the rectangle of two corners, in the unit finder's order, that pass the filter; only in shared code.
+                           // The live units whose bounds meet the rectangle of two corners, in the unit finder's order, that pass the filter. Shared
+                           // code only.
                            findInRectangle: function (corner, otherCorner, filter) {
                                requireObject(corner, positionPrototype, 'A position');
                                requireObject(otherCorner, positionPrototype, 'A position');
@@ -1604,8 +1615,8 @@
 
                                return filterIds(ids, filter, Infinity);
                            },
-                           // The live units whose bounds meet the square around a position and whose position lies within the radius of it, that pass the
-                           // filter; only in shared code.
+                           // The live units whose bounds meet the square around a position and whose position lies within the radius of it, that pass
+                           // the filter. Shared code only.
                            findInRadius: function (position, radius, filter) {
                                requireObject(position, positionPrototype, 'A position');
 
@@ -1624,6 +1635,7 @@
                                    return dx * dx + dy * dy <= radius * radius && test(unit);
                                }, Infinity);
                            },
+                           // Creates a unit as Create Unit does; null when none was created. Shared code only.
                            create: function (type, player, position) {
                                requireObject(type, unitTypePrototype, 'A unit type');
                                requireObject(player, playerPrototype, 'A player');
@@ -1799,7 +1811,8 @@
                               isMultiplayer: function () {
                                   return core.game.isMultiplayer();
                               },
-                              // The raw game options: the victory condition, the resource setting, the starting minerals, the starting units and the tournament mode.
+                              // The raw game options: the victory condition, the resource setting, the starting minerals, the starting units and the
+                             // tournament mode.
                               getVictoryCondition: function () {
                                   return core.game.getVictoryCondition();
                               },
@@ -1823,6 +1836,7 @@
                               isExpansion: function () {
                                   return core.game.getExpansion() !== 0;
                               },
+                              // Sets the expansion byte to 1 or 0. Shared code only.
                               setExpansion: function (expansion) {
                                   core.game.setExpansion(expansion ? 1 : 0);
                               }
@@ -1830,13 +1844,14 @@
 
     // The sight of the players.
     var vision = freeze({
-                            // Reveals the tiles around a position to a Player or an array of players from 0 to 7 as a unit's sight with a sight range from 0 to
-                            // 11 does, until the game marks the tiles unseen again; {air: true} sees over higher ground.
+                            // Reveals the tiles around a position to a Player or an array of players from 0 to 7 as a unit's sight with a sight range
+                            // from 0 to 11 does, until the game marks the tiles unseen again; {air: true} sees over higher ground. Shared code only.
                             reveal: function (players, position, sightRange, options) {
                                 requireObject(position, positionPrototype, 'A position');
                                 core.vision.reveal(readPlayerMask(players), position.x, position.y, sightRange, readOptions(options).air === true);
                             },
-                            // The fog brightness of visible tiles (default 31): the world's fog draws visible tiles at this level, explored tiles at half of it.
+                            // The fog brightness of visible tiles (default 31): the world's fog draws visible tiles at this level, explored tiles at
+                            // half of it; the minimap's fog stays. Works anywhere.
                             getFogBrightness: function () {
                                 return core.vision.getFogBrightness();
                             },
@@ -1881,6 +1896,7 @@
                           isReadOnly: function () {
                               return core.game.isReadOnly();
                           },
+                          // Shows a text to all players. Shared code only.
                           print: function (text) {
                               core.game.print(String(text));
                           },
@@ -1888,19 +1904,19 @@
                           isPaused: function () {
                               return core.game.isPaused();
                           },
-                          // Pauses and resumes the game as Pause Game and Unpause Game do, at this frame's trigger step: nothing in a multiplayer session. While
-                          // paused, onFrame runs at every trigger step with the frame number unchanged. Only in shared code.
+                          // Pauses and resumes the game as Pause Game and Unpause Game do, at this frame's trigger step: nothing in a multiplayer
+                          // session. While paused, onFrame runs at every trigger step with the frame number unchanged. Shared code only.
                           pause: function () {
                               core.game.pause();
                           },
                           resume: function () {
                               core.game.resume();
                           },
-                          // Calls a function every given number of frames, first that many frames from now; only in shared code.
+                          // Calls a function every given number of frames, first that many frames from now. Shared code only.
                           every: function (frames, callback) {
                               return addTimer(frames, callback, false);
                           },
-                          // Calls a function once, the given number of frames from now; only in shared code.
+                          // Calls a function once, the given number of frames from now. Shared code only.
                           after: function (frames, callback) {
                               return addTimer(frames, callback, true);
                           },
@@ -1911,9 +1927,9 @@
                           isCheatEnabled: function (cheat) {
                               return (core.game.getCheatFlags() & requireObject(cheat, cheatPrototype, 'A cheat').id) !== 0;
                           },
-                          // Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags, as an EUD write of the flags does, also in a
-                          // network game and where the game options forbid cheats, and writes the bit again at the start of every frame, as the always-running
-                          // trigger of an EUD map does.
+                          // Turns a cheat on or off and keeps it so: sets or clears its bit of the cheat flags, as an EUD write of the flags does,
+                          // also in a network game and where the game options forbid cheats, and writes the bit again at the start of every frame, as
+                          // the always-running trigger of an EUD map does. Shared code only.
                           setCheatEnabled: function (cheat, enabled) {
                               var bit = requireObject(cheat, cheatPrototype, 'A cheat').id;
                               var flags = core.game.getCheatFlags();
@@ -1923,8 +1939,9 @@
                               keptCheatsOn = (enabled ? keptCheatsOn | bit : keptCheatsOn & ~bit) >>> 0;
                               keptCheatsOff = (enabled ? keptCheatsOff & ~bit : keptCheatsOff | bit) >>> 0;
                           },
-                          // Creates a sprite of a SpriteType at a position that lives as long as its image scripts run, as the game creates the sprite of a spell
-                          // or of dust: {owner: a Player, elevation: 0 to 255}; the sprite, or null when the pools are full. Only in shared code.
+                          // Creates a sprite of a SpriteType at a position that lives as long as its image scripts run, as the game creates the
+                          // sprite of a spell or of dust: {owner: a Player, elevation: 0 to 255}; the sprite, or null when the pools are full. Shared
+                          // code only.
                           createEffect: function (spriteType, position, options) {
                               var values = readOptions(options);
                               var owner = values.owner === undefined ? DEFAULT_EFFECT_OWNER : requireObject(values.owner, playerPrototype, 'A player').id;
@@ -1941,8 +1958,8 @@
                                   return bullets.get(id);
                               });
                           },
-                          // Creates a bullet of a WeaponType at a position for a unit, aimed at the unit's order target, as the game creates one: the bullet,
-                          // or null when the game creates none. Only in shared code.
+                          // Creates a bullet of a WeaponType at a position for a unit, aimed at the unit's order target, as the game creates one: the
+                          // bullet, or null when the game creates none. Shared code only.
                           createBullet: function (weaponType, source, position) {
                               var weapon = requireObject(weaponType, weaponTypePrototype, 'A weapon type').id;
 

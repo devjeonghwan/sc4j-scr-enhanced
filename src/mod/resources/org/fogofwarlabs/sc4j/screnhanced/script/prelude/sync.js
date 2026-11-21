@@ -29,6 +29,7 @@
             return this.id;
         },
         // Sends a value to the handler on every peer: the local player submits the command; a replay and an observer submit nothing.
+        // Works anywhere.
         send: function (value) {
             var envelope = {};
 
@@ -41,11 +42,13 @@
     // A value per player on a channel: a message [slot, value] sets the slot, or the sending player's slot for NONE; get returns the initial
     // value until a message set the slot.
     var playerValuePrototype = {
+        // The value of a player's slot, the initial value until a message set it.
         get: function (player) {
             var id = requireObject(player, playerPrototype, 'A player').id;
 
             return this.assigned[id] ? this.values[id] : this.initial;
         },
+        // Sends a value for the sending player's slot, or for a player's slot; it takes effect when the command runs.
         set: function (playerOrValue, value) {
             if (arguments.length < 2) {
                 this.channel.send([NONE, playerOrValue]);
@@ -56,7 +59,7 @@
     };
 
     var sync = freeze({
-                          // Creates a channel; only in shared code, so that every peer has the same channels.
+                          // Creates a channel. Shared code only, so that every peer has the same channels.
                           createChannel: function (handler) {
                               if (typeof handler !== 'function') {
                                   throw new TypeError('A channel handler function is needed, not ' + handler + '.');
@@ -67,7 +70,7 @@
 
                               return freeze(createObject(channelPrototype, {id: handlers.length - 1}));
                           },
-                          // Creates a value per player over a new channel; only in shared code, as createChannel.
+                          // Creates a value per player over a new channel. Shared code only, as createChannel.
                           createPlayerValue: function (initial) {
                               var values = [];
                               var assigned = [];
@@ -93,6 +96,7 @@
                           }
                       });
 
+    // Whether shared code created a channel.
     function hasChannels() {
         return handlers.length > 0;
     }

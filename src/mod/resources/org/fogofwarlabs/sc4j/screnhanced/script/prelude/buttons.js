@@ -28,6 +28,7 @@
     var NO_HOTKEY = '\u0000';
     var PREFIX_LENGTH = 2;
 
+    // The names of the ids below a count.
     function createNames(count, getName) {
         var names = [];
 
@@ -92,6 +93,7 @@
         return (hotkey === null ? NO_HOTKEY : hotkey) + String.fromCharCode(kind) + String(text);
     }
 
+    // Reads an optional ButtonKind as its id, 0 (None) when left out.
     function readKind(kind) {
         return kind === undefined || kind === null ? 0 : requireObject(kind, buttonKindPrototype, 'A button kind').id;
     }
@@ -133,6 +135,7 @@
         throw new TypeError('A button set, a unit type or a button set id is needed, not ' + set + '.');
     }
 
+    // Creates the button object of a set id and an index.
     function createButton(set, index) {
         return freeze(createObject(buttonPrototype, {set: set, index: index}));
     }
@@ -183,6 +186,7 @@
     buttonSetPrototype.insertButton = function (index, options) {
         return insertButton(this.id, index, options);
     };
+    // Removes the button at the index; the buttons after it move up.
     buttonSetPrototype.removeButton = function (index) {
         core.buttons.remove(this.id, index);
     };
@@ -198,12 +202,15 @@
     buttonSetPrototype.getArray = function () {
         return getButtonSet(core.buttons.getArray(this.id));
     };
+    // Takes the installed array and connected set again.
     buttonSetPrototype.restore = function () {
         core.buttons.restore(this.id);
     };
+    // The connected set, null for none.
     buttonSetPrototype.getConnectedSet = function () {
         return getButtonSet(core.buttons.getConnectedSet(this.id));
     };
+    // Sets the connected set; null for none.
     buttonSetPrototype.setConnectedSet = function (set) {
         core.buttons.setConnectedSet(this.id, set === null ? 0xFFFF : readButtonSetId(set));
     };
@@ -269,6 +276,7 @@
     buttonPrototype.getHotkey = function () {
         return splitText(core.buttons.getEnabledText(this.set, this.index)).hotkey;
     };
+    // The button kind of the text, null without a text.
     buttonPrototype.getKind = function () {
         var raw = core.buttons.getEnabledText(this.set, this.index);
 

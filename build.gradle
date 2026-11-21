@@ -231,9 +231,8 @@ tasks.withType(Test).configureEach {
     jvmArgumentProviders.add({ ['-Dsc4j.scr.jar=' + scrModJarFiles.get().singleFile.absolutePath] } as CommandLineArgumentProvider)
     systemProperty 'sc4j.screnhanced.overlay', overlay.absolutePath
     systemProperty 'sc4j.screnhanced.resources', modResources.absolutePath
-    // The local map check: the map (-Psc4j.screnhanced.classicMap=<file>) and the folder of its drawn sheets, both outside the repository.
+    // The local map check: the map (-Psc4j.screnhanced.classicMap=<file>), outside the repository.
     systemProperty 'sc4j.screnhanced.classicMap', providers.gradleProperty('sc4j.screnhanced.classicMap').getOrElse('')
-    systemProperty 'sc4j.screnhanced.classicMapOutput', providers.gradleProperty('sc4j.screnhanced.classicMapOutput').getOrElse('')
     // The local image map check: the folder of raw test maps (-Psc4j.screnhanced.imageMaps=<folder>), outside the repository.
     systemProperty 'sc4j.screnhanced.imageMaps', providers.gradleProperty('sc4j.screnhanced.imageMaps').getOrElse('')
     jvmArgs '--enable-native-access=ALL-UNNAMED'

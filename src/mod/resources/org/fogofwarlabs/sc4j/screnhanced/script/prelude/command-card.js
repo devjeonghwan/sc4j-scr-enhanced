@@ -37,6 +37,7 @@
     // The script buttons by id, in the order shared code created them, the same on every peer.
     var scriptButtons = [];
 
+    // Returns an optional callback option; throws a TypeError for a value that is not a function.
     function readCallback(value, name) {
         if (value !== undefined && typeof value !== 'function') {
             throw new TypeError('The option ' + name + ' is a function, not ' + value + '.');
@@ -45,6 +46,7 @@
         return value;
     }
 
+    // Whether a value is an integer.
     function isMapPosition(value) {
         return typeof value === 'number' && value === Math.floor(value);
     }
@@ -59,6 +61,7 @@
         return freeze({position: createPosition(value.x, value.y), unit: getCapturedUnit(value.unit, value.generation)});
     }
 
+    // Whether the button is enabled for a unit: no isEnabled, or isEnabled returns true.
     function isPassing(button, unit) {
         return button.isEnabled === undefined || button.isEnabled(unit) === true;
     }
@@ -89,8 +92,9 @@
                                  getButtonSet: function (set) {
                                      return getButtonSet(readButtonSetId(set));
                                  },
-                                 // Creates a script button, only in shared code: {unitType or buttonSet, position, icon, text, hotkey, kind, disabledText, target,
-                                 // isEnabled(unit), onLocalPressed(event), onPressed(player, units, target)}. The button goes after the set's buttons up to its position.
+                                 // Creates a script button: {unitType or buttonSet, position, icon, text, hotkey, kind, disabledText, target,
+                                 // isEnabled(unit), onLocalPressed(event), onPressed(player, units, target)}. The button goes after the set's buttons
+                                 // up to its position. Shared code only; a game has at most 256 script buttons.
                                  createButton: function (options) {
                                      var values = readOptions(options);
 

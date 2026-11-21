@@ -24,7 +24,7 @@ final class ScriptDatTablesTest {
     private static final @NotNull String BLOCK_END = "// END GENERATED DAT";
     private static final @NotNull String CORE_BLOCK_START = "// BEGIN GENERATED CORE DAT";
     private static final @NotNull String CORE_BLOCK_END = "// END GENERATED CORE DAT";
-    private static final @NotNull String BLOCK_DESCRIPTION = ": the DAT columns of ScriptDatTables; ScriptDatTablesTest checks this block.\n";
+    private static final @NotNull String BLOCK_DESCRIPTION = ": the DAT columns of the game data tables.\n";
     /**
      * The files the expected blocks are written to when the declarations differ.
      */
@@ -64,13 +64,15 @@ final class ScriptDatTablesTest {
             String typeName = table.getType().getTypeName();
 
             text.append("\n/**\n * The ").append(table.getFileName()).append(" values of the ").append(table.getKind()).append('s')
-                .append(": raw values of the current game.\n */\ninterface ").append(typeName).append("Data {\n");
+                .append(": raw values of the current game.\n * <p>\n * The set functions change the game and work in shared code only.")
+                .append(" They throw a RangeError where the lower layer's\n * set functions do ({@link ").append(getCoreInterfaceName(table))
+                .append("}).\n */\ninterface ").append(typeName).append("Data {\n");
 
             for (ScriptDatTables.Column column : table.getColumns()) {
                 writeUpperMembers(text, table, column);
             }
 
-            text.append("}\n");
+            closeInterface(text);
         }
 
         return text.append(BLOCK_END).append('\n').toString();
@@ -85,24 +87,28 @@ final class ScriptDatTablesTest {
         for (ScriptDatTables.Table table : ScriptDatTables.getTables()) {
             String parameter = toCamelCase(table.getKind());
 
-            text.append("\n/**\n * The ").append(table.getFileName()).append(" values by ").append(table.getKind()).append(".\n */\ninterface ")
-                .append(getCoreInterfaceName(table)).append(" {\n");
+            text.append("\n/**\n * The ").append(table.getFileName()).append(" values by ").append(table.getKind()).append(" ({@code core.dat.")
+                .append(table.getName()).append("}).\n * <p>\n * A get function returns the raw value of an entry; outside the entries of its")
+                .append(" column, the value the game reads there. A\n * set function stores a value as an EUD write does and works in shared code only.")
+                .append(" It throws a RangeError for an entry outside\n * the entries of its column, a value the column cannot hold or a value")
+                .append(" at or above the column's limit.\n */\ninterface ").append(getCoreInterfaceName(table)).append(" {\n");
 
             for (ScriptDatTables.Column column : table.getColumns()) {
                 text.append("    /** ").append(describe(table, column, null)).append(" */\n");
-                text.append("    get").append(column.getName()).append('(').append(parameter).append(": number): number;\n");
+                text.append("    get").append(column.getName()).append('(').append(parameter).append(": number): number;\n\n");
 
                 if (column.isWritable()) {
-                    text.append("    set").append(column.getName()).append('(').append(parameter).append(": number, value: number): void;\n");
+                    text.append("    set").append(column.getName()).append('(').append(parameter).append(": number, value: number): void;\n\n");
                 }
             }
 
-            text.append("}\n");
+            closeInterface(text);
         }
 
-        text.append("\n/**\n * The DAT tables of the current game; a write changes the game as an EUD write of the value does.\n */\ninterface CoreDat {\n");
+        text.append("\n/**\n * The DAT tables of the current game ({@code core.dat}).\n */\ninterface CoreDat {\n");
 
         for (ScriptDatTables.Table table : ScriptDatTables.getTables()) {
+            text.append("    /** The ").append(table.getFileName()).append(" values. */\n");
             text.append("    readonly ").append(table.getName()).append(": ").append(getCoreInterfaceName(table)).append(";\n");
         }
 
@@ -112,10 +118,10 @@ final class ScriptDatTablesTest {
     private static void writeUpperMembers(@NotNull StringBuilder text, ScriptDatTables.@NotNull Table table, ScriptDatTables.@NotNull Column column) {
         for (ScriptDatTables.Flag flag : column.getFlags()) {
             text.append("    /** ").append(describe(table, column, flag)).append(" */\n");
-            text.append("    is").append(flag.getName()).append("(): boolean;\n");
+            text.append("    is").append(flag.getName()).append("(): boolean;\n\n");
 
             if (column.isWritable()) {
-                text.append("    set").append(flag.getName()).append("(set: boolean): void;\n");
+                text.append("    set").append(flag.getName()).append("(set: boolean): void;\n\n");
             }
         }
 
@@ -132,11 +138,22 @@ final class ScriptDatTablesTest {
         }
 
         text.append("    /** ").append(describe(table, column, null)).append(" */\n");
-        text.append("    get").append(column.getName()).append("(): ").append(valueType).append(";\n");
+        text.append("    get").append(column.getName()).append("(): ").append(valueType).append(";\n\n");
 
         if (column.isWritable()) {
-            text.append("    set").append(column.getName()).append('(').append(parameter).append(": ").append(valueType).append("): void;\n");
+            text.append("    set").append(column.getName()).append('(').append(parameter).append(": ").append(valueType).append("): void;\n\n");
         }
+    }
+
+    /**
+     * Ends an interface: drops the blank line after its last member and closes it.
+     */
+    private static void closeInterface(@NotNull StringBuilder text) {
+        if (text.toString().endsWith("\n\n")) {
+            text.setLength(text.length() - 1);
+        }
+
+        text.append("}\n");
     }
 
     /**

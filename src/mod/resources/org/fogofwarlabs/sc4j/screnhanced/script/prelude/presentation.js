@@ -44,10 +44,12 @@
 
                                        core.graphics.replaceImage(imageTypeId, ids[0], ids[1], ids[2]);
                                    },
+                                   // Draws the installed graphics of an image type again.
                                    restore: function (imageType) {
                                        core.graphics.restoreImage(requireObject(imageType, imageTypePrototype, 'An image type').id);
                                    },
-                                   // Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
+                                   // Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit
+                                   // lives.
                                    replaceUnit: function (unit, images, imageType) {
                                        var id = requireUnitId(unit);
                                        var imageTypeId = readUnitImageType(unit, imageType);
@@ -55,6 +57,7 @@
 
                                        core.graphics.replaceUnitImage(id, imageTypeId, ids[0], ids[1], ids[2]);
                                    },
+                                   // Draws the graphics of the image type again for a unit's images.
                                    restoreUnit: function (unit, imageType) {
                                        core.graphics.restoreUnitImage(requireUnitId(unit), readUnitImageType(unit, imageType));
                                    }

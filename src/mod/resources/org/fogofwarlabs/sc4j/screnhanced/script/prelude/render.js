@@ -1,5 +1,5 @@
 // The drawing of the upper layer: the globals Font, Align and Graphics, and the screen object that onRender receives, over core.screen,
-// core.world and core.minimap. Colours are Color numbers, fonts and alignments their constants; the options objects become the positional
+// core.world and core.minimap. Colors are Color numbers, fonts and alignments their constants; the options objects become the positional
 // arguments of core.
 (function (core, prelude) {
     'use strict';
@@ -25,6 +25,7 @@
     var Align = createConstantTable(alignPrototype, ['Left', 'Center', 'Right'], 3, 'Align ');
     var Graphics = createConstantTable(graphicsPrototype, ['SD', 'HD', 'HD2'], 3, 'Graphics ');
 
+    // The option readers: white, a thickness of 1 and the Medium font when left out.
     function readColorOption(color) {
         return color === undefined ? Color.White : color;
     }
@@ -67,7 +68,7 @@
             drawPoint: function (x, y, color) {
                 namespace.drawPoint(x, y, readColorOption(color));
             },
-            // Options {font, color, align}: the lines, broken at \n, from the top at y, each aligned on x; colour codes in the text work.
+            // Options {font, color, align}: the lines, broken at \n, from the top at y, each aligned on x; color codes in the text work.
             drawText: function (text, x, y, options) {
                 var values = readOptions(options);
                 var align = values.align === undefined ? Align.Left.id : requireObject(values.align, alignPrototype, 'An alignment').id;
@@ -83,7 +84,7 @@
 
                 namespace.drawImage(id, x, y, width, height, values.opacity === undefined ? DEFAULT_OPACITY : values.opacity);
             },
-            // The width of the widest line in interface units, in the client's fonts; only in local code.
+            // The width of the widest line in interface units, in the client's fonts. Local code only.
             measureText: function (text, font) {
                 return namespace.measureText(String(text), readFontOption(font));
             }
@@ -93,6 +94,7 @@
     // The screen object of onRender: the game screen in interface units, its world (map pixels, following the camera) and its minimap.
     var screen = createDrawing(core.screen);
 
+    // The size of the local game screen in interface units, the real pixels per interface unit and the graphics mode. Local code only.
     screen.getWidth = function () {
         return core.screen.getWidth();
     };
