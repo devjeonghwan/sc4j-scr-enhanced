@@ -26,9 +26,9 @@ import org.mozilla.javascript.Scriptable;
  * {@value SightCoverage#DESCRIPTOR_COUNT} minus one: an air reveal sees over the terrain, a ground reveal not over higher ground; what it reveals
  * stays seen until the next time the game marks the tiles unseen.
  * <p>
- * {@code getMinimapFogLevel()} and {@code setMinimapFogLevel(level)} read and store the fog level of visible tiles, the byte EUD writes change
- * (default {@code 0x1F}, full brightness): the fog of the world and the minimap draw visible tiles at this level, explored tiles at half of it and
- * unexplored tiles black. They are presentation: they run in shared and local code and change no game state.
+ * {@code getFogBrightness()} and {@code setFogBrightness(level)} read and store the fog brightness of visible tiles, the byte EUD writes change
+ * (default {@code 0x1F}, full brightness): the world's fog draws visible tiles at this level, explored tiles at half of it and unexplored tiles
+ * black; the minimap does not use it. They are presentation: they run in shared and local code and change no game state.
  */
 final class ScriptVisionCore {
     /**
@@ -36,9 +36,9 @@ final class ScriptVisionCore {
      */
     private static final int MAXIMUM_REVEAL_MASK = 0xFF;
     /**
-     * The largest fog level of visible tiles, a byte.
+     * The largest fog brightness of visible tiles, a byte.
      */
-    private static final int MAXIMUM_FOG_LEVEL = 0xFF;
+    private static final int MAXIMUM_FOG_BRIGHTNESS = 0xFF;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -82,13 +82,13 @@ final class ScriptVisionCore {
 
             return Context.getUndefinedValue();
         });
-        ScriptCoreUtils.defineFunction(global, namespace, "getMinimapFogLevel", 0,
+        ScriptCoreUtils.defineFunction(global, namespace, "getFogBrightness", 0,
                                        (context, scope, thisObject, arguments) -> (double) this.scriptGame.getGame().getGameContext().getVisibleFogLevel());
-        ScriptCoreUtils.defineFunction(global, namespace, "setMinimapFogLevel", 1, (context, scope, thisObject, arguments) -> {
+        ScriptCoreUtils.defineFunction(global, namespace, "setFogBrightness", 1, (context, scope, thisObject, arguments) -> {
             int level = ScriptCoreUtils.readInteger(arguments, 0);
 
-            if (level < 0 || level > MAXIMUM_FOG_LEVEL) {
-                throw ScriptRuntime.rangeError(Exceptions.format("The fog level {0} is not from 0 to {1}.", level, MAXIMUM_FOG_LEVEL));
+            if (level < 0 || level > MAXIMUM_FOG_BRIGHTNESS) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The fog brightness {0} is not from 0 to {1}.", level, MAXIMUM_FOG_BRIGHTNESS));
             }
 
             this.scriptGame.getGame().getGameContext().setVisibleFogLevel(level);

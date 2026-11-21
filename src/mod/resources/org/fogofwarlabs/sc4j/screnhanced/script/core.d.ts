@@ -1590,12 +1590,12 @@ interface CoreVision {
     setTileVisibility(tileX: number, tileY: number, bits: number): void;
     /**
      * [A]
-     * @returns the fog level of visible tiles (0 to 255, default 31): the world and the minimap draw visible tiles at this level, explored tiles
-     *          at half of it
+     * @returns the fog brightness of visible tiles (0 to 255, default 31): the world's fog draws visible tiles at this level, explored tiles at
+     *          half of it; the minimap does not use it
      */
-    getMinimapFogLevel(): number;
+    getFogBrightness(): number;
     /** [A] */
-    setMinimapFogLevel(level: number): void;
+    setFogBrightness(level: number): void;
     /** [A] */
     isVisible(player: number, x: number, y: number): boolean;
     /** [A] */

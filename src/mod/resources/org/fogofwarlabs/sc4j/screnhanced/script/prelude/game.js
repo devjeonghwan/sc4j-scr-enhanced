@@ -1835,12 +1835,12 @@
             requireObject(position, positionPrototype, 'A position');
             core.vision.reveal(readPlayerMask(players), position.x, position.y, sightRange, readOptions(options).air === true);
         },
-        // The fog level of visible tiles (default 31): the world and the minimap draw visible tiles at this level, explored tiles at half of it.
-        getMinimapFogLevel: function () {
-            return core.vision.getMinimapFogLevel();
+        // The fog brightness of visible tiles (default 31): the world's fog draws visible tiles at this level, explored tiles at half of it.
+        getFogBrightness: function () {
+            return core.vision.getFogBrightness();
         },
-        setMinimapFogLevel: function (level) {
-            core.vision.setMinimapFogLevel(level);
+        setFogBrightness: function (level) {
+            core.vision.setFogBrightness(level);
         }
     });
 

@@ -2507,14 +2507,14 @@ interface GameVision {
      */
     reveal(players: Player | Player[], position: Position, sightRange: number, options?: RevealOptions): void;
     /**
-     * @returns the fog level of visible tiles (0 to 255, default 31): the world and the minimap draw visible tiles at this level, explored tiles
-     *          at half of it and unexplored tiles black
+     * @returns the fog brightness of visible tiles (0 to 255, default 31): the world's fog draws visible tiles at this level, explored tiles at
+     *          half of it and unexplored tiles black; the minimap does not use it
      */
-    getMinimapFogLevel(): number;
+    getFogBrightness(): number;
     /**
-     * Sets the fog level of visible tiles; shared code sets it on every peer, local code only on this machine.
+     * Sets the fog brightness of visible tiles; shared code sets it on every peer, local code only on this machine.
      */
-    setMinimapFogLevel(level: number): void;
+    setFogBrightness(level: number): void;
 }
 
 /**

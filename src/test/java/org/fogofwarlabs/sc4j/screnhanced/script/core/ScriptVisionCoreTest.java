@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * Tests {@code core.vision}, the sight functions of {@code core.unit} and {@code core.player} and the {@code player.vision} and
  * {@code game.vision} groups of the prelude in a live melee game: the tiles and units each player sees, a reveal through the native sight
- * routine, the shared vision of the relations and the sight coverage, the writes of a tile's visibility and the fog level of visible tiles, the
+ * routine, the shared vision of the relations and the sight coverage, the writes of a tile's visibility and the fog brightness of visible tiles, the
  * shared and local code checks, and the same game state from the same writes.
  */
 @RequiresInstallation
@@ -30,9 +30,9 @@ final class ScriptVisionCoreTest {
      */
     private static final int CHANGE_FRAMES = 4;
     /**
-     * The fog level of visible tiles that the local code of the tile test sets.
+     * The fog brightness of visible tiles that the local code of the tile test sets.
      */
-    private static final int LOCAL_FOG_LEVEL = 25;
+    private static final int LOCAL_FOG_BRIGHTNESS = 25;
     private static final @NotNull String CHANGES = """
             function onStart() {
                 var human = game.players.getHumans()[0];
@@ -155,7 +155,7 @@ final class ScriptVisionCoreTest {
     }
 
     @Test
-    void tile_visibility_writes_and_the_fog_level_reach_the_tiles_and_the_display(@NotNull InstallationTestResources resources) throws IOException {
+    void tile_visibility_writes_and_the_fog_brightness_reach_the_tiles_and_the_display(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 var human;
                 var other;
@@ -174,12 +174,12 @@ final class ScriptVisionCoreTest {
                     core.vision.setTileVisibility(tileX, tileY, core.vision.getTileVisibility(tileX, tileY) & ~(bit | bit << 8));
                     log.info(human.vision.canSee(other), human.vision.hasExplored(other),
                              (core.terrain.getTileFlags(tileX, tileY) & ~0xFFFF) === (flags & ~0xFFFF));
-                    log.info(game.vision.getMinimapFogLevel());
-                    game.vision.setMinimapFogLevel(20);
-                    log.info(core.vision.getMinimapFogLevel());
+                    log.info(game.vision.getFogBrightness());
+                    game.vision.setFogBrightness(20);
+                    log.info(core.vision.getFogBrightness());
                     [function () { core.vision.setTileVisibility(0, 0, 0x10000); }, function () { core.vision.setTileVisibility(-1, 0, 0); },
                      function () { game.players.get(8).vision.setExplored(other, true); },
-                     function () { core.vision.setMinimapFogLevel(256); }].forEach(function (call) {
+                     function () { core.vision.setFogBrightness(256); }].forEach(function (call) {
                         try {
                             call();
                         } catch (error) {
@@ -188,8 +188,8 @@ final class ScriptVisionCoreTest {
                     });
                 }
                 function onLocalFrame() {
-                    game.vision.setMinimapFogLevel(25);
-                    log.info('local ' + game.vision.getMinimapFogLevel());
+                    game.vision.setFogBrightness(25);
+                    log.info('local ' + game.vision.getFogBrightness());
                     try {
                         human.vision.setExplored(other, false);
                     } catch (error) {
@@ -212,7 +212,7 @@ final class ScriptVisionCoreTest {
                                         "RangeError",
                                         "local 25",
                                         "local TypeError true"), scenario.getInfoMessages(), scenario.getLines()::toString);
-        Assertions.assertEquals(LOCAL_FOG_LEVEL, scenario.getGame().getGameContext().getVisibleFogLevel());
+        Assertions.assertEquals(LOCAL_FOG_BRIGHTNESS, scenario.getGame().getGameContext().getVisibleFogLevel());
     }
 
     @Test
