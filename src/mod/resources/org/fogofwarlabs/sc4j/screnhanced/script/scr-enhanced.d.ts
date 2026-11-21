@@ -1323,6 +1323,11 @@ interface UnitType extends GameType, UnitTypeData {
      * the game's name again. Shared code sets it on every peer, local code only on this machine.
      */
     setName(text: string | null): void;
+    /**
+     * @returns the strength of the unit type against air or ground targets for the computer players
+     */
+    getAiStrength(air: boolean): number;
+    setAiStrength(air: boolean, strength: number): void;
 }
 
 /**
@@ -1369,6 +1374,11 @@ interface ImageType extends GameType, ImageTypeData {
      * @returns the image type whose HD anim this image type draws (images.rel), this image type for one with its own anim
      */
     getAnimImageType(): ImageType;
+    /**
+     * @returns the damage overlay byte: twice the flame positions of the image's damage overlay, a unit's damage states
+     */
+    getDamageOverlayCount(): number;
+    setDamageOverlayCount(count: number): void;
 }
 
 /**
@@ -1393,6 +1403,59 @@ interface ResourceType extends GameType {
 }
 
 interface Alliance extends GameType {
+}
+
+/**
+ * A game speed, which names an entry of the frame duration table.
+ */
+interface GameSpeed extends GameType {
+    /**
+     * @returns the milliseconds of a frame at the speed
+     */
+    getFrameDuration(): number;
+    /**
+     * Sets the milliseconds of a frame at the speed, as an EUD write does: the game takes it at once unless the game name overrides the
+     * speed; the turn timeouts of a network game keep their last durations.
+     */
+    setFrameDuration(milliseconds: number): void;
+}
+
+/**
+ * A cheat; its id is its bit of the cheat flags.
+ */
+interface Cheat extends GameType {
+}
+
+/**
+ * A game type of the game header.
+ */
+interface GameMode extends GameType {
+}
+
+/**
+ * A unit size of units.dat.
+ */
+interface UnitSize extends GameType {
+}
+
+/**
+ * A damage type of weapons.dat.
+ */
+interface DamageType extends GameType {
+    /**
+     * @returns the factor that scales the damage against the size, 1 for full damage
+     */
+    getMultiplier(size: UnitSize): number;
+    /**
+     * Sets the factor, stored in 1/256.
+     */
+    setMultiplier(size: UnitSize, factor: number): void;
+}
+
+/**
+ * An elevation flag of a location; its id is its bit.
+ */
+interface LocationFlag extends GameType {
 }
 
 /**
@@ -1523,9 +1586,47 @@ interface Unit {
     kill(): boolean;
     remove(): boolean;
     /**
-     * Issues an order to a target unit or a position; without a target the unit's own position is the target.
+     * Issues an order to a target unit or a position; without a target the unit's own position is the target. With {queued: true} the order
+     * goes behind the unit's queue when the order takes one, as a queued command does.
      */
-    issueOrder(order: Order, target?: Unit | Position | null): void;
+    issueOrder(order: Order, target?: Unit | Position | null, options?: IssueOrderOptions): void;
+    /**
+     * @returns the orders waiting behind the current one, first to last
+     */
+    getOrderQueue(): QueuedOrder[];
+    getSecondaryOrder(): Order;
+    getSecondaryOrderState(): number;
+    /**
+     * Sets the secondary order as the native routine does: a changed order starts from its first state.
+     */
+    setSecondaryOrder(order: Order): void;
+    /**
+     * @returns the shown hit points a unit under construction gains each frame
+     */
+    getHpGain(): number;
+    setHpGain(hp: number): void;
+    /**
+     * @returns the shown shields a unit under construction gains each frame
+     */
+    getShieldGain(): number;
+    setShieldGain(shields: number): void;
+    /**
+     * @returns the shown hit points the unit had before it morphed, which a cancelled Zerg building gives back
+     */
+    getPreviousHp(): number;
+    /**
+     * @returns true when the player sees the unit: in the player's sight and, when cloaked or burrowed, detected
+     */
+    isVisibleTo(player: Player): boolean;
+    isDetectedBy(player: Player): boolean;
+    /**
+     * @returns the players whose sight covers the unit
+     */
+    getVisibleTo(): Player[];
+    /**
+     * @returns the unit's strength against air or ground targets for the computer players
+     */
+    getAiStrength(air: boolean): number;
     /**
      * The unit's status timers and its remove timer; one unit always has the same object.
      */
@@ -1598,6 +1699,26 @@ interface Unit {
      * @returns false for a subunit, a subunit type, or a type whose turret does not match the unit's
      */
     setType(type: UnitType): boolean;
+}
+
+/**
+ * The options of {@link Unit.issueOrder}.
+ */
+interface IssueOrderOptions {
+    queued?: boolean;
+}
+
+/**
+ * An order waiting in a unit's queue ({@link Unit.getOrderQueue}).
+ */
+interface QueuedOrder {
+    readonly order: Order;
+    readonly target: Unit | null;
+    readonly position: Position;
+    /**
+     * The unit type the order builds or trains, null for none.
+     */
+    readonly unitType: UnitType | null;
 }
 
 /**
@@ -1819,6 +1940,52 @@ interface Player {
      * The player's scores of the Score condition and the Set Score action.
      */
     readonly score: PlayerScore;
+    /**
+     * The player's shared vision and the tiles the player sees.
+     */
+    readonly vision: PlayerVision;
+    /**
+     * @returns the minerals of the gathered total of the score
+     */
+    getGatheredMinerals(): number;
+    setGatheredMinerals(minerals: number): void;
+    getGatheredGas(): number;
+    setGatheredGas(gas: number): void;
+    /**
+     * @returns the pauses a player from 0 to 7 has left in a network game
+     */
+    getPausesLeft(): number;
+    setPausesLeft(pauses: number): void;
+    /**
+     * @returns the start location, which the computer players and the start screen read, or null for a player without one
+     */
+    getStartLocation(): Position | null;
+    /**
+     * @returns false for a player without a start location
+     */
+    setStartLocation(position: Position): boolean;
+}
+
+/**
+ * The vision of a player ({@link Player.vision}).
+ */
+interface PlayerVision {
+    /**
+     * @returns the players that see what this player's units see, this player included
+     */
+    getSharedWith(): Player[];
+    /**
+     * Sets the players that see what this player's units see, without the vision command's permission test; the player sees its own units'
+     * sight only while it is among them.
+     */
+    setSharedWith(players: Player[]): void;
+    isSharedWith(player: Player): boolean;
+    shareWith(player: Player, shared: boolean): void;
+    /**
+     * @returns true while the player sees the position
+     */
+    canSee(position: Position): boolean;
+    hasExplored(position: Position): boolean;
 }
 
 /**
@@ -1973,6 +2140,11 @@ interface Location {
      * Moves the location so the position is its center, kept inside the map as Move Location keeps it.
      */
     setCenter(position: Position): void;
+    /**
+     * @returns true when the flag is set, which leaves the units at its elevation out of the location
+     */
+    hasFlag(flag: LocationFlag): boolean;
+    setFlag(flag: LocationFlag, set: boolean): void;
 }
 
 interface Timer {
@@ -2026,6 +2198,18 @@ interface Game {
      */
     every(frames: number, callback: () => void): Timer;
     /**
+     * Calls a function once, the given number of frames from now ({@link Time}), at the frame start before the hooks of the frame; only in
+     * shared code, local code throws a TypeError.
+     */
+    after(frames: number, callback: () => void): Timer;
+    getSpeed(): GameSpeed;
+    isCheatEnabled(cheat: Cheat): boolean;
+    /**
+     * Turns a cheat on or off. Black Sheep Wall and War Aint What It Used to Be go through the cheat routine, which reveals the map and does
+     * nothing when the game options forbid cheats or more than one human plays a network game; the other cheats are stored as flags.
+     */
+    setCheatEnabled(cheat: Cheat, enabled: boolean): void;
+    /**
      * The map: its size, tileset, terrain, locations and resource files.
      */
     readonly map: GameMap;
@@ -2049,6 +2233,79 @@ interface Game {
      * The leaderboards of the leaderboard actions.
      */
     readonly leaderboard: Leaderboard;
+    /**
+     * The settings the game started with.
+     */
+    readonly settings: GameSettings;
+    /**
+     * The sight of the players.
+     */
+    readonly vision: GameVision;
+    /**
+     * The combat tables.
+     */
+    readonly combat: GameCombat;
+}
+
+/**
+ * The settings the game started with ({@link Game.settings}).
+ */
+interface GameSettings {
+    getMode(): GameMode;
+    getSubtype(): number;
+    isMultiplayer(): boolean;
+    /**
+     * @returns the raw victory condition of the game options
+     */
+    getVictoryCondition(): number;
+    /**
+     * @returns the raw resource setting of the game options
+     */
+    getResourceType(): number;
+    getStartingMinerals(): number;
+    /**
+     * @returns the raw starting units setting of the game options
+     */
+    getStartingUnits(): number;
+    getTournamentMode(): number;
+    /**
+     * @returns true when the game options permit the cheat command
+     */
+    areCheatsAllowed(): boolean;
+    /**
+     * @returns true when Brood War content is on
+     */
+    isExpansion(): boolean;
+    setExpansion(expansion: boolean): void;
+}
+
+/**
+ * The options of {@link GameVision.reveal}.
+ */
+interface RevealOptions {
+    air?: boolean;
+}
+
+/**
+ * The sight of the players ({@link Game.vision}).
+ */
+interface GameVision {
+    /**
+     * Reveals the tiles around a position to players from 0 to 7 as a unit's sight with a sight range from 0 to 11 does, until the game marks
+     * the tiles unseen again; {air: true} sees over higher ground.
+     */
+    reveal(players: Player | Player[], position: Position, sightRange: number, options?: RevealOptions): void;
+}
+
+/**
+ * The combat tables ({@link Game.combat}); the damage multipliers are on {@link DamageType}.
+ */
+interface GameCombat {
+    /**
+     * @returns the distances in pixels a fleeing unit tries, in order
+     */
+    getFleeDistances(): number[];
+    setFleeDistances(distances: number[]): void;
 }
 
 declare const game: Game;
@@ -2147,6 +2404,18 @@ interface Units {
      * @returns the number of live units that pass the filter
      */
     count(filter?: UnitFilter): number;
+    /**
+     * Searches the unit finder; only in shared code, local code throws a TypeError.
+     *
+     * @returns the live units whose bounds meet the rectangle of the two corners, in the finder's order, that pass the filter
+     */
+    findInRectangle(corner: Position, otherCorner: Position, filter?: UnitFilter): Unit[];
+    /**
+     * Searches the unit finder; only in shared code, local code throws a TypeError.
+     *
+     * @returns the live units near the position whose position lies within the radius, in the finder's order, that pass the filter
+     */
+    findInRadius(position: Position, radius: number, filter?: UnitFilter): Unit[];
     /**
      * Creates a unit as Create Unit does.
      *
@@ -3153,6 +3422,97 @@ interface AllianceTable extends ConstantTable<Alliance> {
 }
 
 declare const Alliance: AllianceTable;
+
+interface GameSpeedTable extends ConstantTable<GameSpeed> {
+    readonly Slowest: GameSpeed;
+    readonly Slower: GameSpeed;
+    readonly Slow: GameSpeed;
+    readonly Normal: GameSpeed;
+    readonly Fast: GameSpeed;
+    readonly Faster: GameSpeed;
+    readonly Fastest: GameSpeed;
+}
+
+declare const GameSpeed: GameSpeedTable;
+
+/**
+ * The cheats by their bit of the cheat flags.
+ */
+interface CheatTable {
+    readonly BlackSheepWall: Cheat;
+    readonly OperationCwal: Cheat;
+    readonly PowerOverwhelming: Cheat;
+    readonly SomethingForNothing: Cheat;
+    readonly ShowMeTheMoney: Cheat;
+    readonly GameOverMan: Cheat;
+    readonly ThereIsNoCowLevel: Cheat;
+    readonly StayingAlive: Cheat;
+    readonly Ophelia: Cheat;
+    readonly TheGathering: Cheat;
+    readonly MedievalMan: Cheat;
+    readonly ModifyThePhaseVariance: Cheat;
+    readonly WarAintWhatItUsedToBe: Cheat;
+    readonly FoodForThought: Cheat;
+    readonly WhatsMineIsMine: Cheat;
+    readonly BreatheDeep: Cheat;
+    readonly Noglues: Cheat;
+}
+
+declare const Cheat: CheatTable;
+
+/**
+ * The game types of the game header, ids 0 to 15; the ids without a type are named "Game mode" and the id.
+ */
+interface GameModeTable extends ConstantTable<GameMode> {
+    readonly Melee: GameMode;
+    readonly FreeForAll: GameMode;
+    readonly OneOnOne: GameMode;
+    readonly CaptureTheFlag: GameMode;
+    readonly Greed: GameMode;
+    readonly Slaughter: GameMode;
+    readonly SuddenDeath: GameMode;
+    readonly Ladder: GameMode;
+    readonly UseMapSettings: GameMode;
+    readonly TeamMelee: GameMode;
+    readonly TeamFreeForAll: GameMode;
+    readonly TeamCaptureTheFlag: GameMode;
+    readonly TopVsBottom: GameMode;
+}
+
+declare const GameMode: GameModeTable;
+
+interface UnitSizeTable extends ConstantTable<UnitSize> {
+    readonly Independent: UnitSize;
+    readonly Small: UnitSize;
+    readonly Medium: UnitSize;
+    readonly Large: UnitSize;
+}
+
+declare const UnitSize: UnitSizeTable;
+
+interface DamageTypeTable extends ConstantTable<DamageType> {
+    readonly Independent: DamageType;
+    readonly Explosive: DamageType;
+    readonly Concussive: DamageType;
+    readonly Normal: DamageType;
+    readonly IgnoreArmor: DamageType;
+}
+
+declare const DamageType: DamageTypeTable;
+
+/**
+ * The elevation flags of a location: a set flag leaves the units at its elevation out of the location.
+ */
+interface LocationFlagTable {
+    readonly LowGround: LocationFlag;
+    readonly MiddleGround: LocationFlag;
+    readonly HighGround: LocationFlag;
+    readonly LowAir: LocationFlag;
+    readonly MiddleAir: LocationFlag;
+    readonly HighAir: LocationFlag;
+}
+
+declare const LocationFlag: LocationFlagTable;
 
 interface MouseButtonTable extends ConstantTable<MouseButton> {
     readonly Left: MouseButton;

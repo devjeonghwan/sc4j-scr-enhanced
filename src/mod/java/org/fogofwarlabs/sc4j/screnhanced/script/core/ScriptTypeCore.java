@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.content.type.ContentType;
 import org.fogofwarlabs.sc4j.scr.content.ScrImages;
 import org.fogofwarlabs.sc4j.scr.content.ScrOrders;
@@ -15,6 +16,7 @@ import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 import java.io.IOException;
@@ -46,9 +48,15 @@ import java.util.Set;
  * <p>
  * {@code imageType} also has {@code getAnimImageType(id)}: the image type whose HD anim the image type draws, after the installed
  * {@code images.rel} ({@code UnitTerranControl} for {@code UnitTerranControl_2}); the image type itself for one with its own anim, for every
- * image type of a game without game data and when {@code images.rel} cannot be read.
+ * image type of a game without game data and when {@code images.rel} cannot be read. {@code getDamageOverlayCount(id)} and
+ * {@code setDamageOverlayCount(id, count)} read and store the image type's damage overlay byte as an EUD write does: twice the number of
+ * flame positions of its damage overlay, which a unit with the image as its main image takes as its number of damage states.
  */
 final class ScriptTypeCore {
+    /**
+     * The largest value of a BYTE.
+     */
+    private static final int BYTE_MAXIMUM = 0xFF;
     private static final @NotNull String GRP_EXTENSION = ".grp";
     private static final @NotNull String GRP_PATH_SEPARATORS = "[/\\\\]";
     private static final @NotNull String IMAGE_NAME_PREFIX = "Image";
@@ -110,6 +118,7 @@ final class ScriptTypeCore {
         defineNames(ScriptCoreUtils.createNamespace(context, global, core, "orderType"), global, "order type", getNames(ScrOrders.getTypes()));
 
         defineAnimImageTypes(imageTypes, global, createAnimImageTypes(gameData));
+        defineDamageOverlayCounts(imageTypes, global, scriptGame);
     }
 
     /**
@@ -257,6 +266,35 @@ final class ScriptTypeCore {
             int id = ScriptCoreUtils.requireId("image type", ScriptCoreUtils.readInteger(arguments, 0), ScrImages.COUNT);
 
             return (double) animImageTypes[id];
+        });
+    }
+
+    /**
+     * Defines {@code getDamageOverlayCount(id)} and {@code setDamageOverlayCount(id, count)} of the image type namespace.
+     */
+    private static void defineDamageOverlayCounts(@NotNull Scriptable namespace, @NotNull Scriptable global, @NotNull ScriptGame scriptGame) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getDamageOverlayCount", 1, (context, scope, thisObject, arguments) -> {
+            int id = ScriptCoreUtils.requireId("image type", ScriptCoreUtils.readInteger(arguments, 0), ScrImages.COUNT);
+
+            try {
+                return (double) scriptGame.getGame().requireGameData().getImageDamageOverlayCount(id);
+            } catch (IOException exception) {
+                throw ScriptRuntime.typeError(Exceptions.format("The damage overlay of the image type {0} cannot be read.", id));
+            }
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setDamageOverlayCount", 2, (context, scope, thisObject, arguments) -> {
+            scriptGame.checkWritable();
+
+            int id = ScriptCoreUtils.requireId("image type", ScriptCoreUtils.readInteger(arguments, 0), ScrImages.COUNT);
+            int count = ScriptCoreUtils.readInteger(arguments, 1);
+
+            if (count < 0 || count > BYTE_MAXIMUM) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The damage overlay count {0} is not from 0 to {1}.", count, BYTE_MAXIMUM));
+            }
+
+            scriptGame.getGame().requireGameData().setImageDamageOverlayCount(id, count);
+
+            return Context.getUndefinedValue();
         });
     }
 

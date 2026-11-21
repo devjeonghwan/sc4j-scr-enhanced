@@ -15,6 +15,7 @@ import org.fogofwarlabs.sc4j.scr.game.player.PlayerTechnology;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerUnitAvailability;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerUpgrades;
+import org.fogofwarlabs.sc4j.scr.game.player.StartLocation;
 import org.fogofwarlabs.sc4j.scr.game.player.UnitAccounting;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
@@ -27,13 +28,16 @@ import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerUnitActions;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
+import org.fogofwarlabs.sc4j.scr.game.visibility.SightCoverage;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Defines {@code core.player}: the players by slot id from {@code 0} to {@value PlayerTable#PLAYER_SLOTS} minus one.
@@ -88,6 +92,15 @@ import java.nio.charset.StandardCharsets;
  * {@code endGame} ends the game for a player from {@code 0} to {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one as the Victory
  * ({@value TriggerPlayerResults#VICTORY}), Defeat ({@value TriggerPlayerResults#DEFEAT}) and Draw ({@value TriggerPlayerResults#DRAW})
  * actions do and returns {@code false} when a defeat or a draw meets a victory.
+ * <p>
+ * The player state that EUD writes change, stored as such a write stores it: {@code getGatheredMinerals}, {@code setGatheredMinerals},
+ * {@code getGatheredGas} and {@code setGatheredGas} (the gathered totals of the score); {@code getSharedVision(player)} and
+ * {@code setSharedVision(player, mask)} (the players that see what the player's units see, one bit per player and the player's own bit
+ * included; the write sets the relations and the sight coverage, as the vision command and the AI script do, without the command's
+ * permission test); {@code getPausesLeft(player)} and {@code setPausesLeft(player, pauses)} (the pauses a player from {@code 0} to
+ * {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one has left, which the network pause takes); {@code getStartLocationX(player)} and
+ * {@code getStartLocationY(player)} ({@code -1} for a player without one) and {@code setStartLocation(player, x, y)} ({@code false} for a
+ * player without one), the start location the computer players and the start screen read.
  */
 final class ScriptPlayerCore {
     /**
@@ -110,6 +123,14 @@ final class ScriptPlayerCore {
      * The unit availability byte of a unit type a player may produce.
      */
     private static final int UNIT_AVAILABLE = 1;
+    /**
+     * The mask of a BYTE, the most pauses a player has left.
+     */
+    private static final int BYTE_MASK = 0xFF;
+    /**
+     * The largest value of a WORD coordinate.
+     */
+    private static final int WORD_MAXIMUM = 0xFFFF;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -147,6 +168,8 @@ final class ScriptPlayerCore {
         this.defineDisplayFunctions(namespace, global);
         this.defineProgressFunctions(namespace, global);
         this.defineSelectionFunctions(namespace, global);
+        this.defineVisionFunctions(namespace, global);
+        this.defineStartFunctions(namespace, global);
 
         ScriptCoreUtils.defineFunction(global, namespace, "setMissionObjectives", 2, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
@@ -189,6 +212,31 @@ final class ScriptPlayerCore {
             int resourceType = ScriptCoreUtils.readResourceType(arguments, 1);
 
             return (double) TriggerConditions.readResources(player, resourceType);
+        });
+
+        ScriptCoreUtils.defineFunction(global, namespace, "getGatheredMinerals", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readPlayer(arguments, 0).getGatheredMinerals());
+        ScriptCoreUtils.defineFunction(global, namespace, "setGatheredMinerals", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Player player = this.readPlayer(arguments, 0);
+            int amount = ScriptCoreUtils.readInteger(arguments, 1);
+
+            player.setGatheredMinerals(amount);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getGatheredGas", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readPlayer(arguments, 0).getGatheredGas());
+        ScriptCoreUtils.defineFunction(global, namespace, "setGatheredGas", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Player player = this.readPlayer(arguments, 0);
+            int amount = ScriptCoreUtils.readInteger(arguments, 1);
+
+            player.setGatheredGas(amount);
+
+            return Context.getUndefinedValue();
         });
     }
 
@@ -644,6 +692,118 @@ final class ScriptPlayerCore {
 
             return (double) count;
         });
+    }
+
+    /**
+     * Defines the shared vision of the players and the pauses they have left.
+     */
+    private void defineVisionFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getSharedVision", 1, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+
+            return (double) Integer.toUnsignedLong(this.scriptGame.getGame().getPlayerTable().requirePlayerRelations().getSharedVision(player));
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setSharedVision", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int mask = (int) ScriptCoreUtils.readLong(arguments, 1);
+            Game game = this.scriptGame.getGame();
+            SightCoverage sight = game.getSightCoverage();
+
+            if (sight == null) {
+                throw ScriptRuntime.typeError("The game has no sight coverage.");
+            }
+
+            game.getPlayerTable().requirePlayerRelations().setSharedVision(player, mask);
+            sight.setSharedVisionMask(player, mask);
+
+            return Context.getUndefinedValue();
+        });
+
+        ScriptCoreUtils.defineFunction(global, namespace, "getPausesLeft", 1, (context, scope, thisObject, arguments) -> {
+            int player = this.readTriggerPlayerId(arguments, 0);
+
+            return (double) (this.scriptGame.getGame().getGameContext().getContextPauses()[player] & BYTE_MASK);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setPausesLeft", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readTriggerPlayerId(arguments, 0);
+            int pauses = ScriptCoreUtils.readInteger(arguments, 1);
+
+            if (pauses < 0 || pauses > BYTE_MASK) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The pauses {0} are not from 0 to {1}.", pauses, BYTE_MASK));
+            }
+
+            this.scriptGame.getGame().getGameContext().getContextPauses()[player] = (byte) pauses;
+
+            return Context.getUndefinedValue();
+        });
+    }
+
+    /**
+     * Defines the start locations of the players, which the computer players and the start screen read.
+     */
+    private void defineStartFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getStartLocationX", 1, (context, scope, thisObject, arguments) -> {
+            StartLocation start = this.findStartLocation(this.readPlayerId(arguments, 0));
+
+            return (double) (start == null ? ScriptCoreUtils.NO_ID : start.getX());
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getStartLocationY", 1, (context, scope, thisObject, arguments) -> {
+            StartLocation start = this.findStartLocation(this.readPlayerId(arguments, 0));
+
+            return (double) (start == null ? ScriptCoreUtils.NO_ID : start.getY());
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setStartLocation", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int player = this.readPlayerId(arguments, 0);
+            int positionX = this.readWord(arguments, 1);
+            int positionY = this.readWord(arguments, 2);
+            List<StartLocation> starts = this.scriptGame.getGame().getPlayerTable().getStartLocations();
+
+            for (int index = 0; index < starts.size(); index++) {
+                if (starts.get(index).getOwner() == player) {
+                    starts.set(index, new StartLocation(player, positionX, positionY));
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
+    /**
+     * Finds the first start location a player owns.
+     *
+     * @return the start location, or {@code null} if the player owns none
+     */
+    private @Nullable StartLocation findStartLocation(int player) {
+        for (StartLocation start : this.scriptGame.getGame().getPlayerTable().getStartLocations()) {
+            if (start.getOwner() == player) {
+                return start;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Reads a WORD coordinate.
+     *
+     * @throws EcmaError if the argument is not an integer or is outside {@code 0} to {@value #WORD_MAXIMUM}
+     */
+    private int readWord(@NotNull Object @NotNull [] arguments, int index) {
+        int value = ScriptCoreUtils.readInteger(arguments, index);
+
+        if (value < 0 || value > WORD_MAXIMUM) {
+            throw ScriptRuntime.rangeError(Exceptions.format("The coordinate {0} is not from 0 to {1}.", value, WORD_MAXIMUM));
+        }
+
+        return value;
     }
 
     private int readUpgrade(@NotNull Object @NotNull [] arguments, int index) {

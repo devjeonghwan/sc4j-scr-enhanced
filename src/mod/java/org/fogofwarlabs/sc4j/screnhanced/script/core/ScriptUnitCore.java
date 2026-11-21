@@ -8,6 +8,8 @@ import org.fogofwarlabs.sc4j.scr.content.ScrUpgradeIds;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
+import org.fogofwarlabs.sc4j.scr.game.order.OrderPool;
+import org.fogofwarlabs.sc4j.scr.game.order.ScrOrderSystem;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
@@ -20,12 +22,14 @@ import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitStatusFlags;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitTypeTraitsUtils;
+import org.fogofwarlabs.sc4j.scr.game.unit.finder.UnitSpatialIndex;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,9 +59,9 @@ import java.util.function.ToIntFunction;
  * {@code false} for a unit that is no resource container), {@code addHangarCount(id, count)} (Modify Unit Hanger Count: up to {@code count}
  * Interceptors or Scarabs while the hangar takes another one; {@code false} for a unit without a hangar), {@code create(type, owner, x, y)}
  * (Create Unit; the new id or {@code -1}), {@code kill} and {@code remove} (Kill Unit and Remove Unit), {@code move(id, x, y)} (Move Unit),
- * {@code give(id, player)} (Give Units to Player) and {@code issueOrder(id, order, target, x, y)} (with {@code target} {@code -1} the Order
- * action to the position, with a target unit the order system after the order requirement test). A write that the routine refuses returns
- * {@code false}.
+ * {@code give(id, player)} (Give Units to Player) and {@code issueOrder(id, order, target, x, y, queued)} (with {@code target} {@code -1} and
+ * not queued the Order action to the position; queued or with a target unit the order system after the order requirement test, which appends
+ * a queued order behind the queue of an order that takes one). A write that the routine refuses returns {@code false}.
  * <p>
  * The unit fields that EUD maps read and write, as raw values with a {@code get} and a {@code set} each. The status timers count status steps
  * of eight frames: {@code StimTimer} (refreshes the speed when it starts or ends), {@code EnsnareTimer}, {@code LockdownTimer},
@@ -75,6 +79,20 @@ import java.util.function.ToIntFunction;
  * the current one), {@code getResearch} and {@code getUpgrade} (the technology or upgrade in progress, {@code -1} for none) and
  * {@code getAddon} ({@code -1} for none). {@code setType(id, type)} changes the unit's type through the morph routine and returns
  * {@code false} for a subunit, a subunit type, or a type whose turret does not match the unit's.
+ * <p>
+ * Orders: {@code getOrderQueue(id)} (the orders waiting behind the current one, first to last, as records {@code order}, {@code target} and
+ * {@code targetGeneration} ({@code -1} without a live target unit), {@code x}, {@code y} and {@code unitType} ({@code -1} for none)),
+ * {@code getSecondaryOrder}, {@code getSecondaryOrderState} and {@code setSecondaryOrder(id, order)} (the native routine: a changed order
+ * clears the state and the unit in production). The construction fields as an EUD write stores them: {@code HpGain} and {@code ShieldGain}
+ * (raw {@code 1/256} units added each construction frame) and {@code getPreviousHp} (the whole hit points a morphing unit had, which a
+ * cancelled Zerg building gives back).
+ * <p>
+ * Sight: {@code getVisibilityFlags} (the players whose sight covers the unit's sprite, one bit per player), {@code getDetectionFlags} (the
+ * players that detect the unit), {@code isVisibleTo(id, player)} and {@code isDetectedBy(id, player)} (the visibility system's tests: seen
+ * and, when cloaked or burrowed, detected). {@code getAirStrength} and {@code getGroundStrength} are the unit's values for the computer
+ * players. The unit finder, in shared code only because its searches use the finder's working state: {@code findInRectangle(left, top,
+ * right, bottom)} (the units whose bounds meet the rectangle) and {@code findAtPoint(x, y)} (the units whose bounds hold the point), the live
+ * units in the finder's order.
  */
 final class ScriptUnitCore {
     /**
@@ -194,6 +212,9 @@ final class ScriptUnitCore {
         this.defineStatusFunctions(namespace, global);
         this.defineProductionFunctions(namespace, global);
         this.defineMovementFunctions(namespace, global);
+        this.defineVisionFunctions(namespace, global);
+        this.defineOrderFunctions(namespace, global);
+        this.defineFinderFunctions(namespace, global);
     }
 
     private void defineReads(@NotNull Scriptable namespace, @NotNull Scriptable global) {
@@ -373,7 +394,7 @@ final class ScriptUnitCore {
 
             return this.getGame().getUnitOwnership().giveUnit(unit, owner, this.scriptGame.getInstructionLimit());
         });
-        ScriptCoreUtils.defineFunction(global, namespace, "issueOrder", 5, (context, scope, thisObject, arguments) -> {
+        ScriptCoreUtils.defineFunction(global, namespace, "issueOrder", 6, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
             this.issueOrder(arguments);
 
@@ -814,8 +835,8 @@ final class ScriptUnitCore {
     }
 
     /**
-     * Issues an order: to a position as the Order action gives it, to a target unit through the order system after the order requirement
-     * test for the unit's owner.
+     * Issues an order: an order that replaces the queue to a position as the Order action gives it; a queued order, and an order to a target
+     * unit, through the order system after the order requirement test for the unit's owner.
      */
     private void issueOrder(@NotNull Object @NotNull [] arguments) {
         Unit unit = this.readUnit(arguments, 0);
@@ -823,6 +844,7 @@ final class ScriptUnitCore {
         Unit target = ScriptCoreUtils.readInteger(arguments, 2) == ScriptCoreUtils.NO_ID ? null : this.readUnit(arguments, 2);
         int positionX = ScriptCoreUtils.readInteger(arguments, 3);
         int positionY = ScriptCoreUtils.readInteger(arguments, 4);
+        boolean queued = ScriptCoreUtils.readBoolean(arguments, 5);
 
         if (order == ScrOrderIds.CLOAK) {
             throw ScriptRuntime.rangeError(Exceptions.format("The order {0} cannot be issued.", order));
@@ -830,10 +852,147 @@ final class ScriptUnitCore {
 
         int instructionLimit = this.scriptGame.getInstructionLimit();
 
-        if (target == null) {
+        if (target == null && !queued) {
             this.getGame().getTriggerUnitActions().issueUnitOrder(unit, order, positionX, positionY, instructionLimit);
         } else if (this.getGame().getUnitOrderEligibility().canReceiveOrder(unit, order, unit.getOwnerIndex())) {
-            this.getGame().getOrders().issue(unit, order, target, positionX, positionY, ScrUnitIds.NONE, false, instructionLimit);
+            this.getGame().getOrders().issue(unit, order, target, positionX, positionY, ScrUnitIds.NONE, queued, instructionLimit);
         }
+    }
+
+    /**
+     * Defines the sight and detection of a unit and its strengths for the computer players.
+     */
+    private void defineVisionFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getVisibilityFlags", 1, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+
+            return (double) Integer.toUnsignedLong(unit.requireSprite().getVisibilityFlags());
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getDetectionFlags", 1, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+
+            return (double) Integer.toUnsignedLong(unit.getDetectionFlags());
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isVisibleTo", 2, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+            int player = ScriptCoreUtils.requireId("player", ScriptCoreUtils.readInteger(arguments, 1), PlayerTable.PLAYER_SLOTS);
+            org.fogofwarlabs.sc4j.engine.game.Game engine = this.getGame().getEngineGame();
+
+            return engine.getVisibility().isUnitVisible(engine.getPlayer(player), unit);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isDetectedBy", 2, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+            int player = ScriptCoreUtils.requireId("player", ScriptCoreUtils.readInteger(arguments, 1), PlayerTable.PLAYER_SLOTS);
+            org.fogofwarlabs.sc4j.engine.game.Game engine = this.getGame().getEngineGame();
+
+            return engine.getVisibility().isDetected(engine.getPlayer(player), unit);
+        });
+        this.defineRead(namespace, global, "getAirStrength", Unit::getAirStrength);
+        this.defineRead(namespace, global, "getGroundStrength", Unit::getGroundStrength);
+    }
+
+    /**
+     * Defines the order queue, the secondary order and the construction gains of a unit.
+     */
+    private void defineOrderFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getOrderQueue", 1, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+            UnitPool pool = this.getPool();
+            List<Object> records = new ArrayList<>();
+
+            for (OrderPool.Order order = unit.getFirstOrder(); order != null; order = order.getNext()) {
+                ScriptableObject record = (ScriptableObject) context.newObject(global);
+                Unit target = order.getTargetUnit();
+                boolean live = target != null && isLive(pool, target.getIndex());
+
+                record.put("order", record, (double) order.getOrderId());
+                record.put("target", record, (double) (live ? target.getIndex() : ScriptCoreUtils.NO_ID));
+                record.put("targetGeneration", record, (double) (live ? pool.getGeneration(target.getIndex()) : ScriptCoreUtils.NO_ID));
+                record.put("x", record, (double) order.getTargetX());
+                record.put("y", record, (double) order.getTargetY());
+                record.put("unitType", record, (double) (order.getUnitType() < ScrUnitIds.NONE ? order.getUnitType() : ScriptCoreUtils.NO_ID));
+                records.add(ScriptCoreUtils.freeze(record));
+            }
+
+            return context.newArray(global, records.toArray());
+        });
+
+        this.defineRead(namespace, global, "getSecondaryOrder", Unit::getSecondaryOrder);
+        this.defineRead(namespace, global, "getSecondaryOrderState", Unit::getSecondaryOrderState);
+        ScriptCoreUtils.defineFunction(global, namespace, "setSecondaryOrder", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int order = ScriptCoreUtils.requireId("order", ScriptCoreUtils.readInteger(arguments, 1), ScrOrderIds.NONE);
+
+            ScrOrderSystem.setSecondaryOrder(unit, order);
+
+            return Context.getUndefinedValue();
+        });
+
+        this.defineFieldWrite(namespace, global, "HpGain", Unit::getConstructionHitPointIncrement, Unit::setConstructionHitPointIncrement,
+                              WORD_MAXIMUM);
+        this.defineFieldWrite(namespace, global, "ShieldGain", Unit::getConstructionShieldIncrement, Unit::setConstructionShieldIncrement,
+                              WORD_MAXIMUM);
+        this.defineRead(namespace, global, "getPreviousHp", Unit::getPreviousVisibleHitPoints);
+    }
+
+    /**
+     * Defines the searches of the unit finder, which share the finder's working state with the simulation and so run in shared code only.
+     */
+    private void defineFinderFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "findInRectangle", 4, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkShared();
+
+            int left = ScriptCoreUtils.readInteger(arguments, 0);
+            int top = ScriptCoreUtils.readInteger(arguments, 1);
+            int right = ScriptCoreUtils.readInteger(arguments, 2);
+            int bottom = ScriptCoreUtils.readInteger(arguments, 3);
+            UnitSpatialIndex finder = this.requireFinder();
+
+            if (!finder.hasQueryBounds()) {
+                throw ScriptRuntime.typeError("The unit finder has no query bounds.");
+            }
+
+            return this.createLiveIds(context, global, finder.findAllInRectangle(this.getUnitTypes(), left, top, right, bottom));
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "findAtPoint", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkShared();
+
+            int x = ScriptCoreUtils.readInteger(arguments, 0);
+            int y = ScriptCoreUtils.readInteger(arguments, 1);
+
+            return this.createLiveIds(context, global, this.requireFinder().findAllAtPoint(x, y));
+        });
+    }
+
+    /**
+     * @return the unit finder of the game
+     * @throws EcmaError if the game has none
+     */
+    private @NotNull UnitSpatialIndex requireFinder() {
+        UnitSpatialIndex finder = this.getGame().getUnitSystem().getUnitSpatialIndex();
+
+        if (finder == null) {
+            throw ScriptRuntime.typeError("The game has no unit finder.");
+        }
+
+        return finder;
+    }
+
+    /**
+     * Creates the array of the live units among the pool indices of a search, in search order.
+     */
+    private @NotNull Scriptable createLiveIds(@NotNull Context context, @NotNull Scriptable global, int @NotNull [] indices) {
+        UnitPool pool = this.getPool();
+        List<Object> ids = new ArrayList<>();
+
+        for (int id : indices) {
+            if (isLive(pool, id)) {
+                ids.add((double) id);
+            }
+        }
+
+        return context.newArray(global, ids.toArray());
     }
 }

@@ -1,10 +1,12 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 import java.util.function.ToIntFunction;
@@ -16,9 +18,17 @@ import java.util.function.ToIntFunction;
  * location with the name, {@code -1} for none), {@code getLeft}, {@code getTop}, {@code getRight}, {@code getBottom}, {@code getCenterX},
  * {@code getCenterY}, {@code setBounds(id, left, top, right, bottom)} and {@code setCenter(id, x, y)}. The bounds are map pixels;
  * {@code setBounds} sets the four bound DWORDs of the location as given, without masking or clamping, as an EUD write of the location
- * table does; {@code setCenter} moves the location as Move Location moves its destination, kept inside the map.
+ * table does; {@code setCenter} moves the location as Move Location moves its destination, kept inside the map. {@code getFlags(id)} and
+ * {@code setFlags(id, flags)} read and store the elevation flag WORD of the location as an EUD write does: a set bit leaves the units at its
+ * elevation out of the location's unit searches (bits {@code 0} to {@code 2} the low, middle and high ground, bits {@code 3} to {@code 5} the
+ * air above them).
  */
 final class ScriptLocationCore {
+    /**
+     * The largest elevation flag WORD.
+     */
+    private static final int MAXIMUM_FLAGS = 0xFFFF;
+
     private final @NotNull ScriptGame scriptGame;
 
     /**
@@ -59,6 +69,21 @@ final class ScriptLocationCore {
         this.defineRead(namespace, global, "getBottom", TriggerLocation::getBottom);
         this.defineRead(namespace, global, "getCenterX", TriggerLocation::getCenterX);
         this.defineRead(namespace, global, "getCenterY", TriggerLocation::getCenterY);
+        this.defineRead(namespace, global, "getFlags", TriggerLocation::getElevationFlags);
+        ScriptCoreUtils.defineFunction(global, namespace, "setFlags", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            int id = ScriptCoreUtils.readLocationId(arguments, 0);
+            int flags = ScriptCoreUtils.readInteger(arguments, 1);
+
+            if (flags < 0 || flags > MAXIMUM_FLAGS) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The location flags {0} are not from 0 to {1}.", flags, MAXIMUM_FLAGS));
+            }
+
+            this.scriptGame.requireTriggerContext().getLocation(id).setElevationFlags(flags);
+
+            return Context.getUndefinedValue();
+        });
 
         ScriptCoreUtils.defineFunction(global, namespace, "setBounds", 5, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();

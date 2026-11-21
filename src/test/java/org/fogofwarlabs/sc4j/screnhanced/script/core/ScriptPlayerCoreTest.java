@@ -41,6 +41,10 @@ final class ScriptPlayerCoreTest {
      * The frames the counter test runs after its start, so that the killed units are gone.
      */
     private static final int COUNTED_FRAMES = 24;
+    /**
+     * The frames the determinism test runs after its start.
+     */
+    private static final int CHANGE_FRAMES = 4;
 
     @Test
     void upgrade_levels_refresh_the_existing_units_and_technologies_change_their_state(@NotNull InstallationTestResources resources) throws IOException {
@@ -364,5 +368,90 @@ final class ScriptPlayerCoreTest {
                                         TriggerEvents.WAV + " 0 0 0 sound/custom.wav",
                                         TriggerEvents.TRANSMISSION + " 0 -1 1008",
                                         TriggerEvents.UNIT_SPEECH_MUTE + " 0 0 0"), shown, scenario.getLines()::toString);
+    }
+
+    @Test
+    void players_keep_their_gathered_resources_pauses_and_start_locations(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var human;
+                function onStart() {
+                    human = game.players.getHumans()[0];
+                    var start = human.getStartLocation();
+                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                    log.info(start.getX() === core.player.getStartLocationX(human.getId()), start.getY() === core.player.getStartLocationY(human.getId()),
+                             start.getX() === commandCenter.getX(), start.getY() === commandCenter.getY(), game.players.get(11).getStartLocation(),
+                             core.player.getStartLocationX(11));
+                    log.info(human.setStartLocation(Position.of(100, 200)), String(human.getStartLocation()),
+                             game.players.get(11).setStartLocation(Position.of(1, 1)));
+                    log.info(human.getGatheredMinerals(), human.getGatheredGas());
+                    human.setGatheredMinerals(1234);
+                    human.setGatheredGas(56);
+                    log.info(human.getGatheredMinerals(), core.player.getGatheredGas(human.getId()), human.getMinerals());
+                    log.info(human.getPausesLeft());
+                    human.setPausesLeft(1);
+                    log.info(human.getPausesLeft(), core.player.getPausesLeft(human.getId()));
+                    [function () { game.players.get(8).getPausesLeft(); }, function () { core.player.setPausesLeft(0, 256); },
+                     function () { core.player.setStartLocation(0, -1, 0); }].forEach(function (action) {
+                        try {
+                            action();
+                        } catch (error) {
+                            log.info(error.name);
+                        }
+                    });
+                }
+                function onLocalFrame() {
+                    try {
+                        human.setPausesLeft(2);
+                    } catch (error) {
+                        log.info('local ' + error.name + ' ' + human.getPausesLeft() + ' ' + human.getGatheredMinerals());
+                    }
+                }
+                """);
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("true true true true null -1",
+                                        "true (100, 200) false",
+                                        "50 0",
+                                        "1234 56 50",
+                                        "3",
+                                        "1 1",
+                                        "RangeError",
+                                        "RangeError",
+                                        "RangeError",
+                                        "local TypeError 1 1234"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void the_same_player_state_writes_give_the_same_game_state(@NotNull InstallationTestResources resources) throws IOException {
+        String changes = """
+                function onStart() {
+                    var human = game.players.getHumans()[0];
+                    human.setGatheredMinerals(1234);
+                    human.setPausesLeft(1);
+                    human.setStartLocation(Position.of(100, 200));
+                }
+                """;
+        long first = runPlayerChanges(resources, changes);
+        long second = runPlayerChanges(resources, changes);
+        long unchanged = runPlayerChanges(resources, "");
+
+        Assertions.assertEquals(first, second);
+        Assertions.assertNotEquals(first, unchanged);
+    }
+
+    /**
+     * Runs a melee game with a script for four frames.
+     *
+     * @return the state hash of the game at the end
+     */
+    private static long runPlayerChanges(@NotNull InstallationTestResources resources, @NotNull String source) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), source);
+
+        for (int frame = 0; frame < CHANGE_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        return scenario.getGame().computeStateHash();
     }
 }

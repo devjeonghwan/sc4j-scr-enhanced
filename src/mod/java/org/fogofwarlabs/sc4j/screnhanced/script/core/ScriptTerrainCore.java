@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.game.map.MapTileChanges;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.scr.game.terrain.MapTileFlags;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
@@ -18,6 +19,8 @@ import java.io.IOException;
  * CV5 group and the tile's index in it).
  * <p>
  * {@code getTile(tileX, tileY)} reads the tile the map has after the changes queued so far, the tile below creep for a tile with creep;
+ * {@code getTileFlags(tileX, tileY)} reads the tile's flag DWORD as the game holds it now (the sight bits of {@code core.vision}, walkability,
+ * creep, elevation and occupation, {@link MapTileFlags});
  * {@code setTile(tileX, tileY, value)} queues a change, which the game applies at its next trigger step, after the simulation plugins' frame
  * start and before the triggers, as on a map that had the tile from the start ({@link MapTileChanges}); {@code getTileGroupCount()} is the
  * number of CV5 groups of the map's tileset and {@code isValidTile(value)} tells whether a value names a tile of it. The terrain a value gives
@@ -58,6 +61,17 @@ final class ScriptTerrainCore {
             int tileY = this.readTileY(arguments, 1);
 
             return (double) this.getChanges().getTile(tileX, tileY);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getTileFlags", 2, (context, scope, thisObject, arguments) -> {
+            int tileX = this.readTileX(arguments, 0);
+            int tileY = this.readTileY(arguments, 1);
+            GameMap map = this.scriptGame.getGame().getMap();
+
+            if (!map.hasTileFlags()) {
+                throw ScriptRuntime.typeError("The map has no tile flags.");
+            }
+
+            return (double) Integer.toUnsignedLong(map.getTileFlags(tileX, tileY));
         });
         ScriptCoreUtils.defineFunction(global, namespace, "setTile", 3, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();

@@ -111,6 +111,13 @@ final class LiveScriptGameScenario {
     }
 
     /**
+     * Runs the script's local frame of the current game frame, as the client does after a game frame.
+     */
+    void runLocalFrame() {
+        this.script.getRuntime().callLocalFrame(this.getGame().getCurrentFrame());
+    }
+
+    /**
      * @return the log lines of the script so far
      */
     @NotNull List<@NotNull String> getLines() {

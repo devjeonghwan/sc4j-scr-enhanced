@@ -52,4 +52,42 @@ final class ScriptLocationCoreTest {
 
         Assertions.assertEquals(List.of(68, 68, 133, 133), List.of(location.getLeft(), location.getTop(), location.getRight(), location.getBottom()));
     }
+
+    @Test
+    void locations_take_elevation_flags(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
+                var changed;
+                function onStart() {
+                    changed = game.map.locations.get(3);
+                    log.info(core.location.getFlags(3), changed.hasFlag(LocationFlag.LowAir), LocationFlag.HighAir.getId());
+                    changed.setFlag(LocationFlag.LowAir, true);
+                    changed.setFlag(LocationFlag.HighGround, true);
+                    log.info(core.location.getFlags(3), changed.hasFlag(LocationFlag.LowAir), changed.hasFlag(LocationFlag.MiddleGround));
+                    changed.setFlag(LocationFlag.LowAir, false);
+                    log.info(core.location.getFlags(3));
+                    try {
+                        core.location.setFlags(3, 0x10000);
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                }
+                function onLocalFrame() {
+                    try {
+                        changed.setFlag(LocationFlag.LowGround, true);
+                    } catch (error) {
+                        log.info('local ' + error.name + ' ' + core.location.getFlags(3));
+                    }
+                }
+                """);
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("0 false 32", "12 true false", "4", "RangeError", "local TypeError 4"), scenario.getInfoMessages(),
+                                scenario.getLines()::toString);
+
+        TriggerContext triggers = scenario.getGame().getTriggerContext();
+
+        Assertions.assertNotNull(triggers);
+        Assertions.assertEquals(4, triggers.getLocation(CHANGED_LOCATION).getElevationFlags());
+    }
 }

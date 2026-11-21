@@ -325,4 +325,147 @@ final class ScriptUnitCoreTest {
                                         "true",
                                         "false"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
+
+    @Test
+    void units_queue_orders_and_keep_their_secondary_order_and_gains(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var marine;
+                function onStart() {
+                    var human = game.players.getHumans()[0];
+                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                    marine = game.units.create(UnitType.TerranMarine, human, commandCenter.getPosition());
+                    var position = marine.getPosition();
+                    marine.issueOrder(Order.Move, Position.of(position.getX() + 64, position.getY()));
+                    marine.issueOrder(Order.Move, Position.of(position.getX() + 128, position.getY()), {queued: true});
+                    marine.issueOrder(Order.AttackUnit, commandCenter, {queued: true});
+                    var queue = marine.getOrderQueue();
+                    log.info(marine.getOrder().getName(), queue.length, queue[0].order.getName(), queue[0].position.getX() - position.getX(),
+                             queue[0].target, queue[0].unitType, queue[1].target === commandCenter, Object.isFrozen(queue[0]));
+                    var record = core.unit.getOrderQueue(marine.getId())[1];
+                    log.info(record.order === Order.AttackUnit.getId(), record.target === commandCenter.getId(),
+                             record.targetGeneration === core.unit.getGeneration(commandCenter.getId()), record.unitType);
+                    marine.issueOrder(Order.Stop);
+                    log.info(marine.getOrderQueue().length);
+                    log.info(commandCenter.getSecondaryOrder().getName(), commandCenter.getSecondaryOrderState());
+                    marine.setSecondaryOrder(Order.Hallucination2);
+                    log.info(marine.getSecondaryOrder().getName(), marine.getSecondaryOrderState());
+                    marine.setSecondaryOrder(Order.Nothing);
+                    log.info(marine.getHpGain(), marine.getShieldGain(), marine.getPreviousHp());
+                    marine.setHpGain(1.5);
+                    core.unit.setShieldGain(marine.getId(), 64);
+                    log.info(core.unit.getHpGain(marine.getId()), marine.getShieldGain());
+                    try {
+                        core.unit.setHpGain(marine.getId(), 0x10000);
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                    try {
+                        core.unit.issueOrder(marine.getId(), Order.Move.getId(), -1, 0, 0);
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                }
+                function onLocalFrame() {
+                    log.info('local ' + marine.getOrderQueue().length + ' ' + marine.getSecondaryOrder().getName());
+                    try {
+                        marine.issueOrder(Order.Move, null, {queued: true});
+                    } catch (error) {
+                        log.info('local ' + error.name);
+                    }
+                }
+                """);
+
+        scenario.stepFrame();
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("Move 2 Move 128 null null true true",
+                                        "true true true -1",
+                                        "0",
+                                        "Nothing 0",
+                                        "Hallucination2 0",
+                                        "0.1015625 0 1",
+                                        "384 0.25",
+                                        "RangeError",
+                                        "TypeError",
+                                        "local 0 Nothing",
+                                        "local TypeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void the_unit_finder_finds_units_and_units_tell_who_sees_them(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var commandCenter;
+                function onStart() {
+                    var human = game.players.getHumans()[0];
+                    commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                    var x = commandCenter.getX();
+                    var y = commandCenter.getY();
+                    var inRectangle = game.units.findInRectangle(Position.of(x + 5, y + 5), Position.of(x - 5, y - 5));
+                    var scvs = game.units.findInRadius(commandCenter.getPosition(), 128, {type: UnitType.TerranSCV});
+                    log.info(inRectangle.indexOf(commandCenter) >= 0, core.unit.findAtPoint(x, y).indexOf(commandCenter.getId()) >= 0,
+                             scvs.length, game.units.findInRadius(commandCenter.getPosition(), 0, {type: UnitType.TerranCommandCenter}).length,
+                             core.unit.findInRectangle(0, 0, 1, 1).length);
+                    log.info(commandCenter.getAiStrength(false) === core.unit.getGroundStrength(commandCenter.getId()),
+                             commandCenter.getAiStrength(true) === core.unit.getAirStrength(commandCenter.getId()),
+                             UnitType.TerranMarine.getAiStrength(false) > 0, UnitType.TerranMarine.getAiStrength(true) > 0,
+                             UnitType.TerranVulture.getAiStrength(true));
+                }
+                function onLocalFrame() {
+                    try {
+                        game.units.findInRadius(commandCenter.getPosition(), 32);
+                    } catch (error) {
+                        log.info('local ' + error.name);
+                    }
+                    try {
+                        core.unit.findAtPoint(0, 0);
+                    } catch (error) {
+                        log.info('local ' + error.name);
+                    }
+                }
+                """);
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("true true 4 1 0",
+                                        "true true true true 0",
+                                        "local TypeError",
+                                        "local TypeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void the_same_order_and_unit_field_writes_give_the_same_game_state(@NotNull InstallationTestResources resources) throws IOException {
+        String changes = """
+                function onStart() {
+                    var human = game.players.getHumans()[0];
+                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                    var marine = game.units.create(UnitType.TerranMarine, human, commandCenter.getPosition());
+                    marine.issueOrder(Order.Move, Position.of(marine.getX() + 64, marine.getY()));
+                    marine.issueOrder(Order.Move, Position.of(marine.getX() + 128, marine.getY()), {queued: true});
+                    marine.setSecondaryOrder(Order.Hallucination2);
+                    marine.setHpGain(1.5);
+                    game.units.findInRadius(commandCenter.getPosition(), 128);
+                }
+                """;
+        long first = runUnitChanges(resources, changes);
+        long second = runUnitChanges(resources, changes);
+        long unchanged = runUnitChanges(resources, "");
+
+        Assertions.assertEquals(first, second);
+        Assertions.assertNotEquals(first, unchanged);
+    }
+
+    /**
+     * Runs a melee game with a script for the status frames.
+     *
+     * @return the state hash of the game at the end
+     */
+    private static long runUnitChanges(@NotNull InstallationTestResources resources, @NotNull String source) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), source);
+
+        for (int frame = 0; frame < STATUS_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        return scenario.getGame().computeStateHash();
+    }
 }

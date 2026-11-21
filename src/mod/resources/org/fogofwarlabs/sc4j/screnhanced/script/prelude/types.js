@@ -1,6 +1,7 @@
 // The type and value tables of the upper layer: the globals UnitType, WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType,
-// Order, Key, MouseButton, Modifier, UnitGroup, ScoreType, ResourceType, Alliance, EventKind, InputKind and DecisionKind. The DAT methods of
-// the type objects come from the DAT tables (prelude.datTables) over core.dat, with its raw values.
+// Order, Key, MouseButton, Modifier, UnitGroup, ScoreType, ResourceType, Alliance, EventKind, InputKind, DecisionKind, GameSpeed, Cheat,
+// GameMode, UnitSize, DamageType and LocationFlag. The DAT methods of the type objects come from the DAT tables (prelude.datTables) over
+// core.dat, with its raw values.
 (function (core, prelude) {
     'use strict';
 
@@ -45,6 +46,26 @@
     // The kinds of the records of core.local.getInputEvents and of the decide entry point, in the ids the runtime gives them.
     var INPUT_KIND_NAMES = ['KeyDown', 'KeyUp', 'MouseDown', 'MouseUp', 'Chat'];
     var DECISION_KIND_NAMES = ['Damage', 'Order', 'TargetAcquired'];
+    // The game speeds by their index in the frame duration table.
+    var GAME_SPEED_NAMES = ['Slowest', 'Slower', 'Slow', 'Normal', 'Fast', 'Faster', 'Fastest'];
+    // The bits of the cheat flags.
+    var CHEATS = [
+        [0x1, 'BlackSheepWall'], [0x2, 'OperationCwal'], [0x4, 'PowerOverwhelming'], [0x8, 'SomethingForNothing'], [0x10, 'ShowMeTheMoney'],
+        [0x40, 'GameOverMan'], [0x80, 'ThereIsNoCowLevel'], [0x100, 'StayingAlive'], [0x200, 'Ophelia'], [0x800, 'TheGathering'],
+        [0x1000, 'MedievalMan'], [0x2000, 'ModifyThePhaseVariance'], [0x4000, 'WarAintWhatItUsedToBe'], [0x20000, 'FoodForThought'],
+        [0x40000, 'WhatsMineIsMine'], [0x80000, 'BreatheDeep'], [0x20000000, 'Noglues']
+    ];
+    // The game types of the game header; 9 (Ladder) has no lobby template.
+    var GAME_MODES = [
+        [2, 'Melee'], [3, 'FreeForAll'], [4, 'OneOnOne'], [5, 'CaptureTheFlag'], [6, 'Greed'], [7, 'Slaughter'], [8, 'SuddenDeath'],
+        [9, 'Ladder'], [10, 'UseMapSettings'], [11, 'TeamMelee'], [12, 'TeamFreeForAll'], [13, 'TeamCaptureTheFlag'], [15, 'TopVsBottom']
+    ];
+    var GAME_MODE_COUNT = 16;
+    // The unit sizes of units.dat and the damage types of weapons.dat.
+    var UNIT_SIZE_NAMES = ['Independent', 'Small', 'Medium', 'Large'];
+    var DAMAGE_TYPE_NAMES = ['Independent', 'Explosive', 'Concussive', 'Normal', 'IgnoreArmor'];
+    // The elevation flags of a location: a set flag leaves the units at the elevation out of the location.
+    var LOCATION_FLAGS = [[0x1, 'LowGround'], [0x2, 'MiddleGround'], [0x4, 'HighGround'], [0x8, 'LowAir'], [0x10, 'MiddleAir'], [0x20, 'HighAir']];
 
     var unitTypePrototype = create(typePrototype);
     var weaponTypePrototype = create(typePrototype);
@@ -58,6 +79,21 @@
     // The image type whose HD anim this image type draws (images.rel), this image type for one with its own anim.
     imageTypePrototype.getAnimImageType = function () {
         return ImageType.get(core.imageType.getAnimImageType(this.id));
+    };
+    // The damage overlay byte: twice the flame positions of the image's damage overlay, a unit's damage states.
+    imageTypePrototype.getDamageOverlayCount = function () {
+        return core.imageType.getDamageOverlayCount(this.id);
+    };
+    imageTypePrototype.setDamageOverlayCount = function (count) {
+        core.imageType.setDamageOverlayCount(this.id, count);
+    };
+
+    // The strength of a unit type against air or ground targets for the computer players.
+    unitTypePrototype.getAiStrength = function (air) {
+        return core.ai.getUnitStrength(this.id, air);
+    };
+    unitTypePrototype.setAiStrength = function (air, strength) {
+        core.ai.setUnitStrength(this.id, air, strength);
     };
 
     // The shown maximum hit points and shields of a unit type: units.dat stores hit points in 1/256 and shields as shown.
@@ -227,6 +263,61 @@
     var ResourceType = createConstantTable(resourceTypePrototype, RESOURCE_TYPE_NAMES, RESOURCE_TYPE_NAMES.length, 'Resource ');
     var Alliance = createConstantTable(alliancePrototype, ALLIANCE_NAMES, ALLIANCE_NAMES.length, 'Alliance ');
 
+    // Creates the constants of bits: one object per entry [bit, name], its id the bit.
+    function createBitTable(prototype, entries) {
+        var table = {};
+
+        entries.forEach(function (entry) {
+            table[entry[1]] = freeze(createObject(prototype, {id: entry[0], name: entry[1]}));
+        });
+
+        return freeze(table);
+    }
+
+    // Creates the constants of named ids below a count: one object per id, an id without a name named by the prefix and the id.
+    function createSparseTable(prototype, entries, count, unnamedPrefix) {
+        var names = [];
+
+        entries.forEach(function (entry) {
+            names[entry[0]] = entry[1];
+        });
+
+        return createConstantTable(prototype, names, count, unnamedPrefix);
+    }
+
+    // The game speeds, which name the entries of the frame duration table.
+    var gameSpeedPrototype = create(typePrototype);
+
+    gameSpeedPrototype.getFrameDuration = function () {
+        return core.game.getSpeedDuration(this.id);
+    };
+    gameSpeedPrototype.setFrameDuration = function (milliseconds) {
+        core.game.setSpeedDuration(this.id, milliseconds);
+    };
+
+    var cheatPrototype = create(typePrototype);
+    var gameModePrototype = create(typePrototype);
+    var unitSizePrototype = create(typePrototype);
+    var damageTypePrototype = create(typePrototype);
+    var locationFlagPrototype = create(typePrototype);
+
+    // The factor that scales the damage of the damage type against a unit size, 1 for full damage.
+    damageTypePrototype.getMultiplier = function (size) {
+        return core.combat.getDamageMultiplier(this.id, requireObject(size, unitSizePrototype, 'A unit size').id) / RAW_SCALE;
+    };
+    damageTypePrototype.setMultiplier = function (size, factor) {
+        var sizeId = requireObject(size, unitSizePrototype, 'A unit size').id;
+
+        core.combat.setDamageMultiplier(this.id, sizeId, Math.round(Number(factor) * RAW_SCALE));
+    };
+
+    var GameSpeed = createConstantTable(gameSpeedPrototype, GAME_SPEED_NAMES, GAME_SPEED_NAMES.length, 'Speed ');
+    var Cheat = createBitTable(cheatPrototype, CHEATS);
+    var GameMode = createSparseTable(gameModePrototype, GAME_MODES, GAME_MODE_COUNT, 'Game mode ');
+    var UnitSize = createConstantTable(unitSizePrototype, UNIT_SIZE_NAMES, UNIT_SIZE_NAMES.length, 'Size ');
+    var DamageType = createConstantTable(damageTypePrototype, DAMAGE_TYPE_NAMES, DAMAGE_TYPE_NAMES.length, 'Damage type ');
+    var LocationFlag = createBitTable(locationFlagPrototype, LOCATION_FLAGS);
+
     // The kinds of the lower records: the events of core.events.getFrameEvents by their names in core.events, the local inputs and the
     // decisions.
     function createEventKindNames() {
@@ -258,7 +349,8 @@
 
     [unitTypePrototype, weaponTypePrototype, flingyTypePrototype, spriteTypePrototype, imageTypePrototype, upgradeTypePrototype,
      techTypePrototype, orderPrototype, keyPrototype, mouseButtonPrototype, unitGroupPrototype, scoreTypePrototype, resourceTypePrototype,
-     alliancePrototype, eventKindPrototype, inputKindPrototype, decisionKindPrototype].forEach(freeze);
+     alliancePrototype, eventKindPrototype, inputKindPrototype, decisionKindPrototype, gameSpeedPrototype, cheatPrototype, gameModePrototype,
+     unitSizePrototype, damageTypePrototype, locationFlagPrototype].forEach(freeze);
 
     return {
         exports: {
@@ -279,9 +371,19 @@
             Alliance: Alliance,
             EventKind: EventKind,
             InputKind: InputKind,
-            DecisionKind: DecisionKind
+            DecisionKind: DecisionKind,
+            GameSpeed: GameSpeed,
+            Cheat: Cheat,
+            GameMode: GameMode,
+            UnitSize: UnitSize,
+            DamageType: DamageType,
+            LocationFlag: LocationFlag
         },
         shared: {
+            GameSpeed: GameSpeed,
+            GameMode: GameMode,
+            cheatPrototype: cheatPrototype,
+            locationFlagPrototype: locationFlagPrototype,
             unitTypePrototype: unitTypePrototype,
             imageTypePrototype: imageTypePrototype,
             upgradeTypePrototype: upgradeTypePrototype,

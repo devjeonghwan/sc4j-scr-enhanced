@@ -34,8 +34,8 @@ import java.util.Map;
  * Binds a script runtime to one SC:R {@link Game}: the {@code core} global, the lower layer of the game API, and the shared, local and
  * read-only modes of its functions.
  * <p>
- * The namespaces of {@code core}, {@code game}, {@code player}, {@code unit}, {@code location}, {@code terrain}, {@code leaderboard},
- * {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
+ * The namespaces of {@code core}, {@code game}, {@code player}, {@code unit}, {@code location}, {@code terrain}, {@code vision},
+ * {@code leaderboard}, {@code combat}, {@code ai}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
  * {@code orderType}, {@code dat}, {@code events}, {@code command}, {@code resources}, {@code graphics}, {@code local}, {@code screen},
  * {@code world}, {@code minimap}, {@code console}, {@code strings} and {@code messages}, take and return ids and raw values (hit points,
  * shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them) and plain records of them; a write
@@ -84,12 +84,18 @@ public final class ScriptGame {
         ScriptScreenCore screenCore = new ScriptScreenCore(scriptGame, graphicsCore);
         ScriptTextCore textCore = new ScriptTextCore(scriptGame);
 
-        scriptGame.defineGameFunctions(ScriptCoreUtils.createNamespace(context, global, core, "game"), global);
+        ScriptableObject gameNamespace = ScriptCoreUtils.createNamespace(context, global, core, "game");
+
+        scriptGame.defineGameFunctions(gameNamespace, global);
+        new ScriptGameSettingsCore(scriptGame).define(gameNamespace, global);
         new ScriptPlayerCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "player"), global);
         unitCore.define(ScriptCoreUtils.createNamespace(context, global, core, "unit"), global);
         new ScriptLocationCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "location"), global);
         new ScriptTerrainCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "terrain"), global);
+        new ScriptVisionCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "vision"), global);
         new ScriptLeaderboardCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "leaderboard"), global);
+        new ScriptCombatCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "combat"), global);
+        new ScriptAiCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "ai"), global);
         ScriptTypeCore.define(context, scriptGame, core, global);
         new ScriptDatCore(scriptGame).define(context, ScriptCoreUtils.createNamespace(context, global, core, "dat"), global);
         scriptGame.eventCore.define(ScriptCoreUtils.createNamespace(context, global, core, "events"), global);

@@ -111,6 +111,19 @@ interface CoreCommandRecord {
     readonly value: any;
 }
 
+/**
+ * An order waiting in a unit's queue ({@link CoreUnit.getOrderQueue}): the order, the target unit with its generation (-1 for none or a unit
+ * that is gone), the target position and the unit type the order builds or trains (-1 for none).
+ */
+interface CoreOrderRecord {
+    readonly order: number;
+    readonly target: number;
+    readonly targetGeneration: number;
+    readonly x: number;
+    readonly y: number;
+    readonly unitType: number;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The DAT tables: get<Column> [A], set<Column> [S].
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -668,6 +681,65 @@ interface CoreGame {
     setCountdownTimerPaused(paused: boolean): void;
     /** [A] */
     getElapsedTime(): number;
+    /**
+     * [A]
+     * @returns the speed, 0 slowest to 6 fastest
+     */
+    getSpeed(): number;
+    /**
+     * [A]
+     * @returns the milliseconds of a frame at a speed in the frame duration table
+     */
+    getSpeedDuration(speed: number): number;
+    /**
+     * [S] Stores an entry of the frame duration table as an EUD write does: the frame duration takes it at once unless the game name
+     * overrides the speed; the turn timeouts of a network game keep the durations of their last fill.
+     */
+    setSpeedDuration(speed: number, milliseconds: number): void;
+    /** [A] */
+    isMultiplayer(): boolean;
+    /**
+     * [A]
+     * @returns the game type WORD of the game header ({@link GameMode})
+     */
+    getGameType(): number;
+    /** [A] */
+    getGameSubtype(): number;
+    /** [A] */
+    getVictoryCondition(): number;
+    /** [A] */
+    getResourceType(): number;
+    /** [A] */
+    getStartingMinerals(): number;
+    /** [A] */
+    getStartingUnits(): number;
+    /** [A] */
+    getTournamentMode(): number;
+    /**
+     * [A]
+     * @returns whether the game options permit the cheat command
+     */
+    areCheatsEnabled(): boolean;
+    /**
+     * [A]
+     * @returns the expansion byte, 0 for StarCraft
+     */
+    getExpansion(): number;
+    /** [S] */
+    setExpansion(value: number): void;
+    /**
+     * [A]
+     * @returns the cheat flags ({@link Cheat}), one bit per cheat
+     */
+    getCheatFlags(): number;
+    /**
+     * [S] Stores the cheat flags as an EUD write does, without the reveal update and the one-shot grants of the cheat routine.
+     */
+    setCheatFlags(flags: number): void;
+    /**
+     * [S] Runs the cheat routine with the flags: nothing when the game options forbid cheats or more than one human plays a network game.
+     */
+    applyCheats(flags: number): void;
 }
 
 interface CorePlayer {
@@ -702,6 +774,14 @@ interface CorePlayer {
      * @param resourceType 0 minerals, 1 gas, 2 minerals and gas
      */
     getResources(player: number, resourceType: number): number;
+    /** [A] */
+    getGatheredMinerals(player: number): number;
+    /** [S] */
+    setGatheredMinerals(player: number, amount: number): void;
+    /** [A] */
+    getGatheredGas(player: number): number;
+    /** [S] */
+    setGatheredGas(player: number, amount: number): void;
     /** [A] */
     getSupplyUsed(player: number, race: number): number;
     /** [A] */
@@ -803,6 +883,37 @@ interface CorePlayer {
      * @returns the number of selected units
      */
     setSelection(player: number, units: number[]): number;
+    /**
+     * [A]
+     * @returns the players that see what the player's units see, one bit per player, the player's own bit included
+     */
+    getSharedVision(player: number): number;
+    /**
+     * [S] Sets the players that see what the player's units see, as the vision command does but without its permission test.
+     */
+    setSharedVision(player: number, mask: number): void;
+    /**
+     * [A]
+     * @param player a player from 0 to 7
+     */
+    getPausesLeft(player: number): number;
+    /** [S] */
+    setPausesLeft(player: number, pauses: number): void;
+    /**
+     * [A]
+     * @returns the x of the player's start location, -1 for a player without one
+     */
+    getStartLocationX(player: number): number;
+    /**
+     * [A]
+     * @returns the y of the player's start location, -1 for a player without one
+     */
+    getStartLocationY(player: number): number;
+    /**
+     * [S]
+     * @returns false for a player without a start location
+     */
+    setStartLocation(player: number, x: number, y: number): boolean;
 }
 
 interface CoreUnit {
@@ -898,10 +1009,73 @@ interface CoreUnit {
     /** [S] */
     give(unit: number, player: number): boolean;
     /**
-     * [A]
+     * [S] Issues an order: not queued to a position as the Order action does; queued or to a target unit through the order system after the
+     * order requirement test, which appends a queued order behind the queue when the order takes one.
+     *
      * @param target the target unit, -1 for the position
      */
-    issueOrder(unit: number, order: number, target: number, x: number, y: number): void;
+    issueOrder(unit: number, order: number, target: number, x: number, y: number, queued: boolean): void;
+    /**
+     * [A]
+     * @returns the orders waiting behind the current one, first to last
+     */
+    getOrderQueue(unit: number): CoreOrderRecord[];
+    /** [A] */
+    getSecondaryOrder(unit: number): number;
+    /** [A] */
+    getSecondaryOrderState(unit: number): number;
+    /**
+     * [S] Sets the secondary order as the native routine does: a changed order clears its state and the unit in production.
+     */
+    setSecondaryOrder(unit: number, order: number): void;
+    /**
+     * [A]
+     * @returns the hit points in 1/256 a unit under construction gains each frame
+     */
+    getHpGain(unit: number): number;
+    /** [S] */
+    setHpGain(unit: number, hp: number): void;
+    /**
+     * [A]
+     * @returns the shields in 1/256 a unit under construction gains each frame
+     */
+    getShieldGain(unit: number): number;
+    /** [S] */
+    setShieldGain(unit: number, shields: number): void;
+    /**
+     * [A]
+     * @returns the whole hit points the unit had before it morphed
+     */
+    getPreviousHp(unit: number): number;
+    /**
+     * [A]
+     * @returns the players whose sight covers the unit, one bit per player
+     */
+    getVisibilityFlags(unit: number): number;
+    /**
+     * [A]
+     * @returns the players that detect the unit, one bit per player
+     */
+    getDetectionFlags(unit: number): number;
+    /** [A] */
+    isVisibleTo(unit: number, player: number): boolean;
+    /** [A] */
+    isDetectedBy(unit: number, player: number): boolean;
+    /** [A] */
+    getAirStrength(unit: number): number;
+    /** [A] */
+    getGroundStrength(unit: number): number;
+    /**
+     * [S] The unit finder's search, which uses the finder's working state.
+     *
+     * @returns the live units whose bounds meet the rectangle, in the finder's order
+     */
+    findInRectangle(left: number, top: number, right: number, bottom: number): number[];
+    /**
+     * [S]
+     * @returns the live units whose bounds hold the point, in the finder's order
+     */
+    findAtPoint(x: number, y: number): number[];
     /**
      * [A] The status timers in status steps of eight frames, with the native apply and end routines as {@link UnitTimers.setLockdown} has them.
      */
@@ -1067,6 +1241,13 @@ interface CoreLocation {
     setBounds(location: number, left: number, top: number, right: number, bottom: number): void;
     /** [S] */
     setCenter(location: number, x: number, y: number): void;
+    /**
+     * [A]
+     * @returns the elevation flags ({@link LocationFlag}): a set bit leaves the units at its elevation out of the location
+     */
+    getFlags(location: number): number;
+    /** [S] */
+    setFlags(location: number, flags: number): void;
 }
 
 /**
@@ -1075,6 +1256,11 @@ interface CoreLocation {
 interface CoreTerrain {
     /** [A] */
     getTile(tileX: number, tileY: number): number;
+    /**
+     * [A]
+     * @returns the flag DWORD the game holds for the tile: sight, walkability, creep, elevation and occupation
+     */
+    getTileFlags(tileX: number, tileY: number): number;
     /**
      * [S] Queues the change, which applies at the next trigger step, after the frame start hooks and before the triggers.
      */
@@ -1095,6 +1281,60 @@ interface CoreTerrain {
     getTileElevation(value: number): number;
     /** [A] */
     isTileBlockingSight(value: number): boolean;
+}
+
+/**
+ * The sight of the players on the map.
+ */
+interface CoreVision {
+    /**
+     * [A]
+     * @returns bit p set while player p does not see the tile, bit 8 + p while player p has not explored it
+     */
+    getTileVisibility(tileX: number, tileY: number): number;
+    /** [A] */
+    isVisible(player: number, x: number, y: number): boolean;
+    /** [A] */
+    isExplored(player: number, x: number, y: number): boolean;
+    /**
+     * [S] Runs a unit's sight routine for the players of the mask (0 to 0xFF) with a sight range from 0 to 11; the tiles stay seen until the
+     * game marks them unseen again.
+     */
+    reveal(players: number, x: number, y: number, sightRange: number, air: boolean): void;
+}
+
+/**
+ * The combat tables that EUD writes change.
+ */
+interface CoreCombat {
+    /**
+     * [A]
+     * @param damageType 0 independent, 1 explosive, 2 concussive, 3 normal, 4 ignore armor
+     * @param size       0 independent, 1 small, 2 medium, 3 large
+     * @returns the factor in 1/256
+     */
+    getDamageMultiplier(damageType: number, size: number): number;
+    /** [S] */
+    setDamageMultiplier(damageType: number, size: number, value: number): void;
+    /** [A] */
+    getFleeDistanceCount(): number;
+    /** [A] */
+    getFleeDistance(index: number): number;
+    /** [S] */
+    setFleeDistance(index: number, pixels: number): void;
+}
+
+/**
+ * The state of the computer players.
+ */
+interface CoreAi {
+    /**
+     * [A]
+     * @returns the strength of the unit type against air or ground targets
+     */
+    getUnitStrength(unitType: number, air: boolean): number;
+    /** [S] */
+    setUnitStrength(unitType: number, air: boolean, value: number): void;
 }
 
 interface CoreLeaderboard {
@@ -1123,6 +1363,13 @@ interface CoreImageTypes extends CoreTypes {
      * @returns the image type whose HD anim the image type draws (images.rel), the image type itself for one with its own anim
      */
     getAnimImageType(imageType: number): number;
+    /**
+     * [A]
+     * @returns the damage overlay byte: twice the flame positions of the image's damage overlay
+     */
+    getDamageOverlayCount(imageType: number): number;
+    /** [S] */
+    setDamageOverlayCount(imageType: number, count: number): void;
 }
 
 interface CoreResources {
@@ -1325,7 +1572,10 @@ interface Core {
     readonly unit: CoreUnit;
     readonly location: CoreLocation;
     readonly terrain: CoreTerrain;
+    readonly vision: CoreVision;
     readonly leaderboard: CoreLeaderboard;
+    readonly combat: CoreCombat;
+    readonly ai: CoreAi;
     readonly unitType: CoreTypes;
     readonly weaponType: CoreTypes;
     readonly flingyType: CoreTypes;
