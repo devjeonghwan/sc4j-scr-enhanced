@@ -45,6 +45,9 @@ import java.util.zip.Deflater;
  * <p>
  * A replay section ({@value #REPLAY_SECTION}) holds a trailer with the flag {@value #REFERENCED_RESOURCES_FLAG}, no padding and the resources
  * as references: their names, original sizes and digests, without stored bytes ({@code storedSize} {@code 0}).
+ * <p>
+ * The flag {@value #PROTECTED_FLAG} marks a protected map, whose scripts were packed in protected form ({@link ScriptProtector}); the replay
+ * section of its games keeps the flag. The tool does not unpack a protected map.
  */
 public final class ScriptStorageUtils {
     /**
@@ -63,6 +66,10 @@ public final class ScriptStorageUtils {
      * The flag of a trailer whose resources are references without stored bytes.
      */
     public static final int REFERENCED_RESOURCES_FLAG = 0x1;
+    /**
+     * The flag of a trailer whose scripts are protected: a map trailer or a replay section may have it.
+     */
+    public static final int PROTECTED_FLAG = 0x2;
     /**
      * The largest padding before a trailer: the MPQ ranges of a map may reach this many bytes past its end.
      */
@@ -157,8 +164,9 @@ public final class ScriptStorageUtils {
             return null;
         }
 
-        if (footer.flags != 0) {
-            throw Exceptions.newIOException("The {0} has the flags {1}; a map trailer has none.", trailerDescription, footer.flags);
+        if ((footer.flags & ~PROTECTED_FLAG) != 0) {
+            throw Exceptions.newIOException("The {0} has the flags {1}; a map trailer has none but {2}.", trailerDescription, footer.flags,
+                                            PROTECTED_FLAG);
         }
 
         int trailerStart = (int) (mapFile.length - footer.trailerSize);
@@ -209,8 +217,9 @@ public final class ScriptStorageUtils {
                 return null;
             }
 
-            if (footer.flags != 0) {
-                throw Exceptions.newIOException("The {0} has the flags {1}; a map trailer has none.", description, footer.flags);
+            if ((footer.flags & ~PROTECTED_FLAG) != 0) {
+                throw Exceptions.newIOException("The {0} has the flags {1}; a map trailer has none but {2}.", description, footer.flags,
+                                                PROTECTED_FLAG);
             }
 
             ByteBuffer directory = readBytes(channel, fileSize - FOOTER_SIZE - footer.directorySize, footer.directorySize);
@@ -241,7 +250,8 @@ public final class ScriptStorageUtils {
     }
 
     /**
-     * Writes a script package into a map file: the map without its old trailer, then the padding its MPQ ranges need and the new trailer.
+     * Writes a script package into a map file that is not protected: the map without its old trailer, then the padding its MPQ ranges need and
+     * the new trailer.
      *
      * @param mapFile       the whole map file, not modified
      * @param description   the map name used in messages
@@ -253,6 +263,24 @@ public final class ScriptStorageUtils {
      */
     public static byte @NotNull [] writePackage(byte @NotNull [] mapFile, @NotNull String description,
                                                 @NotNull ScriptPackage scriptPackage) throws IOException {
+        return writePackage(mapFile, description, scriptPackage, false);
+    }
+
+    /**
+     * Writes a script package into a map file: the map without its old trailer, then the padding its MPQ ranges need and the new trailer, with
+     * the flag {@value #PROTECTED_FLAG} for a protected map.
+     *
+     * @param mapFile       the whole map file, not modified
+     * @param description   the map name used in messages
+     * @param scriptPackage the script package, with protected scripts for a protected map
+     * @param protectedMap  whether the map is protected
+     * @return the new map file
+     * @throws IOException if the old trailer is not valid, the map holds no MPQ archive the map reader opens, an MPQ table reaches more than
+     *                     {@value #MAXIMUM_PADDING} bytes past the end of the map, a name exceeds {@code 65535} UTF-8 bytes, or the new file
+     *                     exceeds {@link MpqArchive#MAXIMUM_FILE_SIZE} bytes
+     */
+    public static byte @NotNull [] writePackage(byte @NotNull [] mapFile, @NotNull String description, @NotNull ScriptPackage scriptPackage,
+                                                boolean protectedMap) throws IOException {
         byte[] map = Arrays.copyOf(mapFile, findMapEnd(mapFile, description));
         long headerOffset = MpqArchive.open(map, description, true).getHeaderOffset();
         List<StoredFile> files = storePackage(scriptPackage);
@@ -268,13 +296,14 @@ public final class ScriptStorageUtils {
         ByteBuffer newFile = ByteBuffer.allocate((int) fileSize).order(ByteOrder.LITTLE_ENDIAN);
 
         newFile.put(map);
-        writeTrailer(newFile, files, paddingSize, 0);
+        writeTrailer(newFile, files, paddingSize, protectedMap ? PROTECTED_FLAG : 0);
 
         return newFile.array();
     }
 
     /**
-     * Creates the replay section of a script trailer: the manifest and the scripts with their bytes, the resources as references.
+     * Creates the replay section of a script trailer: the manifest and the scripts with their bytes, as the trailer holds them, the resources as
+     * references, and the flag {@value #PROTECTED_FLAG} of a protected trailer.
      *
      * @param trailer the trailer of the game's map
      * @return the replay section
@@ -289,7 +318,7 @@ public final class ScriptStorageUtils {
 
         ByteBuffer section = ByteBuffer.allocate((int) getBodySize(files)).order(ByteOrder.LITTLE_ENDIAN);
 
-        writeTrailer(section, files, 0, REFERENCED_RESOURCES_FLAG);
+        writeTrailer(section, files, 0, REFERENCED_RESOURCES_FLAG | (trailer.isProtected() ? PROTECTED_FLAG : 0));
 
         return section.array();
     }
@@ -308,7 +337,7 @@ public final class ScriptStorageUtils {
             throw Exceptions.newIOException("The {0} does not end with the trailer magic.", REPLAY_DESCRIPTION);
         }
 
-        if (footer.flags != REFERENCED_RESOURCES_FLAG || footer.paddingSize != 0 || footer.trailerSize != section.length) {
+        if ((footer.flags & ~PROTECTED_FLAG) != REFERENCED_RESOURCES_FLAG || footer.paddingSize != 0 || footer.trailerSize != section.length) {
             throw Exceptions.newIOException("The {0} has the flags {1}, the padding {2} and the size {3}; a replay section has the flags {4}, no " +
                                             "padding and the size {5}.",
                                             REPLAY_DESCRIPTION, footer.flags, footer.paddingSize, footer.trailerSize, REFERENCED_RESOURCES_FLAG,
@@ -389,7 +418,7 @@ public final class ScriptStorageUtils {
             throw Exceptions.newIOException("The {0} has the version {1}; SC:R Enhanced reads the version {2}.", description, version, FORMAT_VERSION);
         }
 
-        if ((flags & ~REFERENCED_RESOURCES_FLAG) != 0) {
+        if ((flags & ~(REFERENCED_RESOURCES_FLAG | PROTECTED_FLAG)) != 0) {
             throw Exceptions.newIOException("The {0} has the unknown flags {1}.", description, flags);
         }
 
@@ -421,7 +450,7 @@ public final class ScriptStorageUtils {
                                                        @NotNull String description) throws IOException {
         long dataSize = footer.getDataSize();
         ByteBuffer directory = ByteBuffer.wrap(data, (int) (dataStart + dataSize), footer.directorySize).slice();
-        boolean referencedResources = footer.flags == REFERENCED_RESOURCES_FLAG;
+        boolean referencedResources = (footer.flags & REFERENCED_RESOURCES_FLAG) != 0;
         List<ScriptResources.Entry> entries = readDirectory(directory, dataSize, dataStart, referencedResources, description);
         Map<String, byte[]> scripts = new LinkedHashMap<>();
         byte[] manifest = null;
@@ -448,7 +477,8 @@ public final class ScriptStorageUtils {
 
         ScriptPackage.checkNames(scripts.keySet(), resources.keySet());
 
-        return new ScriptTrailer(ScriptPackage.create(ScriptManifest.parse(manifest), scripts, Map.of()), new ScriptResources(data, resources));
+        return new ScriptTrailer(ScriptPackage.create(ScriptManifest.parse(manifest), scripts, Map.of()), new ScriptResources(data, resources),
+                                 (footer.flags & PROTECTED_FLAG) != 0);
     }
 
     /**

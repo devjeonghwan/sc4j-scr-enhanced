@@ -354,6 +354,34 @@ final class ScriptStorageUtilsTest {
     }
 
     @Test
+    void write_package_marks_a_protected_map_and_its_replay_section_keeps_the_mark(@TempDir @NotNull Path folder) throws IOException {
+        ScriptPackage scriptPackage = createPackage("Protected", Map.of(MAIN_SCRIPT, "var a=1;"), Map.of(RESOURCE_NAME, createIncompressible()));
+        byte[] protectedMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, scriptPackage, true);
+        byte[] plainMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, scriptPackage);
+        byte[] unknownFlagMap = protectedMap.clone();
+        ScriptTrailer trailer = requireTrailer(protectedMap);
+        byte[] section = ScriptStorageUtils.createReplaySection(trailer);
+        ScriptTrailer recorded = ScriptStorageUtils.readReplaySection(section);
+        Path protectedFile = folder.resolve("protected.scx");
+
+        unknownFlagMap[unknownFlagMap.length - ScriptStorageUtils.FOOTER_SIZE + FOOTER_FLAGS_OFFSET] = 0x4;
+        Files.write(protectedFile, protectedMap);
+
+        Assertions.assertEquals(ScriptStorageUtils.PROTECTED_FLAG, readFooter(protectedMap).getShort(FOOTER_FLAGS_OFFSET));
+        Assertions.assertEquals(0, readFooter(plainMap).getShort(FOOTER_FLAGS_OFFSET));
+        Assertions.assertTrue(trailer.isProtected());
+        Assertions.assertFalse(requireTrailer(plainMap).isProtected());
+        Assertions.assertEquals(ScriptStorageUtils.REFERENCED_RESOURCES_FLAG | ScriptStorageUtils.PROTECTED_FLAG,
+                                readFooter(section).getShort(FOOTER_FLAGS_OFFSET));
+        Assertions.assertTrue(recorded.isProtected());
+        Assertions.assertEquals(toTexts(trailer.getScripts().getScripts()), toTexts(recorded.getScripts().getScripts()));
+        Assertions.assertFalse(ScriptStorageUtils.readReplaySection(ScriptStorageUtils.createReplaySection(requireTrailer(plainMap))).isProtected());
+        Assertions.assertNotNull(ScriptStorageUtils.readResourceIndex(protectedFile));
+        Assertions.assertEquals(plainMap.length, protectedMap.length);
+        Assertions.assertThrows(IOException.class, () -> ScriptStorageUtils.readTrailer(unknownFlagMap, MAP_NAME));
+    }
+
+    @Test
     void maps_that_differ_only_in_their_script_are_different_lobby_maps(@TempDir @NotNull Path folder) throws IOException {
         byte[] firstMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Same", Map.of(MAIN_SCRIPT, "1;"), Map.of()));
         byte[] secondMap = ScriptStorageUtils.writePackage(createMap(), MAP_NAME, createPackage("Same", Map.of(MAIN_SCRIPT, "2;"), Map.of()));

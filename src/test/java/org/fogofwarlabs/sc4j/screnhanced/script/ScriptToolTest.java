@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.util.Map;
 
 /**
- * Tests the pack and unpack commands of {@link ScriptTool} on map files and script folders.
+ * Tests the pack, unpack and trace commands of {@link ScriptTool} on map files and script folders, protected maps included.
  */
 final class ScriptToolTest {
     private static final byte @NotNull [] VERSION_PAYLOAD = {(byte) 0xCD, 0x00};
@@ -27,9 +27,21 @@ final class ScriptToolTest {
             "resources/sounds/hit.wav", "RIFF data"
     );
 
+    /**
+     * A script folder whose main script fails on line 5 of the original, line 3 of the protected script.
+     */
+    private static final @NotNull Map<String, String> FAILING_FOLDER = Map.of(
+            ScriptManifest.FILE_NAME, "{\"name\": \"Failing\", \"main\": \"main.js\", \"api\": \"1\"}",
+            "main.js", "// Line 1.\n\nfunction onStart() {\n    var missing = null;\n    return missing.value;\n}\n"
+    );
+
     private static int runTool(@NotNull String @NotNull ... arguments) {
-        return ScriptTool.run(arguments, new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8),
-                              new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
+        return runTool(new ByteArrayOutputStream(), new ByteArrayOutputStream(), arguments);
+    }
+
+    private static int runTool(@NotNull ByteArrayOutputStream output, @NotNull ByteArrayOutputStream errors, @NotNull String @NotNull ... arguments) {
+        return ScriptTool.run(arguments, new PrintStream(output, true, StandardCharsets.UTF_8),
+                              new PrintStream(errors, true, StandardCharsets.UTF_8));
     }
 
     private static @NotNull Path writeMap(@NotNull Path folder) throws IOException {
@@ -74,6 +86,64 @@ final class ScriptToolTest {
         Assertions.assertEquals(0, runTool(ScriptTool.PACK_COMMAND, map.toString(), ScriptTool.SCRIPT_OPTION, scriptFolder.toString(),
                                            ScriptTool.OUTPUT_OPTION, packedMap.toString()));
         Assertions.assertEquals(1, runTool(ScriptTool.UNPACK_COMMAND, packedMap.toString(), ScriptTool.OUTPUT_OPTION, scriptFolder.toString()));
+    }
+
+    @Test
+    void pack_protect_writes_a_protected_map_and_its_source_map_that_unpack_refuses(@TempDir @NotNull Path folder) throws IOException {
+        Path map = writeMap(folder);
+        Path scriptFolder = folder.resolve("script");
+        Path packedMap = folder.resolve("packed.scx");
+        Path unpackedFolder = folder.resolve("unpacked");
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+
+        ScriptMapScenario.writeFolder(scriptFolder, SCRIPT_FOLDER);
+
+        Assertions.assertEquals(0, runTool(ScriptTool.PACK_COMMAND, map.toString(), ScriptTool.SCRIPT_OPTION, scriptFolder.toString(),
+                                           ScriptTool.OUTPUT_OPTION, packedMap.toString(), ScriptTool.PROTECT_OPTION));
+
+        ScriptTrailer trailer = ScriptStorageUtils.readTrailer(Files.readAllBytes(packedMap), packedMap.toString());
+
+        Assertions.assertNotNull(trailer);
+        Assertions.assertTrue(trailer.isProtected());
+        Assertions.assertEquals("const util=require('lib/util.js');\nfunction onStart(){\nutil.greet();\n}",
+                                new String(trailer.getScripts().getScripts().get("main.js"), StandardCharsets.UTF_8));
+        Assertions.assertEquals(2, trailer.getResources().getEntries().size());
+        Assertions.assertTrue(Files.isRegularFile(ScriptSourceMap.resolveFile(packedMap)));
+        Assertions.assertEquals(1, runTool(new ByteArrayOutputStream(), errors, ScriptTool.UNPACK_COMMAND, packedMap.toString(),
+                                           ScriptTool.OUTPUT_OPTION, unpackedFolder.toString()));
+        Assertions.assertTrue(errors.toString(StandardCharsets.UTF_8).contains("is protected"), errors.toString(StandardCharsets.UTF_8));
+        Assertions.assertFalse(Files.exists(unpackedFolder));
+    }
+
+    @Test
+    void trace_prints_the_original_locations_of_a_protected_script(@TempDir @NotNull Path folder) throws IOException {
+        Path map = writeMap(folder);
+        Path scriptFolder = folder.resolve("script");
+        Path packedMap = folder.resolve("packed.scx");
+        Path log = folder.resolve("player.log");
+        ByteArrayOutputStream location = new ByteArrayOutputStream();
+        ByteArrayOutputStream translatedLog = new ByteArrayOutputStream();
+
+        ScriptMapScenario.writeFolder(scriptFolder, FAILING_FOLDER);
+        Files.writeString(log, "ERROR main.js: onStart failed: TypeError: Cannot read property \"value\" from null (main.js:3)\n",
+                          StandardCharsets.UTF_8);
+
+        Assertions.assertEquals(0, runTool(ScriptTool.PACK_COMMAND, map.toString(), ScriptTool.SCRIPT_OPTION, scriptFolder.toString(),
+                                           ScriptTool.OUTPUT_OPTION, packedMap.toString(), ScriptTool.PROTECT_OPTION));
+
+        String sourceMap = ScriptSourceMap.resolveFile(packedMap).toString();
+
+        Assertions.assertEquals(0, runTool(location, new ByteArrayOutputStream(), ScriptTool.TRACE_COMMAND, sourceMap, ScriptTool.AT_OPTION,
+                                           "main.js:3"));
+        Assertions.assertEquals(0, runTool(translatedLog, new ByteArrayOutputStream(), ScriptTool.TRACE_COMMAND, sourceMap, ScriptTool.LOG_OPTION,
+                                           log.toString()));
+        Assertions.assertEquals("main.js:5", location.toString(StandardCharsets.UTF_8).strip());
+        Assertions.assertEquals("ERROR main.js: onStart failed: TypeError: Cannot read property \"value\" from null (main.js:5)\n",
+                                translatedLog.toString(StandardCharsets.UTF_8));
+        Assertions.assertEquals(1, runTool(ScriptTool.TRACE_COMMAND, sourceMap, ScriptTool.AT_OPTION, "main.js:99"));
+        Assertions.assertEquals(1, runTool(ScriptTool.TRACE_COMMAND, sourceMap, ScriptTool.AT_OPTION, "main.js"));
+        Assertions.assertEquals(1, runTool(ScriptTool.TRACE_COMMAND, sourceMap));
+        Assertions.assertEquals(1, runTool(ScriptTool.TRACE_COMMAND, folder.resolve("missing.json").toString(), ScriptTool.AT_OPTION, "main.js:3"));
     }
 
     @Test

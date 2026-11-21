@@ -1,21 +1,31 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProjectUtils;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProtector;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptSourceMap;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Tests the sandbox, the globals, the hooks, the instruction budget and the error handling of {@link ScriptRuntime}.
+ * Tests the sandbox, the globals, the hooks, the instruction budget and the error handling of {@link ScriptRuntime}, and that protected scripts
+ * run as their sources.
  */
 final class ScriptRuntimeTest {
     private static final @NotNull String BLOCKED = "blocked";
+    /**
+     * The frames of the protected package test: the main module fails at frame 2.
+     */
+    private static final int PROTECTED_RUN_FRAMES = 4;
 
     /**
      * Creates a script that logs, for each expression, {@value #BLOCKED} and the error name when evaluating it throws, or the value.
@@ -417,5 +427,69 @@ final class ScriptRuntimeTest {
         lines.addAll(ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 0));
 
         Assertions.assertEquals(Collections.nCopies(2, "INFO main.js: undefined undefined"), lines);
+    }
+
+    @Test
+    void protected_packages_log_the_same_lines_as_their_sources(@TempDir @NotNull Path folder) throws IOException {
+        ScriptPackage modules = ScriptRuntimeScenario.createPackage(
+                ScriptRuntimeScenario.MAIN_NAME, """
+                        // The main module: a counter of the library at the start, random values every frame, an error at frame 2.
+                        const util = require('./lib/util.js');
+                        var history = [];
+
+                        function onStart() {
+                            var counter = util.makeCounter(3);
+                            history.push(counter.next(), counter.next());
+                            log.info('start', history.join(','));
+                        }
+
+                        function onFrame(frame) {
+                            var values = [];
+                            for (let index = 0; index < 3; index++) {
+                                values.push(util.scale(random.nextInt(100), index));
+                            }
+                            log.info('frame', frame, values.join(' '));
+                            if (frame === 2) {
+                                util.fail(frame);
+                            }
+                        }
+                        """,
+                "lib/util.js", """
+                        /* The library: a counter with a closure, a scale and a failing function. */
+                        function makeCounter(start) {
+                            var count = start;
+                            return {next: function () { count += 1; return count; }};
+                        }
+
+                        exports.makeCounter = makeCounter;
+                        exports.scale = function (value, factor) {
+                            var scaled = value * factor;
+                            return scaled;
+                        };
+                        exports.fail = function (frame) {
+                            var missing = null;
+
+                            return missing.property + frame;
+                        };
+                        """
+        );
+        Path template = folder.resolve("template");
+
+        ScriptProjectUtils.writeProject(template);
+
+        for (ScriptPackage scriptPackage : List.of(modules, ScriptPackage.readFolder(template))) {
+            ScriptSourceMap sourceMap = new ScriptSourceMap();
+            ScriptPackage protectedPackage = ScriptProtector.protectPackage(scriptPackage, sourceMap);
+            List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, PROTECTED_RUN_FRAMES);
+            List<String> protectedLines = ScriptRuntimeScenario.run(protectedPackage, ScriptRuntimeScenario.SEED, PROTECTED_RUN_FRAMES);
+
+            Assertions.assertNotEquals(scriptPackage.getScripts().get(ScriptRuntimeScenario.MAIN_NAME).length,
+                                       protectedPackage.getScripts().get(ScriptRuntimeScenario.MAIN_NAME).length);
+            Assertions.assertEquals(lines, protectedLines.stream().map(sourceMap::translate).toList());
+        }
+
+        List<String> lines = ScriptRuntimeScenario.run(modules, ScriptRuntimeScenario.SEED, PROTECTED_RUN_FRAMES);
+
+        Assertions.assertTrue(lines.stream().anyMatch(line -> line.contains("(lib/util.js:15)")), lines::toString);
     }
 }

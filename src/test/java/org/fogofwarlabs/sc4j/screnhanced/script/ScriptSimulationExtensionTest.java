@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -23,7 +24,7 @@ import java.util.Map;
 /**
  * Tests which games {@link ScriptSimulationExtension} gives a script plugin and the resources it gets: a live game reads them from its map file
  * and stores its script with resource references in its replay, and the replay played back reads the resources from the map file of the install's
- * map folders, or fails without it.
+ * map folders, or fails without it; the replay of a protected map holds the protected scripts and the protected mark.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -112,5 +113,40 @@ final class ScriptSimulationExtensionTest {
                                                                 () -> createPlayback(replay, resources, folder.resolve("other-install")));
 
         Assertions.assertTrue(refusal.getMessage().contains("no map in"), refusal.getMessage());
+    }
+
+    @Test
+    void a_replay_of_a_protected_map_carries_the_protected_scripts(@NotNull InstallationTestResources resources,
+                                                                   @TempDir @NotNull Path folder) throws IOException {
+        Path install = folder.resolve("install");
+        Path mapFolder = ScriptRunner.getMapFolders(install).getFirst();
+        Map<String, byte[]> files = ScriptGraphicsTest.createResources();
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), mapFolder, SCRIPT, files, true);
+
+        scenario.stepFrames(PLAYED_FRAMES);
+
+        byte[] section = scenario.getGame().getReplaySections().get(ScriptStorageUtils.REPLAY_SECTION);
+
+        Assertions.assertEquals(List.of("started true"), scenario.getPrints());
+        Assertions.assertNotNull(section);
+
+        ScriptTrailer recorded = ScriptStorageUtils.readReplaySection(section);
+        ReplayRuntime playback = createPlayback(ReplayFile.parse(scenario.writeReplay()), resources, install);
+        Game game = playback.getGame();
+        ScriptSimulationPlugin plugin = ScriptMapGameScenario.findPlugin(game);
+
+        Assertions.assertTrue(recorded.isProtected());
+        Assertions.assertEquals(ScriptProtector.protect("main.js", SCRIPT).getText(),
+                                new String(recorded.getScripts().getScripts().get("main.js"), StandardCharsets.UTF_8));
+        Assertions.assertNotNull(plugin, "the replay holds the protected script");
+
+        playback.start(0, 0);
+
+        while (game.getCurrentFrame() < PLAYED_FRAMES) {
+            Assertions.assertTrue(playback.step(0, game.getCurrentFrame() * playback.getFrameDuration()));
+        }
+
+        Assertions.assertFalse(plugin.getRuntime().isStopped());
+        Assertions.assertNotNull(plugin.getImageReplacements().findImageGraphics(REPLACED_IMAGE_TYPE), "the replay's script reads the GRP");
     }
 }

@@ -7,6 +7,7 @@ import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitHandle;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProtector;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
 import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommands;
 import org.jetbrains.annotations.NotNull;
@@ -14,11 +15,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
  * Tests the entry points of the prelude that {@link ScriptRuntime} calls: the order of the hooks of a frame, the decision records that the
- * decision hooks hand on, the local inputs and their consumption, and the refusal of the lower functions in the wrong code.
+ * decision hooks hand on, the local inputs and their consumption, and the refusal of the lower functions in the wrong code; and that the prelude
+ * files, as a body of real scripts, protect to the same programs ({@link ScriptProtector}).
  */
 final class ScriptPreludeTest {
     private static final int KEY_Q = 0x51;
@@ -189,5 +193,23 @@ final class ScriptPreludeTest {
                                         "read works, kind RangeError",
                                         "local works, events TypeError, executed TypeError, write TypeError, print TypeError, submit works, " +
                                         "read works, names works"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void prelude_files_protect_to_the_same_programs() throws IOException {
+        for (String fileName : ScriptPrelude.FILE_NAMES) {
+            String source;
+
+            try (InputStream input = ScriptPrelude.class.getResourceAsStream(ScriptPrelude.RESOURCE_FOLDER + fileName)) {
+                Assertions.assertNotNull(input, fileName);
+                source = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            // The protector refuses a protected text whose syntax tree differs from the source beyond the given names.
+            ScriptProtector protector = ScriptProtector.protect(fileName, source);
+
+            Assertions.assertTrue(protector.getText().length() < source.length() / 2, fileName);
+            Assertions.assertFalse(protector.getRenames().isEmpty(), fileName);
+        }
     }
 }

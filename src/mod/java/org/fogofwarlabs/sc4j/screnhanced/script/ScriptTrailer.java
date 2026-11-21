@@ -8,21 +8,25 @@ import java.util.Map;
 
 /**
  * Represents a read script trailer ({@link ScriptStorageUtils}): the script package without its resources, read and checked at once, and the
- * resources, read on demand. The trailer of a replay section holds the resources as references without stored bytes.
+ * resources, read on demand. The trailer of a replay section holds the resources as references without stored bytes. The trailer of a
+ * protected map holds the scripts in protected form ({@link ScriptProtector}).
  */
 public final class ScriptTrailer {
     private final @NotNull ScriptPackage scripts;
     private final @NotNull ScriptResources resources;
+    private final boolean protectedMap;
 
     /**
      * Creates a {@link ScriptTrailer} instance.
      *
-     * @param scripts   the manifest and the scripts, as a package without resources
-     * @param resources the resources
+     * @param scripts      the manifest and the scripts, as a package without resources
+     * @param resources    the resources
+     * @param protectedMap whether the trailer has the flag {@value ScriptStorageUtils#PROTECTED_FLAG}
      */
-    ScriptTrailer(@NotNull ScriptPackage scripts, @NotNull ScriptResources resources) {
-        this.scripts   = scripts;
-        this.resources = resources;
+    ScriptTrailer(@NotNull ScriptPackage scripts, @NotNull ScriptResources resources, boolean protectedMap) {
+        this.scripts      = scripts;
+        this.resources    = resources;
+        this.protectedMap = protectedMap;
     }
 
     /**
@@ -37,6 +41,13 @@ public final class ScriptTrailer {
      */
     public @NotNull ScriptResources getResources() {
         return this.resources;
+    }
+
+    /**
+     * @return {@code true} if the trailer has the flag {@value ScriptStorageUtils#PROTECTED_FLAG}, {@code false} otherwise
+     */
+    public boolean isProtected() {
+        return this.protectedMap;
     }
 
     /**

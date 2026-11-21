@@ -71,14 +71,31 @@ final class ScriptMapGameScenario {
      */
     static @NotNull ScriptMapGameScenario startMelee(@NotNull GameData gameData, @NotNull Path folder, @Nullable String mainSource,
                                                      @NotNull Map<String, byte[]> resources) throws IOException {
+        return startMelee(gameData, folder, mainSource, resources, false);
+    }
+
+    /**
+     * Starts a melee game on the installed map with a packed main script and resources, protected or not, or on the installed map itself.
+     *
+     * @param gameData     the installed game data
+     * @param folder       the folder of the packed map, created when missing
+     * @param mainSource   the text of the main script, or {@code null} for the installed map without a script
+     * @param resources    the resource contents by name
+     * @param protectedMap whether the packed map is protected, with the main script in protected form
+     * @return the started scenario
+     */
+    static @NotNull ScriptMapGameScenario startMelee(@NotNull GameData gameData, @NotNull Path folder, @Nullable String mainSource,
+                                                     @NotNull Map<String, byte[]> resources, boolean protectedMap) throws IOException {
         Path map = ExternalInput.INSTALLATION.getPath().resolve(MAP_PATH);
 
         if (mainSource != null) {
             ScriptPackage scriptPackage = ScriptPackage.create(ScriptManifest.parse(MANIFEST.getBytes(StandardCharsets.UTF_8)),
                                                                Map.of(MAIN_NAME, mainSource.getBytes(StandardCharsets.UTF_8)), resources);
-            byte[] packed = ScriptStorageUtils.writePackage(Files.readAllBytes(map), MAP_PATH, scriptPackage);
+            ScriptPackage packedPackage = protectedMap ? ScriptProtector.protectPackage(scriptPackage, new ScriptSourceMap()) : scriptPackage;
+            byte[] packed = ScriptStorageUtils.writePackage(Files.readAllBytes(map), MAP_PATH, packedPackage, protectedMap);
 
             map = folder.resolve(PACKED_MAP_NAME);
+            Files.createDirectories(folder);
             Files.write(map, packed);
         }
 

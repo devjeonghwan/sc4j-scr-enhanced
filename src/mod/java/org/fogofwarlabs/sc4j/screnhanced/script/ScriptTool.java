@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -16,12 +17,16 @@ import java.util.concurrent.TimeUnit;
  * The command line tool of SC:R Enhanced Script.
  * <p>
  * Commands: {@code init <folder>} writes a new script folder ({@link ScriptProjectUtils}); {@code check <folder>} prints one line per
- * finding of a script folder ({@link ScriptCheckUtils}); {@code pack <map> --script <folder> -o <output>} writes the map with the package of
- * the script folder to the output file, the bytes of the map followed by the script trailer ({@link ScriptStorageUtils}), which replaces an
- * old one; {@code unpack <map> -o <folder>} writes the package of the map to the folder, which must be absent or
- * empty; {@code run <map> --script <folder> [--melee] [--watch] [--install <folder>]} packs the script folder into a copy of the map and
- * runs SC:R Enhanced of an SC4J install on it until the game ends ({@link ScriptRunner}), as a melee game with {@code --melee}, else as a
- * Use Map Settings game, packing again on every change of the folder with {@code --watch}. The install is the one {@code --install} names, else {@link ScriptRunner#findInstall()}.
+ * finding of a script folder ({@link ScriptCheckUtils}); {@code pack <map> --script <folder> -o <output> [--protect]} writes the map with the
+ * package of the script folder to the output file, the bytes of the map followed by the script trailer ({@link ScriptStorageUtils}), which
+ * replaces an old one; with {@code --protect} the map is protected: its scripts are packed in protected form ({@link ScriptProtector}) and the
+ * source map is written next to the output file ({@link ScriptSourceMap#resolveFile}), not into the map. {@code unpack <map> -o <folder>}
+ * writes the package of the map to the folder, which must be absent or empty, and refuses a protected map; {@code trace <source map> --at
+ * <script>:<line>} prints the original location of a location of a protected script, and {@code trace <source map> --log <file>} prints the
+ * file, such as a player's log, with the original locations; {@code run <map> --script <folder> [--melee] [--watch] [--install <folder>]}
+ * packs the script folder into a copy of the map and runs SC:R Enhanced of an SC4J install on it until the game ends ({@link ScriptRunner}),
+ * as a melee game with {@code --melee}, else as a Use Map Settings game, packing again on every change of the folder with {@code --watch}.
+ * The install is the one {@code --install} names, else {@link ScriptRunner#findInstall()}.
  */
 public final class ScriptTool {
     /**
@@ -41,6 +46,10 @@ public final class ScriptTool {
      */
     public static final @NotNull String UNPACK_COMMAND = "unpack";
     /**
+     * The command that maps locations of protected scripts back to the original ones with a source map.
+     */
+    public static final @NotNull String TRACE_COMMAND = "trace";
+    /**
      * The command that runs SC:R Enhanced on a map with a script folder.
      */
     public static final @NotNull String RUN_COMMAND = "run";
@@ -52,6 +61,18 @@ public final class ScriptTool {
      * The option that names the output file of {@value #PACK_COMMAND} and the output folder of {@value #UNPACK_COMMAND}.
      */
     public static final @NotNull String OUTPUT_OPTION = "-o";
+    /**
+     * The option of {@value #PACK_COMMAND} that packs a protected map.
+     */
+    public static final @NotNull String PROTECT_OPTION = "--protect";
+    /**
+     * The option of {@value #TRACE_COMMAND} that names one location {@code <script>:<line>}.
+     */
+    public static final @NotNull String AT_OPTION = "--at";
+    /**
+     * The option of {@value #TRACE_COMMAND} that names a file whose locations are mapped.
+     */
+    public static final @NotNull String LOG_OPTION = "--log";
     /**
      * The option of {@value #RUN_COMMAND} that starts the map as a melee game instead of a Use Map Settings game.
      */
@@ -67,8 +88,9 @@ public final class ScriptTool {
     /**
      * The usage line.
      */
-    public static final @NotNull String USAGE = "Usage: init <folder> | check <folder> | pack <map> --script <folder> -o <output> | " +
-                                                "unpack <map> -o <folder> | run <map> --script <folder> [--melee] [--watch] " +
+    public static final @NotNull String USAGE = "Usage: init <folder> | check <folder> | pack <map> --script <folder> -o <output> [--protect] | " +
+                                                "unpack <map> -o <folder> | trace <source map> --at <script>:<line> | " +
+                                                "trace <source map> --log <file> | run <map> --script <folder> [--melee] [--watch] " +
                                                 "[--install <folder>]";
 
     private static final int COMMAND_ARGUMENT = 0;
@@ -76,6 +98,7 @@ public final class ScriptTool {
     private static final int FIRST_OPTION_ARGUMENT = 2;
     private static final int SUCCESS_EXIT = 0;
     private static final int FAILURE_EXIT = 1;
+    private static final char LOCATION_SEPARATOR = ':';
     /**
      * The milliseconds between two looks at the script folder while the game runs.
      */
@@ -127,10 +150,11 @@ public final class ScriptTool {
                 case CHECK_COMMAND -> runCheck(arguments, path, output);
                 case PACK_COMMAND -> runPack(arguments, requireMap(path), output);
                 case UNPACK_COMMAND -> runUnpack(arguments, requireMap(path), output);
+                case TRACE_COMMAND -> runTrace(arguments, path, output);
                 case RUN_COMMAND -> runGame(arguments, requireMap(path), output, errors, starter);
-                default -> throw Exceptions.newIllegalArgumentException("Unknown command {0}: expected {1}, {2}, {3}, {4} or {5}.",
+                default -> throw Exceptions.newIllegalArgumentException("Unknown command {0}: expected {1}, {2}, {3}, {4}, {5} or {6}.",
                                                                         arguments[COMMAND_ARGUMENT], INIT_COMMAND, CHECK_COMMAND, PACK_COMMAND,
-                                                                        UNPACK_COMMAND, RUN_COMMAND);
+                                                                        UNPACK_COMMAND, TRACE_COMMAND, RUN_COMMAND);
             };
         } catch (IllegalArgumentException exception) {
             errors.println(exception.getMessage());
@@ -181,14 +205,31 @@ public final class ScriptTool {
         return ScriptCheckUtils.countErrors(findings) == 0 ? SUCCESS_EXIT : FAILURE_EXIT;
     }
 
+    /**
+     * Packs the script folder into the map; with {@value #PROTECT_OPTION} it protects the scripts and writes the source map next to the output
+     * file.
+     */
     private static int runPack(@NotNull String @NotNull [] arguments, @NotNull Path map, @NotNull PrintStream output) throws IOException {
         List<String> options = List.of(SCRIPT_OPTION, OUTPUT_OPTION);
-        Map<String, String> values = readOptions(arguments, options, List.of(), options);
+        Map<String, String> values = readOptions(arguments, options, List.of(PROTECT_OPTION), options);
         Path outputFile = Path.of(values.get(OUTPUT_OPTION));
         ScriptPackage scriptPackage = ScriptPackage.readFolder(Path.of(values.get(SCRIPT_OPTION)));
 
-        Files.write(outputFile, ScriptStorageUtils.writePackage(Files.readAllBytes(map), map.toString(), scriptPackage));
-        printPacked(output, scriptPackage, outputFile);
+        if (!values.containsKey(PROTECT_OPTION)) {
+            Files.write(outputFile, ScriptStorageUtils.writePackage(Files.readAllBytes(map), map.toString(), scriptPackage));
+            printPacked(output, scriptPackage, outputFile);
+
+            return SUCCESS_EXIT;
+        }
+
+        ScriptSourceMap sourceMap = new ScriptSourceMap();
+        ScriptPackage protectedPackage = ScriptProtector.protectPackage(scriptPackage, sourceMap);
+        Path sourceMapFile = ScriptSourceMap.resolveFile(outputFile);
+
+        Files.write(outputFile, ScriptStorageUtils.writePackage(Files.readAllBytes(map), map.toString(), protectedPackage, true));
+        sourceMap.write(sourceMapFile);
+        printPacked(output, protectedPackage, outputFile);
+        output.println(Exceptions.format("The map is protected. Wrote the source map {0}; the map does not hold it.", sourceMapFile));
 
         return SUCCESS_EXIT;
     }
@@ -196,15 +237,65 @@ public final class ScriptTool {
     private static int runUnpack(@NotNull String @NotNull [] arguments, @NotNull Path map, @NotNull PrintStream output) throws IOException {
         List<String> options = List.of(OUTPUT_OPTION);
         Path outputFolder = Path.of(readOptions(arguments, options, List.of(), options).get(OUTPUT_OPTION));
-        ScriptPackage scriptPackage = ScriptStorageUtils.readPackage(Files.readAllBytes(map), map.toString());
+        ScriptTrailer trailer = ScriptStorageUtils.readTrailer(Files.readAllBytes(map), map.toString());
 
-        if (scriptPackage == null) {
+        if (trailer == null) {
             throw Exceptions.newIOException("The map {0} has no script package.", map);
         }
+
+        if (trailer.isProtected()) {
+            throw Exceptions.newIOException("The map {0} is protected; its scripts and resources are not unpacked.", map);
+        }
+
+        ScriptPackage scriptPackage = trailer.createPackage();
 
         scriptPackage.writeFolder(outputFolder);
         output.println(Exceptions.format("Unpacked {0} scripts and {1} resources into {2}.", scriptPackage.getScripts().size(),
                                          scriptPackage.getResources().size(), outputFolder));
+
+        return SUCCESS_EXIT;
+    }
+
+    /**
+     * Prints the original location of {@value #AT_OPTION}, or the file of {@value #LOG_OPTION} with the original locations.
+     */
+    private static int runTrace(@NotNull String @NotNull [] arguments, @NotNull Path sourceMapFile, @NotNull PrintStream output) throws IOException {
+        Map<String, String> values = readOptions(arguments, List.of(AT_OPTION, LOG_OPTION), List.of(), List.of());
+
+        if (values.size() != 1) {
+            throw Exceptions.newIllegalArgumentException("The command {0} needs {1} or {2}.", TRACE_COMMAND, AT_OPTION, LOG_OPTION);
+        }
+
+        if (!Files.isRegularFile(sourceMapFile)) {
+            throw Exceptions.newIOException("The source map {0} is not a file.", sourceMapFile);
+        }
+
+        ScriptSourceMap sourceMap = ScriptSourceMap.read(sourceMapFile);
+        String location = values.get(AT_OPTION);
+
+        if (location == null) {
+            output.print(sourceMap.translate(new String(Files.readAllBytes(Path.of(values.get(LOG_OPTION))), StandardCharsets.UTF_8)));
+
+            return SUCCESS_EXIT;
+        }
+
+        int separator = location.lastIndexOf(LOCATION_SEPARATOR);
+        String scriptName = location.substring(0, Math.max(separator, 0));
+        int line;
+
+        try {
+            line = Integer.parseInt(location.substring(separator + 1));
+        } catch (NumberFormatException exception) {
+            throw Exceptions.newIllegalArgumentException("The location {0} is not <script>:<line>.", location);
+        }
+
+        int originalLine = sourceMap.findOriginalLine(scriptName, line);
+
+        if (originalLine == ScriptSourceMap.NO_LINE) {
+            throw Exceptions.newIOException("The source map {0} has no line {1} of {2}.", sourceMapFile, line, scriptName);
+        }
+
+        output.println(scriptName + LOCATION_SEPARATOR + originalLine);
 
         return SUCCESS_EXIT;
     }
