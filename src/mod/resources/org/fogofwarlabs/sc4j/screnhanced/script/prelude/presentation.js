@@ -1,5 +1,5 @@
-// The presentation of the upper layer: the globals display (display.console, display.strings, display.messages, display.images and
-// display.commandCard of command-card.js), ConsoleControl and ConsoleImage, and the console control objects they return. Shared code changes
+// The presentation of the upper layer: the globals display (display.console, display.strings, display.messages, display.sound, display.images
+// and display.commandCard of command-card.js), ConsoleControl and ConsoleImage, and the console control objects they return. Shared code changes
 // the presentation on every peer, local code only on the local machine.
 (function (core, prelude) {
     'use strict';
@@ -7,6 +7,7 @@
     var NONE = prelude.NONE;
     var createObject = prelude.createObject;
     var requireObject = prelude.requireObject;
+    var positionPrototype = prelude.positionPrototype;
     var typePrototype = prelude.typePrototype;
     var createConstantTable = prelude.createConstantTable;
     var imageTypePrototype = prelude.imageTypePrototype;
@@ -82,6 +83,17 @@
         },
         isVisible: function () {
             return core.console.isDialogVisible(this.control.id);
+        },
+        // The controls of the dialog by their identifier in the dialog's definition: shown or hidden, and placed by their top left in the
+        // classic screen; a setting wins over EUD memory until the control is restored.
+        setChildVisible: function (id, visible) {
+            core.console.setControlVisible(this.control.id, id, visible === true);
+        },
+        setChildPosition: function (id, x, y) {
+            core.console.setControlPosition(this.control.id, id, Math.round(x), Math.round(y));
+        },
+        restoreChild: function (id) {
+            core.console.restoreControl(this.control.id, id);
         }
     };
 
@@ -147,10 +159,34 @@
         }
     });
 
+    // The message lines on the screen: lines 0 to 10 take the messages in turn from the cursor, line 12 the status texts. A written line keeps
+    // the expiry time of the message it held, as an EUD write does.
     var messages = freeze({
         // Empties the message lines on the screen.
         clear: function () {
             core.messages.clear();
+        },
+        getLine: function (line) {
+            return core.messages.getLine(line);
+        },
+        setLine: function (line, text) {
+            core.messages.setLine(line, String(text));
+        },
+        // The line the next message starts at.
+        getCursor: function () {
+            return core.messages.getNextLine();
+        },
+        setCursor: function (line) {
+            core.messages.setNextLine(line);
+        }
+    });
+
+    // The game sounds.
+    var sound = freeze({
+        // Plays a sound of sfxdata.dat by its id at a position, louder the nearer it is to the screen.
+        playAt: function (soundId, position) {
+            requireObject(position, positionPrototype, 'A position');
+            core.sound.playAt(soundId, position.x, position.y);
         }
     });
 
@@ -158,6 +194,7 @@
         console: gameConsole,
         strings: strings,
         messages: messages,
+        sound: sound,
         images: imageGraphics,
         commandCard: commandCard
     });

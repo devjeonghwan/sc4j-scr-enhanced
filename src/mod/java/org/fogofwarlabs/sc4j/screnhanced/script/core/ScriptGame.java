@@ -41,18 +41,18 @@ import java.util.Map;
  * {@code sprite}, {@code image}, {@code bullet}, {@code vision}, {@code leaderboard}, {@code combat}, {@code ai}, {@code requirements},
  * {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
  * {@code orderType}, {@code dat}, {@code events}, {@code command}, {@code resources}, {@code graphics}, {@code local}, {@code screen},
- * {@code world}, {@code minimap}, {@code console}, {@code strings}, {@code messages} and {@code buttons}, take and return ids and raw values (hit points,
- * shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them) and plain records of them; a write
- * takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a map string takes a registered
- * map string ({@link #findStringIndex}). No function takes a callback.
+ * {@code world}, {@code minimap}, {@code console}, {@code strings}, {@code messages}, {@code sound} and {@code buttons}, take and return ids and
+ * raw values (hit points, shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them) and plain
+ * records of them; a write takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a map
+ * string takes a registered map string ({@link #findStringIndex}). No function takes a callback.
  * <p>
  * Every function belongs to shared code, to local code or to both. The functions that change the game state ({@link #checkWritable()}) and
  * the frame's events and commands ({@link ScriptEventCore}, {@link ScriptCommandCore}, {@link #checkShared()}) work in shared code only; the
  * local information ({@link ScriptLocalCore}) and the drawing and screen of {@code core.screen} ({@link ScriptScreenCore},
  * {@link #checkLocal()}) in local code only; the reads, the presentation (the graphics replacements of {@link ScriptGraphicsCore}, the
- * console, the texts, the messages and the screen pixels) and {@code core.command.submit} anywhere. A call in the wrong code throws a
- * {@code TypeError}. While the game is read-only, as while a decision runs, the functions that change the game state throw a
- * {@code TypeError} as well.
+ * console, the texts, the messages, the sounds, the player colors and the screen pixels) and {@code core.command.submit} anywhere. A call in
+ * the wrong code throws a {@code TypeError}. While the game is read-only, as while a decision runs, the functions that change the game state
+ * throw a {@code TypeError} as well.
  */
 public final class ScriptGame {
     /**
@@ -124,6 +124,7 @@ public final class ScriptGame {
                                                                               global);
         textCore.defineStrings(ScriptCoreUtils.createNamespace(context, global, core, "strings"), global);
         textCore.defineMessages(ScriptCoreUtils.createNamespace(context, global, core, "messages"), global);
+        scriptGame.soundCore.define(ScriptCoreUtils.createNamespace(context, global, core, "sound"), global);
         new ScriptButtonCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "buttons"), global);
         scriptGame.screenCore = screenCore;
 
@@ -147,6 +148,7 @@ public final class ScriptGame {
     private final @NotNull ScriptEventCore eventCore;
     private final @NotNull ScriptCommandCore commandCore;
     private final @NotNull ScriptLocalCore localCore;
+    private final @NotNull ScriptSoundCore soundCore;
     private @Nullable ScriptScreenCore screenCore;
 
     private final @NotNull Map<String, Integer> registeredTexts;
@@ -171,6 +173,7 @@ public final class ScriptGame {
         this.eventCore         = new ScriptEventCore(this);
         this.commandCore       = new ScriptCommandCore(this);
         this.localCore         = new ScriptLocalCore(this);
+        this.soundCore         = new ScriptSoundCore(this);
         this.screenCore        = null;
 
         this.registeredTexts = new HashMap<>();
@@ -415,6 +418,13 @@ public final class ScriptGame {
     }
 
     /**
+     * Plays the sounds local code played since the previous call ({@code core.sound.playAt}) with the sounds of the current game loop iteration.
+     */
+    public void playLocalSounds() {
+        this.soundCore.playLocalSounds();
+    }
+
+    /**
      * Finds the kind of a simulation decision.
      *
      * @param decision the decision
@@ -555,6 +565,11 @@ public final class ScriptGame {
      * kept from {@code 0} to {@code 359999}), {@code isCountdownTimerPaused()} and {@code setCountdownTimerPaused(paused)} (Pause Timer and
      * Unpause Timer); {@code getElapsedTime()} (the seconds the Elapsed Time condition compares). Countdown and elapsed time are game seconds
      * of the trigger clock, which advances one second every sixteen frames, not frames.
+     * <p>
+     * {@code isPaused()} (the game is paused, by Pause Game or by the Pause command of the game menu); {@code pause()} and {@code resume()} run
+     * Pause Game and Unpause Game without a trigger record at the frame's trigger step ({@link TriggerContext#requestPauseGame()}). They do
+     * nothing in a multiplayer session, nor a pause while Pause Game already paused the game, nor a resume while it did not. A game that Pause
+     * Game paused runs no frame, but its trigger step, and with it the script's frame entry, keeps running until Unpause Game.
      */
     private void defineGameFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
         ScriptCoreUtils.defineFunction(global, namespace, "getFrame", 0,
@@ -582,7 +597,7 @@ public final class ScriptGame {
     }
 
     /**
-     * Defines the functions of {@code core.game} over the switches, the countdown timer and the elapsed time of the trigger state.
+     * Defines the functions of {@code core.game} over the switches, the countdown timer, the elapsed time and the pause of the trigger state.
      */
     private void defineTriggerStateFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
         ScriptCoreUtils.defineFunction(global, namespace, "isSwitchSet", 1, (context, scope, thisObject, arguments) -> {
@@ -628,6 +643,21 @@ public final class ScriptGame {
         });
         ScriptCoreUtils.defineFunction(global, namespace, "getElapsedTime", 0,
                                        (context, scope, thisObject, arguments) -> (double) this.requireTriggerContext().getElapsedClockTicks());
+
+        ScriptCoreUtils.defineFunction(global, namespace, "isPaused", 0,
+                                       (context, scope, thisObject, arguments) -> this.requireTriggerContext().getPhaseGate() != 0);
+        ScriptCoreUtils.defineFunction(global, namespace, "pause", 0, (context, scope, thisObject, arguments) -> {
+            this.checkWritable();
+            this.requireTriggerContext().requestPauseGame();
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "resume", 0, (context, scope, thisObject, arguments) -> {
+            this.checkWritable();
+            this.requireTriggerContext().requestUnpauseGame();
+
+            return Context.getUndefinedValue();
+        });
     }
 
     /**

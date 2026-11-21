@@ -37,9 +37,10 @@ import java.util.stream.Collectors;
 
 /**
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
- * frame hooks, the event hooks with their captured values, the decision hooks that change damage and reject orders, the read-only game in a
- * decision with its refused trigger writes and its local display, the channel messages of shared code and of the local hooks that the
- * game's {@link ScriptInputPlugin} calls, live and in the replay, and a map without a script package.
+ * frame hooks, the frame hook while the script pauses the game, live and in the replay, the event hooks with their captured values, the
+ * decision hooks that change damage and reject orders, the read-only game in a decision with its refused trigger writes and its local display,
+ * the channel messages of shared code and of the local hooks that the game's {@link ScriptInputPlugin} calls, live and in the replay, and a map
+ * without a script package.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -89,6 +90,14 @@ final class ScriptSimulationPluginTest {
      * The switches the channel test reads: the 32 bits of the digest of the handler calls, then one switch per call.
      */
     private static final int CHANNEL_SWITCHES = 36;
+    /**
+     * The switches the pause test script sets when its third paused frame resumes the game and when the game runs again, the frame it runs again
+     * at, and the most frames the test waits for that.
+     */
+    private static final int PAUSED_SWITCH = 1;
+    private static final int RESUMED_SWITCH = 2;
+    private static final int PAUSE_RESUMED_FRAME = 4;
+    private static final int PAUSE_FRAMES = 20;
 
     private static @NotNull ScriptInputPlugin findInputPlugin(@NotNull Game game) {
         for (ScrGamePlugin plugin : game.getPlugins()) {
@@ -166,6 +175,58 @@ final class ScriptSimulationPluginTest {
         Assertions.assertFalse(runtime.isStopped());
         Assertions.assertFalse(scenario.getGame().isSaveAllowed(), "a script game cannot be saved");
         Assertions.assertEquals(List.of("frames start 1 1 2 3, center true true true 0"), scenario.getPrints());
+    }
+
+    @Test
+    void a_paused_game_runs_the_frame_hook_until_the_script_resumes_it_live_and_in_the_replay(@NotNull InstallationTestResources resources,
+                                                                                               @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, """
+                var paused = 0;
+                var pausedFrame = -1;
+                var reported = false;
+                function onFrame(frame) {
+                    if (frame === 3 && pausedFrame < 0 && !game.isPaused()) {
+                        game.pause();
+                    }
+                    if (game.isPaused()) {
+                        paused++;
+                        if (pausedFrame < 0) {
+                            pausedFrame = frame;
+                        }
+                        if (paused === 3) {
+                            game.switches.set(1, true);
+                            game.resume();
+                        }
+                    } else if (paused > 0 && !reported) {
+                        reported = true;
+                        game.switches.set(2, true);
+                        game.print('ES paused ' + paused + ' at ' + pausedFrame + ', now ' + frame);
+                    }
+                }
+                """);
+
+        scenario.stepUntilPrinted("paused", PAUSE_FRAMES);
+
+        Game live = scenario.getGame();
+
+        Assertions.assertEquals(List.of("paused 3 at 3, now 4"), scenario.getPrints(), "the frame hook runs at every trigger step of the pause");
+        Assertions.assertEquals(PAUSE_RESUMED_FRAME, live.getCurrentFrame());
+
+        ReplayRuntime playback = RunningGameScenario.createRuntime(ReplayFile.parse(scenario.writeReplay()), resources.getGameData());
+        Game game = playback.getGame();
+
+        playback.start(0, 0);
+
+        while (game.getCurrentFrame() < PAUSE_RESUMED_FRAME) {
+            Assertions.assertTrue(playback.step(0, game.getCurrentFrame() * playback.getFrameDuration()));
+        }
+
+        TriggerContext triggers = game.getTriggerContext();
+
+        Assertions.assertNotNull(triggers);
+        Assertions.assertTrue(triggers.isSwitchSet(PAUSED_SWITCH), "the replay pauses and runs the paused frames");
+        Assertions.assertTrue(triggers.isSwitchSet(RESUMED_SWITCH));
+        Assertions.assertEquals(0, triggers.getPhaseGate());
     }
 
     @Test

@@ -703,6 +703,22 @@ interface CoreGame {
     getElapsedTime(): number;
     /**
      * [A]
+     * @returns whether the game is paused, by Pause Game or by the pause of the game menu
+     */
+    isPaused(): boolean;
+    /**
+     * [S] Runs Pause Game without a trigger record at this frame's trigger step: nothing in a multiplayer session or while Pause Game already
+     * paused the game. A game Pause Game paused runs no frame, but the trigger step and the frame entry keep running, with the frame number
+     * unchanged, until Unpause Game.
+     */
+    pause(): void;
+    /**
+     * [S] Runs Unpause Game without a trigger record at this frame's trigger step: nothing in a multiplayer session or while Pause Game did not
+     * pause the game.
+     */
+    resume(): void;
+    /**
+     * [A]
      * @returns the speed, 0 slowest to 6 fastest
      */
     getSpeed(): number;
@@ -935,6 +951,24 @@ interface CorePlayer {
      * @returns false for a player without a start location
      */
     setStartLocation(player: number, x: number, y: number): boolean;
+    /**
+     * [A]
+     * @param index the remapped unit color, 0 to 7; color 0 is also the HD team color
+     * @returns the palette index of the player's unit color row
+     */
+    getUnitColor(player: number, index: number): number;
+    /**
+     * [A] Stores a palette index (0 to 255) of the player's unit color row as an EUD write does; the next drawn frame shows it. A player shown
+     * in a custom color of the game keeps that color as its HD team color and on the minimap.
+     */
+    setUnitColor(player: number, index: number, paletteIndex: number): void;
+    /**
+     * [A]
+     * @returns the palette index of the player's minimap dots
+     */
+    getMinimapColor(player: number): number;
+    /** [A] */
+    setMinimapColor(player: number, paletteIndex: number): void;
 }
 
 interface CoreUnit {
@@ -1549,6 +1583,19 @@ interface CoreVision {
      * @returns bit p set while player p does not see the tile, bit 8 + p while player p has not explored it
      */
     getTileVisibility(tileX: number, tileY: number): number;
+    /**
+     * [S] Replaces the visibility bits (0 to 0xFFFF) of one tile as an EUD write does: the visible bits last until the game marks the tiles
+     * unseen or the units' sight clears them, the explored bits stay.
+     */
+    setTileVisibility(tileX: number, tileY: number, bits: number): void;
+    /**
+     * [A]
+     * @returns the fog level of visible tiles (0 to 255, default 31): the world and the minimap draw visible tiles at this level, explored tiles
+     *          at half of it
+     */
+    getMinimapFogLevel(): number;
+    /** [A] */
+    setMinimapFogLevel(level: number): void;
     /** [A] */
     isVisible(player: number, x: number, y: number): boolean;
     /** [A] */
@@ -1802,6 +1849,13 @@ interface CoreLocal {
     getDisplayedButtonSet(): number;
     /** [L] Shows a button set at the card's next refresh, as the Change Buttons action does, until the selection changes. */
     changeButtons(set: number): void;
+    /**
+     * [L] Sends the local player's Pause command of the game menu while the game runs; a network pause takes one of the player's pauses left.
+     * Nothing in a replay.
+     */
+    requestPause(): void;
+    /** [L] Sends the local player's Resume command while the game is paused. Nothing in a replay. */
+    requestResume(): void;
 }
 
 /**
@@ -1974,6 +2028,15 @@ interface CoreConsole {
     isDialogVisible(dialog: number): boolean;
     /** [A] */
     setDialogPosition(dialog: number, x: number, y: number): void;
+    /**
+     * [A] Shows or hides a control of a dialog by its identifier in the dialog's definition (a signed WORD); it wins over EUD memory until
+     * restoreControl.
+     */
+    setControlVisible(dialog: number, control: number, visible: boolean): void;
+    /** [A] Places a control of a dialog by its top left in the classic 640 by 480 screen; it wins over EUD memory until restoreControl. */
+    setControlPosition(dialog: number, control: number, x: number, y: number): void;
+    /** [A] Forgets the visibility and the position set on a control, so that EUD memory drives it again. */
+    restoreControl(dialog: number, control: number): void;
     /** [A] */
     replaceImage(consoleImage: number, image: number): void;
     /** [A] */
@@ -1985,9 +2048,44 @@ interface CoreStrings {
     setStatText(id: number, text: string | null): void;
 }
 
+/**
+ * The message lines on the screen: lines 0 to 10 take the messages in turn from the next line, line 12 the status texts. A write stores the
+ * bytes as an EUD write does: the line keeps the expiry time and the style of the message it held, so a line whose message expired is cleared at
+ * the next drawn frame.
+ */
 interface CoreMessages {
     /** [A] */
     clear(): void;
+    /**
+     * [A]
+     * @returns the number of lines, 13
+     */
+    getLineCount(): number;
+    /**
+     * [A]
+     * @returns the text of a line up to its first zero byte
+     */
+    getLine(line: number): string;
+    /** [A] Stores the text's UTF-8 bytes, at most 217 of them, and a zero byte. */
+    setLine(line: number, text: string): void;
+    /**
+     * [A]
+     * @returns the line the next message starts at, a byte; 11 or more starts at line 0
+     */
+    getNextLine(): number;
+    /** [A] */
+    setNextLine(value: number): void;
+}
+
+/**
+ * The game sounds.
+ */
+interface CoreSound {
+    /**
+     * [A] Plays a sound of sfxdata.dat (0 to 1143) at a map position as an animation script does: by its distance from the screen, whether
+     * the players see the position or not. A sound of local code plays with the sounds of the next frame start.
+     */
+    playAt(soundId: number, x: number, y: number): void;
 }
 
 interface Core {
@@ -2025,6 +2123,7 @@ interface Core {
     readonly console: CoreConsole;
     readonly strings: CoreStrings;
     readonly messages: CoreMessages;
+    readonly sound: CoreSound;
     readonly buttons: CoreButtons;
 }
 

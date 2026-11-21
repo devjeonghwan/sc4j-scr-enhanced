@@ -1,10 +1,13 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.EcmaError;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 /**
@@ -14,7 +17,10 @@ import org.mozilla.javascript.Scriptable;
  * <p>
  * {@code setVisible(visible)} and {@code isVisible()} (the whole console); {@code setDialogVisible(dialog, visible)},
  * {@code setDialogPosition(dialog, x, y)} (the top left in the classic {@code 640} by {@code 480} screen), {@code isDialogVisible(dialog)} for
- * the dialogs of {@link ScrConsolePlacement.Dialog} in order; {@code replaceImage(image, imageId)} (the console art files of
+ * the dialogs of {@link ScrConsolePlacement.Dialog} in order; {@code setControlVisible(dialog, control, visible)},
+ * {@code setControlPosition(dialog, control, x, y)} (the top left in the classic screen) and {@code restoreControl(dialog, control)} (forgets
+ * both, so that EUD memory drives the control again) for a control of a dialog by its identifier in the dialog's definition, a signed WORD;
+ * {@code replaceImage(image, imageId)} (the console art files of
  * {@link ScrConsoleArt} in order; {@code -1} for the installed file) and {@code setResourceIcon(icon, imageId)} (the resource icon frames,
  * {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran and Protoss; {@code -1} for the icon of
  * EUD memory or the installed one).
@@ -62,6 +68,22 @@ final class ScriptConsoleCore {
 
             return Context.getUndefinedValue();
         });
+        ScriptCoreUtils.defineFunction(global, namespace, "setControlVisible", 3, (context, scope, thisObject, arguments) -> {
+            this.settings.setControlVisible(readDialog(arguments), readControl(arguments), ScriptCoreUtils.readBoolean(arguments, 2));
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setControlPosition", 4, (context, scope, thisObject, arguments) -> {
+            this.settings.setControlPosition(readDialog(arguments), readControl(arguments), ScriptCoreUtils.readInteger(arguments, 2),
+                                             ScriptCoreUtils.readInteger(arguments, 3));
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "restoreControl", 2, (context, scope, thisObject, arguments) -> {
+            this.settings.restoreControl(readDialog(arguments), readControl(arguments));
+
+            return Context.getUndefinedValue();
+        });
         ScriptCoreUtils.defineFunction(global, namespace, "replaceImage", 2, (context, scope, thisObject, arguments) -> {
             int art = ScriptCoreUtils.requireId("console image", ScriptCoreUtils.readInteger(arguments, 0), ARTS.length);
 
@@ -80,5 +102,21 @@ final class ScriptConsoleCore {
 
     private static ScrConsolePlacement.@NotNull Dialog readDialog(@NotNull Object @NotNull [] arguments) {
         return DIALOGS[ScriptCoreUtils.requireId("console dialog", ScriptCoreUtils.readInteger(arguments, 0), DIALOGS.length)];
+    }
+
+    /**
+     * Reads the control identifier of the second argument.
+     *
+     * @throws EcmaError if the argument is not an integer or is outside the signed WORD of a control identifier
+     */
+    private static int readControl(@NotNull Object @NotNull [] arguments) {
+        int control = ScriptCoreUtils.readInteger(arguments, 1);
+
+        if (control < Short.MIN_VALUE || control > Short.MAX_VALUE) {
+            throw ScriptRuntime.rangeError(Exceptions.format("The control identifier {0} is not from {1} to {2}.", control, Short.MIN_VALUE,
+                                                             Short.MAX_VALUE));
+        }
+
+        return control;
     }
 }

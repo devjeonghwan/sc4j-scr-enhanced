@@ -1991,6 +1991,24 @@ interface Player {
      * @returns false for a player without a start location
      */
     setStartLocation(position: Position): boolean;
+    /**
+     * @returns the palette indices of the player's unit color row, the eight remapped colors of a unit frame; the first one is also the HD team
+     *          color
+     */
+    getColor(): number[];
+    /**
+     * Sets the eight palette indices (0 to 255) of the player's unit color row, as an EUD write does; the next drawn frame shows them. Shared code
+     * sets them on every peer, local code only on this machine. A player shown in a custom color of the game keeps it as its HD team color.
+     */
+    setColor(paletteIndices: number[]): void;
+    /**
+     * @returns the palette index of the player's minimap dots
+     */
+    getMinimapColor(): number;
+    /**
+     * Sets the palette index of the player's minimap dots; a player shown in a custom color of the game keeps it on the minimap.
+     */
+    setMinimapColor(paletteIndex: number): void;
 }
 
 /**
@@ -2013,6 +2031,11 @@ interface PlayerVision {
      */
     canSee(position: Position): boolean;
     hasExplored(position: Position): boolean;
+    /**
+     * Marks the tile at a position explored by the player, still unseen until a unit of the player sees it, or unexplored and unseen; for a
+     * player from 0 to 7, only in shared code.
+     */
+    setExplored(position: Position, explored: boolean): void;
 }
 
 /**
@@ -2219,6 +2242,21 @@ interface Game {
      * Shows a text to all players.
      */
     print(text: string): void;
+    /**
+     * @returns true while the game is paused, by {@link Game.pause}, Pause Game or the pause of the game menu
+     */
+    isPaused(): boolean;
+    /**
+     * Pauses the game as the Pause Game action does, at this frame's trigger step: nothing in a multiplayer session or while it is paused so
+     * already. The paused game runs no frame, but onFrame keeps running at every trigger step with the frame number unchanged, so that it can
+     * call {@link Game.resume}. Only in shared code.
+     */
+    pause(): void;
+    /**
+     * Resumes the game that {@link Game.pause} or Pause Game paused, as the Unpause Game action does, at this frame's trigger step. Only in shared
+     * code.
+     */
+    resume(): void;
     /**
      * Calls a function every given number of frames, first that many frames from now ({@link Time}), at the frame start before the hooks
      * of the frame; only in shared code, local code throws a TypeError.
@@ -2468,6 +2506,15 @@ interface GameVision {
      * the tiles unseen again; {air: true} sees over higher ground.
      */
     reveal(players: Player | Player[], position: Position, sightRange: number, options?: RevealOptions): void;
+    /**
+     * @returns the fog level of visible tiles (0 to 255, default 31): the world and the minimap draw visible tiles at this level, explored tiles
+     *          at half of it and unexplored tiles black
+     */
+    getMinimapFogLevel(): number;
+    /**
+     * Sets the fog level of visible tiles; shared code sets it on every peer, local code only on this machine.
+     */
+    setMinimapFogLevel(level: number): void;
 }
 
 /**
@@ -2952,6 +2999,15 @@ interface Local {
      */
     getButtonState(conditionValue: number): ButtonState;
     setButtonState(conditionValue: number, state: ButtonState): void;
+    /**
+     * Pauses the game as the game menu does: the local player's Pause command runs in a later turn on every peer, and a network pause takes one
+     * of the player's pauses left ({@link Player.getPausesLeft}). Nothing in a replay or while the game is paused.
+     */
+    requestPause(): void;
+    /**
+     * Resumes the game as the game menu does, with the local player's Resume command. Nothing in a replay or while the game runs.
+     */
+    requestResume(): void;
 }
 
 declare const local: Local;
@@ -3206,6 +3262,20 @@ interface ConsoleControlHandle {
     setPosition(x: number, y: number): void;
     setVisible(visible: boolean): void;
     isVisible(): boolean;
+    /**
+     * Shows or hides a control of the dialog by its identifier in the dialog's definition; it wins over EUD memory until
+     * {@link ConsoleControlHandle.restoreChild}.
+     */
+    setChildVisible(id: number, visible: boolean): void;
+    /**
+     * Places a control of the dialog by its top left in the classic 640 by 480 screen; it wins over EUD memory until
+     * {@link ConsoleControlHandle.restoreChild}.
+     */
+    setChildPosition(id: number, x: number, y: number): void;
+    /**
+     * Forgets what was set on a control of the dialog, so that EUD memory drives it again.
+     */
+    restoreChild(id: number): void;
 }
 
 /**
@@ -3248,13 +3318,36 @@ interface Strings {
 }
 
 /**
- * The message lines on the screen ({@link Display.messages}).
+ * The message lines on the screen ({@link Display.messages}), 0 to 12: lines 0 to 10 take the messages in turn from the cursor, line 12 the
+ * status texts. A written line keeps the expiry time of the message it held, as an EUD write does, so a line whose message expired is cleared at
+ * the next drawn frame.
  */
 interface Messages {
     /**
      * Empties the message lines on the screen.
      */
     clear(): void;
+    getLine(line: number): string;
+    /**
+     * Stores a text in a line, at most 217 UTF-8 bytes.
+     */
+    setLine(line: number, text: string): void;
+    /**
+     * @returns the line the next message starts at, a byte; 11 or more starts at line 0
+     */
+    getCursor(): number;
+    setCursor(line: number): void;
+}
+
+/**
+ * The game sounds ({@link Display.sound}). Shared code plays them on every peer, local code only on this machine.
+ */
+interface DisplaySound {
+    /**
+     * Plays a sound of sfxdata.dat by its id (0 to 1143) at a position, louder the nearer it is to the screen, whether the players see the
+     * position or not. A sound of local code plays with the sounds of the next frame start.
+     */
+    playAt(soundId: number, position: Position): void;
 }
 
 /**
@@ -3296,6 +3389,10 @@ interface Display {
      * The message lines on the screen.
      */
     readonly messages: Messages;
+    /**
+     * The game sounds.
+     */
+    readonly sound: DisplaySound;
     /**
      * The graphics of the game's images.
      */

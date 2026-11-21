@@ -129,10 +129,11 @@ final class ScriptGameTest {
                 """);
 
         Assertions.assertEquals(List.of("true ",
-                                        "getFrame getElapsedTime isReadOnly print every after getSpeed isCheatEnabled setCheatEnabled createEffect " +
-                                        "getBullets createBullet map players units switches countdown leaderboard settings vision combat",
+                                        "getFrame getElapsedTime isReadOnly print isPaused pause resume every after getSpeed isCheatEnabled " +
+                                        "setCheatEnabled createEffect getBullets createBullet map players units switches countdown leaderboard " +
+                                        "settings vision combat",
                                         "getWidth getHeight getTileWidth getTileHeight tileset terrain locations resources",
-                                        "console strings messages images commandCard",
+                                        "console strings messages sound images commandCard",
                                         "undefined undefined undefined undefined undefined undefined",
                                         "true true true true true true true true"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }

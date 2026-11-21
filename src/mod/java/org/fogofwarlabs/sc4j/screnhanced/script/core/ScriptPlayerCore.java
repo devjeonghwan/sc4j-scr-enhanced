@@ -9,6 +9,7 @@ import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayHeaderBuilder;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTechnology;
@@ -101,6 +102,12 @@ import java.util.List;
  * {@value PlayerTable#PLAYABLE_PLAYER_SLOTS} minus one has left, which the network pause takes); {@code getStartLocationX(player)} and
  * {@code getStartLocationY(player)} ({@code -1} for a player without one) and {@code setStartLocation(player, x, y)} ({@code false} for a
  * player without one), the start location the computer players and the start screen read.
+ * <p>
+ * The color rows of the players, presentation that runs in shared and local code and changes no game state, stored as EUD writes store them:
+ * {@code getUnitColor(player, index)} and {@code setUnitColor(player, index, paletteIndex)} (the palette index of the remapped unit color
+ * {@code 0} to {@code 7}; the first one is also the player's HD team color), {@code getMinimapColor(player)} and
+ * {@code setMinimapColor(player, paletteIndex)}. Every drawn frame reads them; a player shown in a custom color of the game keeps it in the HD
+ * team color and on the minimap.
  */
 final class ScriptPlayerCore {
     /**
@@ -131,6 +138,10 @@ final class ScriptPlayerCore {
      * The largest value of a WORD coordinate.
      */
     private static final int WORD_MAXIMUM = 0xFFFF;
+    /**
+     * The number of palette indices of a color row.
+     */
+    private static final int PALETTE_SIZE = 256;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -170,6 +181,7 @@ final class ScriptPlayerCore {
         this.defineSelectionFunctions(namespace, global);
         this.defineVisionFunctions(namespace, global);
         this.defineStartFunctions(namespace, global);
+        this.defineColorFunctions(namespace, global);
 
         ScriptCoreUtils.defineFunction(global, namespace, "setMissionObjectives", 2, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
@@ -789,6 +801,63 @@ final class ScriptPlayerCore {
         }
 
         return null;
+    }
+
+    /**
+     * Defines the color rows of the players, presentation that every drawn frame reads.
+     */
+    private void defineColorFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getUnitColor", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int index = ScriptCoreUtils.requireId("unit color index", ScriptCoreUtils.readInteger(arguments, 1), PlayerColorRows.UNIT_ROW);
+
+            return (double) this.requireColorRows().getUnitColor(player, index);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setUnitColor", 3, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int index = ScriptCoreUtils.requireId("unit color index", ScriptCoreUtils.readInteger(arguments, 1), PlayerColorRows.UNIT_ROW);
+            int palette = readPaletteIndex(arguments, 2);
+
+            this.requireColorRows().setUnitColor(player, index, palette);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getMinimapColor", 1, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+
+            return (double) this.requireColorRows().getMinimapColor(player);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setMinimapColor", 2, (context, scope, thisObject, arguments) -> {
+            int player = this.readPlayerId(arguments, 0);
+            int palette = readPaletteIndex(arguments, 1);
+
+            this.requireColorRows().setMinimapColor(player, palette);
+
+            return Context.getUndefinedValue();
+        });
+    }
+
+    /**
+     * @return the player color rows of the game
+     * @throws EcmaError if the game has no player color rows
+     */
+    private @NotNull PlayerColorRows requireColorRows() {
+        PlayerColorRows rows = this.scriptGame.getGame().getPlayerTable().getPlayerColorRows();
+
+        if (rows == null) {
+            throw ScriptRuntime.typeError("The game has no player colors.");
+        }
+
+        return rows;
+    }
+
+    /**
+     * Reads a palette index.
+     *
+     * @throws EcmaError if the argument is not an integer or is outside {@code 0} to {@value #PALETTE_SIZE} minus one
+     */
+    private static int readPaletteIndex(@NotNull Object @NotNull [] arguments, int index) {
+        return ScriptCoreUtils.requireId("palette index", ScriptCoreUtils.readInteger(arguments, index), PALETTE_SIZE);
     }
 
     /**

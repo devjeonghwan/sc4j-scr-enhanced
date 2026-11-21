@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.ButtonSetIds;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrPauseRequester;
 import org.fogofwarlabs.sc4j.scr.game.presentation.HostButtonSets;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
@@ -38,6 +39,10 @@ import java.util.List;
  * button condition gives for its condition value, the native condition results {@code 1} enabled, {@code 0} hidden and {@code -1} disabled; every
  * state starts hidden, the native zero value), {@code getDisplayedButtonSet()} (the set the card shows, {@code 0xE4} for none) and
  * {@code changeButtons(set)} (the card shows the set at its next refresh, as the Change Buttons action does, until the selection changes).
+ * <p>
+ * The pause of the game menu: {@code requestPause()} and {@code requestResume()} send the local player's Pause and Resume commands
+ * ({@link ScrPauseRequester}), which run in a later turn on every peer; a network pause takes one of the player's pauses left. They do nothing in
+ * a replay; the pause does nothing while the game is paused, the resume nothing while it runs.
  */
 final class ScriptLocalCore {
     /**
@@ -216,6 +221,29 @@ final class ScriptLocalCore {
         });
 
         this.defineCommandCardFunctions(namespace, global);
+
+        ScriptCoreUtils.defineFunction(global, namespace, "requestPause", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            ScrPauseRequester requester = this.getInterfaceLink().getPauseRequester();
+
+            if (requester != null) {
+                requester.requestPause();
+            }
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "requestResume", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            ScrPauseRequester requester = this.getInterfaceLink().getPauseRequester();
+
+            if (requester != null) {
+                requester.requestResume();
+            }
+
+            return Context.getUndefinedValue();
+        });
     }
 
     /**

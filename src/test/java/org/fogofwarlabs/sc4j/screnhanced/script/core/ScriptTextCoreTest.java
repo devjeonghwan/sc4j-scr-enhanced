@@ -15,13 +15,18 @@ import java.util.List;
 
 /**
  * Tests {@code core.strings}, {@code core.messages} and their upper layer ({@code strings}, {@code messages}, {@code UnitType.setName}) on a game
- * without game data: the {@code stat_txt} strings the game's text lookup shows instead, in shared and in local code, and the cleared message lines.
+ * without game data: the {@code stat_txt} strings the game's text lookup shows instead, in shared and in local code, the cleared message lines,
+ * and the message lines and the next line read and written as EUD writes, which keep the lines' expiry.
  */
 final class ScriptTextCoreTest {
     private static final int MAP_TILE_SIZE = 4;
     private static final int MARINE_NAME = 1;
     private static final int GHOST_NAME = 2;
     private static final int BUTTON_TEXT = 700;
+    /**
+     * The host tick at which a system line written at tick {@code 0} expires.
+     */
+    private static final int SYSTEM_LINE_DEADLINE = 7000;
     /**
      * Defines {@code error(fn)}, which returns the name of the error {@code fn} throws, or {@code "none"}.
      */
@@ -87,5 +92,40 @@ final class ScriptTextCoreTest {
         for (int line = 0; line < MessageLines.LINE_COUNT; line++) {
             Assertions.assertEquals(0, lines.readByte(line * MessageLines.LINE_SIZE), "line " + line);
         }
+    }
+
+    @Test
+    void message_lines_are_read_and_written_as_eud_writes_keep_their_expiry() throws IOException {
+        Game game = createGame();
+        MessageLines lines = game.getInterfaceLink().getMessageLines();
+        ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
+                log.info(core.messages.getLineCount(), display.messages.getLine(1), display.messages.getCursor());
+                display.messages.setLine(1, 'line one');
+                display.messages.setLine(2, new Array(301).join('x'));
+                display.messages.setCursor(4);
+                log.info(display.messages.getLine(1), display.messages.getLine(2).length, display.messages.getCursor());
+                log.info(error(function () { display.messages.getLine(13); }), error(function () { core.messages.setNextLine(256); }),
+                         error(function () { core.messages.setLine(-1, 'a'); }));
+                function onLocalFrame(frame) {
+                    display.messages.setLine(12, 'status');
+                }
+                """);
+
+        lines.writeSystemLine("old line".getBytes(StandardCharsets.UTF_8), 0);
+        lines.writeByte(MessageLines.LINE_SIZE, 'a');
+        lines.writeByte(MessageLines.LINE_SIZE + 1, 'b');
+        scenario.getRuntime().start();
+        scenario.getRuntime().callLocalFrame(1);
+
+        Assertions.assertEquals(List.of("13 ab 10", "line one " + (MessageLines.LINE_SIZE - 1) + " 4", "RangeError RangeError RangeError"),
+                                scenario.getInfoMessages(), scenario.getLines()::toString);
+        Assertions.assertEquals("status", new String(lines.getLine(MessageLines.SYSTEM_LINE), StandardCharsets.UTF_8));
+        Assertions.assertEquals(SYSTEM_LINE_DEADLINE, lines.getDeadline(MessageLines.SYSTEM_LINE), "a write keeps the line's expiry");
+        Assertions.assertEquals(MessageLines.STYLE_SYSTEM_LINE, lines.getStyle(MessageLines.SYSTEM_LINE));
+
+        lines.expire(SYSTEM_LINE_DEADLINE);
+
+        Assertions.assertEquals(0, lines.getLine(MessageLines.SYSTEM_LINE).length, "the expiry of the message it replaced clears it");
+        Assertions.assertEquals(0, lines.getLine(1).length, "a line that held no message expires at the next expiry");
     }
 }

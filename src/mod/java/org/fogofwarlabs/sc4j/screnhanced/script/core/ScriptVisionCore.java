@@ -18,17 +18,27 @@ import org.mozilla.javascript.Scriptable;
  * <p>
  * {@code getTileVisibility(tileX, tileY)} reads the low WORD of a tile's flags: bit {@code p} is set while player {@code p} does not see the
  * tile, bit {@code 8 + p} while player {@code p} has not explored it. The game marks every tile unseen every hundred frames and the sight of
- * the units clears the bits again; the explored bits stay clear. {@code isVisible(player, x, y)} and {@code isExplored(player, x, y)} test the
+ * the units clears the bits again; the explored bits stay clear. {@code setTileVisibility(tileX, tileY, bits)} replaces the low WORD of one
+ * tile as an EUD write does ({@link GameMap#setTileVisibility}), in shared code only: the visible bits last until the game marks the tiles unseen
+ * or the units' sight clears them, the explored bits stay. {@code isVisible(player, x, y)} and {@code isExplored(player, x, y)} test the
  * tile at a map position as the visibility system does. {@code reveal(players, x, y, sightRange, air)} runs the native sight routine of a unit
  * ({@link SightCoverage#reveal}) for the players of a bit mask ({@code 0} to {@value #MAXIMUM_REVEAL_MASK}) with a sight range from {@code 0} to
  * {@value SightCoverage#DESCRIPTOR_COUNT} minus one: an air reveal sees over the terrain, a ground reveal not over higher ground; what it reveals
  * stays seen until the next time the game marks the tiles unseen.
+ * <p>
+ * {@code getMinimapFogLevel()} and {@code setMinimapFogLevel(level)} read and store the fog level of visible tiles, the byte EUD writes change
+ * (default {@code 0x1F}, full brightness): the fog of the world and the minimap draw visible tiles at this level, explored tiles at half of it and
+ * unexplored tiles black. They are presentation: they run in shared and local code and change no game state.
  */
 final class ScriptVisionCore {
     /**
      * The largest player mask of a reveal: players {@code 0} to {@code 7}.
      */
     private static final int MAXIMUM_REVEAL_MASK = 0xFF;
+    /**
+     * The largest fog level of visible tiles, a byte.
+     */
+    private static final int MAXIMUM_FOG_LEVEL = 0xFF;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -54,6 +64,36 @@ final class ScriptVisionCore {
             int tileY = ScriptCoreUtils.requireId("tile y", ScriptCoreUtils.readInteger(arguments, 1), map.getHeight());
 
             return (double) (map.getTileFlags(tileX, tileY) & MapTileFlags.NOT_VISIBLE_OR_EXPLORED);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setTileVisibility", 3, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            GameMap map = this.requireTileFlags();
+            int tileX = ScriptCoreUtils.requireId("tile x", ScriptCoreUtils.readInteger(arguments, 0), map.getWidth());
+            int tileY = ScriptCoreUtils.requireId("tile y", ScriptCoreUtils.readInteger(arguments, 1), map.getHeight());
+            int bits = ScriptCoreUtils.readInteger(arguments, 2);
+
+            if (bits < 0 || bits > MapTileFlags.NOT_VISIBLE_OR_EXPLORED) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The visibility bits {0} are not from 0 to {1}.", bits,
+                                                                 MapTileFlags.NOT_VISIBLE_OR_EXPLORED));
+            }
+
+            map.setTileVisibility(tileX, tileY, bits);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getMinimapFogLevel", 0,
+                                       (context, scope, thisObject, arguments) -> (double) this.scriptGame.getGame().getGameContext().getVisibleFogLevel());
+        ScriptCoreUtils.defineFunction(global, namespace, "setMinimapFogLevel", 1, (context, scope, thisObject, arguments) -> {
+            int level = ScriptCoreUtils.readInteger(arguments, 0);
+
+            if (level < 0 || level > MAXIMUM_FOG_LEVEL) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The fog level {0} is not from 0 to {1}.", level, MAXIMUM_FOG_LEVEL));
+            }
+
+            this.scriptGame.getGame().getGameContext().setVisibleFogLevel(level);
+
+            return Context.getUndefinedValue();
         });
         ScriptCoreUtils.defineFunction(global, namespace, "isVisible", 3, (context, scope, thisObject, arguments) -> {
             int player = this.readPlayer(arguments);

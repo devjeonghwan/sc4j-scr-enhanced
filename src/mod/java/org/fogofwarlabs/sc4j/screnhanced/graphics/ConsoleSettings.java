@@ -6,11 +6,15 @@ import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
- * What a map script sets on the console: whether the console is shown, the visibility and the top-left corner of each console dialog in the
- * classic screen, the pictures drawn instead of the console art files ({@link ScrConsoleArt}) and the pictures of the resource icons. An item
- * the script never set is unset, so that the classic console ({@link ClassicConsoleGraphics}) shows what EUD memory gives for it; an item the
- * script set wins over EUD memory from then on. The change count grows with every change.
+ * What a map script sets on the console: whether the console is shown, the visibility and the top-left corner of each console dialog and of the
+ * controls of a dialog in the classic screen, the pictures drawn instead of the console art files ({@link ScrConsoleArt}) and the pictures of the
+ * resource icons. An item the script never set, or restored, is unset, so that the classic console ({@link ClassicConsoleGraphics}) shows what
+ * EUD memory gives for it; an item the script set wins over EUD memory from then on. The change count grows with every change.
  */
 public final class ConsoleSettings {
     /**
@@ -21,6 +25,28 @@ public final class ConsoleSettings {
     private static final int DIALOG_COUNT = ScrConsolePlacement.Dialog.values().length;
     private static final int ART_COUNT = ScrConsoleArt.values().length;
 
+    /**
+     * What the script set on one control: its visibility, its top-left corner, or both.
+     */
+    private static final class ControlSetting {
+        private boolean visibilitySet;
+        private boolean visible;
+        private boolean positionSet;
+        private int left;
+        private int top;
+
+        /**
+         * Creates a {@link ControlSetting} instance with nothing set.
+         */
+        private ControlSetting() {
+            this.visibilitySet = false;
+            this.visible       = false;
+            this.positionSet   = false;
+            this.left          = 0;
+            this.top           = 0;
+        }
+    }
+
     private boolean consoleVisible;
 
     private final boolean @NotNull [] visibilitySet;
@@ -28,6 +54,7 @@ public final class ConsoleSettings {
     private final boolean @NotNull [] positionSet;
     private final int @NotNull [] lefts;
     private final int @NotNull [] tops;
+    private final @NotNull Map<ScrConsolePlacement.Dialog, Map<Integer, ControlSetting>> controls;
 
     private final @Nullable Picture @NotNull [] arts;
     private final @Nullable Picture @NotNull [] resourceIcons;
@@ -45,8 +72,9 @@ public final class ConsoleSettings {
         this.positionSet   = new boolean[DIALOG_COUNT];
         this.lefts         = new int[DIALOG_COUNT];
         this.tops          = new int[DIALOG_COUNT];
+        this.controls      = new EnumMap<>(ScrConsolePlacement.Dialog.class);
 
-        this.arts          = new Picture[ART_COUNT];
+        this.arts         = new Picture[ART_COUNT];
         this.resourceIcons = new Picture[RESOURCE_ICON_COUNT];
 
         this.changeCount = 0;
@@ -79,11 +107,17 @@ public final class ConsoleSettings {
     }
 
     /**
-     * @return {@code true} if the script set the visibility or the position of a dialog, {@code false} otherwise
+     * @return {@code true} if the script set the visibility or the position of a dialog or of a control, {@code false} otherwise
      */
     public boolean hasDialogSettings() {
         for (int index = 0; index < DIALOG_COUNT; index++) {
             if (this.visibilitySet[index] || this.positionSet[index]) {
+                return true;
+            }
+        }
+
+        for (Map<Integer, ControlSetting> settings : this.controls.values()) {
+            if (!settings.isEmpty()) {
                 return true;
             }
         }
@@ -163,6 +197,127 @@ public final class ConsoleSettings {
             this.tops[index]        = top;
             this.changeCount++;
         }
+    }
+
+    /**
+     * @param dialog the dialog
+     * @return the identifiers of the dialog's controls the script set something on, in the order it first set them
+     */
+    public int @NotNull [] getControls(ScrConsolePlacement.@NotNull Dialog dialog) {
+        return this.controls.getOrDefault(dialog, Map.of()).keySet().stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    /**
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @return {@code true} if the script set whether the control is shown, {@code false} otherwise
+     */
+    public boolean isControlVisibilitySet(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        ControlSetting setting = this.findControl(dialog, control);
+
+        return setting != null && setting.visibilitySet;
+    }
+
+    /**
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @return {@code true} if the script showed the control or never set it, {@code false} if it hid it
+     */
+    public boolean isControlVisible(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        ControlSetting setting = this.findControl(dialog, control);
+
+        return setting == null || !setting.visibilitySet || setting.visible;
+    }
+
+    /**
+     * Sets whether a control of a dialog is shown.
+     *
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @param visible whether the control is shown
+     */
+    public void setControlVisible(ScrConsolePlacement.@NotNull Dialog dialog, int control, boolean visible) {
+        ControlSetting setting = this.placeControl(dialog, control);
+
+        if (!setting.visibilitySet || setting.visible != visible) {
+            setting.visibilitySet = true;
+            setting.visible       = visible;
+            this.changeCount++;
+        }
+    }
+
+    /**
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @return {@code true} if the script set the control's position, {@code false} otherwise
+     */
+    public boolean isControlPositionSet(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        ControlSetting setting = this.findControl(dialog, control);
+
+        return setting != null && setting.positionSet;
+    }
+
+    /**
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @return the classic screen column of the control's left edge the script set, {@code 0} if it set none
+     */
+    public int getControlLeft(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        ControlSetting setting = this.findControl(dialog, control);
+
+        return setting == null ? 0 : setting.left;
+    }
+
+    /**
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @return the classic screen row of the control's top edge the script set, {@code 0} if it set none
+     */
+    public int getControlTop(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        ControlSetting setting = this.findControl(dialog, control);
+
+        return setting == null ? 0 : setting.top;
+    }
+
+    /**
+     * Sets the top-left corner of a control of a dialog in the classic screen.
+     *
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     * @param left    the screen column of its left edge
+     * @param top     the screen row of its top edge
+     */
+    public void setControlPosition(ScrConsolePlacement.@NotNull Dialog dialog, int control, int left, int top) {
+        ControlSetting setting = this.placeControl(dialog, control);
+
+        if (!setting.positionSet || setting.left != left || setting.top != top) {
+            setting.positionSet = true;
+            setting.left        = left;
+            setting.top         = top;
+            this.changeCount++;
+        }
+    }
+
+    /**
+     * Forgets what the script set on a control of a dialog, so that EUD memory drives it again, or it keeps its place in its dialog.
+     *
+     * @param dialog  the dialog
+     * @param control the control identifier in the dialog's definition
+     */
+    public void restoreControl(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        Map<Integer, ControlSetting> settings = this.controls.get(dialog);
+
+        if (settings != null && settings.remove(control) != null) {
+            this.changeCount++;
+        }
+    }
+
+    private @Nullable ControlSetting findControl(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        return this.controls.getOrDefault(dialog, Map.of()).get(control);
+    }
+
+    private @NotNull ControlSetting placeControl(ScrConsolePlacement.@NotNull Dialog dialog, int control) {
+        return this.controls.computeIfAbsent(dialog, key -> new LinkedHashMap<>()).computeIfAbsent(control, identifier -> new ControlSetting());
     }
 
     /**

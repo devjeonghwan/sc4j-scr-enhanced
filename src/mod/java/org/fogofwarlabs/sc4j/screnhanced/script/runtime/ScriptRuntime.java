@@ -549,6 +549,17 @@ public final class ScriptRuntime {
     }
 
     /**
+     * Plays the sounds that local code played since the previous call ({@code core.sound.playAt}) with the sounds of the current game loop
+     * iteration, which the client plays after it.
+     *
+     * @throws IllegalStateException if the runtime is disposed
+     */
+    public void playLocalSounds() {
+        this.checkNotDisposed();
+        this.scriptGame.playLocalSounds();
+    }
+
+    /**
      * Starts a call into the script: a call while no other call runs gets a new instruction budget.
      */
     private void enterCall() {

@@ -20,11 +20,17 @@ import java.util.Map;
 
 /**
  * Tests {@code core.console} and its upper layer ({@code console}, {@code ConsoleControl}, {@code ConsoleImage}) on a game without game data: the
- * settings they set in shared and in local code, the resource icons of each resource type, the refusals, and the classic console that shows them.
+ * settings they set in shared and in local code, those of the dialogs' controls included, the resource icons of each resource type, the refusals,
+ * and the classic console that shows them.
  */
 final class ScriptConsoleCoreTest {
     private static final int MAP_TILE_SIZE = 4;
     private static final int GAS_ICONS = 3;
+    /**
+     * The two control identifiers the control test script sets.
+     */
+    private static final int CONTROL = 12;
+    private static final int OTHER_CONTROL = 13;
     /**
      * Defines {@code error(fn)}, which returns the name of the error {@code fn} throws, or {@code "none"}.
      */
@@ -111,5 +117,42 @@ final class ScriptConsoleCoreTest {
         Assertions.assertNotNull(graphics.findResourceIconPicture(0));
         Assertions.assertNull(graphics.findConsoleArt(ScrConsoleArt.CONSOLE));
         Assertions.assertNotNull(graphics.findConsoleArt(ScrConsoleArt.CONSOLE_RIGHT), "the other files stay");
+    }
+
+    @Test
+    void console_control_settings_follow_shared_and_local_code_until_restored() throws IOException {
+        ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
+                var card = display.console.getControl(ConsoleControl.CommandCard);
+                card.setChildPosition(12, 30.4, -40.6);
+                card.setChildVisible(13, false);
+                display.console.getControl(ConsoleControl.Minimap).setChildVisible(12, false);
+                log.info(error(function () { core.console.setControlVisible(0, 32768, false); }),
+                         error(function () { core.console.restoreControl(7, 1); }), error(function () { card.restoreChild(-32769); }));
+                function onLocalFrame(frame) {
+                    card.restoreChild(13);
+                    display.console.getControl(ConsoleControl.Minimap).restoreChild(12);
+                }
+                """);
+
+        scenario.getRuntime().start();
+
+        ConsoleSettings settings = scenario.getRuntime().getConsoleSettings();
+        ClassicConsoleGraphics graphics = new ClassicConsoleGraphics(() -> settings);
+        ScrConsolePlacement placement = graphics.findConsolePlacement();
+
+        Assertions.assertEquals(List.of("RangeError RangeError RangeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
+        Assertions.assertNotNull(placement);
+        Assertions.assertEquals(30, placement.getControlLeft(ScrConsolePlacement.Dialog.COMMAND_CARD, CONTROL));
+        Assertions.assertEquals(-41, placement.getControlTop(ScrConsolePlacement.Dialog.COMMAND_CARD, CONTROL));
+        Assertions.assertTrue(placement.isControlHidden(ScrConsolePlacement.Dialog.COMMAND_CARD, OTHER_CONTROL));
+        Assertions.assertTrue(placement.isControlHidden(ScrConsolePlacement.Dialog.MINIMAP, CONTROL));
+
+        scenario.getRuntime().callLocalFrame(1);
+        placement = graphics.findConsolePlacement();
+
+        Assertions.assertNotNull(placement);
+        Assertions.assertFalse(placement.isControlHidden(ScrConsolePlacement.Dialog.COMMAND_CARD, OTHER_CONTROL), "local code restores the control");
+        Assertions.assertEquals(0, placement.getPlacedControls(ScrConsolePlacement.Dialog.MINIMAP).length);
+        Assertions.assertArrayEquals(new int[]{CONTROL}, placement.getPlacedControls(ScrConsolePlacement.Dialog.COMMAND_CARD));
     }
 }

@@ -7,6 +7,7 @@ import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettingsSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
@@ -22,9 +23,10 @@ import org.jetbrains.annotations.NotNull;
  * <p>
  * The events of the game go into the runtime's queue with their frame, the events from before the first frame (the units the map and the
  * game start create) as well, and the runtime delivers them at the next frame start, before the triggers. A frame start whose frame number
- * did not advance, as while the game is paused, runs no script. Decisions go to the runtime at once. The mod commands of the players go to
- * the runtime, which joins the script commands into values and delivers them at the next frame start. After each frame start the script
- * commands the script submitted go to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}); the game's
+ * did not advance runs no script while the Pause command of the game menu holds the game, when the triggers do not run either, and runs it
+ * with the same frame number while Pause Game holds the game, when the triggers run. Decisions go to the runtime at once. The mod commands of
+ * the players go to the runtime, which joins the script commands into values and delivers them at the next frame start. After each frame start
+ * the script commands the script submitted go to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}); the game's
  * {@link ScriptInputPlugin} sends those of the local code at once.
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
@@ -81,14 +83,17 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
      * Called once per frame when the frame's trigger step runs, before the triggers, with the random generator enabled as for the triggers; the
      * trigger step also runs while the game is paused.
      * <p>
-     * Every call forgets the image replacements of units whose slot was freed; the first call starts the script; the first call and every
-     * call whose frame number advanced run the script's frame; every call then hands the waiting script commands to the game's mod command
-     * submitter, which drops them in a replay or for an observer.
+     * Every call forgets the image replacements of units whose slot was freed; the first call starts the script; the first call, every call
+     * whose frame number advanced and every call while Pause Game holds the game, when the triggers run without a frame, run the script's frame;
+     * every call then hands the waiting script commands to the game's mod command submitter, which drops them in a replay or for an observer,
+     * and plays the sounds the script's local code played since the previous call.
      */
     @Override
     public void onFrameStarted() {
         int frame = this.game.getCurrentFrame();
         boolean first = !this.started;
+        TriggerContext triggers = this.game.getTriggerContext();
+        boolean triggerPaused = triggers != null && triggers.getPhaseGate() != 0 && triggers.getTriggersEnabledWhileGated() != 0;
 
         this.runtime.getImageReplacements().removeFreedUnits();
 
@@ -98,13 +103,14 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
             this.runtime.start();
         }
 
-        if (first || frame != this.lastFrame) {
+        if (first || frame != this.lastFrame || triggerPaused) {
             this.lastFrame = frame;
 
             this.runtime.runFrame(frame);
         }
 
         this.runtime.submitCommands(this.game.getInterfaceLink().getModCommandSubmitter());
+        this.runtime.playLocalSounds();
     }
 
     /**

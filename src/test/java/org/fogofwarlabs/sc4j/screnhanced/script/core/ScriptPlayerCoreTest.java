@@ -27,8 +27,8 @@ import java.util.List;
 /**
  * Tests {@code core.player} and the {@code Player} objects of the prelude in a live melee game: identity, resources through the Set
  * Resources routine, supply, alliances, printed texts, game results, the centering of the local view, the counters and unit removals of the
- * trigger routines, AI scripts, mission objectives as registered map strings, the local display routines, and the upgrade, technology and unit
- * availability state with its effect on the player's units and production.
+ * trigger routines, AI scripts, mission objectives as registered map strings, the local display routines, the upgrade, technology and unit
+ * availability state with its effect on the player's units and production, and the player colors, presentation outside the game state.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -420,6 +420,57 @@ final class ScriptPlayerCoreTest {
                                         "RangeError",
                                         "RangeError",
                                         "local TypeError 1 1234"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void player_colors_are_read_and_written_in_shared_and_local_code(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var human;
+                function onStart() {
+                    human = game.players.getHumans()[0];
+                    var row = human.getColor();
+                    log.info(row.length, row[0] === core.player.getUnitColor(human.getId(), 0),
+                             human.getMinimapColor() === core.player.getMinimapColor(human.getId()));
+                    human.setColor([1, 2, 3, 4, 5, 6, 7, 8]);
+                    human.setMinimapColor(9);
+                    log.info(human.getColor().join(','), human.getMinimapColor());
+                    [function () { human.setColor([1, 2]); }, function () { core.player.setUnitColor(0, 8, 1); },
+                     function () { core.player.setMinimapColor(0, 256); }, function () { core.player.getUnitColor(12, 0); }].forEach(function (call) {
+                        try {
+                            call();
+                        } catch (error) {
+                            log.info(error.name);
+                        }
+                    });
+                }
+                function onLocalFrame() {
+                    core.player.setUnitColor(human.getId(), 7, 200);
+                    log.info('local ' + human.getColor()[7]);
+                }
+                """);
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("8 true true",
+                                        "1,2,3,4,5,6,7,8 9",
+                                        "TypeError",
+                                        "RangeError",
+                                        "RangeError",
+                                        "RangeError",
+                                        "local 200"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void player_colors_change_no_game_state(@NotNull InstallationTestResources resources) throws IOException {
+        String changes = """
+                function onStart() {
+                    var human = game.players.getHumans()[0];
+                    human.setColor([1, 2, 3, 4, 5, 6, 7, 8]);
+                    human.setMinimapColor(9);
+                }
+                """;
+
+        Assertions.assertEquals(runPlayerChanges(resources, ""), runPlayerChanges(resources, changes));
     }
 
     @Test

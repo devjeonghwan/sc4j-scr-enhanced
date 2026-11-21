@@ -62,6 +62,14 @@
         },
         setButtonState: function (conditionValue, state) {
             core.local.setButtonState(conditionValue, requireObject(state, buttonStatePrototype, 'A button state').id);
+        },
+        // Pauses and resumes the game as the game menu does, with the local player's Pause and Resume commands, which run in a later turn on
+        // every peer; a network pause takes one of the player's pauses left. Nothing in a replay.
+        requestPause: function () {
+            core.local.requestPause();
+        },
+        requestResume: function () {
+            core.local.requestResume();
         }
     });
 

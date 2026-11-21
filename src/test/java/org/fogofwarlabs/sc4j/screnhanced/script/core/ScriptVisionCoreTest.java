@@ -14,8 +14,8 @@ import java.util.List;
 /**
  * Tests {@code core.vision}, the sight functions of {@code core.unit} and {@code core.player} and the {@code player.vision} and
  * {@code game.vision} groups of the prelude in a live melee game: the tiles and units each player sees, a reveal through the native sight
- * routine, the shared vision of the relations and the sight coverage, the shared and local code checks, and the same game state from the same
- * writes.
+ * routine, the shared vision of the relations and the sight coverage, the writes of a tile's visibility and the fog level of visible tiles, the
+ * shared and local code checks, and the same game state from the same writes.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -29,12 +29,22 @@ final class ScriptVisionCoreTest {
      * The frames the determinism test runs after its start.
      */
     private static final int CHANGE_FRAMES = 4;
+    /**
+     * The fog level of visible tiles that the local code of the tile test sets.
+     */
+    private static final int LOCAL_FOG_LEVEL = 25;
     private static final @NotNull String CHANGES = """
             function onStart() {
                 var human = game.players.getHumans()[0];
                 var hatchery = game.units.findOne({type: UnitType.ZergHatchery});
                 game.vision.reveal(human, hatchery.getPosition(), 10, {air: true});
                 human.vision.shareWith(hatchery.getOwner(), true);
+            }
+            """;
+    private static final @NotNull String TILE_CHANGES = """
+            function onStart() {
+                var human = game.players.getHumans()[0];
+                human.vision.setExplored(game.units.findOne({type: UnitType.ZergHatchery}).getPosition(), true);
             }
             """;
 
@@ -145,9 +155,80 @@ final class ScriptVisionCoreTest {
     }
 
     @Test
+    void tile_visibility_writes_and_the_fog_level_reach_the_tiles_and_the_display(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var human;
+                var other;
+                function onStart() {
+                    human = game.players.getHumans()[0];
+                    other = game.units.findOne({type: UnitType.ZergHatchery}).getPosition();
+                    var tileX = Math.floor(other.getX() / 32);
+                    var tileY = Math.floor(other.getY() / 32);
+                    var bit = 1 << human.getId();
+                    var flags = core.terrain.getTileFlags(tileX, tileY);
+                    log.info(human.vision.hasExplored(other));
+                    human.vision.setExplored(other, true);
+                    log.info(human.vision.hasExplored(other), human.vision.canSee(other));
+                    human.vision.setExplored(other, false);
+                    log.info(human.vision.hasExplored(other), (core.vision.getTileVisibility(tileX, tileY) & (bit | bit << 8)) === (bit | bit << 8));
+                    core.vision.setTileVisibility(tileX, tileY, core.vision.getTileVisibility(tileX, tileY) & ~(bit | bit << 8));
+                    log.info(human.vision.canSee(other), human.vision.hasExplored(other),
+                             (core.terrain.getTileFlags(tileX, tileY) & ~0xFFFF) === (flags & ~0xFFFF));
+                    log.info(game.vision.getMinimapFogLevel());
+                    game.vision.setMinimapFogLevel(20);
+                    log.info(core.vision.getMinimapFogLevel());
+                    [function () { core.vision.setTileVisibility(0, 0, 0x10000); }, function () { core.vision.setTileVisibility(-1, 0, 0); },
+                     function () { game.players.get(8).vision.setExplored(other, true); },
+                     function () { core.vision.setMinimapFogLevel(256); }].forEach(function (call) {
+                        try {
+                            call();
+                        } catch (error) {
+                            log.info(error.name);
+                        }
+                    });
+                }
+                function onLocalFrame() {
+                    game.vision.setMinimapFogLevel(25);
+                    log.info('local ' + game.vision.getMinimapFogLevel());
+                    try {
+                        human.vision.setExplored(other, false);
+                    } catch (error) {
+                        log.info('local ' + error.name + ' ' + human.vision.hasExplored(other));
+                    }
+                }
+                """);
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("false",
+                                        "true false",
+                                        "false true",
+                                        "true true true",
+                                        "31",
+                                        "20",
+                                        "RangeError",
+                                        "RangeError",
+                                        "RangeError",
+                                        "RangeError",
+                                        "local 25",
+                                        "local TypeError true"), scenario.getInfoMessages(), scenario.getLines()::toString);
+        Assertions.assertEquals(LOCAL_FOG_LEVEL, scenario.getGame().getGameContext().getVisibleFogLevel());
+    }
+
+    @Test
     void the_same_reveal_and_shared_vision_give_the_same_game_state(@NotNull InstallationTestResources resources) throws IOException {
         long first = runChanges(resources, CHANGES);
         long second = runChanges(resources, CHANGES);
+        long unchanged = runChanges(resources, "");
+
+        Assertions.assertEquals(first, second);
+        Assertions.assertNotEquals(first, unchanged);
+    }
+
+    @Test
+    void the_same_tile_visibility_writes_give_the_same_game_state(@NotNull InstallationTestResources resources) throws IOException {
+        long first = runChanges(resources, TILE_CHANGES);
+        long second = runChanges(resources, TILE_CHANGES);
         long unchanged = runChanges(resources, "");
 
         Assertions.assertEquals(first, second);

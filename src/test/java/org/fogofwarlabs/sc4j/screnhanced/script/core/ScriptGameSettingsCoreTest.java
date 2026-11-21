@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
 import org.fogofwarlabs.sc4j.scr.game.state.GameCheats;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
+import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -15,8 +16,8 @@ import java.util.List;
 /**
  * Tests the speed, settings and cheat functions of {@code core.game}, the {@code GameSpeed}, {@code GameMode} and {@code Cheat} constants,
  * {@code game.settings} and the one-shot timers of {@code game.after} in live games: the frame duration table, the settings of a melee and a
- * Use Map Settings game, the stored cheat flags and the cheat routine, the shared and local code checks, and the same game state from the same
- * writes.
+ * Use Map Settings game, the stored cheat flags and the cheat routine, the pause of Pause Game and of the game menu, the shared and local code
+ * checks, and the same game state from the same writes.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -29,6 +30,11 @@ final class ScriptGameSettingsCoreTest {
      * The frames the kept cheat test runs after its start.
      */
     private static final int KEPT_CHEAT_FRAMES = 3;
+    /**
+     * The steps the pause test runs after its start, of which the pause holds the game for the given number.
+     */
+    private static final int PAUSE_STEPS = 6;
+    private static final int PAUSED_STEPS = 3;
     /**
      * The frames the determinism test runs after its start.
      */
@@ -209,6 +215,123 @@ final class ScriptGameSettingsCoreTest {
 
         Assertions.assertEquals(List.of("true true", "once 2", "cancel false", "local TypeError"), scenario.getInfoMessages(),
                                 scenario.getLines()::toString);
+    }
+
+    @Test
+    void pause_and_resume_run_the_pause_game_rule_at_the_next_trigger_step(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                var paused = 0;
+                var pausedFrame = -1;
+                function onStart() {
+                    log.info(game.isPaused());
+                    game.pause();
+                    log.info(game.isPaused());
+                }
+                function onFrame(frame) {
+                    if (game.isPaused()) {
+                        paused++;
+                        if (pausedFrame < 0) {
+                            pausedFrame = frame;
+                        }
+                        if (paused === 3) {
+                            game.pause();
+                            game.resume();
+                            log.info('resume ' + game.isPaused() + ' ' + (frame === pausedFrame));
+                        }
+                    } else if (paused > 0) {
+                        log.info('running ' + paused + ' ' + (frame === pausedFrame));
+                        paused = -1;
+                    }
+                }
+                function onLocalFrame() {
+                    try {
+                        game.pause();
+                    } catch (error) {
+                        log.info('local ' + error.name);
+                    }
+                }
+                """);
+        int start = scenario.getGame().getCurrentFrame();
+
+        for (int frame = 0; frame < PAUSE_STEPS; frame++) {
+            scenario.stepFrame();
+        }
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("false", "false", "resume true true", "running 3 true", "local TypeError"), scenario.getInfoMessages(),
+                                scenario.getLines()::toString);
+        Assertions.assertEquals(start + PAUSE_STEPS - PAUSED_STEPS, scenario.getGame().getCurrentFrame(), "a paused step runs no frame");
+    }
+
+    @Test
+    void local_pause_requests_send_the_pause_and_resume_commands(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                function onLocalFrame() {
+                    if (game.isPaused()) {
+                        local.requestResume();
+                    } else {
+                        local.requestPause();
+                    }
+                    log.info('local ' + game.isPaused());
+                }
+                function onStart() {
+                    try {
+                        local.requestPause();
+                    } catch (error) {
+                        log.info(error.name);
+                    }
+                }
+                """);
+
+        scenario.runLocalFrame();
+        stepWhilePaused(scenario, false);
+
+        Assertions.assertTrue(isPaused(scenario), "the Pause command pauses the game");
+
+        int paused = scenario.getGame().getCurrentFrame();
+
+        scenario.stepFrame();
+
+        Assertions.assertEquals(paused, scenario.getGame().getCurrentFrame(), "the menu pause runs no frame");
+
+        scenario.runLocalFrame();
+        stepWhilePaused(scenario, true);
+
+        Assertions.assertFalse(isPaused(scenario), "the Resume command resumes the game");
+        Assertions.assertEquals(List.of("TypeError", "local false", "local true"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void the_same_pause_gives_the_same_game_state(@NotNull InstallationTestResources resources) throws IOException {
+        String pause = """
+                function onStart() {
+                    game.pause();
+                }
+                """;
+        long first = runChanges(resources, pause);
+        long second = runChanges(resources, pause);
+        long unchanged = runChanges(resources, "");
+
+        Assertions.assertEquals(first, second);
+        Assertions.assertNotEquals(first, unchanged);
+    }
+
+    /**
+     * Steps the game while its pause state is the given one, at most {@link #PAUSE_STEPS} times.
+     */
+    private static void stepWhilePaused(@NotNull LiveScriptGameScenario scenario, boolean paused) {
+        for (int step = 0; step < PAUSE_STEPS && isPaused(scenario) == paused; step++) {
+            scenario.stepFrame();
+        }
+    }
+
+    private static boolean isPaused(@NotNull LiveScriptGameScenario scenario) {
+        TriggerContext triggers = scenario.getGame().getTriggerContext();
+
+        Assertions.assertNotNull(triggers);
+
+        return triggers.getPhaseGate() != 0;
     }
 
     @Test

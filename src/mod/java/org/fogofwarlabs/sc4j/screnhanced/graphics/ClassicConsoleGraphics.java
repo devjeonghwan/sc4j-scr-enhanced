@@ -16,7 +16,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -38,10 +40,10 @@ import java.util.function.Supplier;
  * The console settings of the game's map script ({@link ConsoleSettings}) are merged item by item: what the script set for an item wins over
  * EUD memory, and EUD memory still drives every item the script never set. The items are the console as a whole (the script can hide it), each
  * dialog's visibility (a script setting wins over a dialog that EUD memory hides by its picture size), each dialog's position (wins over the
- * dialog's written rectangle), each console art file ({@link ScrConsoleArt}; a script picture is drawn over the installed file's place, and a
- * replaced frame file of the shown graphics shows the whole frame instead of the transparency-masked art, the transparency still masking the
- * dialogs) and each resource icon (a script picture wins over the frame of the GRP in memory). The controls, the
- * dialog pictures and the transparency come from EUD memory alone.
+ * dialog's written rectangle), each control's visibility and position (win over the control's flags and rectangle), each console art file
+ * ({@link ScrConsoleArt}; a script picture is drawn over the installed file's place, and a replaced frame file of the shown graphics shows the
+ * whole frame instead of the transparency-masked art, the transparency still masking the dialogs) and each resource icon (a script picture wins
+ * over the frame of the GRP in memory). The dialog pictures and the transparency come from EUD memory alone.
  * <p>
  * The plugin observes the writes through the game's memory view and never changes the game.
  */
@@ -365,7 +367,7 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
     /**
      * Brings the placement to the written dialogs, controls, transparency and pictures and to the script's dialog settings: a dialog is hidden
      * when the script hid it, or when it did not set its visibility and EUD memory gave it a picture; a shown dialog is moved to the script's
-     * position, else to its written rectangle, else restored to its installed place.
+     * position, else to its written rectangle, else restored to its installed place; its controls are placed the same way ({@link #placeControls}).
      *
      * @param current the console settings of the map script, or {@code null} without a script
      */
@@ -386,9 +388,7 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
                 this.placement.restoreDialog(dialog);
             }
 
-            if (observed != null && observed.structure != null && observed.controlWritten) {
-                this.placeControls(dialog, observed.structure, observed);
-            }
+            this.placeControls(dialog, observed, current);
         }
 
         if (this.transparencyWritten) {
@@ -419,29 +419,64 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
     }
 
     /**
-     * Places the controls of a dialog whose control entries were written: a control without the visible flag is hidden, a control whose rectangle
-     * differs from its loaded one or that was placed before is moved to its left and top in the dialog.
+     * Places the controls of a dialog, the script's setting winning for each item it set. A control of written control entries without the visible
+     * flag is hidden, and one whose rectangle differs from its loaded one is moved to its left and top in the dialog's written rectangle; a control
+     * the script hid is hidden, and one the script placed is moved to its position; any other control keeps, or is restored to, its place in its
+     * dialog.
      *
-     * @param dialog    the placement name of the dialog
-     * @param structure the dialog file
-     * @param observed  the dialog
+     * @param dialog   the placement name of the dialog
+     * @param observed the observed dialog, or {@code null} if it is not observed
+     * @param current  the console settings of the map script, or {@code null} without a script
      */
-    private void placeControls(ScrConsolePlacement.@NotNull Dialog dialog, @NotNull ClassicDialogStructure structure,
-                               @NotNull ObservedDialog observed) {
-        for (int control = 0; control < structure.getControlCount(); control++) {
-            int offset = ClassicDialogStructure.getControlOffset(control);
-            int identifier = structure.getControlIdentifier(control);
-            int flags = LittleEndianUtils.readInt32(observed.image, offset + ClassicDialogStructure.FLAGS_OFFSET);
-            int left = (short) LittleEndianUtils.readUnsigned16(observed.image, offset + ClassicDialogStructure.RECTANGLE_OFFSET);
-            int top = (short) LittleEndianUtils.readUnsigned16(observed.image, offset + TOP_OFFSET);
-            boolean moved = left != (short) LittleEndianUtils.readUnsigned16(observed.loaded, offset + ClassicDialogStructure.RECTANGLE_OFFSET) ||
-                            top != (short) LittleEndianUtils.readUnsigned16(observed.loaded, offset + TOP_OFFSET);
+    private void placeControls(ScrConsolePlacement.@NotNull Dialog dialog, @Nullable ObservedDialog observed, @Nullable ConsoleSettings current) {
+        ClassicDialogStructure structure = observed == null || !observed.controlWritten ? null : observed.structure;
+        Set<Integer> placed = new HashSet<>();
 
-            if ((flags & ClassicDialogStructure.VISIBLE_FLAG) == 0) {
+        if (structure != null) {
+            for (int control = 0; control < structure.getControlCount(); control++) {
+                int offset = ClassicDialogStructure.getControlOffset(control);
+                int identifier = structure.getControlIdentifier(control);
+                int flags = LittleEndianUtils.readInt32(observed.image, offset + ClassicDialogStructure.FLAGS_OFFSET);
+                int left = (short) LittleEndianUtils.readUnsigned16(observed.image, offset + ClassicDialogStructure.RECTANGLE_OFFSET);
+                int top = (short) LittleEndianUtils.readUnsigned16(observed.image, offset + TOP_OFFSET);
+                boolean moved = left != (short) LittleEndianUtils.readUnsigned16(observed.loaded, offset + ClassicDialogStructure.RECTANGLE_OFFSET) ||
+                                top != (short) LittleEndianUtils.readUnsigned16(observed.loaded, offset + TOP_OFFSET);
+                boolean hidden = current != null && current.isControlVisibilitySet(dialog, identifier)
+                                 ? !current.isControlVisible(dialog, identifier)
+                                 : (flags & ClassicDialogStructure.VISIBLE_FLAG) == 0;
+
+                placed.add(identifier);
+
+                if (hidden) {
+                    this.placement.hideControl(dialog, identifier);
+                } else if (current != null && current.isControlPositionSet(dialog, identifier)) {
+                    this.placement.moveControl(dialog, identifier,
+                                               current.getControlLeft(dialog, identifier), current.getControlTop(dialog, identifier));
+                } else if (moved) {
+                    this.placement.moveControl(dialog, identifier, observed.getLeft() + left, observed.getTop() + top);
+                } else {
+                    this.placement.restoreControl(dialog, identifier);
+                }
+            }
+        }
+
+        for (int identifier : current == null ? new int[0] : current.getControls(dialog)) {
+            if (!placed.add(identifier)) {
+                continue;
+            }
+
+            if (!current.isControlVisible(dialog, identifier)) {
                 this.placement.hideControl(dialog, identifier);
-            } else if (moved || this.placement.isControlMoved(dialog, identifier) ||
-                       this.placement.isControlHidden(dialog, identifier)) {
-                this.placement.moveControl(dialog, identifier, observed.getLeft() + left, observed.getTop() + top);
+            } else if (current.isControlPositionSet(dialog, identifier)) {
+                this.placement.moveControl(dialog, identifier, current.getControlLeft(dialog, identifier), current.getControlTop(dialog, identifier));
+            } else {
+                this.placement.restoreControl(dialog, identifier);
+            }
+        }
+
+        for (int identifier : this.placement.getPlacedControls(dialog)) {
+            if (!placed.contains(identifier)) {
+                this.placement.restoreControl(dialog, identifier);
             }
         }
     }

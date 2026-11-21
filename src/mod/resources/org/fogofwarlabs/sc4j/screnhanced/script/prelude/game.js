@@ -86,6 +86,11 @@
     var DEFAULT_EFFECT_ELEVATION = 4;
     // The owner byte the effects of the game take.
     var DEFAULT_EFFECT_OWNER = 0;
+    // The players with a vision bit in the tile flags, and the shift of their explored bits above their visible bits.
+    var VISION_PLAYER_COUNT = 8;
+    var NOT_EXPLORED_SHIFT = 8;
+    // The palette indices of a unit color row.
+    var UNIT_COLOR_COUNT = 8;
 
     var playerCount = core.player.getCount();
     // The cheat bits game.setCheatEnabled turned on and off, which the frame entry point writes again every frame.
@@ -880,6 +885,33 @@
 
             return core.player.setStartLocation(this.id, position.x, position.y);
         },
+        // The palette indices of the player's unit color row, the eight remapped colors of a unit frame; the first one is also the HD team color.
+        // Presentation: shared code sets it on every peer, local code only on this machine, from the next drawn frame.
+        getColor: function () {
+            var row = [];
+
+            for (var index = 0; index < UNIT_COLOR_COUNT; index++) {
+                row.push(core.player.getUnitColor(this.id, index));
+            }
+
+            return row;
+        },
+        setColor: function (paletteIndices) {
+            if (!Array.isArray(paletteIndices) || paletteIndices.length !== UNIT_COLOR_COUNT) {
+                throw new TypeError('An array of ' + UNIT_COLOR_COUNT + ' palette indices is needed, not ' + paletteIndices + '.');
+            }
+
+            for (var index = 0; index < UNIT_COLOR_COUNT; index++) {
+                core.player.setUnitColor(this.id, index, paletteIndices[index]);
+            }
+        },
+        // The palette index of the player's minimap dots.
+        getMinimapColor: function () {
+            return core.player.getMinimapColor(this.id);
+        },
+        setMinimapColor: function (paletteIndex) {
+            core.player.setMinimapColor(this.id, paletteIndex);
+        },
         toString: function () {
             return 'Player ' + this.id;
         }
@@ -913,6 +945,25 @@
             requireObject(position, positionPrototype, 'A position');
 
             return core.vision.isExplored(this.owner.id, position.x, position.y);
+        },
+        // Marks the tile at a position explored by the player (still unseen until a unit sees it), or unexplored and unseen; players 0 to 7.
+        // Only in shared code.
+        setExplored: function (position, explored) {
+            var player = this.owner.id;
+
+            requireObject(position, positionPrototype, 'A position');
+
+            if (player >= VISION_PLAYER_COUNT) {
+                throw new RangeError('The player ' + player + ' has no tile vision; players 0 to 7 have it.');
+            }
+
+            var tileX = floor(position.x / TILE_SIZE);
+            var tileY = floor(position.y / TILE_SIZE);
+            var bits = core.vision.getTileVisibility(tileX, tileY);
+            var notVisible = 1 << player;
+            var notExplored = notVisible << NOT_EXPLORED_SHIFT;
+
+            core.vision.setTileVisibility(tileX, tileY, explored ? bits & ~notExplored : bits | notVisible | notExplored);
         }
     };
 
@@ -1783,6 +1834,13 @@
         reveal: function (players, position, sightRange, options) {
             requireObject(position, positionPrototype, 'A position');
             core.vision.reveal(readPlayerMask(players), position.x, position.y, sightRange, readOptions(options).air === true);
+        },
+        // The fog level of visible tiles (default 31): the world and the minimap draw visible tiles at this level, explored tiles at half of it.
+        getMinimapFogLevel: function () {
+            return core.vision.getMinimapFogLevel();
+        },
+        setMinimapFogLevel: function (level) {
+            core.vision.setMinimapFogLevel(level);
         }
     });
 
@@ -1824,6 +1882,18 @@
         },
         print: function (text) {
             core.game.print(String(text));
+        },
+        // Whether the game is paused, by pause() or Pause Game or by the pause of the game menu.
+        isPaused: function () {
+            return core.game.isPaused();
+        },
+        // Pauses and resumes the game as Pause Game and Unpause Game do, at this frame's trigger step: nothing in a multiplayer session. While
+        // paused, onFrame runs at every trigger step with the frame number unchanged. Only in shared code.
+        pause: function () {
+            core.game.pause();
+        },
+        resume: function () {
+            core.game.resume();
         },
         // Calls a function every given number of frames, first that many frames from now; only in shared code.
         every: function (frames, callback) {
