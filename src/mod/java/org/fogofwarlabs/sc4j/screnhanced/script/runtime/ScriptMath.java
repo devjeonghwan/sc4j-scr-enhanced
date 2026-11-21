@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.ScriptRuntime;
 
 import java.io.Serial;
 import java.util.function.DoubleBinaryOperator;

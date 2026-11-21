@@ -6,6 +6,7 @@ import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.ScriptRuntime;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;

@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.ScriptRuntime;
 
 import java.util.List;
 
