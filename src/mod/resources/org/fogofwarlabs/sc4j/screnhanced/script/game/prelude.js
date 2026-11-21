@@ -152,6 +152,20 @@
         return ImageType.get(core.imageType.getAnimImageType(this.id));
     };
 
+    // The shown maximum hit points and shields of a unit type: units.dat stores hit points in 1/256 and shields as shown.
+    unitTypePrototype.getMaxHp = function () {
+        return this.getHitPoints() / RAW_SCALE;
+    };
+    unitTypePrototype.setMaxHp = function (hp) {
+        this.setHitPoints(Math.round(Number(hp) * RAW_SCALE));
+    };
+    unitTypePrototype.getMaxShields = function () {
+        return this.getShieldAmount();
+    };
+    unitTypePrototype.setMaxShields = function (shields) {
+        this.setShieldAmount(shields);
+    };
+
     var UnitType = createTypeTable(core.unitType, unitTypePrototype);
     var WeaponType = createTypeTable(core.weaponType, weaponTypePrototype);
     var FlingyType = createTypeTable(core.flingyType, flingyTypePrototype);

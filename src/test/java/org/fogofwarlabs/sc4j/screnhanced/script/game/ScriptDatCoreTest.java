@@ -163,6 +163,22 @@ final class ScriptDatCoreTest {
     }
 
     @Test
+    void unit_types_give_the_shown_maximum_hit_points_and_shields(@NotNull InstallationTestResources resources) throws IOException {
+        ScriptGameScenario scenario = new ScriptGameScenario(createGame(resources), """
+                var marine = UnitType.TerranMarine;
+                var zealot = UnitType.ProtossZealot;
+                var before = [marine.getMaxHp(), marine.getHitPoints(), zealot.getMaxShields(), zealot.getShieldAmount()];
+                marine.setMaxHp(55.5);
+                zealot.setMaxShields(70);
+                log.info(before.join(' '), marine.getMaxHp(), marine.getHitPoints(), zealot.getMaxShields(), zealot.getShieldAmount());
+                """);
+
+        scenario.getRuntime().start();
+
+        Assertions.assertEquals(List.of("40 10240 60 60 55.5 14208 70 70"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
     void dat_writes_refuse_values_that_the_column_does_not_hold(@NotNull InstallationTestResources resources) throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(resources), """
                 function attempt(write) {

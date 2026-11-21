@@ -1808,6 +1808,22 @@ interface CoreDat {
  */
 interface UnitType extends GameType, UnitTypeData {
     /**
+     * @returns the shown maximum hit points: {@link UnitTypeData.getHitPoints} / 256
+     */
+    getMaxHp(): number;
+    /**
+     * Sets the shown maximum hit points: {@link UnitTypeData.setHitPoints} with the value times 256, rounded.
+     */
+    setMaxHp(hp: number): void;
+    /**
+     * @returns the maximum shields, the same as {@link UnitTypeData.getShieldAmount}
+     */
+    getMaxShields(): number;
+    /**
+     * Sets the maximum shields, the same as {@link UnitTypeData.setShieldAmount}.
+     */
+    setMaxShields(shields: number): void;
+    /**
      * Shows a name instead of the type's stat_txt name (tooltips, the selection, messages), also over the map's name of the type; null shows
      * the game's name again. Shared code sets it on every peer, local code only on this machine.
      */
