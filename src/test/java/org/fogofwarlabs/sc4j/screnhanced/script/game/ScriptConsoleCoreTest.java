@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
@@ -55,12 +56,17 @@ final class ScriptConsoleCoreTest {
                 minimap.setPosition(10.4, 20.6);
                 console.getControl(ConsoleControl.CommandCard).setVisible(false);
                 console.replaceImage(ConsoleImage.Console, art);
+                console.replaceImage(ConsoleImage.ConsoleRight, art);
+                console.replaceImage(ConsoleImage.ConsoleTime, gas);
                 console.setResourceIcon(ResourceType.Gas, gas);
                 log.info(minimap === console.getControl(ConsoleControl.Minimap), minimap.getControl() === ConsoleControl.Minimap,
                          console.getControl(ConsoleControl.CommandCard).isVisible(), minimap.isVisible(), console.isVisible());
                 log.info(error(function () { console.setResourceIcon(ResourceType.MineralsAndGas, gas); }),
                          error(function () { console.getControl(3); }), error(function () { core.console.setDialogVisible(7, true); }),
-                         error(function () { core.console.replaceImage(1, -1); }), error(function () { core.console.setResourceIcon(7, -1); }));
+                         error(function () { core.console.replaceImage(7, -1); }), error(function () { core.console.setResourceIcon(7, -1); }));
+                log.info(ConsoleImage.getCount(), ConsoleImage.Console.getId(), ConsoleImage.ConsoleLeft.getId(), ConsoleImage.ConsoleCenter.getId(),
+                         ConsoleImage.ConsoleRight.getId(), ConsoleImage.ConsoleTime.getId(), ConsoleImage.ConsoleApm.getId(),
+                         ConsoleImage.Conover.getId());
                 function onLocalFrame(frame) {
                     console.setVisible(false);
                     console.setResourceIcon(ResourceType.Minerals, gas);
@@ -72,13 +78,16 @@ final class ScriptConsoleCoreTest {
 
         ConsoleSettings settings = scenario.getRuntime().getConsoleSettings();
 
-        Assertions.assertEquals(List.of("true true false true true", "TypeError TypeError RangeError RangeError RangeError"),
+        Assertions.assertEquals(List.of("true true false true true", "TypeError TypeError RangeError RangeError RangeError", "7 0 1 2 3 4 5 6"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
         Assertions.assertTrue(settings.isDialogPositionSet(ScrConsolePlacement.Dialog.MINIMAP));
         Assertions.assertEquals(10, settings.getDialogLeft(ScrConsolePlacement.Dialog.MINIMAP));
         Assertions.assertEquals(21, settings.getDialogTop(ScrConsolePlacement.Dialog.MINIMAP));
         Assertions.assertFalse(settings.isDialogVisible(ScrConsolePlacement.Dialog.COMMAND_CARD));
-        Assertions.assertNotNull(settings.getArt());
+        Assertions.assertNotNull(settings.getArt(ScrConsoleArt.CONSOLE));
+        Assertions.assertSame(settings.getArt(ScrConsoleArt.CONSOLE), settings.getArt(ScrConsoleArt.CONSOLE_RIGHT));
+        Assertions.assertNotNull(settings.getArt(ScrConsoleArt.CONSOLE_TIME));
+        Assertions.assertNull(settings.getArt(ScrConsoleArt.CONSOLE_LEFT));
         Assertions.assertNull(settings.getResourceIcon(0));
 
         for (int icon = 1; icon <= GAS_ICONS; icon++) {
@@ -93,13 +102,14 @@ final class ScriptConsoleCoreTest {
         Assertions.assertNotNull(placement);
         Assertions.assertTrue(placement.isDialogHidden(ScrConsolePlacement.Dialog.COMMAND_CARD));
         Assertions.assertEquals(10, placement.getDialogLeft(ScrConsolePlacement.Dialog.MINIMAP));
-        Assertions.assertSame(settings.getArt(), graphics.findConsoleArt());
+        Assertions.assertSame(settings.getArt(ScrConsoleArt.CONSOLE), graphics.findConsoleArt(ScrConsoleArt.CONSOLE));
         Assertions.assertFalse(graphics.isConsoleHidden());
 
         scenario.getRuntime().callLocalFrame(1);
 
         Assertions.assertTrue(graphics.isConsoleHidden(), "local code sets the local console");
         Assertions.assertNotNull(graphics.findResourceIconPicture(0));
-        Assertions.assertNull(graphics.findConsoleArt());
+        Assertions.assertNull(graphics.findConsoleArt(ScrConsoleArt.CONSOLE));
+        Assertions.assertNotNull(graphics.findConsoleArt(ScrConsoleArt.CONSOLE_RIGHT), "the other files stay");
     }
 }

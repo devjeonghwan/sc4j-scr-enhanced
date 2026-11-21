@@ -2803,17 +2803,42 @@ interface ConsoleControlTable extends ConstantTable<ConsoleControl> {
 declare const ConsoleControl: ConsoleControlTable;
 
 /**
- * A console picture that an image can replace.
+ * An art file of the shown race console that an image can replace, named after the installed file. The image is stretched over the file's place
+ * and size in every graphics set that draws the file. The console is hit where a frame image (Console with the SD graphics, the three pieces
+ * with HD and HD2) is not transparent; a replaced frame image shows the whole frame even where EUD console transparency hides the console art.
  */
 interface ConsoleImage extends GameType {
 }
 
 interface ConsoleImageTable extends ConstantTable<ConsoleImage> {
     /**
-     * The console art: the replacing image is fitted to the interface height, centered, drawn whole; the console is hit where it is not
-     * transparent.
+     * The SD console frame (game/tconsole.DDS and the Zerg and Protoss files).
      */
     readonly Console: ConsoleImage;
+    /**
+     * The left HD and HD2 console piece with the minimap frame (game/consoles/race/console_left.DDS).
+     */
+    readonly ConsoleLeft: ConsoleImage;
+    /**
+     * The center HD and HD2 console piece with the selection frame (console_center.DDS).
+     */
+    readonly ConsoleCenter: ConsoleImage;
+    /**
+     * The right HD and HD2 console piece with the portrait and command card frames (console_right.DDS).
+     */
+    readonly ConsoleRight: ConsoleImage;
+    /**
+     * The plate under the game time (console_TIME.DDS), every graphics set.
+     */
+    readonly ConsoleTime: ConsoleImage;
+    /**
+     * The plate under the APM number (console_APM.DDS), every graphics set.
+     */
+    readonly ConsoleApm: ConsoleImage;
+    /**
+     * The overlay over the portrait (conover.DDS), every graphics set.
+     */
+    readonly Conover: ConsoleImage;
 }
 
 declare const ConsoleImage: ConsoleImageTable;
@@ -2830,7 +2855,7 @@ interface ConsoleControlHandle {
 
 /**
  * The console. Shared code sets it on every peer, local code only on this machine; it changes no game state. A setting wins over what EUD memory
- * gives for the same item (the console, a dialog's position, a dialog's visibility, the console art, a resource icon); EUD memory still drives
+ * gives for the same item (the console, a dialog's position, a dialog's visibility, a console art file, a resource icon); EUD memory still drives
  * the items the script never set.
  */
 interface Console {
@@ -2838,7 +2863,7 @@ interface Console {
     isVisible(): boolean;
     getControl(control: ConsoleControl): ConsoleControlHandle;
     /**
-     * Draws an image instead of a console image; null for the installed one.
+     * Draws an image instead of a console art file of the shown race console; null for the installed file.
      */
     replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
     /**

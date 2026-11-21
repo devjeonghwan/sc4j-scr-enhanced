@@ -1876,7 +1876,10 @@
     var Graphics = createConstantTable(graphicsPrototype, ['SD', 'HD', 'HD2'], 3, 'Graphics ');
     var ConsoleControl = createConstantTable(consoleControlPrototype,
                                              ['CommandCard', 'Selection', 'Resources', 'Portrait', 'Minimap', 'Menu', 'TextBox'], 7, 'Control ');
-    var ConsoleImage = createConstantTable(consoleImagePrototype, ['Console'], 1, 'Image ');
+    // The console art files of the shown race console: SD frame, HD/HD2 pieces, time and APM plates, portrait overlay.
+    var ConsoleImage = createConstantTable(consoleImagePrototype,
+                                           ['Console', 'ConsoleLeft', 'ConsoleCenter', 'ConsoleRight', 'ConsoleTime', 'ConsoleApm', 'Conover'], 7,
+                                           'Image ');
     var DEFAULT_THICKNESS = 1;
     var DEFAULT_OPACITY = 1;
 

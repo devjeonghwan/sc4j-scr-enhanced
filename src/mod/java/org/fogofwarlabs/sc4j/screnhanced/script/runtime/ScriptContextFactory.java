@@ -16,7 +16,7 @@ import java.util.TimeZone;
  * and UTC, and limits the interpreter stack depth. The interpreter reports its instruction count every
  * {@value #INSTRUCTION_OBSERVER_THRESHOLD} instructions; the factory adds the reports since {@link #resetInstructionCount()} and throws
  * {@link InstructionBudgetError} once they exceed the budget. The interpreter's instruction count depends only on the script, so the
- * budget runs out at the same point on every platform.
+ * budget runs out at the same point on every platform. A setup context ({@link #enterSetupContext()}) counts nothing.
  */
 final class ScriptContextFactory extends ContextFactory {
     /**
@@ -72,6 +72,24 @@ final class ScriptContextFactory extends ContextFactory {
 
             throw Exceptions.newIllegalStateException("The thread is in a script context of another factory.");
         }
+
+        return context;
+    }
+
+    /**
+     * Enters a new context of this factory on the current thread that counts no instructions, for the runtime's own setup code.
+     *
+     * @return the entered context, to be closed by the caller
+     * @throws IllegalStateException if the thread is in a script context already
+     */
+    @NotNull Context enterSetupContext() {
+        if (Context.getCurrentContext() != null) {
+            throw Exceptions.newIllegalStateException("The thread is in a script context already.");
+        }
+
+        Context context = this.enterOwnContext();
+
+        context.setInstructionObserverThreshold(0);
 
         return context;
     }

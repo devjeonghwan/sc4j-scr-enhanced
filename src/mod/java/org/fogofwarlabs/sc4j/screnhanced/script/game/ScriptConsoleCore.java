@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.jetbrains.annotations.NotNull;
@@ -13,16 +14,14 @@ import org.mozilla.javascript.Scriptable;
  * <p>
  * {@code setVisible(visible)} and {@code isVisible()} (the whole console); {@code setDialogVisible(dialog, visible)},
  * {@code setDialogPosition(dialog, x, y)} (the top left in the classic {@code 640} by {@code 480} screen), {@code isDialogVisible(dialog)} for
- * the dialogs of {@link ScrConsolePlacement.Dialog} in order; {@code replaceImage(image, imageId)} ({@code 0} the console art; {@code -1} for
- * the installed art) and {@code setResourceIcon(icon, imageId)} (the resource icon frames, {@code 0} minerals, {@code 1} to {@code 3} gas and
- * {@code 4} to {@code 6} supply of the Zerg, Terran and Protoss; {@code -1} for the icon of EUD memory or the installed one).
+ * the dialogs of {@link ScrConsolePlacement.Dialog} in order; {@code replaceImage(image, imageId)} (the console art files of
+ * {@link ScrConsoleArt} in order; {@code -1} for the installed file) and {@code setResourceIcon(icon, imageId)} (the resource icon frames,
+ * {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran and Protoss; {@code -1} for the icon of
+ * EUD memory or the installed one).
  */
 final class ScriptConsoleCore {
-    /**
-     * The console images {@code replaceImage} takes: the console art.
-     */
-    private static final int CONSOLE_IMAGE_COUNT = 1;
     private static final @NotNull ScrConsolePlacement.Dialog @NotNull [] DIALOGS = ScrConsolePlacement.Dialog.values();
+    private static final @NotNull ScrConsoleArt @NotNull [] ARTS = ScrConsoleArt.values();
 
     private final @NotNull ConsoleSettings settings;
     private final @NotNull ScriptGraphicsCore graphicsCore;
@@ -64,8 +63,9 @@ final class ScriptConsoleCore {
             return Context.getUndefinedValue();
         });
         ScriptCoreUtils.defineFunction(global, namespace, "replaceImage", 2, (context, scope, thisObject, arguments) -> {
-            ScriptCoreUtils.requireId("console image", ScriptCoreUtils.readInteger(arguments, 0), CONSOLE_IMAGE_COUNT);
-            this.settings.setArt(this.graphicsCore.readOptionalPicture(arguments, 1));
+            int art = ScriptCoreUtils.requireId("console image", ScriptCoreUtils.readInteger(arguments, 0), ARTS.length);
+
+            this.settings.setArt(ARTS[art], this.graphicsCore.readOptionalPicture(arguments, 1));
 
             return Context.getUndefinedValue();
         });

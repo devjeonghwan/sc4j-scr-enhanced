@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.graphics;
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrScreenOverlay;
@@ -37,8 +38,9 @@ import java.util.function.Supplier;
  * The console settings of the game's map script ({@link ConsoleSettings}) are merged item by item: what the script set for an item wins over
  * EUD memory, and EUD memory still drives every item the script never set. The items are the console as a whole (the script can hide it), each
  * dialog's visibility (a script setting wins over a dialog that EUD memory hides by its picture size), each dialog's position (wins over the
- * dialog's written rectangle), the console art (a script picture is drawn whole instead of the installed or transparency-masked art; the
- * transparency still masks the dialogs) and each resource icon (a script picture wins over the frame of the GRP in memory). The controls, the
+ * dialog's written rectangle), each console art file ({@link ScrConsoleArt}; a script picture is drawn over the installed file's place, and a
+ * replaced frame file of the shown graphics shows the whole frame instead of the transparency-masked art, the transparency still masking the
+ * dialogs) and each resource icon (a script picture wins over the frame of the GRP in memory). The controls, the
  * dialog pictures and the transparency come from EUD memory alone.
  * <p>
  * The plugin observes the writes through the game's memory view and never changes the game.
@@ -284,19 +286,19 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
     }
 
     /**
-     * Finds the picture the console draws instead of its installed art: fitted to the interface height and centered in the interface width,
-     * whole, over the art's place; the console is hit where the picture is not transparent. The same picture is returned while the art is
-     * unchanged.
+     * Finds the picture the console draws instead of an installed art file of the shown race console, over the file's place and size. The same
+     * picture is returned while the art is unchanged.
      * <p>
-     * The picture is the one the map script set.
+     * The picture is the one the map script set for the file.
      *
-     * @return the picture, or {@code null} for the installed art
+     * @param art the art file
+     * @return the picture, or {@code null} for the installed file
      */
     @Override
-    public @Nullable Picture findConsoleArt() {
+    public @Nullable Picture findConsoleArt(@NotNull ScrConsoleArt art) {
         ConsoleSettings current = this.findSettings();
 
-        return current == null ? null : current.getArt();
+        return current == null ? null : current.getArt(art);
     }
 
     /**

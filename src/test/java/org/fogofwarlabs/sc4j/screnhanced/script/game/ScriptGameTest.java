@@ -9,6 +9,7 @@ import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptManifest;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
+import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -33,6 +34,10 @@ final class ScriptGameTest {
      * The frames the trigger state test runs after its start: three seconds of the trigger clock.
      */
     private static final int CLOCK_FRAMES = 48;
+    /**
+     * An instruction budget far below the instructions of the prelude.
+     */
+    private static final int SMALL_INSTRUCTION_BUDGET = 20_000;
 
     private static @NotNull Game createGame() {
         return Game.create(null, new GameMap(MAP_TILE_WIDTH, MAP_TILE_HEIGHT, MAP_TILESET, new int[MAP_TILE_WIDTH * MAP_TILE_HEIGHT]),
@@ -45,6 +50,20 @@ final class ScriptGameTest {
         scenario.getRuntime().start();
 
         return scenario;
+    }
+
+    @Test
+    void the_prelude_runs_outside_a_small_budget() throws IOException {
+        ScriptGameScenario scenario = new ScriptGameScenario(createGame(), """
+                log.info(UnitType.TerranMarine.getName());
+                function onFrame(frame) { log.info('frame', frame); }
+                """, ScriptResources.EMPTY, SMALL_INSTRUCTION_BUDGET);
+
+        scenario.getRuntime().start();
+        scenario.getRuntime().runFrame(0);
+
+        Assertions.assertFalse(scenario.getRuntime().isStopped());
+        Assertions.assertEquals(List.of("Terran Marine", "frame 0"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 
     @Test

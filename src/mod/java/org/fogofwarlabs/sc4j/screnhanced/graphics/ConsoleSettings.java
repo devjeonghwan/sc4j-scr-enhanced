@@ -1,15 +1,16 @@
 package org.fogofwarlabs.sc4j.screnhanced.graphics;
 
 import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * What a map script sets on the console: whether the console is shown, the visibility and the top-left corner of each console dialog in the
- * classic screen, the picture drawn instead of the console art and the pictures of the resource icons. An item the script never set is unset,
- * so that the classic console ({@link ClassicConsoleGraphics}) shows what EUD memory gives for it; an item the script set wins over
- * EUD memory from then on. The change count grows with every change.
+ * classic screen, the pictures drawn instead of the console art files ({@link ScrConsoleArt}) and the pictures of the resource icons. An item
+ * the script never set is unset, so that the classic console ({@link ClassicConsoleGraphics}) shows what EUD memory gives for it; an item the
+ * script set wins over EUD memory from then on. The change count grows with every change.
  */
 public final class ConsoleSettings {
     /**
@@ -18,6 +19,7 @@ public final class ConsoleSettings {
     public static final int RESOURCE_ICON_COUNT = 7;
 
     private static final int DIALOG_COUNT = ScrConsolePlacement.Dialog.values().length;
+    private static final int ART_COUNT = ScrConsoleArt.values().length;
 
     private boolean consoleVisible;
 
@@ -27,7 +29,7 @@ public final class ConsoleSettings {
     private final int @NotNull [] lefts;
     private final int @NotNull [] tops;
 
-    private @Nullable Picture art;
+    private final @Nullable Picture @NotNull [] arts;
     private final @Nullable Picture @NotNull [] resourceIcons;
 
     private long changeCount;
@@ -44,7 +46,7 @@ public final class ConsoleSettings {
         this.lefts         = new int[DIALOG_COUNT];
         this.tops          = new int[DIALOG_COUNT];
 
-        this.art           = null;
+        this.arts          = new Picture[ART_COUNT];
         this.resourceIcons = new Picture[RESOURCE_ICON_COUNT];
 
         this.changeCount = 0;
@@ -164,20 +166,22 @@ public final class ConsoleSettings {
     }
 
     /**
-     * @return the picture drawn instead of the console art, or {@code null} for the installed art
+     * @param art the console art file
+     * @return the picture drawn instead of the file, or {@code null} for the installed file
      */
-    public @Nullable Picture getArt() {
-        return this.art;
+    public @Nullable Picture getArt(@NotNull ScrConsoleArt art) {
+        return this.arts[art.ordinal()];
     }
 
     /**
-     * Sets the picture drawn instead of the console art.
+     * Sets the picture drawn instead of a console art file.
      *
-     * @param art the picture, or {@code null} for the installed art
+     * @param art     the console art file
+     * @param picture the picture, or {@code null} for the installed file
      */
-    public void setArt(@Nullable Picture art) {
-        if (this.art != art) {
-            this.art = art;
+    public void setArt(@NotNull ScrConsoleArt art, @Nullable Picture picture) {
+        if (this.arts[art.ordinal()] != picture) {
+            this.arts[art.ordinal()] = picture;
             this.changeCount++;
         }
     }

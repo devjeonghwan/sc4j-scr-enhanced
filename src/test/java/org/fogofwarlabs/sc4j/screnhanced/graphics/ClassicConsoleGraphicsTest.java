@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.PixelLayer;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteFrame;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrScreenOverlay;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.ClassicAddressSpace;
@@ -393,13 +394,14 @@ final class ClassicConsoleGraphicsTest {
         }
 
         settings.setResourceIcon(0, icon);
-        settings.setArt(art);
+        settings.setArt(ScrConsoleArt.CONSOLE_RIGHT, art);
 
         Assertions.assertFalse(graphics.isConsoleHidden());
         Assertions.assertSame(icon, graphics.findResourceIconPicture(0));
         Assertions.assertNull(graphics.findResourceIconPicture(1), "EUD memory drives the other icons");
         Assertions.assertNotNull(graphics.findResourceIcons());
-        Assertions.assertSame(art, graphics.findConsoleArt());
+        Assertions.assertSame(art, graphics.findConsoleArt(ScrConsoleArt.CONSOLE_RIGHT));
+        Assertions.assertNull(graphics.findConsoleArt(ScrConsoleArt.CONSOLE_LEFT), "each art file on its own");
 
         settings.setConsoleVisible(false);
 

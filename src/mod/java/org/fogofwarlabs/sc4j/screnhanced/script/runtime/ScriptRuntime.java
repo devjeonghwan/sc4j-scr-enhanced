@@ -38,12 +38,13 @@ import java.util.List;
  * hooks; {@link #runFrame(int)} calls the {@link ScriptHook#FRAME} hooks. A hook runs in every module that has it, in load order.
  * <p>
  * A runtime created with a game also has the game API ({@link ScriptGame}): the global {@code core} and the globals of the prelude, which
- * runs when the runtime is created. Channels are created only until the main script has loaded. {@link #runFrame(int)} then first delivers
- * the queued events and channel messages ({@link #queueEvent}, {@link #queueModCommand}) in the order they happened, then calls the due timers
- * of {@code game.every}, one call each, then the hooks; an event that happens during these calls waits for the next frame. A channel message
- * goes to its channel's handler with the sending player's slot id and the decoded value. {@link #decide} calls the decision hooks at once
- * with the game read-only and copies what a hook decided back into the decision; {@link #setReadOnly(boolean)} makes the functions that
- * change the game state throw. All of this is shared code, which runs the same on every peer.
+ * runs when the runtime is created, outside the instruction budget. Channels are created only until the main script has loaded.
+ * {@link #runFrame(int)} then first delivers the queued events and channel messages ({@link #queueEvent}, {@link #queueModCommand}) in the
+ * order they happened, then calls the due timers of {@code game.every}, one call each, then the hooks; an event that happens during these calls
+ * waits for the next frame. A channel message goes to its channel's handler with the sending player's slot id and the decoded value.
+ * {@link #decide} calls the decision hooks at once with the game read-only and copies what a hook decided back into the decision;
+ * {@link #setReadOnly(boolean)} makes the functions that change the game state throw. All of this is shared code, which runs the same on every
+ * peer.
  * <p>
  * {@link #callLocalHook}, {@link #callLocalFrame} and {@link #callRender} call a local hook at once, on the local machine only, with the game
  * read-only and local: no timer, no random number, no new module, and the local information of {@code core.local} readable. The values a script
@@ -169,7 +170,7 @@ public final class ScriptRuntime {
         TopLevel global;
         ScriptGame scriptGame = null;
 
-        try (Context context = contextFactory.enterOwnContext()) {
+        try (Context context = contextFactory.enterSetupContext()) {
             global = ScriptGlobalUtils.createGlobal(context, random);
 
             if (game != null) {

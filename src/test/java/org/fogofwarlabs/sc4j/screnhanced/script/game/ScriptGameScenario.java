@@ -36,14 +36,22 @@ final class ScriptGameScenario implements ScriptLogOutput {
     }
 
     /**
-     * Creates a {@link ScriptGameScenario} instance with a runtime that is not started.
+     * Creates a {@link ScriptGameScenario} instance with the runtime's instruction budget, with a runtime that is not started.
      */
     ScriptGameScenario(@NotNull Game game, @NotNull String mainSource, @NotNull ScriptResources resources) throws IOException {
+        this(game, mainSource, resources, ScriptRuntime.INSTRUCTION_BUDGET);
+    }
+
+    /**
+     * Creates a {@link ScriptGameScenario} instance with a runtime that is not started.
+     */
+    ScriptGameScenario(@NotNull Game game, @NotNull String mainSource, @NotNull ScriptResources resources, int instructionBudget)
+            throws IOException {
         ScriptPackage scriptPackage = ScriptPackage.create(ScriptManifest.parse(MANIFEST.getBytes(StandardCharsets.UTF_8)),
                                                            Map.of(MAIN_NAME, mainSource.getBytes(StandardCharsets.UTF_8)), Map.of());
 
         this.lines   = new ArrayList<>();
-        this.runtime = ScriptRuntime.create(scriptPackage, game, resources, SEED, ScriptRuntime.INSTRUCTION_BUDGET, this);
+        this.runtime = ScriptRuntime.create(scriptPackage, game, resources, SEED, instructionBudget, this);
     }
 
     @NotNull ScriptRuntime getRuntime() {
