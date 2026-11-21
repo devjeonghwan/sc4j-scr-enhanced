@@ -5,7 +5,8 @@
 //
 // The entry points: frame(frame) calls onStart at the first frame, then the due timers, the channel handlers of the frame's commands, the
 // event hooks of the frame's events and onFrame; decide(kind, record) calls the decision hooks; localFrame(frame), render() and
-// localInput(record) call the local hooks, and localInput returns true when a hook consumed the input. The runtime's host runs each call of
+// localInput(record) call the local hooks, and localInput returns true when a hook consumed the input. localFrame first sets the states of
+// the script buttons, and localInput hands a command card button input that no hook consumed to the script buttons. The runtime's host runs each call of
 // a hook, timer or handler (host.call), lists the loaded modules (host.getModules) and learns which decisions have hooks
 // (host.setDecisionHooks).
 (function (core, prelude) {
@@ -41,6 +42,12 @@
     var hasChannels = prelude.hasChannels;
     var readChannelMessage = prelude.readChannelMessage;
     var screen = prelude.screen;
+    var ButtonCondition = prelude.ButtonCondition;
+    var ButtonAction = prelude.ButtonAction;
+    var getButtonSet = prelude.getButtonSet;
+    var createButtonObject = prelude.createButtonObject;
+    var updateScriptButtons = prelude.updateScriptButtons;
+    var handleScriptButtonInput = prelude.handleScriptButtonInput;
 
     var freeze = Object.freeze;
     var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -55,11 +62,12 @@
     var DECISION_HOOK_PREFIX = 'onBefore';
     var TIMER_CALL = 'Timer';
     var CHANNEL_CALL = 'Channel handler';
-    var BOOLEAN_FIELDS = {queued: true, missed: true};
+    var BOOLEAN_FIELDS = {queued: true, missed: true, hotkey: true};
     var UNIT_FIELDS = ['frame', 'unit', 'unitType', 'owner'];
     var BULLET_FIELDS = ['frame', 'weapon', 'player', 'source', 'target', 'targetPosition'];
     var LOCAL_KEY_FIELDS = ['key', 'modifiers', 'mousePosition'];
     var LOCAL_BUTTON_FIELDS = ['button', 'modifiers', 'mousePosition'];
+    var COMMAND_BUTTON_FIELDS = ['buttonSet', 'button', 'position', 'condition', 'conditionValue', 'action', 'actionValue', 'queued', 'hotkey'];
 
     function addMethods(prototype, methods) {
         for (var name in methods) {
@@ -281,6 +289,23 @@
         return fields;
     }
 
+    // The command card button of a press or a target: its set, the button of the set's table (null for none), its position, condition and
+    // action with their values, and whether Shift was held and a hotkey pressed it; a target also has the targeted unit (null for the
+    // ground) and the targeted map position.
+    function readCommandButtonFields(record) {
+        return {
+            buttonSet: getButtonSet(record.set),
+            button: record.button === NONE ? null : createButtonObject(record.set, record.button),
+            position: record.position,
+            condition: ButtonCondition.get(record.condition),
+            conditionValue: record.conditionValue,
+            action: ButtonAction.get(record.action),
+            actionValue: record.actionValue,
+            queued: record.queued,
+            hotkey: record.hotkey
+        };
+    }
+
     var INPUTS = {
         KeyDown: {fields: LOCAL_KEY_FIELDS, read: readKeyFields, methods: modifierMethods},
         KeyUp: {fields: LOCAL_KEY_FIELDS, read: readKeyFields, methods: modifierMethods},
@@ -290,6 +315,18 @@
             fields: ['text'],
             read: function (record) {
                 return {text: String(record.text)};
+            }
+        },
+        ButtonPressed: {fields: COMMAND_BUTTON_FIELDS, read: readCommandButtonFields},
+        ButtonTargeted: {
+            fields: COMMAND_BUTTON_FIELDS.concat(['target', 'targetPosition']),
+            read: function (record) {
+                var fields = readCommandButtonFields(record);
+
+                fields.target = getCapturedUnit(record.target, record.targetGeneration);
+                fields.targetPosition = createPosition(record.x, record.y);
+
+                return fields;
             }
         }
     };
@@ -577,7 +614,7 @@
                     var message = readChannelMessage(commands[commandIndex]);
 
                     if (message !== null) {
-                        host.call(CHANNEL_CALL, message.handler, [message.player, message.value]);
+                        host.call(CHANNEL_CALL, message.handler, [message.player, message.value, message.units]);
                     }
                 }
             }
@@ -628,8 +665,20 @@
             }
         }
 
+        // Runs a guarded call of a function and returns its value, undefined when it threw.
+        function callForValue(name, callback, argumentList) {
+            var result;
+
+            host.call(name, function () {
+                result = callback.apply(null, argumentList);
+            }, []);
+
+            return result;
+        }
+
         function localFrame(frameNumber) {
             execution.local = true;
+            updateScriptButtons(callForValue);
             callHooks(LOCAL_FRAME_HOOK, [frameNumber]);
         }
 
@@ -642,11 +691,17 @@
             execution.local = true;
 
             var inputKind = inputKinds[record.kind];
+            var event = inputKind === undefined ? null : createInputEvent(record);
 
             getModules();
 
             if (inputKind !== undefined && hooked[inputKind.hookName] === true) {
-                callHooks(inputKind.hookName, [createInputEvent(record)]);
+                callHooks(inputKind.hookName, [event]);
+            }
+
+            // A script button sees the press or target after the hooks, unless one consumed it.
+            if (event !== null) {
+                handleScriptButtonInput(record, event, callForValue);
             }
 
             return record.consumed === true;

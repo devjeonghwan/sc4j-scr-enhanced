@@ -88,8 +88,12 @@ interface CoreDecisionRecord {
 
 /**
  * The record of a local input ({@link InputKind}): for a key the key code, for a mouse button the button, and for both the modifier mask
- * ({@link Modifier}) and the map position x, y when positioned; for a chat line the text; and consumed, which keeps the input from the game
- * when a hook sets it. Read-only once the input went to the game.
+ * ({@link Modifier}) and the map position x, y when positioned; for a chat line the text; for a command card button (ButtonPressed) the
+ * shown set, the button's index in the set (-1 for a button of no table entry), its position, its condition and action ids
+ * ({@link CoreButtons.getConditionName}, {@link CoreButtons.getActionName}) with their values, queued (Shift held) and hotkey (a hotkey
+ * pressed it), and for the target of a ScriptTarget button (ButtonTargeted) also the map position x, y and the target unit with its
+ * generation (-1 for the ground); and consumed, which keeps the input from the game when a hook sets it: a consumed press runs no action, a
+ * consumed target keeps the targeting mode. Read-only once the input went to the game.
  */
 interface CoreInputRecord {
     readonly kind: number;
@@ -100,15 +104,28 @@ interface CoreInputRecord {
     readonly x?: number;
     readonly y?: number;
     readonly text?: string;
+    readonly set?: number;
+    readonly position?: number;
+    readonly condition?: number;
+    readonly conditionValue?: number;
+    readonly action?: number;
+    readonly actionValue?: number;
+    readonly queued?: boolean;
+    readonly hotkey?: boolean;
+    readonly target?: number;
+    readonly targetGeneration?: number;
     consumed: boolean;
 }
 
 /**
- * The record of a script command that ran ({@link CoreCommand.getExecuted}): the sending player's id and the value.
+ * The record of a script command that ran ({@link CoreCommand.getExecuted}): the sending player's id, the value, and the ids of the live units
+ * the player had selected when the command ran with their generations at the same indices.
  */
 interface CoreCommandRecord {
     readonly player: number;
     readonly value: any;
+    readonly selection: number[];
+    readonly selectionGenerations: number[];
 }
 
 /**
@@ -1022,6 +1039,13 @@ interface CoreUnit {
     getOrderQueue(unit: number): CoreOrderRecord[];
     /** [A] */
     getSecondaryOrder(unit: number): number;
+    /**
+     * [A]
+     * @returns the WORD of the unit's command card button set ({@link CoreButtons})
+     */
+    getButtonSet(unit: number): number;
+    /** [S] Sets the button set WORD; the native routines of morphs, completion and burrowing set it again. */
+    setButtonSet(unit: number, set: number): void;
     /** [A] */
     getSecondaryOrderState(unit: number): number;
     /**
@@ -1325,6 +1349,35 @@ interface CoreCombat {
 }
 
 /**
+ * The requirement scripts and the native requirement tests. The scripts by kind: 0 orders, 1 technology use, 2 research, 3 upgrades, 4 unit
+ * production, each an array of WORDs (0xFF01 or, 0xFF02 the unit is, ... 0xFFFF end). A script keeps its length. The DAT requirement index
+ * columns (core.dat) keep the start positions their first test built; a column entry set to 0xFFFF makes the next test of the kind build
+ * the column again.
+ */
+interface CoreRequirements {
+    /** [A] */
+    getScriptLength(kind: number): number;
+    /** [A] */
+    getScriptWord(kind: number, position: number): number;
+    /** [S] */
+    setScriptWord(kind: number, position: number, word: number): void;
+    /**
+     * [A] Runs the native order test for a live unit and a player.
+     * @returns 0 when the requirements hold, else the failure code in the low byte, with 0x10000 set when the command card shows the button
+     *          disabled rather than hidden
+     */
+    checkOrder(unit: number, order: number, player: number): number;
+    /** [A] As {@link checkOrder}. */
+    checkTechnologyUse(unit: number, tech: number, player: number): number;
+    /** [A] As {@link checkOrder}. */
+    checkResearch(unit: number, tech: number, player: number): number;
+    /** [A] As {@link checkOrder}. */
+    checkUpgrade(unit: number, upgrade: number, player: number): number;
+    /** [A] As {@link checkOrder}. */
+    checkBuild(unit: number, unitType: number, player: number): number;
+}
+
+/**
  * The state of the computer players.
  */
 interface CoreAi {
@@ -1485,6 +1538,128 @@ interface CoreLocal {
      * @returns a new array of the records of the local inputs that reached the game before the current local frame
      */
     getInputEvents(): CoreInputRecord[];
+    /**
+     * [L]
+     * @returns the local state the Script button condition gives for a condition value (0 to 255): 1 enabled, 0 hidden, -1 disabled; every
+     *          state starts -1
+     */
+    getButtonState(conditionValue: number): number;
+    /** [L] */
+    setButtonState(conditionValue: number, state: number): void;
+    /**
+     * [L]
+     * @returns the button set the local command card shows, 0xE4 for none
+     */
+    getDisplayedButtonSet(): number;
+    /** [L] Shows a button set at the card's next refresh, as the Change Buttons action does, until the selection changes. */
+    changeButtons(set: number): void;
+}
+
+/**
+ * The command card's button set table, sets 0 to 249 (the unit types' sets are their ids), each an array of buttons in the order the card tries
+ * them for each position, and a connected set. Every function is [A]: the table is presentation, so a change in shared code changes every
+ * peer's card and a change in local code only the local card. Sets may share one array (getArray names it by its first set); a change of a
+ * button or of the array changes every set that shares it. An EUD write of the table rebuilds every set and so replaces earlier changes.
+ * Condition and action ids follow SC:R's lists (getConditionName, getActionName); the last condition, Script, gives the local state of its
+ * condition value ({@link CoreLocal.setButtonState}), and the last actions, Script and ScriptTarget, send no command: the press, or the
+ * target of the targeting mode, reaches the local input hooks only. A text replaces a string: the enabled text in the native button string
+ * format (hotkey character, button kind character, then the text) and the plain disabled text, both with line breaks and the text color
+ * control characters allowed; null shows the string.
+ */
+interface CoreButtons {
+    /** [A] */
+    getSetCount(): number;
+    /** [A] */
+    getButtonCount(set: number): number;
+    /**
+     * [A]
+     * @returns the connected set WORD, 0xFFFF for none
+     */
+    getConnectedSet(set: number): number;
+    /** [A] */
+    setConnectedSet(set: number, connected: number): void;
+    /**
+     * [A]
+     * @returns the first set that holds the set's array
+     */
+    getArray(set: number): number;
+    /** [A] The set takes the array of fromSet. */
+    share(set: number, fromSet: number): void;
+    /** [A] The set takes its own copy of its array. */
+    unshare(set: number): void;
+    /** [A] The set takes its installed array and connected set again. */
+    restore(set: number): void;
+    /** [A] The installed table again, also after EUD writes. */
+    restoreAll(): void;
+    /**
+     * [A]
+     * @returns the position from 1 to 9
+     */
+    getPosition(set: number, index: number): number;
+    /** [A] */
+    setPosition(set: number, index: number, position: number): void;
+    /**
+     * [A]
+     * @returns the cmdicons frame
+     */
+    getIcon(set: number, index: number): number;
+    /** [A] */
+    setIcon(set: number, index: number, icon: number): void;
+    /**
+     * [A]
+     * @returns the condition id, -1 for an unknown function
+     */
+    getCondition(set: number, index: number): number;
+    /** [A] */
+    setCondition(set: number, index: number, condition: number): void;
+    /** [A] */
+    getConditionValue(set: number, index: number): number;
+    /** [A] The value BYTE. */
+    setConditionValue(set: number, index: number, value: number): void;
+    /**
+     * [A]
+     * @returns the action id, -1 for an unknown function
+     */
+    getAction(set: number, index: number): number;
+    /** [A] */
+    setAction(set: number, index: number, action: number): void;
+    /** [A] */
+    getActionValue(set: number, index: number): number;
+    /** [A] The value WORD. */
+    setActionValue(set: number, index: number, value: number): void;
+    /**
+     * [A]
+     * @returns the one-based stat_txt id of the enabled string, 0 for none
+     */
+    getEnabledString(set: number, index: number): number;
+    /** [A] */
+    setEnabledString(set: number, index: number, stringId: number): void;
+    /** [A] */
+    getDisabledString(set: number, index: number): number;
+    /** [A] */
+    setDisabledString(set: number, index: number, stringId: number): void;
+    /**
+     * [A]
+     * @returns the enabled text, null while the button shows its enabled string
+     */
+    getEnabledText(set: number, index: number): string | null;
+    /** [A] */
+    getDisabledText(set: number, index: number): string | null;
+    /** [A] Sets both texts; null shows the string. */
+    setText(set: number, index: number, enabled: string | null, disabled: string | null): void;
+    /** [A] Inserts a button before the index, or at the end for the button count. */
+    insert(set: number, index: number, position: number, icon: number, condition: number, conditionValue: number, action: number,
+           actionValue: number, enabledString: number, disabledString: number): void;
+    /** [A] */
+    remove(set: number, index: number): void;
+    /** [A] */
+    getConditionCount(): number;
+    /** [A] */
+    getConditionName(condition: number): string;
+    /** [A] */
+    getActionCount(): number;
+    /** [A] */
+    getActionName(action: number): string;
 }
 
 /**
@@ -1576,6 +1751,7 @@ interface Core {
     readonly leaderboard: CoreLeaderboard;
     readonly combat: CoreCombat;
     readonly ai: CoreAi;
+    readonly requirements: CoreRequirements;
     readonly unitType: CoreTypes;
     readonly weaponType: CoreTypes;
     readonly flingyType: CoreTypes;
@@ -1596,6 +1772,7 @@ interface Core {
     readonly console: CoreConsole;
     readonly strings: CoreStrings;
     readonly messages: CoreMessages;
+    readonly buttons: CoreButtons;
 }
 
 declare const core: Core;

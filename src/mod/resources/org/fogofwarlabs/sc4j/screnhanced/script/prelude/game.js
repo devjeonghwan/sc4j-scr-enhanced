@@ -39,6 +39,8 @@
     var GameMode = prelude.GameMode;
     var cheatPrototype = prelude.cheatPrototype;
     var locationFlagPrototype = prelude.locationFlagPrototype;
+    var getButtonSet = prelude.getButtonSet;
+    var readButtonSetId = prelude.readButtonSetId;
 
     var create = Object.create;
     var freeze = Object.freeze;
@@ -71,8 +73,6 @@
     // The status timers of unit.timers: the core fields get<Name>Timer and set<Name>Timer.
     var UNIT_TIMER_NAMES = ['Stim', 'Ensnare', 'Lockdown', 'Stasis', 'Maelstrom', 'Plague', 'Irradiate', 'Storm', 'DefensiveMatrix', 'Remove'];
     var UNIT_TIMER_SUFFIX = 'Timer';
-    // The bits of the cheat flags that reveal the map (Black Sheep Wall, War Aint What It Used to Be), which take the cheat routine.
-    var REVEAL_CHEATS = 0x1 | 0x4000;
 
     var playerCount = core.player.getCount();
     var playerObjects = [];
@@ -403,6 +403,14 @@
         // Sets the secondary order as the native routine does: a changed order starts from its first state.
         setSecondaryOrder: function (order) {
             core.unit.setSecondaryOrder(requireUnitId(this), requireObject(order, orderPrototype, 'An order').id);
+        },
+        // The unit's command card button set, null for a set outside the table; the native routines of morphs, completion and burrowing set
+        // it again.
+        getButtonSet: function () {
+            return getButtonSet(core.unit.getButtonSet(requireUnitId(this)));
+        },
+        setButtonSet: function (set) {
+            core.unit.setButtonSet(requireUnitId(this), readButtonSetId(set));
         },
         // The shown hit points and shields a unit under construction gains each frame.
         getHpGain: function () {
@@ -1545,18 +1553,13 @@
         isCheatEnabled: function (cheat) {
             return (core.game.getCheatFlags() & requireObject(cheat, cheatPrototype, 'A cheat').id) !== 0;
         },
-        // Turns a cheat on or off: Black Sheep Wall and War Aint What It Used to Be through the cheat routine, which reveals the map and does
-        // nothing when the game options forbid cheats or more than one human plays a network game; the other cheats as stored flags.
+        // Turns a cheat on or off: sets or clears its bit of the cheat flags, as an EUD write of the flags does, also in a network game and
+        // where the game options forbid cheats.
         setCheatEnabled: function (cheat, enabled) {
             var bit = requireObject(cheat, cheatPrototype, 'A cheat').id;
             var flags = core.game.getCheatFlags();
-            var changed = (enabled ? flags | bit : flags & ~bit) >>> 0;
 
-            if ((bit & REVEAL_CHEATS) !== 0) {
-                core.game.applyCheats(changed);
-            } else {
-                core.game.setCheatFlags(changed);
-            }
+            core.game.setCheatFlags((enabled ? flags | bit : flags & ~bit) >>> 0);
         },
         map: gameMap,
         players: players,

@@ -44,7 +44,7 @@
     var RESOURCE_TYPE_NAMES = ['Minerals', 'Gas', 'MineralsAndGas', 'Supply'];
     var ALLIANCE_NAMES = ['Enemy', 'Ally', 'AlliedVictory'];
     // The kinds of the records of core.local.getInputEvents and of the decide entry point, in the ids the runtime gives them.
-    var INPUT_KIND_NAMES = ['KeyDown', 'KeyUp', 'MouseDown', 'MouseUp', 'Chat'];
+    var INPUT_KIND_NAMES = ['KeyDown', 'KeyUp', 'MouseDown', 'MouseUp', 'Chat', 'ButtonPressed', 'ButtonTargeted'];
     var DECISION_KIND_NAMES = ['Damage', 'Order', 'TargetAcquired'];
     // The game speeds by their index in the frame duration table.
     var GAME_SPEED_NAMES = ['Slowest', 'Slower', 'Slow', 'Normal', 'Fast', 'Faster', 'Fastest'];

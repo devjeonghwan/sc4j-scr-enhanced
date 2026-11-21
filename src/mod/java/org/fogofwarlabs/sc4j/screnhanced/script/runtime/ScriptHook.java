@@ -120,6 +120,14 @@ public enum ScriptHook {
      */
     LOCAL_MOUSE_UP("onLocalMouseUp"),
     /**
+     * Called on the local machine with the event of a command card button the local player pressed, before its action runs.
+     */
+    LOCAL_BUTTON_PRESSED("onLocalButtonPressed"),
+    /**
+     * Called on the local machine with the event of a map point or unit the local player targeted with a script target button.
+     */
+    LOCAL_BUTTON_TARGETED("onLocalButtonTargeted"),
+    /**
      * Called on the local machine with the frame number after each game frame the machine plays, live or replayed.
      */
     LOCAL_FRAME("onLocalFrame"),

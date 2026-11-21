@@ -371,8 +371,8 @@ final class ScriptCommandCoreTest {
         second.callLocalInput(ScriptLocalInput.ofChat("yo"));
         runCommands(1, takeCommands(first, second), first, second);
 
-        List<String> expected = List.of("1 [{\"player\":0,\"value\":{\"text\":\"hi\",\"list\":[1,2]}}," +
-                                        "{\"player\":1,\"value\":{\"text\":\"yo\",\"list\":[1,2]}}]");
+        List<String> expected = List.of("1 [{\"player\":0,\"value\":{\"text\":\"hi\",\"list\":[1,2]},\"selection\":[],\"selectionGenerations\":[]}," +
+                                        "{\"player\":1,\"value\":{\"text\":\"yo\",\"list\":[1,2]},\"selection\":[],\"selectionGenerations\":[]}]");
 
         Assertions.assertEquals(expected, first.scenario.getInfoMessages(), first.scenario.getLines()::toString);
         Assertions.assertEquals(expected, second.scenario.getInfoMessages(), second.scenario.getLines()::toString);
@@ -479,8 +479,9 @@ final class ScriptCommandCoreTest {
         commands.add(new Command(1, ScriptCommands.split(new byte[]{NULL_TAG}).getFirst()));
         runCommands(1, commands, peer);
 
-        Assertions.assertEquals(List.of("received null", "[{\"player\":1,\"value\":{\"c\":5,\"v\":null}}," +
-                                                         "{\"player\":1,\"value\":{\"c\":0,\"v\":null}},{\"player\":1,\"value\":null}]"),
+        Assertions.assertEquals(List.of("received null", "[{\"player\":1,\"value\":{\"c\":5,\"v\":null},\"selection\":[],\"selectionGenerations\":[]}," +
+                                                         "{\"player\":1,\"value\":{\"c\":0,\"v\":null},\"selection\":[],\"selectionGenerations\":[]}," +
+                                                         "{\"player\":1,\"value\":null,\"selection\":[],\"selectionGenerations\":[]}]"),
                                 peer.scenario.getInfoMessages(), peer.scenario.getLines()::toString);
         Assertions.assertEquals(3, peer.scenario.getLines().size(), peer.scenario.getLines()::toString);
         Assertions.assertTrue(peer.scenario.getLines().getFirst().startsWith("WARN main.js: A script command of player 1 whose value"),

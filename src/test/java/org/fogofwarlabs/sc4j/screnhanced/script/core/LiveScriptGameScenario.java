@@ -9,6 +9,7 @@ import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.fogofwarlabs.sc4j.scr.game.test.LiveMapGameScenario;
 import org.fogofwarlabs.sc4j.scr.game.test.RunningGameScenario;
+import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -108,6 +109,23 @@ final class LiveScriptGameScenario {
         int frame = this.getGame().getCurrentFrame();
 
         RunningGameScenario.runInCommandDispatch(this.gameRuntime, () -> this.script.getRuntime().runFrame(frame));
+    }
+
+    /**
+     * @return the script runtime
+     */
+    @NotNull ScriptRuntime getRuntime() {
+        return this.script.getRuntime();
+    }
+
+    /**
+     * Runs a mod command of a player inside a command dispatch of the game, as the command stream of a frame does.
+     *
+     * @param slot the slot of the issuing player
+     * @param data the command data
+     */
+    void runModCommand(int slot, byte @NotNull [] data) {
+        RunningGameScenario.runInCommandDispatch(this.gameRuntime, () -> this.script.getRuntime().queueModCommand(slot, data));
     }
 
     /**

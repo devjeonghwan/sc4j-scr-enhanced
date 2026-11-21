@@ -132,7 +132,7 @@ final class ScriptGameTest {
                                         "getFrame getElapsedTime isReadOnly print every after getSpeed isCheatEnabled setCheatEnabled map players units " +
                                         "switches countdown leaderboard settings vision combat",
                                         "getWidth getHeight getTileWidth getTileHeight tileset terrain locations resources",
-                                        "console strings messages images",
+                                        "console strings messages images commandCard",
                                         "undefined undefined undefined undefined undefined undefined",
                                         "true true true true true true true true"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }

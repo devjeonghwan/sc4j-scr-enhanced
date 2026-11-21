@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrButtonInput;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
@@ -14,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Supplier;
 
 /**
- * Hands the local player's keys, mouse buttons and chat lines to the local input hooks of the game's script
+ * Hands the local player's keys, mouse buttons, chat lines and command card buttons to the local input hooks of the game's script
  * ({@link ScriptRuntime#callLocalInput}), and each frame the local machine plays to {@code onLocalFrame} ({@link ScriptRuntime#callLocalFrame})
  * and {@code onRender} ({@link ScriptRuntime#callRender}), then the script commands that wait to the local player's outgoing turn
  * ({@link ScriptRuntime#submitCommands}). The client draws what {@code onRender} drew last ({@link #findDrawList()}).
@@ -99,6 +100,24 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
     @Override
     public boolean onChatInput(@NotNull String text) {
         return this.callLocalInput(ScriptLocalInput.ofChat(text));
+    }
+
+    /**
+     * Called when the local player presses an enabled command card button in a running live game, by a mouse click or a hotkey, before the
+     * button's action runs; and when the local player targets a map point or unit with a script target button. The plugins see an input in
+     * extension order until one consumes it. A consumed press runs no action, a consumed target keeps the targeting mode.
+     * <p>
+     * The press goes to {@code onLocalButtonPressed}, the target to {@code onLocalButtonTargeted}, and the script buttons of
+     * {@code display.commandCard.createButton} see them there.
+     *
+     * @param input the button input
+     * @return {@code true} if a local hook consumed the input, {@code false} otherwise
+     */
+    @Override
+    public boolean onButtonInput(@NotNull ScrButtonInput input) {
+        ScriptRuntime scriptRuntime = this.runtime.get();
+
+        return scriptRuntime != null && this.callLocalInput(scriptRuntime.createButtonInput(input));
     }
 
     /**

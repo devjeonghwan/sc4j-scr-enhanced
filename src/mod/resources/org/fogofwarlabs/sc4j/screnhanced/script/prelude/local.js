@@ -9,6 +9,13 @@
     var createPosition = prelude.createPosition;
     var getPlayer = prelude.getPlayer;
     var toUnits = prelude.toUnits;
+    var ButtonState = prelude.ButtonState;
+    var buttonStatePrototype = prelude.buttonStatePrototype;
+    var getButtonSet = prelude.getButtonSet;
+    var readButtonSetId = prelude.readButtonSetId;
+
+    // The displayed set of a card that shows none.
+    var NO_BUTTON_SET = 0xE4;
 
     var local = Object.freeze({
         getPlayer: function () {
@@ -38,6 +45,23 @@
         // command runs.
         getSelection: function () {
             return toUnits(core.local.getSelection());
+        },
+        // The button set the local command card shows, null for none.
+        getDisplayedButtonSet: function () {
+            var set = core.local.getDisplayedButtonSet();
+
+            return set === NO_BUTTON_SET ? null : getButtonSet(set);
+        },
+        // Shows a button set on the local command card at its next refresh, as the Change Buttons action does, until the selection changes.
+        changeButtons: function (set) {
+            core.local.changeButtons(readButtonSetId(set));
+        },
+        // The local state of a condition value of the Script button condition; every state starts Disabled.
+        getButtonState: function (conditionValue) {
+            return ButtonState.get(core.local.getButtonState(conditionValue));
+        },
+        setButtonState: function (conditionValue, state) {
+            core.local.setButtonState(conditionValue, requireObject(state, buttonStatePrototype, 'A button state').id);
         }
     });
 

@@ -30,8 +30,8 @@ final class ScriptPrelude {
     /**
      * The area files of the prelude, in load order.
      */
-    static final @NotNull List<@NotNull String> FILE_NAMES = List.of("values.js", "types.js", "game.js", "presentation.js", "sync.js", "local.js",
-                                                                      "render.js", "hooks.js");
+    static final @NotNull List<@NotNull String> FILE_NAMES = List.of("values.js", "types.js", "buttons.js", "game.js", "sync.js", "local.js",
+                                                                      "command-card.js", "presentation.js", "render.js", "hooks.js");
     /**
      * The resource folder of the area files.
      */

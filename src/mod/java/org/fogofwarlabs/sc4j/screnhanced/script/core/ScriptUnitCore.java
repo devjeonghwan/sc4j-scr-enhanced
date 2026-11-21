@@ -83,9 +83,10 @@ import java.util.function.ToIntFunction;
  * Orders: {@code getOrderQueue(id)} (the orders waiting behind the current one, first to last, as records {@code order}, {@code target} and
  * {@code targetGeneration} ({@code -1} without a live target unit), {@code x}, {@code y} and {@code unitType} ({@code -1} for none)),
  * {@code getSecondaryOrder}, {@code getSecondaryOrderState} and {@code setSecondaryOrder(id, order)} (the native routine: a changed order
- * clears the state and the unit in production). The construction fields as an EUD write stores them: {@code HpGain} and {@code ShieldGain}
- * (raw {@code 1/256} units added each construction frame) and {@code getPreviousHp} (the whole hit points a morphing unit had, which a
- * cancelled Zerg building gives back).
+ * clears the state and the unit in production). {@code getButtonSet} and {@code setButtonSet} (the WORD of the unit's command card button set,
+ * which the native routines of morphs, completion and burrowing write again). The construction fields as an EUD write stores them:
+ * {@code HpGain} and {@code ShieldGain} (raw {@code 1/256} units added each construction frame) and {@code getPreviousHp} (the whole hit points
+ * a morphing unit had, which a cancelled Zerg building gives back).
  * <p>
  * Sight: {@code getVisibilityFlags} (the players whose sight covers the unit's sprite, one bit per player), {@code getDetectionFlags} (the
  * players that detect the unit), {@code isVisibleTo(id, player)} and {@code isDetectedBy(id, player)} (the visibility system's tests: seen
@@ -930,6 +931,7 @@ final class ScriptUnitCore {
             return Context.getUndefinedValue();
         });
 
+        this.defineFieldWrite(namespace, global, "ButtonSet", Unit::getCurrentButtonSet, Unit::setCurrentButtonSet, WORD_MAXIMUM);
         this.defineFieldWrite(namespace, global, "HpGain", Unit::getConstructionHitPointIncrement, Unit::setConstructionHitPointIncrement,
                               WORD_MAXIMUM);
         this.defineFieldWrite(namespace, global, "ShieldGain", Unit::getConstructionShieldIncrement, Unit::setConstructionShieldIncrement,

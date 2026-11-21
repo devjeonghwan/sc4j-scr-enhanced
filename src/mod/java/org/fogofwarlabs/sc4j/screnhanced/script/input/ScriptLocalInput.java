@@ -2,10 +2,11 @@ package org.fogofwarlabs.sc4j.screnhanced.script.input;
 
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrInputModifiers;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * One input of the local player that the local input hooks receive: a key or mouse button change with the held modifiers and the map position under
- * the pointer when known, or a chat line.
+ * the pointer when known, a chat line, or a command card button press or target.
  */
 public final class ScriptLocalInput {
     /**
@@ -28,7 +29,7 @@ public final class ScriptLocalInput {
      */
     public static @NotNull ScriptLocalInput ofKey(int virtualKey, boolean pressed, int modifiers, boolean positioned, int x, int y) {
         return new ScriptLocalInput(pressed ? ScriptInputKind.KEY_DOWN : ScriptInputKind.KEY_UP, virtualKey, modifiers & MODIFIER_MASK,
-                                    positioned, x, y, NO_TEXT);
+                                    positioned, x, y, NO_TEXT, null);
     }
 
     /**
@@ -43,7 +44,7 @@ public final class ScriptLocalInput {
      */
     public static @NotNull ScriptLocalInput ofMouse(int button, boolean pressed, int modifiers, int x, int y) {
         return new ScriptLocalInput(pressed ? ScriptInputKind.MOUSE_DOWN : ScriptInputKind.MOUSE_UP, button, modifiers & MODIFIER_MASK, true, x,
-                                    y, NO_TEXT);
+                                    y, NO_TEXT, null);
     }
 
     /**
@@ -53,7 +54,19 @@ public final class ScriptLocalInput {
      * @return the created {@link ScriptLocalInput} instance
      */
     public static @NotNull ScriptLocalInput ofChat(@NotNull String text) {
-        return new ScriptLocalInput(ScriptInputKind.CHAT, 0, 0, false, 0, 0, text);
+        return new ScriptLocalInput(ScriptInputKind.CHAT, 0, 0, false, 0, 0, text, null);
+    }
+
+    /**
+     * Creates a {@link ScriptLocalInput} instance of a command card button press or target.
+     *
+     * @param button   the button
+     * @param targeted {@code true} for the target of a script target button, {@code false} for a press
+     * @return the created {@link ScriptLocalInput} instance
+     */
+    public static @NotNull ScriptLocalInput ofButton(@NotNull ScriptButtonPress button, boolean targeted) {
+        return new ScriptLocalInput(targeted ? ScriptInputKind.BUTTON_TARGETED : ScriptInputKind.BUTTON_PRESSED, 0, 0, targeted, button.getX(),
+                                    button.getY(), NO_TEXT, button);
     }
 
 
@@ -66,8 +79,10 @@ public final class ScriptLocalInput {
     private final int y;
 
     private final @NotNull String text;
+    private final @Nullable ScriptButtonPress button;
 
-    private ScriptLocalInput(@NotNull ScriptInputKind kind, int code, int modifiers, boolean positioned, int x, int y, @NotNull String text) {
+    private ScriptLocalInput(@NotNull ScriptInputKind kind, int code, int modifiers, boolean positioned, int x, int y, @NotNull String text,
+                             @Nullable ScriptButtonPress button) {
         this.kind      = kind;
         this.code      = code;
         this.modifiers = modifiers;
@@ -76,7 +91,8 @@ public final class ScriptLocalInput {
         this.x          = x;
         this.y          = y;
 
-        this.text = text;
+        this.text   = text;
+        this.button = button;
     }
 
     /**
@@ -126,5 +142,12 @@ public final class ScriptLocalInput {
      */
     public @NotNull String getText() {
         return this.text;
+    }
+
+    /**
+     * @return the command card button of a button press or target, {@code null} for another input
+     */
+    public @Nullable ScriptButtonPress getButton() {
+        return this.button;
     }
 }

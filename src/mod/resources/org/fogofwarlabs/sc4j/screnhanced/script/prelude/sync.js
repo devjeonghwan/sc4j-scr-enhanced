@@ -1,6 +1,7 @@
 // The channels of the upper layer: the global sync and the Channel and PlayerValue objects it returns, over core.command. A channel sends a
 // value as the command {c: channel id, v: value}; when the command runs, every peer and every replay calls the channel's handler with the
-// sending player and the value. Commands of another shape belong to no channel and are left alone.
+// sending player, the value and the live units the player had selected when the command ran. Commands of another shape belong to no channel
+// and are left alone.
 (function (core, prelude) {
     'use strict';
 
@@ -10,6 +11,7 @@
     var requireObject = prelude.requireObject;
     var playerPrototype = prelude.playerPrototype;
     var getPlayer = prelude.getPlayer;
+    var getCapturedUnit = prelude.getCapturedUnit;
 
     var freeze = Object.freeze;
     var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -90,8 +92,8 @@
         return handlers.length > 0;
     }
 
-    // Reads a command of core.command.getExecuted as a channel message: {handler, player, value} for an envelope {c, v} of a created channel,
-    // null for any other command.
+    // Reads a command of core.command.getExecuted as a channel message: {handler, player, value, units} for an envelope {c, v} of a created
+    // channel, null for any other command.
     function readChannelMessage(command) {
         var envelope = command.value;
 
@@ -107,7 +109,17 @@
             return null;
         }
 
-        return {handler: handlers[channel], player: getPlayer(command.player), value: envelope[VALUE_KEY]};
+        var units = [];
+
+        for (var index = 0; index < command.selection.length; index++) {
+            var unit = getCapturedUnit(command.selection[index], command.selectionGenerations[index]);
+
+            if (unit !== null) {
+                units.push(unit);
+            }
+        }
+
+        return {handler: handlers[channel], player: getPlayer(command.player), value: envelope[VALUE_KEY], units: units};
     }
 
     freeze(channelPrototype);

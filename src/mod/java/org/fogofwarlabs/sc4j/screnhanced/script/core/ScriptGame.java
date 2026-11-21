@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrButtonInput;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
@@ -10,10 +11,12 @@ import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
+import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptButtonPress;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
 import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommandMessage;
 import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommandOutbox;
@@ -35,9 +38,9 @@ import java.util.Map;
  * read-only modes of its functions.
  * <p>
  * The namespaces of {@code core}, {@code game}, {@code player}, {@code unit}, {@code location}, {@code terrain}, {@code vision},
- * {@code leaderboard}, {@code combat}, {@code ai}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
+ * {@code leaderboard}, {@code combat}, {@code ai}, {@code requirements}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType}, {@code upgradeType}, {@code techType},
  * {@code orderType}, {@code dat}, {@code events}, {@code command}, {@code resources}, {@code graphics}, {@code local}, {@code screen},
- * {@code world}, {@code minimap}, {@code console}, {@code strings} and {@code messages}, take and return ids and raw values (hit points,
+ * {@code world}, {@code minimap}, {@code console}, {@code strings}, {@code messages} and {@code buttons}, take and return ids and raw values (hit points,
  * shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables hold them) and plain records of them; a write
  * takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a map string takes a registered
  * map string ({@link #findStringIndex}). No function takes a callback.
@@ -96,6 +99,7 @@ public final class ScriptGame {
         new ScriptLeaderboardCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "leaderboard"), global);
         new ScriptCombatCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "combat"), global);
         new ScriptAiCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "ai"), global);
+        new ScriptRequirementCore(scriptGame, unitCore).define(ScriptCoreUtils.createNamespace(context, global, core, "requirements"), global);
         ScriptTypeCore.define(context, scriptGame, core, global);
         new ScriptDatCore(scriptGame).define(context, ScriptCoreUtils.createNamespace(context, global, core, "dat"), global);
         scriptGame.eventCore.define(ScriptCoreUtils.createNamespace(context, global, core, "events"), global);
@@ -114,6 +118,7 @@ public final class ScriptGame {
                                                                               global);
         textCore.defineStrings(ScriptCoreUtils.createNamespace(context, global, core, "strings"), global);
         textCore.defineMessages(ScriptCoreUtils.createNamespace(context, global, core, "messages"), global);
+        new ScriptButtonCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "buttons"), global);
         scriptGame.screenCore = screenCore;
 
         for (Object name : core.getAllIds()) {
@@ -454,6 +459,28 @@ public final class ScriptGame {
      */
     public @NotNull ScriptableObject createInputRecord(@NotNull Context context, @NotNull ScriptLocalInput input) {
         return ScriptLocalCore.createInputRecord(context, this.global, input);
+    }
+
+    /**
+     * Creates the local input of a command card button press or target: the condition and action as the ids of {@code core.buttons}, a
+     * targeted unit as its id and generation.
+     *
+     * @param input the button input
+     * @return the created {@link ScriptLocalInput} instance
+     */
+    public @NotNull ScriptLocalInput createButtonInput(@NotNull ScrButtonInput input) {
+        Unit target = input.getTarget();
+        UnitPool pool = this.game.getUnitSystem().getUnitPool();
+        boolean live = target != null && pool != null && ScriptUnitCore.isLive(pool, target.getIndex());
+        ScriptButtonPress press = new ScriptButtonPress(input.getSet(), input.getIndex(), input.getPosition(),
+                                                        ScriptButtonCore.findConditionId(input.getCondition()), input.getConditionValue(),
+                                                        ScriptButtonCore.findActionId(input.getAction()), input.getActionValue(),
+                                                        input.isQueued(), input.isHotkey(),
+                                                        input.getMapX(), input.getMapY(),
+                                                        live ? target.getIndex() : ScriptButtonPress.NONE,
+                                                        live ? pool.getGeneration(target.getIndex()) : ScriptButtonPress.NONE);
+
+        return ScriptLocalInput.ofButton(press, input.isTargeted());
     }
 
     /**

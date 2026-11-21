@@ -1,12 +1,18 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.data.type.constant.ButtonSetIds;
+import org.fogofwarlabs.sc4j.scr.game.presentation.HostButtonSets;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
+import org.fogofwarlabs.sc4j.scr.game.presentation.ScrButtonStates;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
+import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptButtonPress;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptInputKind;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
@@ -27,12 +33,20 @@ import java.util.List;
  * <p>
  * {@code getInputEvents()} returns a new array of the records of the local inputs that reached the {@code localInput} entry point before the
  * current local frame ({@link #startLocalFrame()}), read-only after that call ({@link #createInputRecord}).
+ * <p>
+ * The local command card: {@code getButtonState(conditionValue)} and {@code setButtonState(conditionValue, state)} (the state the
+ * {@code Script} button condition gives for its condition value, the native condition results {@code 1} enabled, {@code 0} hidden and
+ * {@code -1} disabled; every state starts disabled), {@code getDisplayedButtonSet()} (the set the card shows, {@code 0xE4} for none) and
+ * {@code changeButtons(set)} (the card shows the set at its next refresh, as the Change Buttons action does, until the selection changes).
  */
 final class ScriptLocalCore {
     /**
      * Creates the record of a local input: its {@code kind} (the ordinal of {@link ScriptInputKind}); for a key {@code key}, for a mouse
      * button {@code button}, and for both {@code modifiers} and {@code positioned} with the map position {@code x} and {@code y}; for a chat
-     * line {@code text}; and {@code consumed}, {@code false} until a hook consumes the input.
+     * line {@code text}; for a command card button {@code set}, {@code button} (its index in the set, {@code -1} for none), {@code position},
+     * {@code condition}, {@code conditionValue}, {@code action}, {@code actionValue}, {@code queued} and {@code hotkey}, and for its target
+     * also {@code x}, {@code y}, {@code target} and {@code targetGeneration} ({@code -1} for the ground); and {@code consumed}, {@code false}
+     * until a hook consumes the input.
      *
      * @param context the current context
      * @param global  the global scope
@@ -45,8 +59,27 @@ final class ScriptLocalCore {
 
         ScriptableObject.putProperty(record, "kind", (double) kind.ordinal());
 
+        ScriptButtonPress button = input.getButton();
+
         if (kind == ScriptInputKind.CHAT) {
             ScriptableObject.putProperty(record, "text", input.getText());
+        } else if (button != null) {
+            ScriptableObject.putProperty(record, "set", (double) button.getSet());
+            ScriptableObject.putProperty(record, "button", (double) button.getButton());
+            ScriptableObject.putProperty(record, "position", (double) button.getPosition());
+            ScriptableObject.putProperty(record, "condition", (double) button.getCondition());
+            ScriptableObject.putProperty(record, "conditionValue", (double) button.getConditionValue());
+            ScriptableObject.putProperty(record, "action", (double) button.getAction());
+            ScriptableObject.putProperty(record, "actionValue", (double) button.getActionValue());
+            ScriptableObject.putProperty(record, "queued", button.isQueued());
+            ScriptableObject.putProperty(record, "hotkey", button.isHotkey());
+
+            if (kind == ScriptInputKind.BUTTON_TARGETED) {
+                ScriptableObject.putProperty(record, "x", (double) button.getX());
+                ScriptableObject.putProperty(record, "y", (double) button.getY());
+                ScriptableObject.putProperty(record, "target", (double) button.getTarget());
+                ScriptableObject.putProperty(record, "targetGeneration", (double) button.getTargetGeneration());
+            }
         } else {
             boolean mouse = kind == ScriptInputKind.MOUSE_DOWN || kind == ScriptInputKind.MOUSE_UP;
 
@@ -180,6 +213,53 @@ final class ScriptLocalCore {
             this.scriptGame.checkLocal();
 
             return context.newArray(global, this.frameInputs.toArray());
+        });
+
+        this.defineCommandCardFunctions(namespace, global);
+    }
+
+    /**
+     * Defines the functions of {@code core.local} over the local command card.
+     */
+    private void defineCommandCardFunctions(@NotNull Scriptable namespace, @NotNull Scriptable global) {
+        ScriptCoreUtils.defineFunction(global, namespace, "getButtonState", 1, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            int value = ScriptCoreUtils.requireId("condition value", ScriptCoreUtils.readInteger(arguments, 0), ScrButtonStates.COUNT);
+
+            return (double) this.getInterfaceLink().getButtonStates().getState(value);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "setButtonState", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            int value = ScriptCoreUtils.requireId("condition value", ScriptCoreUtils.readInteger(arguments, 0), ScrButtonStates.COUNT);
+            int state = ScriptCoreUtils.readInteger(arguments, 1);
+
+            if (state != ScrButtonStates.ENABLED && state != ScrButtonStates.HIDDEN && state != ScrButtonStates.DISABLED) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The button state {0} is not 1, 0 or -1.", state));
+            }
+
+            this.getInterfaceLink().getButtonStates().setState(value, state);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getDisplayedButtonSet", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            try {
+                return (double) this.getInterfaceLink().getLocalInterface().getDisplayedButtonSet();
+            } catch (UnsupportedOperationException exception) {
+                return (double) ButtonSetIds.EMPTY;
+            }
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "changeButtons", 1, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            int set = ScriptCoreUtils.requireId("button set", ScriptCoreUtils.readInteger(arguments, 0), HostButtonSets.SET_COUNT);
+
+            this.getInterfaceLink().getButtonStates().requestButtonSet(set);
+
+            return Context.getUndefinedValue();
         });
     }
 

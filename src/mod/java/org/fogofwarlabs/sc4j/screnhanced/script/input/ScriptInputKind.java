@@ -24,5 +24,13 @@ public enum ScriptInputKind {
     /**
      * A chat line the local player submitted.
      */
-    CHAT
+    CHAT,
+    /**
+     * A command card button the local player pressed.
+     */
+    BUTTON_PRESSED,
+    /**
+     * A map point or unit the local player targeted with a script target button.
+     */
+    BUTTON_TARGETED
 }

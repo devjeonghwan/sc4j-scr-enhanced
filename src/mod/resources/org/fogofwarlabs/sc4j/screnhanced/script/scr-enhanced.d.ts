@@ -615,6 +615,16 @@ interface Hooks {
      */
     onLocalMouseUp?(event: LocalMouseButtonEvent): void;
     /**
+     * Local: called for an enabled command card button the local player pressed, by a click or a hotkey, before its action runs; consuming the
+     * press runs no action. Called in a live game only.
+     */
+    onLocalButtonPressed?(event: LocalButtonPressedEvent): void;
+    /**
+     * Local: called for the unit or map point the local player targeted with a ScriptTarget button; consuming the target keeps the targeting
+     * mode, as a refused target of an order does.
+     */
+    onLocalButtonTargeted?(event: LocalButtonTargetedEvent): void;
+    /**
      * Local: called after each game frame this machine plays, live or in a replay, with the frame number that onFrame received.
      */
     onLocalFrame?(frame: number): void;
@@ -1601,6 +1611,14 @@ interface Unit {
      */
     setSecondaryOrder(order: Order): void;
     /**
+     * @returns the unit's command card button set, null for a set outside the table
+     */
+    getButtonSet(): ButtonSet | null;
+    /**
+     * Sets the unit's button set; the native routines of morphs, completion and burrowing set it again.
+     */
+    setButtonSet(set: ButtonSet | UnitType | number): void;
+    /**
      * @returns the shown hit points a unit under construction gains each frame
      */
     getHpGain(): number;
@@ -2205,8 +2223,8 @@ interface Game {
     getSpeed(): GameSpeed;
     isCheatEnabled(cheat: Cheat): boolean;
     /**
-     * Turns a cheat on or off. Black Sheep Wall and War Aint What It Used to Be go through the cheat routine, which reveals the map and does
-     * nothing when the game options forbid cheats or more than one human plays a network game; the other cheats are stored as flags.
+     * Turns a cheat on or off: sets or clears its bit of the cheat flags ({@link core.game.setCheatFlags}), as an EUD write of the flags does.
+     * It works in a network game and where the game options forbid cheats; the native cheat routine is {@link core.game.applyCheats}.
      */
     setCheatEnabled(cheat: Cheat, enabled: boolean): void;
     /**
@@ -2684,9 +2702,10 @@ interface PlayerValue<T> {
  */
 interface Sync {
     /**
-     * Creates a channel whose handler runs as shared code with the sending player and the value.
+     * Creates a channel whose handler runs as shared code with the sending player, the value, and the live units the player had selected
+     * when the command ran.
      */
-    createChannel<T>(handler: (player: Player, value: T) => void): Channel<T>;
+    createChannel<T>(handler: (player: Player, value: T, units: Unit[]) => void): Channel<T>;
     /**
      * Creates a value per player over a new channel.
      */
@@ -2728,6 +2747,19 @@ interface Local {
      *          selection command runs
      */
     getSelection(): Unit[];
+    /**
+     * @returns the button set the local command card shows, null for none
+     */
+    getDisplayedButtonSet(): ButtonSet | null;
+    /**
+     * Shows a button set on the local command card at its next refresh, as the Change Buttons action does, until the selection changes.
+     */
+    changeButtons(set: ButtonSet | UnitType | number): void;
+    /**
+     * @returns the local state of a condition value (0 to 255) of the Script button condition; every state starts Disabled
+     */
+    getButtonState(conditionValue: number): ButtonState;
+    setButtonState(conditionValue: number, state: ButtonState): void;
 }
 
 declare const local: Local;
@@ -3076,9 +3108,190 @@ interface Display {
      * The graphics of the game's images.
      */
     readonly images: DisplayImages;
+    /**
+     * The command card's button sets and the script buttons.
+     */
+    readonly commandCard: CommandCard;
 }
 
 declare const display: Display;
+
+/**
+ * The options of a button: its position from 1 to 9, its cmdicons frame, its condition and action with their values (0 by default), and its
+ * texts: the text and disabled text replace the stat_txt strings and may hold line breaks and the text color control characters; the hotkey
+ * (one character) and the kind lead the text as in the native button strings.
+ */
+interface ButtonOptions {
+    position: number;
+    icon?: number;
+    condition: ButtonCondition;
+    conditionValue?: number;
+    action: ButtonAction;
+    actionValue?: number;
+    text?: string;
+    hotkey?: string;
+    kind?: ButtonKind;
+    disabledText?: string;
+    enabledString?: number;
+    disabledString?: number;
+}
+
+/**
+ * The target of a script target button: the targeted map position and the unit there, null for the ground or a unit that is gone.
+ */
+interface ButtonTarget {
+    readonly position: Position;
+    readonly unit: Unit | null;
+}
+
+/**
+ * The options of a script button ({@link CommandCard.createButton}).
+ */
+interface ScriptButtonOptions {
+    /**
+     * The unit type whose button set gets the button, or the button set itself.
+     */
+    unitType?: UnitType;
+    buttonSet?: ButtonSet | number;
+    position: number;
+    icon: number;
+    text?: string;
+    hotkey?: string;
+    kind?: ButtonKind;
+    /**
+     * The text of the gray button.
+     */
+    disabledText?: string;
+    /**
+     * Whether a press enters a targeting mode whose target, a unit or the ground, goes to onPressed.
+     */
+    target?: boolean;
+    /**
+     * Tells for a unit whether the button acts for it: true enabled, false disabled (gray), null hidden. Each local frame the button is
+     * enabled when it returns true for a unit of the local selection, else disabled when it returns false for one, else hidden; and when a
+     * press runs, every peer calls it again for each unit the sender had selected and passes only those for which it returned true. It must
+     * read the game state only, never local information. Without it the button is enabled and every selected unit passes.
+     */
+    isEnabled?(unit: Unit): boolean | null;
+    /**
+     * Local: called for the press, or the target of a target button, on the pressing machine; consuming it sends nothing, and keeps the
+     * targeting mode of a target button.
+     */
+    onLocalPressed?(event: LocalButtonPressedEvent | LocalButtonTargetedEvent): void;
+    /**
+     * Shared: called on every peer and in every replay when the press runs, with the player, the selected units that isEnabled passed and the
+     * target (null for a button without target).
+     */
+    onPressed?(player: Player, units: Unit[], target: ButtonTarget | null): void;
+}
+
+/**
+ * A script button: its id, from 0 to 255, is its condition value and action value.
+ */
+interface ScriptButton {
+    getId(): number;
+    getButtonSet(): ButtonSet;
+    /**
+     * @returns the button in its set's table, null once it was removed
+     */
+    getButton(): Button | null;
+}
+
+/**
+ * The command card ({@link Display.commandCard}).
+ */
+interface CommandCard {
+    /**
+     * @returns the button set of a unit type or an id, null for an id outside the table
+     */
+    getButtonSet(set: UnitType | number): ButtonSet | null;
+    /**
+     * Creates a script button in shared code (local code throws a TypeError), at most 256 per game. The button goes after the set's buttons
+     * up to its position, with the condition Script and the action Script, or ScriptTarget for a target button.
+     */
+    createButton(options: ScriptButtonOptions): ScriptButton;
+}
+
+/**
+ * A button set of the command card's table: the same object for the same id. Its buttons are in the order the card tries them for each
+ * position. Shared code changes the table on every peer, local code only on this machine; sets may share one array of buttons, and a change
+ * changes every set that shares it. An EUD write of the table replaces the changes.
+ */
+interface ButtonSet {
+    getId(): number;
+    getButtonCount(): number;
+    getButtons(): Button[];
+    /**
+     * @returns the button at an index, null outside the set
+     */
+    getButton(index: number): Button | null;
+    /**
+     * Inserts a button before an index, or at the end for the button count.
+     */
+    insertButton(index: number, options: ButtonOptions): Button;
+    removeButton(index: number): void;
+    /**
+     * Takes the array of another set.
+     */
+    share(other: ButtonSet | UnitType | number): void;
+    /**
+     * Takes an own copy of the array.
+     */
+    unshare(): void;
+    /**
+     * @returns the first set that holds this set's array
+     */
+    getArray(): ButtonSet;
+    /**
+     * Takes the installed array and connected set again.
+     */
+    restore(): void;
+    getConnectedSet(): ButtonSet | null;
+    setConnectedSet(set: ButtonSet | UnitType | number | null): void;
+}
+
+/**
+ * A button of a set by its index: after a button before it is inserted or removed, the object names another button.
+ */
+interface Button {
+    getButtonSet(): ButtonSet;
+    getIndex(): number;
+    getPosition(): number;
+    setPosition(position: number): void;
+    getIcon(): number;
+    setIcon(icon: number): void;
+    /**
+     * @returns the condition, null for an unknown function
+     */
+    getCondition(): ButtonCondition | null;
+    setCondition(condition: ButtonCondition): void;
+    getConditionValue(): number;
+    setConditionValue(value: number): void;
+    /**
+     * @returns the action, null for an unknown function
+     */
+    getAction(): ButtonAction | null;
+    setAction(action: ButtonAction): void;
+    getActionValue(): number;
+    setActionValue(value: number): void;
+    /**
+     * @returns the one-based stat_txt id of the enabled string
+     */
+    getEnabledString(): number;
+    getDisabledString(): number;
+    /**
+     * @returns the text shown instead of the enabled string, without hotkey and kind; null while the button shows its string
+     */
+    getText(): string | null;
+    getHotkey(): string | null;
+    getKind(): ButtonKind | null;
+    /**
+     * Sets the text, keeping the current hotkey and kind unless given; null shows the enabled string again.
+     */
+    setText(text: string | null, options?: { hotkey?: string | null; kind?: ButtonKind }): void;
+    getDisabledText(): string | null;
+    setDisabledText(text: string | null): void;
+}
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The events and decisions of the hooks.
@@ -3252,6 +3465,37 @@ interface LocalChatEvent extends LocalEvent {
 }
 
 /**
+ * A command card button the local player pressed: the shown set, the button of the set's table (null for a button of none), its position,
+ * condition and action (null for unknown functions) with their values. A consumed press runs no action.
+ */
+interface LocalButtonPressedEvent extends LocalEvent {
+    getButtonSet(): ButtonSet;
+    getButton(): Button | null;
+    getPosition(): number;
+    getCondition(): ButtonCondition | null;
+    getConditionValue(): number;
+    getAction(): ButtonAction | null;
+    getActionValue(): number;
+    /**
+     * @returns true while Shift was held
+     */
+    isQueued(): boolean;
+    /**
+     * @returns true for a hotkey press, false for a click
+     */
+    isHotkey(): boolean;
+}
+
+/**
+ * The target of a ScriptTarget button: the unit (null for the ground or a unit that is gone) and the map position. A consumed target keeps the
+ * targeting mode.
+ */
+interface LocalButtonTargetedEvent extends LocalButtonPressedEvent {
+    getTarget(): Unit | null;
+    getTargetPosition(): Position;
+}
+
+/**
  * The damage of a weapon hit; the amount is in shown hit points.
  */
 interface DamageDecision {
@@ -3352,9 +3596,196 @@ interface InputKindTable extends ConstantTable<InputKind> {
     readonly MouseDown: InputKind;
     readonly MouseUp: InputKind;
     readonly Chat: InputKind;
+    readonly ButtonPressed: InputKind;
+    readonly ButtonTargeted: InputKind;
 }
 
 declare const InputKind: InputKindTable;
+
+/**
+ * A button condition of SC:R's list, whose id {@link CoreButtons} takes; Script gives the local state of its condition value
+ * ({@link Local.setButtonState}).
+ */
+interface ButtonCondition extends GameType {
+}
+
+interface ButtonConditionTable extends ConstantTable<ButtonCondition> {
+    readonly Always: ButtonCondition;
+    readonly ReplaySlowDown: ButtonCondition;
+    readonly ReplaySpeedUp: ButtonCondition;
+    readonly ReplayPlayPause: ButtonCondition;
+    readonly UnitRequirement: ButtonCondition;
+    readonly HangarUnitRequirement: ButtonCondition;
+    readonly AnyCanMove: ButtonCondition;
+    readonly AnyHasRightClick: ButtonCondition;
+    readonly AnyCanAttack: ButtonCondition;
+    readonly AnyEnabledCanAttack: ButtonCondition;
+    readonly TrainingUnit: ButtonCondition;
+    readonly BuildingAddon: ButtonCondition;
+    readonly IsHatchery: ButtonCondition;
+    readonly RallyOrder: ButtonCondition;
+    readonly HatcheryRallyOrder: ButtonCondition;
+    readonly Incomplete: ButtonCondition;
+    readonly Upgrading: ButtonCondition;
+    readonly Researching: ButtonCondition;
+    readonly AnyNotCarrying: ButtonCondition;
+    readonly AnyCarrying: ButtonCondition;
+    readonly AnyCanLoad: ButtonCondition;
+    readonly AnyHasLoaded: ButtonCondition;
+    readonly ResearchRequirement: ButtonCondition;
+    readonly TechnologyUseRequirement: ButtonCondition;
+    readonly AnyTechnologyUseRequirement: ButtonCondition;
+    readonly UpgradeRequirement: ButtonCondition;
+    readonly CanCloak: ButtonCondition;
+    readonly CanDecloak: ButtonCondition;
+    readonly CanCloakOwnTechnology: ButtonCondition;
+    readonly CanDecloakOwnTechnology: ButtonCondition;
+    readonly CanSiege: ButtonCondition;
+    readonly CanUnsiege: ButtonCondition;
+    readonly NoneSieged: ButtonCondition;
+    readonly NuclearSiloReady: ButtonCondition;
+    readonly NotDisabled: ButtonCondition;
+    readonly NotGrounded: ButtonCondition;
+    readonly CanLand: ButtonCondition;
+    readonly CanLiftOff: ButtonCondition;
+    readonly CanBurrow: ButtonCondition;
+    readonly CanUnburrow: ButtonCondition;
+    readonly LurkerAspect: ButtonCondition;
+    readonly NoneBurrowed: ButtonCondition;
+    readonly NoneBurrowedCanAttack: ButtonCondition;
+    readonly NoneBurrowedNotCarrying: ButtonCondition;
+    readonly NoneBurrowedCarrying: ButtonCondition;
+    readonly SameBurrowState: ButtonCondition;
+    readonly NoNydusExit: ButtonCondition;
+    readonly ZergBasicStructures: ButtonCondition;
+    readonly ZergAdvancedStructures: ButtonCondition;
+    readonly CarrierHasInterceptors: ButtonCondition;
+    readonly ReaverHasScarabs: ButtonCondition;
+    readonly TechnologyUseDisabled: ButtonCondition;
+    readonly ArchonWarp: ButtonCondition;
+    readonly DarkArchonMeld: ButtonCondition;
+    readonly ProtossBasicStructures: ButtonCondition;
+    readonly ProtossAdvancedStructures: ButtonCondition;
+    readonly AllConstructing: ButtonCondition;
+    readonly AnyNotConstructing: ButtonCondition;
+    readonly ScvCanGather: ButtonCondition;
+    readonly ScvCanReturnCargo: ButtonCondition;
+    readonly TerranBasicStructures: ButtonCondition;
+    readonly TerranAdvancedStructures: ButtonCondition;
+    readonly SingleUnitRequirement: ButtonCondition;
+    readonly Script: ButtonCondition;
+}
+
+declare const ButtonCondition: ButtonConditionTable;
+
+/**
+ * A button action of SC:R's list, whose id {@link CoreButtons} takes; Script and ScriptTarget send no command.
+ */
+interface ButtonAction extends GameType {
+}
+
+interface ButtonActionTable extends ConstantTable<ButtonAction> {
+    readonly Move: ButtonAction;
+    readonly Stop: ButtonAction;
+    readonly Attack: ButtonAction;
+    readonly Patrol: ButtonAction;
+    readonly HoldPosition: ButtonAction;
+    readonly StimPacks: ButtonAction;
+    readonly Cloak: ButtonAction;
+    readonly Decloak: ButtonAction;
+    readonly UseTechnology: ButtonAction;
+    readonly NuclearStrike: ButtonAction;
+    readonly Siege: ButtonAction;
+    readonly Unsiege: ButtonAction;
+    readonly Repair: ButtonAction;
+    readonly Gather: ButtonAction;
+    readonly ReturnCargo: ButtonAction;
+    readonly ChangeButtons: ButtonAction;
+    readonly Load: ButtonAction;
+    readonly UnloadAll: ButtonAction;
+    readonly Heal: ButtonAction;
+    readonly UnitMorph: ButtonAction;
+    readonly CancelMorph: ButtonAction;
+    readonly Burrow: ButtonAction;
+    readonly Unburrow: ButtonAction;
+    readonly InfestedTerranAttack: ButtonAction;
+    readonly DarkArchonMeld: ButtonAction;
+    readonly ArchonWarp: ButtonAction;
+    readonly CarrierMove: ButtonAction;
+    readonly CarrierStop: ButtonAction;
+    readonly CarrierAttack: ButtonAction;
+    readonly TrainHangarUnit: ButtonAction;
+    readonly CancelLast: ButtonAction;
+    readonly ReaverStop: ButtonAction;
+    readonly ReaverAttack: ButtonAction;
+    readonly Train: ButtonAction;
+    readonly SetRallyPoint: ButtonAction;
+    readonly BuildAddon: ButtonAction;
+    readonly Land: ButtonAction;
+    readonly LiftOff: ButtonAction;
+    readonly CancelAddon: ButtonAction;
+    readonly Upgrade: ButtonAction;
+    readonly Research: ButtonAction;
+    readonly CancelUpgrade: ButtonAction;
+    readonly CancelResearch: ButtonAction;
+    readonly BuildingAttack: ButtonAction;
+    readonly SelectLarva: ButtonAction;
+    readonly BuildingMorph: ButtonAction;
+    readonly PlaceNydusExit: ButtonAction;
+    readonly RechargeShields: ButtonAction;
+    readonly PlaceBeacon: ButtonAction;
+    readonly CancelTargeting: ButtonAction;
+    readonly CancelPlacement: ButtonAction;
+    readonly CancelConstruction: ButtonAction;
+    readonly CancelInfestation: ButtonAction;
+    readonly CancelNuclearStrike: ButtonAction;
+    readonly ZergBuild: ButtonAction;
+    readonly TerranBuild: ButtonAction;
+    readonly ProtossBuild: ButtonAction;
+    readonly ReplayPlayPause: ButtonAction;
+    readonly ReplaySlowDown: ButtonAction;
+    readonly ReplaySpeedUp: ButtonAction;
+    readonly Script: ButtonAction;
+    readonly ScriptTarget: ButtonAction;
+}
+
+declare const ButtonAction: ButtonActionTable;
+
+/**
+ * A state of the Script button condition, its id the native condition result: Enabled 1, Hidden 0, Disabled -1.
+ */
+interface ButtonState extends GameType {
+}
+
+interface ButtonStateTable {
+    readonly Enabled: ButtonState;
+    readonly Hidden: ButtonState;
+    readonly Disabled: ButtonState;
+    /**
+     * @returns the state of a condition result, null for another value
+     */
+    get(id: number): ButtonState | null;
+}
+
+declare const ButtonState: ButtonStateTable;
+
+/**
+ * The kind of a button's text, the second character of the native button string, which chooses the costs the tooltip shows for the action
+ * value.
+ */
+interface ButtonKind extends GameType {
+}
+
+interface ButtonKindTable extends ConstantTable<ButtonKind> {
+    readonly None: ButtonKind;
+    readonly UnitProduction: ButtonKind;
+    readonly Upgrade: ButtonKind;
+    readonly TechnologyUse: ButtonKind;
+    readonly Research: ButtonKind;
+    readonly Morph: ButtonKind;
+}
+
+declare const ButtonKind: ButtonKindTable;
 
 /**
  * A decision kind of the decision records ({@link CoreDecisionRecord}): the hook of a kind is onBefore followed by its name.

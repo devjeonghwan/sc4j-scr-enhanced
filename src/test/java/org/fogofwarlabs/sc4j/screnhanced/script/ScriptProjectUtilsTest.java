@@ -44,8 +44,8 @@ final class ScriptProjectUtilsTest {
     /**
      * The area files of the prelude, in load order.
      */
-    private static final @NotNull List<String> PRELUDE_FILES = List.of("values.js", "types.js", "game.js", "presentation.js", "sync.js",
-                                                                       "local.js", "render.js", "hooks.js");
+    private static final @NotNull List<String> PRELUDE_FILES = List.of("values.js", "types.js", "buttons.js", "game.js", "sync.js", "local.js",
+                                                                       "command-card.js", "presentation.js", "render.js", "hooks.js");
     private static final int MAP_TILE_SIZE = 4;
     private static final int MAP_TILESET = 0;
     private static final long SEED = 1;
@@ -130,7 +130,13 @@ final class ScriptProjectUtilsTest {
             Map.entry("GraphicsKind", "Graphics.get(0)"),
             Map.entry("ConsoleControl", "ConsoleControl.get(0)"),
             Map.entry("ConsoleImage", "ConsoleImage.get(0)"),
-            Map.entry("ConsoleControlHandle", "display.console.getControl(ConsoleControl.Minimap)")
+            Map.entry("ConsoleControlHandle", "display.console.getControl(ConsoleControl.Minimap)"),
+            Map.entry("ButtonCondition", "ButtonCondition.get(0)"),
+            Map.entry("ButtonAction", "ButtonAction.get(0)"),
+            Map.entry("ButtonState", "ButtonState.Enabled"),
+            Map.entry("ButtonKind", "ButtonKind.get(0)"),
+            Map.entry("ButtonSet", "display.commandCard.getButtonSet(0)"),
+            Map.entry("Button", "prelude.createButtonObject(0, 0)")
     );
     /**
      * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player, one location
@@ -153,6 +159,9 @@ final class ScriptProjectUtilsTest {
                     terrain: {isValidTile: function () { return true; }},
                     game: {getFrame: function () { return 0; }, getFrameDuration: function () { return 42; }},
                     resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }, getImage: function () { return 2; }},
+                    buttons: {getSetCount: function () { return 250; }, getConditionCount: function () { return 1; },
+                              getConditionName: function () { return 'Stub Condition'; }, getActionCount: function () { return 1; },
+                              getActionName: function () { return 'Stub Action'; }},
                     screen: {}, world: {}, minimap: {}
                 };
             })()
@@ -167,7 +176,7 @@ final class ScriptProjectUtilsTest {
                           sourceGeneration: -1, killer: -1, killerGeneration: -1, killerPlayer: 0, sourcePlayer: 0, producer: -1,
                           producerGeneration: -1, transport: -1, transportGeneration: -1, previousOwner: 0, reason: 0, result: 3, missed: false,
                           key: 65, button: 0, modifiers: 0, positioned: false, x: 0, y: 0, text: '', consumed: false, cancelled: false,
-                          rejected: false};
+                          rejected: false, set: 0, position: 1, condition: 0, conditionValue: 0, action: 0, actionValue: 0, hotkey: false};
             function record(kind) {
                 var copy = {kind: kind};
                 for (var key in values) {

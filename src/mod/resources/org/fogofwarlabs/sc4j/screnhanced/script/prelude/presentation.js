@@ -1,6 +1,6 @@
-// The presentation of the upper layer: the globals display (display.console, display.strings, display.messages and display.images),
-// ConsoleControl and ConsoleImage, and the console control objects they return. Shared code changes the presentation on every peer, local
-// code only on the local machine.
+// The presentation of the upper layer: the globals display (display.console, display.strings, display.messages, display.images and
+// display.commandCard of command-card.js), ConsoleControl and ConsoleImage, and the console control objects they return. Shared code changes
+// the presentation on every peer, local code only on the local machine.
 (function (core, prelude) {
     'use strict';
 
@@ -16,6 +16,7 @@
     var grpPrototype = prelude.grpPrototype;
     var animPrototype = prelude.animPrototype;
     var imagePrototype = prelude.imagePrototype;
+    var commandCard = prelude.commandCard;
 
     var create = Object.create;
     var freeze = Object.freeze;
@@ -172,7 +173,8 @@
         console: gameConsole,
         strings: strings,
         messages: messages,
-        images: imageGraphics
+        images: imageGraphics,
+        commandCard: commandCard
     });
 
     [consoleControlPrototype, consoleImagePrototype, consoleControlObjectPrototype].forEach(freeze);

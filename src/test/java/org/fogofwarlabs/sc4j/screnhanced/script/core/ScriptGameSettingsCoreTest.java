@@ -93,8 +93,12 @@ final class ScriptGameSettingsCoreTest {
         Assertions.assertEquals(List.of("true 10 Game mode 1"), useMapSettings.getInfoMessages(), useMapSettings.getLines()::toString);
     }
 
+    /**
+     * The upper setter writes the cheat flags as an EUD write does, so Black Sheep Wall reveals nothing at once; the lower applyCheats runs the
+     * native cheat routine.
+     */
     @Test
-    void cheats_are_stored_or_run_through_the_cheat_routine(@NotNull InstallationTestResources resources) throws IOException {
+    void cheats_are_stored_as_flags_or_run_through_the_cheat_routine(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
                     var human = game.players.getHumans()[0];
@@ -126,7 +130,7 @@ final class ScriptGameSettingsCoreTest {
 
         Assertions.assertEquals(List.of("0 false 1 536870912 false",
                                         "true true 18 50",
-                                        "true true",
+                                        "true false",
                                         "false 10050 3",
                                         "0 false",
                                         "local TypeError false"), scenario.getInfoMessages(), scenario.getLines()::toString);

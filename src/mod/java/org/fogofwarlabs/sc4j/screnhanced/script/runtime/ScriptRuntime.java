@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.base.log.Logger;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrButtonInput;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
@@ -412,6 +413,16 @@ public final class ScriptRuntime {
                 this.exitCall();
             }
         }
+    }
+
+    /**
+     * Creates the local input of a command card button press or target in the values of the lower layer ({@link ScriptGame#createButtonInput}).
+     *
+     * @param input the button input
+     * @return the created {@link ScriptLocalInput} instance
+     */
+    public @NotNull ScriptLocalInput createButtonInput(@NotNull ScrButtonInput input) {
+        return this.scriptGame.createButtonInput(input);
     }
 
     /**
