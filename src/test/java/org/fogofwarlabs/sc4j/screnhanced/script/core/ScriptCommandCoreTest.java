@@ -290,7 +290,7 @@ final class ScriptCommandCoreTest {
                     attempt('function', function () {});
                     attempt('undefined', undefined);
                     attempt('position', Position.of(1, 2));
-                    attempt('player', game.getPlayer(0));
+                    attempt('player', game.players.get(0));
                     attempt('cycle', cycle);
                     attempt('hole', [1, , 3]);
                     attempt('deep', deep);
@@ -385,13 +385,13 @@ final class ScriptCommandCoreTest {
                 function onLocalChat(event) {
                     var text = event.getText();
                     if (text.indexOf('for ') === 0) {
-                        score.set(game.getPlayer(0), text.substring(4));
+                        score.set(game.players.get(0), text.substring(4));
                     } else {
                         score.set(text);
                     }
                 }
                 function onFrame(frame) {
-                    log.info(frame + ' ' + score.get(game.getPlayer(0)) + ' ' + score.get(game.getPlayer(1)) + ' ' + score.get(game.getPlayer(2)));
+                    log.info(frame + ' ' + score.get(game.players.get(0)) + ' ' + score.get(game.players.get(1)) + ' ' + score.get(game.players.get(2)));
                 }
                 """;
         Peer first = new Peer(0, script);
@@ -426,7 +426,7 @@ final class ScriptCommandCoreTest {
                 }
                 function onLocalKeyDown(event) {
                     log.info('read only ' + game.isReadOnly() + ' ' + game.getFrame());
-                    attempt('switch', function () { game.setSwitch(0, true); });
+                    attempt('switch', function () { game.switches.set(0, true); });
                     attempt('timer', function () { game.every(1, function () {}); });
                     attempt('random', function () { random.next(); });
                     attempt('math random', function () { Math.random(); });

@@ -31,20 +31,20 @@ final class ScriptLeaderboardCoreTest {
     void leaderboards_register_each_label_once(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var anywhere = game.getLocation(0);
-                    game.showControlLeaderboard('Marines', UnitType.TerranMarine);
-                    game.showControlLeaderboard('Marines', UnitType.TerranMarine, {goal: 10});
-                    game.showControlLeaderboard('Here', UnitGroup.Men, {location: anywhere});
-                    game.showControlLeaderboard('Here', UnitGroup.Men, {location: anywhere, goal: 5});
-                    game.showResourcesLeaderboard('Ore', ResourceType.MineralsAndGas);
-                    game.showPointsLeaderboard('Points', ScoreType.KillsAndRazings, {goal: 1000});
-                    game.setLeaderboardComputersIncluded(false);
-                    log.info(game.areLeaderboardComputersIncluded());
-                    game.setLeaderboardComputersIncluded(true);
-                    log.info(game.areLeaderboardComputersIncluded());
-                    game.showKillsLeaderboard('Kills', UnitGroup.AnyUnit, {goal: 20});
+                    var anywhere = game.map.locations.get(0);
+                    game.leaderboard.showControl('Marines', UnitType.TerranMarine);
+                    game.leaderboard.showControl('Marines', UnitType.TerranMarine, {goal: 10});
+                    game.leaderboard.showControl('Here', UnitGroup.Men, {location: anywhere});
+                    game.leaderboard.showControl('Here', UnitGroup.Men, {location: anywhere, goal: 5});
+                    game.leaderboard.showResources('Ore', ResourceType.MineralsAndGas);
+                    game.leaderboard.showPoints('Points', ScoreType.KillsAndRazings, {goal: 1000});
+                    game.leaderboard.setComputersIncluded(false);
+                    log.info(game.leaderboard.areComputersIncluded());
+                    game.leaderboard.setComputersIncluded(true);
+                    log.info(game.leaderboard.areComputersIncluded());
+                    game.leaderboard.showKills('Kills', UnitGroup.AnyUnit, {goal: 20});
                     try {
-                        game.showKillsLeaderboard('Kills', ScoreType.Total);
+                        game.leaderboard.showKills('Kills', ScoreType.Total);
                     } catch (error) {
                         log.info(error.name);
                     }
@@ -71,19 +71,19 @@ final class ScriptLeaderboardCoreTest {
     void each_leaderboard_form_takes_its_action_type(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var anywhere = game.getLocation(0);
+                    var anywhere = game.map.locations.get(0);
                     var forms = [
-                        function () { game.showControlLeaderboard('A', UnitType.TerranMarine); },
-                        function () { game.showControlLeaderboard('A', UnitType.TerranMarine, {location: anywhere}); },
-                        function () { game.showResourcesLeaderboard('A', ResourceType.Gas); },
-                        function () { game.showKillsLeaderboard('A', UnitGroup.Factories); },
-                        function () { game.showPointsLeaderboard('A', ScoreType.Custom); },
-                        function () { game.showControlLeaderboard('A', UnitType.TerranMarine, {goal: 1}); },
-                        function () { game.showControlLeaderboard('A', UnitType.TerranMarine, {location: anywhere, goal: 1}); },
-                        function () { game.showResourcesLeaderboard('A', ResourceType.Gas, {goal: 1}); },
-                        function () { game.showKillsLeaderboard('A', UnitGroup.Factories, {goal: 1}); },
-                        function () { game.showPointsLeaderboard('A', ScoreType.Custom, {goal: 1}); },
-                        function () { game.showGreedLeaderboard(500); }
+                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine); },
+                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {location: anywhere}); },
+                        function () { game.leaderboard.showResources('A', ResourceType.Gas); },
+                        function () { game.leaderboard.showKills('A', UnitGroup.Factories); },
+                        function () { game.leaderboard.showPoints('A', ScoreType.Custom); },
+                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {goal: 1}); },
+                        function () { game.leaderboard.showControl('A', UnitType.TerranMarine, {location: anywhere, goal: 1}); },
+                        function () { game.leaderboard.showResources('A', ResourceType.Gas, {goal: 1}); },
+                        function () { game.leaderboard.showKills('A', UnitGroup.Factories, {goal: 1}); },
+                        function () { game.leaderboard.showPoints('A', ScoreType.Custom, {goal: 1}); },
+                        function () { game.leaderboard.showGreed(500); }
                     ];
                     game.every(1, function () {
                         var form = forms.shift();

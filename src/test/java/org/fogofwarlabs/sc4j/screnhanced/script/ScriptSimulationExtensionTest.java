@@ -34,8 +34,8 @@ final class ScriptSimulationExtensionTest {
      */
     private static final @NotNull String SCRIPT = """
             function onStart() {
-                graphics.replaceImage(ImageType.get(239), {sd: resources.getGrp('units/marine.grp')});
-                game.print('ES started ' + resources.has('units/marine.grp'));
+                display.images.replace(ImageType.get(239), {sd: game.map.resources.getGrp('units/marine.grp')});
+                game.print('ES started ' + game.map.resources.has('units/marine.grp'));
             }
             """;
     private static final @NotNull String GRP_NAME = "units/marine.grp";

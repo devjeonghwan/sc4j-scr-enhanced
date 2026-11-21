@@ -1527,27 +1527,9 @@ interface Unit {
      */
     issueOrder(order: Order, target?: Unit | Position | null): void;
     /**
-     * The status timers count status steps of eight frames. A timer that starts runs the effect's apply routine (overlay, disabling, speed)
-     * before it takes the value; 0 runs the effect's end routine.
+     * The unit's status timers and its remove timer; one unit always has the same object.
      */
-    getStimTimer(): number;
-    setStimTimer(timer: number): void;
-    getEnsnareTimer(): number;
-    setEnsnareTimer(timer: number): void;
-    getLockdownTimer(): number;
-    setLockdownTimer(timer: number): void;
-    getStasisTimer(): number;
-    setStasisTimer(timer: number): void;
-    getMaelstromTimer(): number;
-    setMaelstromTimer(timer: number): void;
-    getPlagueTimer(): number;
-    setPlagueTimer(timer: number): void;
-    getIrradiateTimer(): number;
-    setIrradiateTimer(timer: number): void;
-    getStormTimer(): number;
-    setStormTimer(timer: number): void;
-    getDefensiveMatrixTimer(): number;
-    setDefensiveMatrixTimer(timer: number): void;
+    readonly timers: UnitTimers;
     getDefensiveMatrixHp(): number;
     setDefensiveMatrixHp(hp: number): void;
     /**
@@ -1555,11 +1537,6 @@ interface Unit {
      */
     getAcidSporeCount(): number;
     setAcidSporeCount(count: number): void;
-    /**
-     * @returns the frames until a timed unit (a hallucination, a Broodling) is removed, 0 for an untimed unit
-     */
-    getRemoveTimer(): number;
-    setRemoveTimer(frames: number): void;
     isParasitedBy(player: Player): boolean;
     setParasitedBy(player: Player, parasited: boolean): void;
     isBlind(): boolean;
@@ -1621,6 +1598,93 @@ interface Unit {
      * @returns false for a subunit, a subunit type, or a type whose turret does not match the unit's
      */
     setType(type: UnitType): boolean;
+}
+
+/**
+ * The timers of a unit ({@link Unit.timers}). The status timers count status steps of eight frames: a timer that starts runs the effect's apply
+ * routine (overlay, disabling, speed) before it takes the value; 0 runs the effect's end routine. Every method throws once the unit is gone.
+ */
+interface UnitTimers {
+    /**
+     * @returns the Stim Packs timer in status steps
+     */
+    getStim(): number;
+    /**
+     * Sets the Stim Packs timer in status steps.
+     */
+    setStim(timer: number): void;
+    /**
+     * @returns the Ensnare timer in status steps
+     */
+    getEnsnare(): number;
+    /**
+     * Sets the Ensnare timer in status steps.
+     */
+    setEnsnare(timer: number): void;
+    /**
+     * @returns the Lockdown timer in status steps
+     */
+    getLockdown(): number;
+    /**
+     * Sets the Lockdown timer in status steps.
+     */
+    setLockdown(timer: number): void;
+    /**
+     * @returns the Stasis Field timer in status steps
+     */
+    getStasis(): number;
+    /**
+     * Sets the Stasis Field timer in status steps.
+     */
+    setStasis(timer: number): void;
+    /**
+     * @returns the Maelstrom timer in status steps
+     */
+    getMaelstrom(): number;
+    /**
+     * Sets the Maelstrom timer in status steps.
+     */
+    setMaelstrom(timer: number): void;
+    /**
+     * @returns the Plague timer in status steps
+     */
+    getPlague(): number;
+    /**
+     * Sets the Plague timer in status steps.
+     */
+    setPlague(timer: number): void;
+    /**
+     * @returns the Irradiate timer in status steps
+     */
+    getIrradiate(): number;
+    /**
+     * Sets the Irradiate timer in status steps.
+     */
+    setIrradiate(timer: number): void;
+    /**
+     * @returns the Psionic Storm timer in status steps
+     */
+    getStorm(): number;
+    /**
+     * Sets the Psionic Storm timer in status steps.
+     */
+    setStorm(timer: number): void;
+    /**
+     * @returns the Defensive Matrix timer in status steps
+     */
+    getDefensiveMatrix(): number;
+    /**
+     * Sets the Defensive Matrix timer in status steps.
+     */
+    setDefensiveMatrix(timer: number): void;
+    /**
+     * @returns the frames until a timed unit (a hallucination, a Broodling) is removed, 0 for an untimed unit
+     */
+    getRemove(): number;
+    /**
+     * Sets the frames until the unit is removed.
+     */
+    setRemove(frames: number): void;
 }
 
 /**
@@ -1687,31 +1751,10 @@ interface Player {
      * @returns minerals, gas, or minerals and gas, as the Accumulate condition reads them
      */
     getResources(resourceType: ResourceType): number;
-    getDeaths(unit: UnitType | UnitGroup): number;
-    setDeaths(unit: UnitType | UnitGroup, amount: number): void;
-    addDeaths(unit: UnitType | UnitGroup, amount: number): void;
-    subtractDeaths(unit: UnitType | UnitGroup, amount: number): void;
-    getKills(unit: UnitType | UnitGroup): number;
-    getScore(scoreType: ScoreType): number;
-    setScore(scoreType: ScoreType, amount: number): void;
-    addScore(scoreType: ScoreType, amount: number): void;
-    subtractScore(scoreType: ScoreType, amount: number): void;
-    /**
-     * Counts the player's units as the Command and Bring conditions do.
-     */
-    countUnits(unit: UnitType | UnitGroup, options?: UnitCountOptions): number;
     /**
      * @returns the opponents the Opponents condition counts
      */
     countOpponents(): number;
-    /**
-     * Kills the player's units as Kill Unit does.
-     */
-    killUnits(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
-    /**
-     * Removes the player's units as Remove Unit does.
-     */
-    removeUnits(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
     /**
      * Starts an AI script by its four-character name ("EnBk"), at a location when one is given.
      *
@@ -1719,7 +1762,6 @@ interface Player {
      */
     runAiScript(name: string, location?: Location | null): boolean;
     setMissionObjectives(text: string): void;
-    getUnits(): Unit[];
     /**
      * Shows a text on the player's screen; with {forced: false} only when the subtitle option is on.
      */
@@ -1734,25 +1776,6 @@ interface Player {
      */
     showTalkingPortrait(unitType: UnitType, frames: number): void;
     setUnitSpeechMuted(muted: boolean): void;
-    getUpgradeLevel(upgrade: UpgradeType): number;
-    /**
-     * Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
-     */
-    setUpgradeLevel(upgrade: UpgradeType, level: number): void;
-    getMaxUpgradeLevel(upgrade: UpgradeType): number;
-    setMaxUpgradeLevel(upgrade: UpgradeType, level: number): void;
-    isUpgradeInProgress(upgrade: UpgradeType): boolean;
-    isTechResearched(tech: TechType): boolean;
-    setTechResearched(tech: TechType, researched: boolean): void;
-    isTechAvailable(tech: TechType): boolean;
-    setTechAvailable(tech: TechType, available: boolean): void;
-    isTechInProgress(tech: TechType): boolean;
-    /**
-     * The production availability of the map settings; a game without map settings allows every unit type and throws when a type is made
-     * unavailable.
-     */
-    isUnitAvailable(unitType: UnitType): boolean;
-    setUnitAvailable(unitType: UnitType, available: boolean): void;
     /**
      * Centers the screen on a position when the player is the local player; the screens of the other peers stay.
      */
@@ -1772,6 +1795,166 @@ interface Player {
      * @returns true if every unit was selected, false if the rules left some out
      */
     setSelection(units: Unit[]): boolean;
+    /**
+     * The player's upgrade levels by upgrade type; one player always has the same object.
+     */
+    readonly upgrades: PlayerUpgrades;
+    /**
+     * The player's technologies by tech type.
+     */
+    readonly techs: PlayerTechs;
+    /**
+     * The player's units: listing, counting, killing and removing them, and their production availability.
+     */
+    readonly units: PlayerUnits;
+    /**
+     * The player's death counters of the Deaths condition and the Set Deaths action.
+     */
+    readonly deaths: PlayerDeaths;
+    /**
+     * The player's kill counters of the Kill condition.
+     */
+    readonly kills: PlayerKills;
+    /**
+     * The player's scores of the Score condition and the Set Score action.
+     */
+    readonly score: PlayerScore;
+}
+
+/**
+ * The upgrade levels of a player ({@link Player.upgrades}).
+ */
+interface PlayerUpgrades {
+    /**
+     * @returns the upgrade's current level
+     */
+    getLevel(upgrade: UpgradeType): number;
+    /**
+     * Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
+     */
+    setLevel(upgrade: UpgradeType, level: number): void;
+    /**
+     * @returns the highest level the player may research
+     */
+    getMaxLevel(upgrade: UpgradeType): number;
+    /**
+     * Sets the highest level the player may research.
+     */
+    setMaxLevel(upgrade: UpgradeType, level: number): void;
+    /**
+     * @returns true while one of the player's buildings researches the upgrade
+     */
+    isInProgress(upgrade: UpgradeType): boolean;
+}
+
+/**
+ * The technologies of a player ({@link Player.techs}).
+ */
+interface PlayerTechs {
+    /**
+     * @returns true when the player has researched the technology
+     */
+    isResearched(tech: TechType): boolean;
+    /**
+     * Marks the technology researched or not researched.
+     */
+    setResearched(tech: TechType, researched: boolean): void;
+    /**
+     * @returns true when the player may research the technology
+     */
+    isAvailable(tech: TechType): boolean;
+    /**
+     * Allows or forbids researching the technology.
+     */
+    setAvailable(tech: TechType, available: boolean): void;
+    /**
+     * @returns true while one of the player's buildings researches the technology
+     */
+    isInProgress(tech: TechType): boolean;
+}
+
+/**
+ * The units of a player ({@link Player.units}).
+ */
+interface PlayerUnits {
+    /**
+     * @returns the player's live units
+     */
+    getAll(): Unit[];
+    /**
+     * Counts the player's units as the Command and Bring conditions do.
+     */
+    count(unit: UnitType | UnitGroup, options?: UnitCountOptions): number;
+    /**
+     * Kills the player's units as Kill Unit does.
+     */
+    kill(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
+    /**
+     * Removes the player's units as Remove Unit does.
+     */
+    remove(unit: UnitType | UnitGroup, options?: UnitRemovalOptions): void;
+    /**
+     * @returns the production availability of the map settings; a game without map settings allows every unit type
+     */
+    isAvailable(unitType: UnitType): boolean;
+    /**
+     * Sets the production availability of the map settings; a game without map settings throws when a type is made unavailable.
+     */
+    setAvailable(unitType: UnitType, available: boolean): void;
+}
+
+/**
+ * The death counters of a player by unit type or unit group ({@link Player.deaths}).
+ */
+interface PlayerDeaths {
+    /**
+     * @returns the deaths the Deaths condition compares
+     */
+    get(unit: UnitType | UnitGroup): number;
+    /**
+     * Sets the deaths as Set Deaths does.
+     */
+    set(unit: UnitType | UnitGroup, amount: number): void;
+    /**
+     * Adds to the deaths as Set Deaths does.
+     */
+    add(unit: UnitType | UnitGroup, amount: number): void;
+    /**
+     * Subtracts from the deaths as Set Deaths does.
+     */
+    subtract(unit: UnitType | UnitGroup, amount: number): void;
+}
+
+/**
+ * The kill counters of a player by unit type or unit group ({@link Player.kills}).
+ */
+interface PlayerKills {
+    /**
+     * @returns the kills the Kill condition compares
+     */
+    get(unit: UnitType | UnitGroup): number;
+}
+
+/**
+ * The scores of a player by score type ({@link Player.score}); the writes take players 0 to 7.
+ */
+interface PlayerScore {
+    /**
+     * @returns the score the Score condition compares
+     */
+    get(scoreType: ScoreType): number;
+    /**
+     * Sets the score as Set Score does.
+     */
+    set(scoreType: ScoreType, amount: number): void;
+    /**
+     * Adds to the score as Set Score does.
+     */
+    add(scoreType: ScoreType, amount: number): void;
+    /**
+     * Subtracts from the score as Set Score does.
+     */
+    subtract(scoreType: ScoreType, amount: number): void;
 }
 
 /**
@@ -1816,13 +1999,19 @@ interface ControlLeaderboardOptions extends LeaderboardOptions {
     location?: Location | null;
 }
 
+/**
+ * The shared game: the same on every peer. Its groups are {@link map}, {@link players}, {@link units}, {@link switches}, {@link countdown} and
+ * {@link leaderboard}.
+ */
 interface Game {
+    /**
+     * @returns the number of the current game frame
+     */
     getFrame(): number;
-    getMapWidth(): number;
-    getMapHeight(): number;
-    getMapTileWidth(): number;
-    getMapTileHeight(): number;
-    getTileset(): number;
+    /**
+     * @returns the seconds of the trigger clock (16 frames a second) that the Elapsed Time condition compares
+     */
+    getElapsedTime(): number;
     /**
      * @returns true inside a decision hook and in local code, where the game state cannot change
      */
@@ -1831,60 +2020,227 @@ interface Game {
      * Shows a text to all players.
      */
     print(text: string): void;
-    getPlayer(id: number): Player | null;
-    getPlayers(): Player[];
-    getHumanPlayers(): Player[];
-    getUnit(id: number): Unit | null;
-    getUnits(): Unit[];
-    findUnits(filter?: UnitFilter): Unit[];
-    findUnit(filter?: UnitFilter): Unit | null;
-    countUnits(filter?: UnitFilter): number;
-    /**
-     * Creates a unit as Create Unit does.
-     *
-     * @returns the unit, or null when it could not be placed
-     */
-    createUnit(type: UnitType, player: Player, position: Position): Unit | null;
-    getLocation(id: number): Location | null;
-    findLocationByName(name: string): Location | null;
     /**
      * Calls a function every given number of frames, first that many frames from now ({@link Time}), at the frame start before the hooks
      * of the frame; only in shared code, local code throws a TypeError.
      */
     every(frames: number, callback: () => void): Timer;
     /**
-     * @param index a switch from 0 to 255
+     * The map: its size, tileset, terrain, locations and resource files.
      */
-    isSwitchSet(index: number): boolean;
-    setSwitch(index: number, set: boolean): void;
-    toggleSwitch(index: number): void;
+    readonly map: GameMap;
     /**
-     * @returns the countdown timer in seconds of the trigger clock
+     * The players by slot.
      */
-    getCountdownTimer(): number;
-    setCountdownTimer(seconds: number): void;
-    addCountdownTimer(seconds: number): void;
-    subtractCountdownTimer(seconds: number): void;
-    isCountdownTimerPaused(): boolean;
-    pauseCountdownTimer(): void;
-    resumeCountdownTimer(): void;
+    readonly players: Players;
     /**
-     * @returns the seconds of the trigger clock that the Elapsed Time condition compares
+     * The units of the game: finding, counting and creating them.
      */
-    getElapsedTime(): number;
-    showControlLeaderboard(label: string, unit: UnitType | UnitGroup, options?: ControlLeaderboardOptions): void;
-    showResourcesLeaderboard(label: string, resourceType: ResourceType, options?: LeaderboardOptions): void;
-    showKillsLeaderboard(label: string, unit: UnitType | UnitGroup, options?: LeaderboardOptions): void;
-    showPointsLeaderboard(label: string, scoreType: ScoreType, options?: LeaderboardOptions): void;
+    readonly units: Units;
     /**
-     * Shows the Greed leaderboard of the minerals and gas of every player, toward a goal.
+     * The switches of the trigger state.
      */
-    showGreedLeaderboard(goal: number): void;
-    areLeaderboardComputersIncluded(): boolean;
-    setLeaderboardComputersIncluded(included: boolean): void;
+    readonly switches: Switches;
+    /**
+     * The countdown timer of the trigger state.
+     */
+    readonly countdown: Countdown;
+    /**
+     * The leaderboards of the leaderboard actions.
+     */
+    readonly leaderboard: Leaderboard;
 }
 
 declare const game: Game;
+
+/**
+ * The map of the game ({@link Game.map}); positions and sizes are map pixels, tile positions and sizes tiles of 32 pixels.
+ */
+interface GameMap {
+    /**
+     * @returns the map width in pixels
+     */
+    getWidth(): number;
+    /**
+     * @returns the map height in pixels
+     */
+    getHeight(): number;
+    /**
+     * @returns the map width in tiles
+     */
+    getTileWidth(): number;
+    /**
+     * @returns the map height in tiles
+     */
+    getTileHeight(): number;
+    /**
+     * The tileset of the map and its tiles.
+     */
+    readonly tileset: Tileset;
+    /**
+     * The tiles of the map.
+     */
+    readonly terrain: Terrain;
+    /**
+     * The locations of the map.
+     */
+    readonly locations: Locations;
+    /**
+     * The files of the map's resource folder.
+     */
+    readonly resources: Resources;
+}
+
+/**
+ * The locations of the map ({@link GameMap.locations}).
+ */
+interface Locations {
+    /**
+     * @returns the location of an id, or null for an id outside the map's locations
+     */
+    get(id: number): Location | null;
+    /**
+     * @returns the first location with the name, or null when no location has it
+     */
+    findByName(name: string): Location | null;
+}
+
+/**
+ * The players by slot ({@link Game.players}), from 0 (the original player 1) to 11; one player is always the same object.
+ */
+interface Players {
+    /**
+     * @returns the player of a slot, or null for a slot outside 0 to 11
+     */
+    get(id: number): Player | null;
+    /**
+     * @returns the players of every slot, from 0
+     */
+    getAll(): Player[];
+    /**
+     * @returns the human players
+     */
+    getHumans(): Player[];
+}
+
+/**
+ * The units of the game ({@link Game.units}); one live unit is always the same object.
+ */
+interface Units {
+    /**
+     * @returns the unit in a slot, or null for an empty slot
+     */
+    get(id: number): Unit | null;
+    /**
+     * @returns every live unit
+     */
+    getAll(): Unit[];
+    /**
+     * @returns the live units that pass the filter, every live unit without one
+     */
+    find(filter?: UnitFilter): Unit[];
+    /**
+     * @returns the first live unit that passes the filter, or null
+     */
+    findOne(filter?: UnitFilter): Unit | null;
+    /**
+     * @returns the number of live units that pass the filter
+     */
+    count(filter?: UnitFilter): number;
+    /**
+     * Creates a unit as Create Unit does.
+     *
+     * @returns the unit, or null when it could not be placed
+     */
+    create(type: UnitType, player: Player, position: Position): Unit | null;
+}
+
+/**
+ * The switches 0 to 255 of the trigger state ({@link Game.switches}).
+ */
+interface Switches {
+    /**
+     * @param index a switch from 0 to 255
+     * @returns true when the switch is set
+     */
+    isSet(index: number): boolean;
+    /**
+     * Sets or clears a switch as Set Switch does.
+     */
+    set(index: number, set: boolean): void;
+    /**
+     * Toggles a switch as Set Switch does.
+     */
+    toggle(index: number): void;
+}
+
+/**
+ * The countdown timer of the trigger state ({@link Game.countdown}), in seconds of the trigger clock (16 frames a second).
+ */
+interface Countdown {
+    /**
+     * @returns the countdown timer in seconds of the trigger clock
+     */
+    get(): number;
+    /**
+     * Sets the countdown timer as Set Countdown Timer does.
+     */
+    set(seconds: number): void;
+    /**
+     * Adds seconds to the countdown timer.
+     */
+    add(seconds: number): void;
+    /**
+     * Subtracts seconds from the countdown timer.
+     */
+    subtract(seconds: number): void;
+    /**
+     * @returns true while the countdown timer is paused
+     */
+    isPaused(): boolean;
+    /**
+     * Pauses the countdown timer as Pause Timer does.
+     */
+    pause(): void;
+    /**
+     * Resumes the countdown timer as Unpause Timer does.
+     */
+    resume(): void;
+}
+
+/**
+ * The leaderboards of the leaderboard actions with a text label ({@link Game.leaderboard}).
+ */
+interface Leaderboard {
+    /**
+     * Shows the Control leaderboard of a unit type or group: the goal form with a goal, Control At Location with a location.
+     */
+    showControl(label: string, unit: UnitType | UnitGroup, options?: ControlLeaderboardOptions): void;
+    /**
+     * Shows the Resources leaderboard of a resource type.
+     */
+    showResources(label: string, resourceType: ResourceType, options?: LeaderboardOptions): void;
+    /**
+     * Shows the Kills leaderboard of a unit type or group.
+     */
+    showKills(label: string, unit: UnitType | UnitGroup, options?: LeaderboardOptions): void;
+    /**
+     * Shows the Points leaderboard of a score type.
+     */
+    showPoints(label: string, scoreType: ScoreType, options?: LeaderboardOptions): void;
+    /**
+     * Shows the Greed leaderboard of the minerals and gas of every player, toward a goal.
+     */
+    showGreed(goal: number): void;
+    /**
+     * @returns true when the leaderboards include computer players
+     */
+    areComputersIncluded(): boolean;
+    /**
+     * Includes or leaves out computer players, as Leaderboard Computer Players does.
+     */
+    setComputersIncluded(included: boolean): void;
+}
 
 /**
  * A resource of the map's resource folder by its name relative to resources/, with / separators.
@@ -1914,7 +2270,13 @@ interface Image extends Resource {
     getHeight(): number;
 }
 
+/**
+ * The files of the map's resource folder ({@link GameMap.resources}).
+ */
 interface Resources {
+    /**
+     * @returns true when the resource folder has a file of the name
+     */
     has(name: string): boolean;
     /**
      * Reads a GRP; a missing or invalid one throws.
@@ -1930,8 +2292,6 @@ interface Resources {
     getImage(name: string): Image;
 }
 
-declare const resources: Resources;
-
 /**
  * The graphics of an image: an SD GRP, an HD anim and an HD2 anim, at least one.
  */
@@ -1940,21 +2300,6 @@ interface ImageGraphics {
     hd?: Anim | null;
     hd2?: Anim | null;
 }
-
-interface Graphics {
-    /**
-     * Replaces the graphics of every image of an image type.
-     */
-    replaceImage(imageType: ImageType, images: ImageGraphics): void;
-    restoreImage(imageType: ImageType): void;
-    /**
-     * Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
-     */
-    replaceUnitImage(unit: Unit, images: ImageGraphics, imageType?: ImageType): void;
-    restoreUnitImage(unit: Unit, imageType?: ImageType): void;
-}
-
-declare const graphics: Graphics;
 
 /**
  * A tile of the map's tileset: a CV5 group and an index in it from 0 to 15. One tile is always the same object.
@@ -1986,8 +2331,17 @@ interface Tile {
     isBlockingSight(): boolean;
 }
 
+/**
+ * The tileset of the map ({@link GameMap.tileset}).
+ */
 interface Tileset {
+    /**
+     * @returns the tileset id from 0 (Badlands) to 7 (Ice)
+     */
     getId(): number;
+    /**
+     * @returns the number of CV5 tile groups
+     */
     getGroupCount(): number;
     /**
      * @returns the tile of a CV5 group and an index from 0 to 15; a RangeError for a tile the tileset does not have
@@ -1995,10 +2349,8 @@ interface Tileset {
     getTile(group: number, index: number): Tile;
 }
 
-declare const tileset: Tileset;
-
 /**
- * The tiles of the map, by tile coordinates (32 pixels). The changes apply together at the next trigger step, after the frame start hooks
+ * The tiles of the map ({@link GameMap.terrain}), by tile coordinates (32 pixels). The changes apply together at the next trigger step, after the frame start hooks
  * (onFrame, the events, the timers) and before the triggers, as on a map that had the tiles from the start: walkability, pathing regions,
  * buildability, sight and the minimap follow, and ground units on tiles that became unwalkable move to walkable ground nearby. Reads see the
  * changes made so far.
@@ -2008,6 +2360,9 @@ interface Terrain {
      * @returns the tile, the one below creep for a tile with creep
      */
     getTile(tileX: number, tileY: number): Tile;
+    /**
+     * Sets a tile.
+     */
     setTile(tileX: number, tileY: number, tile: Tile): void;
     /**
      * Sets every tile the location covers.
@@ -2018,8 +2373,6 @@ interface Terrain {
      */
     copyTiles(fromLocation: Location, toLocation: Location): void;
 }
-
-declare const terrain: Terrain;
 
 /**
  * A channel: a value one peer sends reaches the channel's handler on every peer, the sender's included, and in every replay, at the frame the
@@ -2363,13 +2716,22 @@ interface ConsoleControlHandle {
 }
 
 /**
- * The console. Shared code sets it on every peer, local code only on this machine; it changes no game state. A setting wins over what EUD memory
- * gives for the same item (the console, a dialog's position, a dialog's visibility, a console art file, a resource icon); EUD memory still drives
- * the items the script never set.
+ * The console ({@link Display.console}). Shared code sets it on every peer, local code only on this machine; it changes no game state. A setting
+ * wins over what EUD memory gives for the same item (the console, a dialog's position, a dialog's visibility, a console art file, a resource
+ * icon); EUD memory still drives the items the script never set.
  */
 interface Console {
+    /**
+     * Shows or hides the whole console.
+     */
     setVisible(visible: boolean): void;
+    /**
+     * @returns false while the script hides the console
+     */
     isVisible(): boolean;
+    /**
+     * @returns the object of a console dialog, the same for the same dialog
+     */
     getControl(control: ConsoleControl): ConsoleControlHandle;
     /**
      * Draws an image instead of a console art file of the shown race console; null for the installed file.
@@ -2382,10 +2744,8 @@ interface Console {
     setResourceIcon(resourceType: ResourceType, image: Image | null): void;
 }
 
-declare const console: Console;
-
 /**
- * The stat_txt strings by their one-based ids. Shared code sets them on every peer, local code only on this machine.
+ * The stat_txt strings by their one-based ids ({@link Display.strings}). Shared code sets them on every peer, local code only on this machine.
  */
 interface Strings {
     /**
@@ -2394,8 +2754,9 @@ interface Strings {
     setStatText(id: number, text: string | null): void;
 }
 
-declare const strings: Strings;
-
+/**
+ * The message lines on the screen ({@link Display.messages}).
+ */
 interface Messages {
     /**
      * Empties the message lines on the screen.
@@ -2403,7 +2764,52 @@ interface Messages {
     clear(): void;
 }
 
-declare const messages: Messages;
+/**
+ * The graphics of the game's images ({@link Display.images}). Shared code replaces them on every peer, local code only on this machine.
+ */
+interface DisplayImages {
+    /**
+     * Replaces the graphics of every image of an image type.
+     */
+    replace(imageType: ImageType, images: ImageGraphics): void;
+    /**
+     * Restores the installed graphics of an image type.
+     */
+    restore(imageType: ImageType): void;
+    /**
+     * Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
+     */
+    replaceUnit(unit: Unit, images: ImageGraphics, imageType?: ImageType): void;
+    /**
+     * Restores the graphics of a unit's images of an image type, by default that of its main image now.
+     */
+    restoreUnit(unit: Unit, imageType?: ImageType): void;
+}
+
+/**
+ * The presentation that stays until it is changed: the console, the texts, the messages and the image graphics. Shared code changes it on every
+ * peer, local code only on this machine; it changes no game state. Drawing is the {@link Screen} of {@link Hooks.onRender}.
+ */
+interface Display {
+    /**
+     * The console and its dialogs.
+     */
+    readonly console: Console;
+    /**
+     * The stat_txt strings.
+     */
+    readonly strings: Strings;
+    /**
+     * The message lines on the screen.
+     */
+    readonly messages: Messages;
+    /**
+     * The graphics of the game's images.
+     */
+    readonly images: DisplayImages;
+}
+
+declare const display: Display;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The events and decisions of the hooks.

@@ -1,7 +1,9 @@
-// The game of the upper layer: the globals game, tileset and terrain, and the Unit, Player, Location, Tile and Timer objects they return. One
-// unit, player, location or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is
-// gone. Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them),
-// supply the shown supply (core's half units divided by 2). The timers of game.every are counted here, by frames.
+// The game of the upper layer: the global game with its groups (game.map with the tileset, the terrain, the locations and the resources,
+// game.players, game.units, game.switches, game.countdown, game.leaderboard), and the Unit, Player, Location, Tile, Timer, Grp, Anim and Image
+// objects they return. One unit, player, location, tile or resource is always the same object, and one object always has the same groups
+// (player.upgrades, unit.timers ...); a unit object stays with its unit, and exists() becomes false once the unit is gone. Hit points, shields
+// and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them), supply the shown supply
+// (core's half units divided by 2). The timers of game.every are counted here, by frames.
 (function (core, prelude) {
     'use strict';
 
@@ -12,6 +14,7 @@
     var VictoryState = prelude.VictoryState;
     var requireShared = prelude.requireShared;
     var createObject = prelude.createObject;
+    var defineGroup = prelude.defineGroup;
     var isObjectOf = prelude.isObjectOf;
     var requireObject = prelude.requireObject;
     var readOptions = prelude.readOptions;
@@ -32,6 +35,7 @@
     var alliancePrototype = prelude.alliancePrototype;
     var readUnitOperand = prelude.readUnitOperand;
 
+    var create = Object.create;
     var freeze = Object.freeze;
     var round = Math.round;
     var floor = Math.floor;
@@ -59,22 +63,25 @@
     // The range of a timer interval: a signed 32-bit integer.
     var MINIMUM_INTEGER = -2147483648;
     var MAXIMUM_INTEGER = 2147483647;
+    // The status timers of unit.timers: the core fields get<Name>Timer and set<Name>Timer.
+    var UNIT_TIMER_NAMES = ['Stim', 'Ensnare', 'Lockdown', 'Stasis', 'Maelstrom', 'Plague', 'Irradiate', 'Storm', 'DefensiveMatrix', 'Remove'];
+    var UNIT_TIMER_SUFFIX = 'Timer';
 
     var playerCount = core.player.getCount();
-    var players = [];
-    var units = [];
-    var locations = [];
+    var playerObjects = [];
+    var unitObjects = [];
+    var locationObjects = [];
 
     function getPlayer(id) {
         if (!(id >= 0 && id < playerCount)) {
             return null;
         }
 
-        var player = players[id];
+        var player = playerObjects[id];
 
         if (player === undefined) {
             player = createObject(playerPrototype, {id: id});
-            players[id] = player;
+            playerObjects[id] = player;
         }
 
         return player;
@@ -87,11 +94,11 @@
         }
 
         var generation = core.unit.getGeneration(id);
-        var unit = units[id];
+        var unit = unitObjects[id];
 
         if (unit === undefined || unit.generation !== generation) {
             unit = createObject(unitPrototype, {id: id, generation: generation});
-            units[id] = unit;
+            unitObjects[id] = unit;
         }
 
         return unit;
@@ -104,7 +111,7 @@
             return null;
         }
 
-        var unit = units[id];
+        var unit = unitObjects[id];
 
         if (unit !== undefined && unit.generation === generation) {
             return unit;
@@ -122,11 +129,11 @@
             return null;
         }
 
-        var location = locations[id];
+        var location = locationObjects[id];
 
         if (location === undefined) {
             location = createObject(locationPrototype, {id: id});
-            locations[id] = location;
+            locationObjects[id] = location;
         }
 
         return location;
@@ -421,8 +428,7 @@
         }
     };
 
-    // The raw unit fields with a get and a set: the status timers in status steps of eight frames (a timer that starts runs the effect's apply
-    // routine, 0 its end routine), the cooldowns and the remaining times in frames.
+    // The raw unit fields with a get and a set: the acid spores, the cooldowns and the remaining times in frames, the kills and the direction.
     function defineUnitField(name) {
         unitPrototype['get' + name] = function () {
             return core.unit['get' + name](requireUnitId(this));
@@ -432,9 +438,25 @@
         };
     }
 
-    ['StimTimer', 'EnsnareTimer', 'LockdownTimer', 'StasisTimer', 'MaelstromTimer', 'PlagueTimer', 'IrradiateTimer', 'StormTimer',
-     'DefensiveMatrixTimer', 'AcidSporeCount', 'RemoveTimer', 'GroundCooldown', 'AirCooldown', 'SpellCooldown', 'KillCount',
-     'RemainingBuildTime', 'RemainingResearchTime', 'Direction'].forEach(defineUnitField);
+    ['AcidSporeCount', 'GroundCooldown', 'AirCooldown', 'SpellCooldown', 'KillCount', 'RemainingBuildTime', 'RemainingResearchTime',
+     'Direction'].forEach(defineUnitField);
+
+    // unit.timers: the status timers with a get and a set, in status steps of eight frames (a timer that starts runs the effect's apply
+    // routine, 0 its end routine), and the remove timer of a timed unit in frames.
+    var unitTimersPrototype = {};
+
+    UNIT_TIMER_NAMES.forEach(function (name) {
+        var field = name + UNIT_TIMER_SUFFIX;
+
+        unitTimersPrototype['get' + name] = function () {
+            return core.unit['get' + field](requireUnitId(this.owner));
+        };
+        unitTimersPrototype['set' + name] = function (value) {
+            core.unit['set' + field](requireUnitId(this.owner), value);
+        };
+    });
+
+    defineGroup(unitPrototype, 'timers', unitTimersPrototype);
 
     unitPrototype.getCurrentSpeed = function () {
         return core.unit.getCurrentSpeed(requireUnitId(this));
@@ -578,56 +600,9 @@
         getResources: function (resourceType) {
             return core.player.getResources(this.id, requireObject(resourceType, resourceTypePrototype, 'A resource type').id);
         },
-        // The counters of the trigger conditions and actions, of a UnitType or a UnitGroup: deaths (Deaths, Set Deaths), kills (Kill) and
-        // scores of a ScoreType (Score, Set Score; set for players 0 to 7).
-        getDeaths: function (unit) {
-            return core.player.getDeaths(this.id, readUnitOperand(unit));
-        },
-        setDeaths: function (unit, amount) {
-            core.player.setDeaths(this.id, readUnitOperand(unit), amount);
-        },
-        addDeaths: function (unit, amount) {
-            core.player.addDeaths(this.id, readUnitOperand(unit), amount);
-        },
-        subtractDeaths: function (unit, amount) {
-            core.player.subtractDeaths(this.id, readUnitOperand(unit), amount);
-        },
-        getKills: function (unit) {
-            return core.player.getKills(this.id, readUnitOperand(unit));
-        },
-        getScore: function (scoreType) {
-            return core.player.getScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id);
-        },
-        setScore: function (scoreType, amount) {
-            core.player.setScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
-        },
-        addScore: function (scoreType, amount) {
-            core.player.addScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
-        },
-        subtractScore: function (scoreType, amount) {
-            core.player.subtractScore(this.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
-        },
-        // Counts the player's units of a UnitType or a UnitGroup as the Command and Bring conditions do: {location: a Location to count only
-        // the units there, completed: true to count only completed units}.
-        countUnits: function (unit, options) {
-            var operand = readUnitOperand(unit);
-            var values = readOptions(options);
-            var location = readLocationOption(values);
-            var completed = values.completed === true;
-
-            return location === NONE ? core.player.countUnits(this.id, operand, completed)
-                                     : core.player.countUnitsAt(this.id, operand, location, completed);
-        },
         // The opponents the Opponents condition counts.
         countOpponents: function () {
             return core.player.countOpponents(this.id);
-        },
-        // Kills or removes the player's units as Kill Unit and Remove Unit do: {location: a Location, count: the most units, all without one}.
-        killUnits: function (unit, options) {
-            removePlayerUnits(this, unit, options, false);
-        },
-        removeUnits: function (unit, options) {
-            removePlayerUnits(this, unit, options, true);
         },
         // Starts an AI script by its four-character name, at a location when one is given; false when the player may not run it.
         runAiScript: function (name, location) {
@@ -641,9 +616,6 @@
         },
         setMissionObjectives: function (text) {
             core.player.setMissionObjectives(this.id, String(text));
-        },
-        getUnits: function () {
-            return game.findUnits({owner: this});
         },
         // The local display of the player's screen, as the trigger actions show it when the player is the local player. A printed text always
         // shows; with {forced: false} it shows when the subtitle option is on.
@@ -666,44 +638,6 @@
         },
         setUnitSpeechMuted: function (muted) {
             core.player.setUnitSpeechMuted(this.id, muted);
-        },
-        getUpgradeLevel: function (upgrade) {
-            return core.player.getUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
-        },
-        // Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
-        setUpgradeLevel: function (upgrade, level) {
-            core.player.setUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id, level);
-        },
-        getMaxUpgradeLevel: function (upgrade) {
-            return core.player.getMaxUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
-        },
-        setMaxUpgradeLevel: function (upgrade, level) {
-            core.player.setMaxUpgradeLevel(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id, level);
-        },
-        isUpgradeInProgress: function (upgrade) {
-            return core.player.isUpgradeInProgress(this.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
-        },
-        isTechResearched: function (tech) {
-            return core.player.isTechResearched(this.id, requireObject(tech, techTypePrototype, 'A tech type').id);
-        },
-        setTechResearched: function (tech, researched) {
-            core.player.setTechResearched(this.id, requireObject(tech, techTypePrototype, 'A tech type').id, researched);
-        },
-        isTechAvailable: function (tech) {
-            return core.player.isTechAvailable(this.id, requireObject(tech, techTypePrototype, 'A tech type').id);
-        },
-        setTechAvailable: function (tech, available) {
-            core.player.setTechAvailable(this.id, requireObject(tech, techTypePrototype, 'A tech type').id, available);
-        },
-        isTechInProgress: function (tech) {
-            return core.player.isTechInProgress(this.id, requireObject(tech, techTypePrototype, 'A tech type').id);
-        },
-        // The map settings' production availability; a game without map settings allows every unit type.
-        isUnitAvailable: function (unitType) {
-            return core.player.isUnitAvailable(this.id, requireObject(unitType, unitTypePrototype, 'A unit type').id);
-        },
-        setUnitAvailable: function (unitType, available) {
-            core.player.setUnitAvailable(this.id, requireObject(unitType, unitTypePrototype, 'A unit type').id, available);
         },
         // Centers the screen on a position when the player is the local player; the screens of the other peers stay.
         centerView: function (position) {
@@ -738,6 +672,122 @@
             return 'Player ' + this.id;
         }
     };
+
+    // player.upgrades: the levels by UpgradeType.
+    var playerUpgradesPrototype = {
+        getLevel: function (upgrade) {
+            return core.player.getUpgradeLevel(this.owner.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
+        },
+        // Sets the level and refreshes the upgrade flags of the player's units, as a finished upgrade does.
+        setLevel: function (upgrade, level) {
+            core.player.setUpgradeLevel(this.owner.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id, level);
+        },
+        getMaxLevel: function (upgrade) {
+            return core.player.getMaxUpgradeLevel(this.owner.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
+        },
+        setMaxLevel: function (upgrade, level) {
+            core.player.setMaxUpgradeLevel(this.owner.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id, level);
+        },
+        isInProgress: function (upgrade) {
+            return core.player.isUpgradeInProgress(this.owner.id, requireObject(upgrade, upgradeTypePrototype, 'An upgrade type').id);
+        }
+    };
+
+    // player.techs: the technologies by TechType.
+    var playerTechsPrototype = {
+        isResearched: function (tech) {
+            return core.player.isTechResearched(this.owner.id, requireObject(tech, techTypePrototype, 'A tech type').id);
+        },
+        setResearched: function (tech, researched) {
+            core.player.setTechResearched(this.owner.id, requireObject(tech, techTypePrototype, 'A tech type').id, researched);
+        },
+        isAvailable: function (tech) {
+            return core.player.isTechAvailable(this.owner.id, requireObject(tech, techTypePrototype, 'A tech type').id);
+        },
+        setAvailable: function (tech, available) {
+            core.player.setTechAvailable(this.owner.id, requireObject(tech, techTypePrototype, 'A tech type').id, available);
+        },
+        isInProgress: function (tech) {
+            return core.player.isTechInProgress(this.owner.id, requireObject(tech, techTypePrototype, 'A tech type').id);
+        }
+    };
+
+    // player.units: the player's units and their production availability.
+    var playerUnitsPrototype = {
+        getAll: function () {
+            return filterUnits({owner: this.owner}, Infinity);
+        },
+        // Counts the player's units of a UnitType or a UnitGroup as the Command and Bring conditions do: {location: a Location to count only
+        // the units there, completed: true to count only completed units}.
+        count: function (unit, options) {
+            var operand = readUnitOperand(unit);
+            var values = readOptions(options);
+            var location = readLocationOption(values);
+            var completed = values.completed === true;
+
+            return location === NONE ? core.player.countUnits(this.owner.id, operand, completed)
+                                     : core.player.countUnitsAt(this.owner.id, operand, location, completed);
+        },
+        // Kills or removes the player's units as Kill Unit and Remove Unit do: {location: a Location, count: the most units, all without one}.
+        kill: function (unit, options) {
+            removePlayerUnits(this.owner, unit, options, false);
+        },
+        remove: function (unit, options) {
+            removePlayerUnits(this.owner, unit, options, true);
+        },
+        // The map settings' production availability; a game without map settings allows every unit type.
+        isAvailable: function (unitType) {
+            return core.player.isUnitAvailable(this.owner.id, requireObject(unitType, unitTypePrototype, 'A unit type').id);
+        },
+        setAvailable: function (unitType, available) {
+            core.player.setUnitAvailable(this.owner.id, requireObject(unitType, unitTypePrototype, 'A unit type').id, available);
+        }
+    };
+
+    // The counters of the trigger conditions and actions: player.deaths (Deaths, Set Deaths) and player.kills (Kill) of a UnitType or a
+    // UnitGroup, player.score (Score, Set Score; set for players 0 to 7) of a ScoreType.
+    var playerDeathsPrototype = {
+        get: function (unit) {
+            return core.player.getDeaths(this.owner.id, readUnitOperand(unit));
+        },
+        set: function (unit, amount) {
+            core.player.setDeaths(this.owner.id, readUnitOperand(unit), amount);
+        },
+        add: function (unit, amount) {
+            core.player.addDeaths(this.owner.id, readUnitOperand(unit), amount);
+        },
+        subtract: function (unit, amount) {
+            core.player.subtractDeaths(this.owner.id, readUnitOperand(unit), amount);
+        }
+    };
+
+    var playerKillsPrototype = {
+        get: function (unit) {
+            return core.player.getKills(this.owner.id, readUnitOperand(unit));
+        }
+    };
+
+    var playerScorePrototype = {
+        get: function (scoreType) {
+            return core.player.getScore(this.owner.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id);
+        },
+        set: function (scoreType, amount) {
+            core.player.setScore(this.owner.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
+        },
+        add: function (scoreType, amount) {
+            core.player.addScore(this.owner.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
+        },
+        subtract: function (scoreType, amount) {
+            core.player.subtractScore(this.owner.id, requireObject(scoreType, scoreTypePrototype, 'A score type').id, amount);
+        }
+    };
+
+    defineGroup(playerPrototype, 'upgrades', playerUpgradesPrototype);
+    defineGroup(playerPrototype, 'techs', playerTechsPrototype);
+    defineGroup(playerPrototype, 'units', playerUnitsPrototype);
+    defineGroup(playerPrototype, 'deaths', playerDeathsPrototype);
+    defineGroup(playerPrototype, 'kills', playerKillsPrototype);
+    defineGroup(playerPrototype, 'score', playerScorePrototype);
 
     var locationPrototype = {
         getId: function () {
@@ -903,6 +953,218 @@
         }
     });
 
+    var locations = freeze({
+        get: function (id) {
+            return getLocation(id);
+        },
+        findByName: function (name) {
+            return getLocation(core.location.findByName(String(name)));
+        }
+    });
+
+    // The files of the map's resource folder.
+    var resourcePrototype = {
+        getId: function () {
+            return this.id;
+        },
+        getName: function () {
+            return this.name;
+        },
+        toString: function () {
+            return this.name;
+        }
+    };
+    var grpPrototype = create(resourcePrototype);
+    var animPrototype = create(resourcePrototype);
+    var imagePrototype = create(resourcePrototype);
+    var resourceObjects = [];
+
+    // The pixel size of an image.
+    imagePrototype.getWidth = function () {
+        return core.resources.getImageWidth(this.id);
+    };
+    imagePrototype.getHeight = function () {
+        return core.resources.getImageHeight(this.id);
+    };
+
+    // Returns the object of a resource handle: one object per handle id.
+    function getResource(id, name, prototype) {
+        var resource = resourceObjects[id];
+
+        if (resource === undefined) {
+            resource = freeze(createObject(prototype, {id: id, name: name}));
+            resourceObjects[id] = resource;
+        }
+
+        return resource;
+    }
+
+    var resources = freeze({
+        has: function (name) {
+            return core.resources.has(String(name));
+        },
+        getGrp: function (name) {
+            var text = String(name);
+
+            return getResource(core.resources.getGrp(text), text, grpPrototype);
+        },
+        getAnim: function (name) {
+            var text = String(name);
+
+            return getResource(core.resources.getAnim(text), text, animPrototype);
+        },
+        // A PNG or DDS picture to draw (screen.drawImage) or to show on the console.
+        getImage: function (name) {
+            var text = String(name);
+
+            return getResource(core.resources.getImage(text), text, imagePrototype);
+        }
+    });
+
+    var gameMap = freeze({
+        getWidth: function () {
+            return core.game.getMapTileWidth() * TILE_SIZE;
+        },
+        getHeight: function () {
+            return core.game.getMapTileHeight() * TILE_SIZE;
+        },
+        getTileWidth: function () {
+            return core.game.getMapTileWidth();
+        },
+        getTileHeight: function () {
+            return core.game.getMapTileHeight();
+        },
+        tileset: tileset,
+        terrain: terrain,
+        locations: locations,
+        resources: resources
+    });
+
+    var players = freeze({
+        get: function (id) {
+            return getPlayer(id);
+        },
+        getAll: function () {
+            var all = [];
+
+            for (var id = 0; id < playerCount; id++) {
+                all.push(getPlayer(id));
+            }
+
+            return all;
+        },
+        getHumans: function () {
+            return players.getAll().filter(function (player) {
+                return player.isHuman();
+            });
+        }
+    });
+
+    var units = freeze({
+        get: function (id) {
+            return getUnit(id);
+        },
+        getAll: function () {
+            return filterUnits(undefined, Infinity);
+        },
+        find: function (filter) {
+            return filterUnits(filter, Infinity);
+        },
+        findOne: function (filter) {
+            var found = filterUnits(filter, 1);
+
+            return found.length > 0 ? found[0] : null;
+        },
+        count: function (filter) {
+            return filterUnits(filter, Infinity).length;
+        },
+        create: function (type, player, position) {
+            requireObject(type, unitTypePrototype, 'A unit type');
+            requireObject(player, playerPrototype, 'A player');
+            requireObject(position, positionPrototype, 'A position');
+
+            return getUnit(core.unit.create(type.id, player.id, position.x, position.y));
+        }
+    });
+
+    // The switches 0 to 255 of the trigger state.
+    var switches = freeze({
+        isSet: function (index) {
+            return core.game.isSwitchSet(index);
+        },
+        set: function (index, set) {
+            core.game.setSwitch(index, set);
+        },
+        toggle: function (index) {
+            core.game.toggleSwitch(index);
+        }
+    });
+
+    // The countdown timer counts game seconds of the trigger clock, one every sixteen frames, not frames.
+    var countdown = freeze({
+        get: function () {
+            return core.game.getCountdownTimer();
+        },
+        set: function (seconds) {
+            core.game.setCountdownTimer(seconds);
+        },
+        add: function (seconds) {
+            core.game.addCountdownTimer(seconds);
+        },
+        subtract: function (seconds) {
+            core.game.subtractCountdownTimer(seconds);
+        },
+        isPaused: function () {
+            return core.game.isCountdownTimerPaused();
+        },
+        pause: function () {
+            core.game.setCountdownTimerPaused(true);
+        },
+        resume: function () {
+            core.game.setCountdownTimerPaused(false);
+        }
+    });
+
+    // The leaderboards of the leaderboard actions with a text label: the goal form with {goal: amount}, Control also {location: a Location}.
+    var leaderboard = freeze({
+        showControl: function (label, unit, options) {
+            var operand = readUnitOperand(unit);
+            var values = readOptions(options);
+            var location = readLocationOption(values);
+
+            if (location === NONE) {
+                showLeaderboard(LEADERBOARD_CONTROL, LEADERBOARD_GOAL_CONTROL, operand, label, values);
+            } else if (values.goal === undefined) {
+                core.leaderboard.showAt(LEADERBOARD_CONTROL_AT_LOCATION, location, operand, 0, String(label));
+            } else {
+                core.leaderboard.showAt(LEADERBOARD_GOAL_CONTROL_AT_LOCATION, location, operand, values.goal, String(label));
+            }
+        },
+        showResources: function (label, resourceType, options) {
+            var operand = requireObject(resourceType, resourceTypePrototype, 'A resource type').id;
+
+            showLeaderboard(LEADERBOARD_RESOURCES, LEADERBOARD_GOAL_RESOURCES, operand, label, options);
+        },
+        showKills: function (label, unit, options) {
+            showLeaderboard(LEADERBOARD_KILLS, LEADERBOARD_GOAL_KILLS, readUnitOperand(unit), label, options);
+        },
+        showPoints: function (label, scoreType, options) {
+            var operand = requireObject(scoreType, scoreTypePrototype, 'A score type').id;
+
+            showLeaderboard(LEADERBOARD_POINTS, LEADERBOARD_GOAL_POINTS, operand, label, options);
+        },
+        // The Greed leaderboard of the ore and gas of every player, toward a goal.
+        showGreed: function (goal) {
+            core.leaderboard.showGreed(goal);
+        },
+        areComputersIncluded: function () {
+            return core.leaderboard.areComputersIncluded();
+        },
+        setComputersIncluded: function (included) {
+            core.leaderboard.setComputersIncluded(included);
+        }
+    });
+
     // The timers of game.every: a timer runs first at the frame its interval after the game frame it was added at, then every interval; the
     // timers of a frame run in the order of their due frames, then of their adding. Only shared code adds and cancels timers.
     var timers = [];
@@ -976,20 +1238,9 @@
         getFrame: function () {
             return core.game.getFrame();
         },
-        getMapWidth: function () {
-            return core.game.getMapTileWidth() * TILE_SIZE;
-        },
-        getMapHeight: function () {
-            return core.game.getMapTileHeight() * TILE_SIZE;
-        },
-        getMapTileWidth: function () {
-            return core.game.getMapTileWidth();
-        },
-        getMapTileHeight: function () {
-            return core.game.getMapTileHeight();
-        },
-        getTileset: function () {
-            return core.game.getTileset();
+        // The game seconds of the trigger clock, one every sixteen frames, that the Elapsed Time condition compares.
+        getElapsedTime: function () {
+            return core.game.getElapsedTime();
         },
         isReadOnly: function () {
             return core.game.isReadOnly();
@@ -997,143 +1248,32 @@
         print: function (text) {
             core.game.print(String(text));
         },
-        getPlayer: function (id) {
-            return getPlayer(id);
-        },
-        getPlayers: function () {
-            var all = [];
-
-            for (var id = 0; id < playerCount; id++) {
-                all.push(getPlayer(id));
-            }
-
-            return all;
-        },
-        getHumanPlayers: function () {
-            return game.getPlayers().filter(function (player) {
-                return player.isHuman();
-            });
-        },
-        getUnit: function (id) {
-            return getUnit(id);
-        },
-        getUnits: function () {
-            return filterUnits(undefined, Infinity);
-        },
-        findUnits: function (filter) {
-            return filterUnits(filter, Infinity);
-        },
-        findUnit: function (filter) {
-            var found = filterUnits(filter, 1);
-
-            return found.length > 0 ? found[0] : null;
-        },
-        countUnits: function (filter) {
-            return filterUnits(filter, Infinity).length;
-        },
-        createUnit: function (type, player, position) {
-            requireObject(type, unitTypePrototype, 'A unit type');
-            requireObject(player, playerPrototype, 'A player');
-            requireObject(position, positionPrototype, 'A position');
-
-            return getUnit(core.unit.create(type.id, player.id, position.x, position.y));
-        },
-        getLocation: function (id) {
-            return getLocation(id);
-        },
-        findLocationByName: function (name) {
-            return getLocation(core.location.findByName(String(name)));
-        },
         // Calls a function every given number of frames, first that many frames from now; only in shared code.
         every: function (frames, callback) {
             return addTimer(frames, callback);
         },
-        // The switches 0 to 255 of the trigger state.
-        isSwitchSet: function (index) {
-            return core.game.isSwitchSet(index);
-        },
-        setSwitch: function (index, set) {
-            core.game.setSwitch(index, set);
-        },
-        toggleSwitch: function (index) {
-            core.game.toggleSwitch(index);
-        },
-        // The countdown timer and the elapsed time count game seconds of the trigger clock, one every sixteen frames, not frames.
-        getCountdownTimer: function () {
-            return core.game.getCountdownTimer();
-        },
-        setCountdownTimer: function (seconds) {
-            core.game.setCountdownTimer(seconds);
-        },
-        addCountdownTimer: function (seconds) {
-            core.game.addCountdownTimer(seconds);
-        },
-        subtractCountdownTimer: function (seconds) {
-            core.game.subtractCountdownTimer(seconds);
-        },
-        isCountdownTimerPaused: function () {
-            return core.game.isCountdownTimerPaused();
-        },
-        pauseCountdownTimer: function () {
-            core.game.setCountdownTimerPaused(true);
-        },
-        resumeCountdownTimer: function () {
-            core.game.setCountdownTimerPaused(false);
-        },
-        getElapsedTime: function () {
-            return core.game.getElapsedTime();
-        },
-        // The leaderboards of the leaderboard actions with a text label: the goal form with {goal: amount}, Control also {location: a
-        // Location}.
-        showControlLeaderboard: function (label, unit, options) {
-            var operand = readUnitOperand(unit);
-            var values = readOptions(options);
-            var location = readLocationOption(values);
-
-            if (location === NONE) {
-                showLeaderboard(LEADERBOARD_CONTROL, LEADERBOARD_GOAL_CONTROL, operand, label, values);
-            } else if (values.goal === undefined) {
-                core.leaderboard.showAt(LEADERBOARD_CONTROL_AT_LOCATION, location, operand, 0, String(label));
-            } else {
-                core.leaderboard.showAt(LEADERBOARD_GOAL_CONTROL_AT_LOCATION, location, operand, values.goal, String(label));
-            }
-        },
-        showResourcesLeaderboard: function (label, resourceType, options) {
-            var operand = requireObject(resourceType, resourceTypePrototype, 'A resource type').id;
-
-            showLeaderboard(LEADERBOARD_RESOURCES, LEADERBOARD_GOAL_RESOURCES, operand, label, options);
-        },
-        showKillsLeaderboard: function (label, unit, options) {
-            showLeaderboard(LEADERBOARD_KILLS, LEADERBOARD_GOAL_KILLS, readUnitOperand(unit), label, options);
-        },
-        showPointsLeaderboard: function (label, scoreType, options) {
-            var operand = requireObject(scoreType, scoreTypePrototype, 'A score type').id;
-
-            showLeaderboard(LEADERBOARD_POINTS, LEADERBOARD_GOAL_POINTS, operand, label, options);
-        },
-        // The Greed leaderboard of the ore and gas of every player, toward a goal.
-        showGreedLeaderboard: function (goal) {
-            core.leaderboard.showGreed(goal);
-        },
-        areLeaderboardComputersIncluded: function () {
-            return core.leaderboard.areComputersIncluded();
-        },
-        setLeaderboardComputersIncluded: function (included) {
-            core.leaderboard.setComputersIncluded(included);
-        }
+        map: gameMap,
+        players: players,
+        units: units,
+        switches: switches,
+        countdown: countdown,
+        leaderboard: leaderboard
     });
 
-    [unitPrototype, playerPrototype, locationPrototype, tilePrototype, timerPrototype].forEach(freeze);
+    [unitPrototype, unitTimersPrototype, playerPrototype, playerUpgradesPrototype, playerTechsPrototype, playerUnitsPrototype,
+     playerDeathsPrototype, playerKillsPrototype, playerScorePrototype, locationPrototype, tilePrototype, resourcePrototype, grpPrototype,
+     animPrototype, imagePrototype, timerPrototype].forEach(freeze);
 
     return {
         exports: {
-            game: game,
-            tileset: tileset,
-            terrain: terrain
+            game: game
         },
         shared: {
             unitPrototype: unitPrototype,
             playerPrototype: playerPrototype,
+            grpPrototype: grpPrototype,
+            animPrototype: animPrototype,
+            imagePrototype: imagePrototype,
             getPlayer: getPlayer,
             getUnit: getUnit,
             getCapturedUnit: getCapturedUnit,

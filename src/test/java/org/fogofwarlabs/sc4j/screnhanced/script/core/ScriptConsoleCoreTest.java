@@ -50,27 +50,27 @@ final class ScriptConsoleCoreTest {
     @Test
     void console_settings_follow_shared_and_local_code() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                var art = resources.getImage('ui/console.png');
-                var gas = resources.getImage('ui/gas.dds');
-                var minimap = console.getControl(ConsoleControl.Minimap);
+                var art = game.map.resources.getImage('ui/console.png');
+                var gas = game.map.resources.getImage('ui/gas.dds');
+                var minimap = display.console.getControl(ConsoleControl.Minimap);
                 minimap.setPosition(10.4, 20.6);
-                console.getControl(ConsoleControl.CommandCard).setVisible(false);
-                console.replaceImage(ConsoleImage.Console, art);
-                console.replaceImage(ConsoleImage.ConsoleRight, art);
-                console.replaceImage(ConsoleImage.ConsoleTime, gas);
-                console.setResourceIcon(ResourceType.Gas, gas);
-                log.info(minimap === console.getControl(ConsoleControl.Minimap), minimap.getControl() === ConsoleControl.Minimap,
-                         console.getControl(ConsoleControl.CommandCard).isVisible(), minimap.isVisible(), console.isVisible());
-                log.info(error(function () { console.setResourceIcon(ResourceType.MineralsAndGas, gas); }),
-                         error(function () { console.getControl(3); }), error(function () { core.console.setDialogVisible(7, true); }),
+                display.console.getControl(ConsoleControl.CommandCard).setVisible(false);
+                display.console.replaceImage(ConsoleImage.Console, art);
+                display.console.replaceImage(ConsoleImage.ConsoleRight, art);
+                display.console.replaceImage(ConsoleImage.ConsoleTime, gas);
+                display.console.setResourceIcon(ResourceType.Gas, gas);
+                log.info(minimap === display.console.getControl(ConsoleControl.Minimap), minimap.getControl() === ConsoleControl.Minimap,
+                         display.console.getControl(ConsoleControl.CommandCard).isVisible(), minimap.isVisible(), display.console.isVisible());
+                log.info(error(function () { display.console.setResourceIcon(ResourceType.MineralsAndGas, gas); }),
+                         error(function () { display.console.getControl(3); }), error(function () { core.console.setDialogVisible(7, true); }),
                          error(function () { core.console.replaceImage(7, -1); }), error(function () { core.console.setResourceIcon(7, -1); }));
                 log.info(ConsoleImage.getCount(), ConsoleImage.Console.getId(), ConsoleImage.ConsoleLeft.getId(), ConsoleImage.ConsoleCenter.getId(),
                          ConsoleImage.ConsoleRight.getId(), ConsoleImage.ConsoleTime.getId(), ConsoleImage.ConsoleApm.getId(),
                          ConsoleImage.Conover.getId());
                 function onLocalFrame(frame) {
-                    console.setVisible(false);
-                    console.setResourceIcon(ResourceType.Minerals, gas);
-                    console.replaceImage(ConsoleImage.Console, null);
+                    display.console.setVisible(false);
+                    display.console.setResourceIcon(ResourceType.Minerals, gas);
+                    display.console.replaceImage(ConsoleImage.Console, null);
                 }
                 """, createResources());
 

@@ -26,12 +26,12 @@ final class ScriptLocationCoreTest {
     void locations_are_found_by_name_and_take_new_bounds(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
                 function onStart() {
-                    var anywhere = game.findLocationByName('Anywhere');
-                    log.info(anywhere.getId(), anywhere === game.getLocation(anywhere.getId()), anywhere.getName(), anywhere.getLeft(),
-                             anywhere.getTop(), anywhere.getRight() === game.getMapWidth(), anywhere.getBottom() === game.getMapHeight(),
-                             String(anywhere.getCenter()) === String(Position.of(game.getMapWidth() / 2, game.getMapHeight() / 2)));
-                    log.info(game.findLocationByName('No such location'), core.location.getCount(), game.getLocation(255));
-                    var changed = game.getLocation(3);
+                    var anywhere = game.map.locations.findByName('Anywhere');
+                    log.info(anywhere.getId(), anywhere === game.map.locations.get(anywhere.getId()), anywhere.getName(), anywhere.getLeft(),
+                             anywhere.getTop(), anywhere.getRight() === game.map.getWidth(), anywhere.getBottom() === game.map.getHeight(),
+                             String(anywhere.getCenter()) === String(Position.of(game.map.getWidth() / 2, game.map.getHeight() / 2)));
+                    log.info(game.map.locations.findByName('No such location'), core.location.getCount(), game.map.locations.get(255));
+                    var changed = game.map.locations.get(3);
                     changed.setBounds(32, 64, 97, 129);
                     log.info(changed.getLeft(), changed.getTop(), changed.getRight(), changed.getBottom(), String(changed.getCenter()));
                     changed.setCenter(Position.of(100, 100));

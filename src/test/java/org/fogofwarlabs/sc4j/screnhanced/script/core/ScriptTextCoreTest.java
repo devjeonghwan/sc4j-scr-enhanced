@@ -46,8 +46,8 @@ final class ScriptTextCoreTest {
         ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
                 UnitType.get(0).setName('Space Marine');
                 UnitType.get(1).setName('Spectre');
-                strings.setStatText(700, 'Build');
-                log.info(error(function () { strings.setStatText(0, 'x'); }), error(function () { core.strings.setStatText(65536, 'x'); }),
+                display.strings.setStatText(700, 'Build');
+                log.info(error(function () { display.strings.setStatText(0, 'x'); }), error(function () { core.strings.setStatText(65536, 'x'); }),
                          error(function () { core.strings.setStatText(1, 5); }));
                 function onLocalFrame(frame) {
                     UnitType.get(1).setName(null);
@@ -73,7 +73,7 @@ final class ScriptTextCoreTest {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
                 function onStart() {
-                    messages.clear();
+                    display.messages.clear();
                 }
                 """);
         MessageLines lines = game.getInterfaceLink().getMessageLines();

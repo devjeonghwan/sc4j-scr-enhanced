@@ -52,19 +52,19 @@ final class ScriptSimulationPluginTest {
     private static final @NotNull String SPAWN_SCRIPT = """
             var human, computer, marine, zergling, spawnFrame, withoutZergling;
             function spawn() {
-                human = game.getHumanPlayers()[0];
-                computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
-                var commandCenter = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
-                var directionX = commandCenter.getX() < game.getMapWidth() / 2 ? 1 : -1;
-                var directionY = commandCenter.getY() < game.getMapHeight() / 2 ? 1 : -1;
-                marine = game.createUnit(UnitType.TerranMarine, human,
+                human = game.players.getHumans()[0];
+                computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
+                var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                var directionX = commandCenter.getX() < game.map.getWidth() / 2 ? 1 : -1;
+                var directionY = commandCenter.getY() < game.map.getHeight() / 2 ? 1 : -1;
+                marine = game.units.create(UnitType.TerranMarine, human,
                                          Position.of(commandCenter.getX() + 160 * directionX, commandCenter.getY() + 160 * directionY));
                 if (!withoutZergling) {
-                    zergling = game.createUnit(UnitType.ZergZergling, computer, Position.of(marine.getX() + 48 * directionX, marine.getY()));
+                    zergling = game.units.create(UnitType.ZergZergling, computer, Position.of(marine.getX() + 48 * directionX, marine.getY()));
                 }
             }
             function onFrame(frame) {
-                if (spawnFrame === undefined && game.findUnit({type: UnitType.TerranCommandCenter}) !== null) {
+                if (spawnFrame === undefined && game.units.findOne({type: UnitType.TerranCommandCenter}) !== null) {
                     spawnFrame = frame;
                     spawn();
                 }
@@ -149,7 +149,7 @@ final class ScriptSimulationPluginTest {
                     frames.push(frame);
                     if (frames.length === 4) {
                         var unit = commandCenter.getUnit();
-                        game.print('ES frames ' + frames.join(' ') + ', center ' + (unit === game.findUnit({type: UnitType.TerranCommandCenter})) +
+                        game.print('ES frames ' + frames.join(' ') + ', center ' + (unit === game.units.findOne({type: UnitType.TerranCommandCenter})) +
                                    ' ' + unit.exists() + ' ' + commandCenter.getOwner().isHuman() + ' ' + commandCenter.getFrame());
                     }
                 }
@@ -176,7 +176,7 @@ final class ScriptSimulationPluginTest {
                 function afterSpawn(frame) {
                     if (frame === spawnFrame) {
                         zergling.setHp(1);
-                        victim = game.createUnit(UnitType.TerranMarine, human, marine.getPosition());
+                        victim = game.units.create(UnitType.TerranMarine, human, marine.getPosition());
                         victim.kill();
                     }
                 }
@@ -316,15 +316,15 @@ final class ScriptSimulationPluginTest {
                         return;
                     }
                     var writes = [
-                        function () { game.setSwitch(0, true); },
-                        function () { game.setCountdownTimer(30); },
-                        function () { human.setDeaths(UnitType.TerranMarine, 1); },
-                        function () { human.setScore(ScoreType.Custom, 1); },
-                        function () { computer.killUnits(UnitType.ZergDrone); },
+                        function () { game.switches.set(0, true); },
+                        function () { game.countdown.set(30); },
+                        function () { human.deaths.set(UnitType.TerranMarine, 1); },
+                        function () { human.score.set(ScoreType.Custom, 1); },
+                        function () { computer.units.kill(UnitType.ZergDrone); },
                         function () { human.setAlliance(computer, Alliance.Ally); },
                         function () { computer.runAiScript('EnBk'); },
                         function () { human.setMissionObjectives('Objectives'); },
-                        function () { game.showGreedLeaderboard(10); },
+                        function () { game.leaderboard.showGreed(10); },
                         function () { zergling.disableDoodad(); }
                     ];
                     refused = writes.filter(function (write) {
@@ -337,15 +337,15 @@ final class ScriptSimulationPluginTest {
                     }).length + '/' + writes.length;
                     human.pingMinimap(marine.getPosition());
                     human.print('a decision text');
-                    human.getDeaths(UnitType.TerranMarine);
-                    human.countUnits(UnitType.TerranMarine);
+                    human.deaths.get(UnitType.TerranMarine);
+                    human.units.count(UnitType.TerranMarine);
                     displayed = true;
                 }
                 function onUnitDamaged(event) {
                     if (event.getUnit() === zergling && !printed) {
                         printed = true;
-                        game.print('ES refused ' + refused + ' ' + displayed + ' ' + game.isSwitchSet(0) + ' ' + game.getCountdownTimer() + ' ' +
-                                   human.getDeaths(UnitType.TerranMarine) + ' ' + computer.countUnits(UnitType.ZergDrone));
+                        game.print('ES refused ' + refused + ' ' + displayed + ' ' + game.switches.isSet(0) + ' ' + game.countdown.get() + ' ' +
+                                   human.deaths.get(UnitType.TerranMarine) + ' ' + computer.units.count(UnitType.ZergDrone));
                     }
                 }
                 """);
@@ -372,12 +372,12 @@ final class ScriptSimulationPluginTest {
                         digest = (digest * 31 + text.charCodeAt(index)) | 0;
                     }
                     for (var bit = 0; bit < DIGEST_BITS; bit++) {
-                        game.setSwitch(bit, (digest >>> bit & 1) === 1);
+                        game.switches.set(bit, (digest >>> bit & 1) === 1);
                     }
-                    game.setSwitch(DIGEST_BITS + count++, true);
+                    game.switches.set(DIGEST_BITS + count++, true);
                 });
                 function onStart() {
-                    human = game.getHumanPlayers()[0];
+                    human = game.players.getHumans()[0];
                     channel.send({start: [1, 'two', true, null]});
                     game.print('ES started');
                 }
@@ -440,8 +440,8 @@ final class ScriptSimulationPluginTest {
                     return units.map(function (unit) { return unit.getId(); }).join(',');
                 }
                 function onStart() {
-                    human = game.getHumanPlayers()[0];
-                    computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
+                    human = game.players.getHumans()[0];
+                    computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
                 }
                 function onFrame(frame) {
                     var selection = human.getSelection();
@@ -452,10 +452,10 @@ final class ScriptSimulationPluginTest {
                     }
                     if (selection.length === 4 && !set) {
                         set = true;
-                        var scvs = game.findUnits({type: UnitType.TerranSCV, owner: human});
-                        var center = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
-                        var neutral = game.findUnit(function (unit) { return unit.getOwner().getId() === 11; });
-                        var drones = game.findUnits({type: UnitType.ZergDrone, owner: computer});
+                        var scvs = game.units.find({type: UnitType.TerranSCV, owner: human});
+                        var center = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                        var neutral = game.units.findOne(function (unit) { return unit.getOwner().getId() === 11; });
+                        var drones = game.units.find({type: UnitType.ZergDrone, owner: computer});
                         var tooMany = 'none';
                         try {
                             human.setSelection(scvs.concat(scvs, scvs, scvs));
@@ -469,7 +469,7 @@ final class ScriptSimulationPluginTest {
                     }
                 }
                 function onLocalFrame(frame) {
-                    strings.setStatText(LOCAL_TEXT, 'local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
+                    display.strings.setStatText(LOCAL_TEXT, 'local ' + local.getPlayer() + ' ' + local.isReplay() + ' [' + describe(local.getSelection()) + ']');
                     if (local.isReplay() && local.getPlayer() === null && local.getSelection().length === 0) {
                         local.setScreenPosition(Position.of(64, 96));
                     }

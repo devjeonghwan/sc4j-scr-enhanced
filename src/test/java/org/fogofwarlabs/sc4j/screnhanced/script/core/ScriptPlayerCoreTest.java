@@ -46,24 +46,24 @@ final class ScriptPlayerCoreTest {
     void upgrade_levels_refresh_the_existing_units_and_technologies_change_their_state(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var human = game.getHumanPlayers()[0];
-                    var position = game.findUnit({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
-                    var vulture = game.createUnit(UnitType.TerranVulture, human, position);
+                    var human = game.players.getHumans()[0];
+                    var position = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
+                    var vulture = game.units.create(UnitType.TerranVulture, human, position);
                     var speed = vulture.getTopSpeed();
                     var thrusters = UpgradeType.IonThrusters;
-                    log.info(human.getUpgradeLevel(thrusters), human.getMaxUpgradeLevel(thrusters), human.isUpgradeInProgress(thrusters));
-                    human.setUpgradeLevel(thrusters, 1);
-                    log.info(human.getUpgradeLevel(thrusters), vulture.getTopSpeed() > speed, core.player.getUpgradeLevel(human.getId(), thrusters.getId()));
-                    human.setMaxUpgradeLevel(UpgradeType.TerranInfantryWeapons, 5);
-                    log.info(human.getMaxUpgradeLevel(UpgradeType.TerranInfantryWeapons), game.getPlayer(2).getMaxUpgradeLevel(UpgradeType.TerranInfantryWeapons));
-                    log.info(human.isTechResearched(TechType.StimPacks), human.isTechAvailable(TechType.Lockdown), human.isTechInProgress(TechType.StimPacks));
-                    human.setTechResearched(TechType.StimPacks, true);
-                    human.setTechAvailable(TechType.Lockdown, false);
-                    log.info(human.isTechResearched(TechType.StimPacks), human.isTechAvailable(TechType.Lockdown));
-                    human.setUnitAvailable(UnitType.TerranMarine, true);
-                    log.info(human.isUnitAvailable(UnitType.TerranMarine));
+                    log.info(human.upgrades.getLevel(thrusters), human.upgrades.getMaxLevel(thrusters), human.upgrades.isInProgress(thrusters));
+                    human.upgrades.setLevel(thrusters, 1);
+                    log.info(human.upgrades.getLevel(thrusters), vulture.getTopSpeed() > speed, core.player.getUpgradeLevel(human.getId(), thrusters.getId()));
+                    human.upgrades.setMaxLevel(UpgradeType.TerranInfantryWeapons, 5);
+                    log.info(human.upgrades.getMaxLevel(UpgradeType.TerranInfantryWeapons), game.players.get(2).upgrades.getMaxLevel(UpgradeType.TerranInfantryWeapons));
+                    log.info(human.techs.isResearched(TechType.StimPacks), human.techs.isAvailable(TechType.Lockdown), human.techs.isInProgress(TechType.StimPacks));
+                    human.techs.setResearched(TechType.StimPacks, true);
+                    human.techs.setAvailable(TechType.Lockdown, false);
+                    log.info(human.techs.isResearched(TechType.StimPacks), human.techs.isAvailable(TechType.Lockdown));
+                    human.units.setAvailable(UnitType.TerranMarine, true);
+                    log.info(human.units.isAvailable(UnitType.TerranMarine));
                     try {
-                        human.setUnitAvailable(UnitType.TerranMarine, false);
+                        human.units.setAvailable(UnitType.TerranMarine, false);
                     } catch (error) {
                         log.info(error.name);
                     }
@@ -80,21 +80,21 @@ final class ScriptPlayerCoreTest {
                 var human;
                 var frames = 0;
                 function onStart() {
-                    human = game.getHumanPlayers()[0];
+                    human = game.players.getHumans()[0];
                     var barracks = null;
-                    for (var x = 256; barracks === null && x < game.getMapWidth(); x += 256) {
-                        for (var y = 256; barracks === null && y < game.getMapHeight(); y += 256) {
-                            barracks = game.createUnit(UnitType.TerranBarracks, human, Position.of(x, y));
+                    for (var x = 256; barracks === null && x < game.map.getWidth(); x += 256) {
+                        for (var y = 256; barracks === null && y < game.map.getHeight(); y += 256) {
+                            barracks = game.units.create(UnitType.TerranBarracks, human, Position.of(x, y));
                         }
                     }
-                    log.info(barracks.getId(), human.isUnitAvailable(UnitType.TerranMarine));
-                    human.setUnitAvailable(UnitType.TerranMarine, false);
-                    log.info(human.isUnitAvailable(UnitType.TerranMarine));
+                    log.info(barracks.getId(), human.units.isAvailable(UnitType.TerranMarine));
+                    human.units.setAvailable(UnitType.TerranMarine, false);
+                    log.info(human.units.isAvailable(UnitType.TerranMarine));
                 }
                 function onFrame() {
                     frames++;
                     if (frames > 1) {
-                        human.setUnitAvailable(UnitType.TerranMarine, true);
+                        human.units.setAvailable(UnitType.TerranMarine, true);
                     }
                 }
                 """);
@@ -115,17 +115,20 @@ final class ScriptPlayerCoreTest {
     void players_read_and_change_resources_supply_and_alliances(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var humans = game.getHumanPlayers();
+                    var humans = game.players.getHumans();
                     var human = humans[0];
-                    var computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
-                    log.info(humans.length, human === game.getPlayer(human.getId()), human.getName(), human.getRace(), computer.isHuman(),
-                             computer.getRace(), game.getPlayers().length, game.getPlayer(12));
+                    var computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
+                    log.info(humans.length, human === game.players.get(human.getId()), human.getName(), human.getRace(), computer.isHuman(),
+                             computer.getRace(), game.players.getAll().length, game.players.get(12));
+                    log.info(human.upgrades === game.players.get(human.getId()).upgrades, human.deaths !== computer.deaths,
+                             human.units.getAll().length === game.units.count({owner: human}) && human.units.getAll().length > 0,
+                             human.units.getAll().every(function (unit) { return unit.getOwner() === human; }));
                     log.info(human.getMinerals(), human.getGas());
                     human.setMinerals(500);
                     human.addMinerals(25);
                     human.addGas(-10);
-                    core.player.setGas(game.getPlayer(11).getId(), 99);
-                    log.info(human.getMinerals(), human.getGas(), game.getPlayer(11).getGas());
+                    core.player.setGas(game.players.get(11).getId(), 99);
+                    log.info(human.getMinerals(), human.getGas(), game.players.get(11).getGas());
                     human.subtractMinerals(25);
                     human.subtractGas(5);
                     log.info(human.getMinerals(), human.getGas());
@@ -140,6 +143,7 @@ final class ScriptPlayerCoreTest {
                 """);
 
         Assertions.assertEquals(List.of("1 true tester 1 false 0 12 null",
+                                        "true true true true",
                                         "50 0",
                                         "525 -10 0",
                                         "500 -15",
@@ -166,9 +170,9 @@ final class ScriptPlayerCoreTest {
                 function onFrame() {
                     calls++;
                     if (calls === 2) {
-                        game.findUnit({type: UnitType.ZergHatchery}).getOwner().centerView(Position.of(64, 64));
+                        game.units.findOne({type: UnitType.ZergHatchery}).getOwner().centerView(Position.of(64, 64));
                     } else if (calls === 3) {
-                        game.getHumanPlayers()[0].centerView(Position.of(1000, 800));
+                        game.players.getHumans()[0].centerView(Position.of(1000, 800));
                     }
                 }
                 """);
@@ -198,31 +202,31 @@ final class ScriptPlayerCoreTest {
                 var human, computer;
                 var frames = 0;
                 function onStart() {
-                    human = game.getHumanPlayers()[0];
-                    computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
+                    human = game.players.getHumans()[0];
+                    computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
                     log.info(human.getId(), computer.getId());
-                    human.setDeaths(UnitType.TerranMarine, 7);
-                    human.addDeaths(UnitType.TerranMarine, 3);
-                    human.subtractDeaths(UnitType.TerranMarine, 4);
-                    computer.subtractDeaths(UnitType.ZergZergling, 4);
-                    log.info(human.getDeaths(UnitType.TerranMarine), core.player.getDeaths(human.getId(), UnitType.TerranMarine.getId()),
-                             computer.getDeaths(UnitType.ZergZergling), human.getDeaths(UnitGroup.Men));
-                    human.setScore(ScoreType.Custom, 50);
-                    human.addScore(ScoreType.Custom, 5);
-                    human.subtractScore(ScoreType.Kills, 1);
-                    log.info(human.getScore(ScoreType.Custom), human.getScore(ScoreType.Kills), human.getKills(UnitGroup.Men),
+                    human.deaths.set(UnitType.TerranMarine, 7);
+                    human.deaths.add(UnitType.TerranMarine, 3);
+                    human.deaths.subtract(UnitType.TerranMarine, 4);
+                    computer.deaths.subtract(UnitType.ZergZergling, 4);
+                    log.info(human.deaths.get(UnitType.TerranMarine), core.player.getDeaths(human.getId(), UnitType.TerranMarine.getId()),
+                             computer.deaths.get(UnitType.ZergZergling), human.deaths.get(UnitGroup.Men));
+                    human.score.set(ScoreType.Custom, 50);
+                    human.score.add(ScoreType.Custom, 5);
+                    human.score.subtract(ScoreType.Kills, 1);
+                    log.info(human.score.get(ScoreType.Custom), human.score.get(ScoreType.Kills), human.kills.get(UnitGroup.Men),
                              human.getResources(ResourceType.Minerals) === human.getMinerals(), human.getResources(ResourceType.MineralsAndGas));
-                    var everywhere = game.getLocation(0);
-                    everywhere.setBounds(0, 0, game.getMapWidth(), game.getMapHeight());
-                    log.info(human.countUnits(UnitType.TerranSCV), human.countUnits(UnitGroup.Buildings, {completed: true}),
-                             human.countUnits(UnitType.TerranSCV, {location: everywhere}), computer.countUnits(UnitType.ZergDrone),
+                    var everywhere = game.map.locations.get(0);
+                    everywhere.setBounds(0, 0, game.map.getWidth(), game.map.getHeight());
+                    log.info(human.units.count(UnitType.TerranSCV), human.units.count(UnitGroup.Buildings, {completed: true}),
+                             human.units.count(UnitType.TerranSCV, {location: everywhere}), computer.units.count(UnitType.ZergDrone),
                              human.countOpponents(), computer.countOpponents());
-                    human.removeUnits(UnitType.TerranSCV, {count: 1});
-                    human.killUnits(UnitType.TerranSCV, {location: everywhere, count: 2});
-                    computer.killUnits(UnitType.ZergDrone);
-                    log.info(human.countUnits(UnitType.TerranSCV));
+                    human.units.remove(UnitType.TerranSCV, {count: 1});
+                    human.units.kill(UnitType.TerranSCV, {location: everywhere, count: 2});
+                    computer.units.kill(UnitType.ZergDrone);
+                    log.info(human.units.count(UnitType.TerranSCV));
                     try {
-                        human.getDeaths(UnitType.TerranMarine.getGroundWeapon());
+                        human.deaths.get(UnitType.TerranMarine.getGroundWeapon());
                     } catch (error) {
                         log.info(error.name);
                     }
@@ -235,8 +239,8 @@ final class ScriptPlayerCoreTest {
                 function onFrame() {
                     frames++;
                     if (frames === 24) {
-                        log.info(human.countUnits(UnitType.TerranSCV), computer.countUnits(UnitType.ZergDrone), human.getDeaths(UnitType.TerranSCV),
-                                 computer.getDeaths(UnitType.ZergDrone), human.getDeaths(UnitGroup.Men));
+                        log.info(human.units.count(UnitType.TerranSCV), computer.units.count(UnitType.ZergDrone), human.deaths.get(UnitType.TerranSCV),
+                                 computer.deaths.get(UnitType.ZergDrone), human.deaths.get(UnitGroup.Men));
                     }
                 }
                 """);
@@ -266,20 +270,20 @@ final class ScriptPlayerCoreTest {
     void alliances_and_ai_scripts_take_the_trigger_routines(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var human = game.getHumanPlayers()[0];
-                    var computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
+                    var human = game.players.getHumans()[0];
+                    var computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
                     log.info(human.getAlliance(computer) === Alliance.Enemy, Alliance.AlliedVictory.getId(), String(Alliance.Ally));
                     human.setAlliance(computer, Alliance.AlliedVictory);
                     log.info(human.getAlliance(computer) === Alliance.AlliedVictory, computer.getAlliance(human) === Alliance.Enemy,
                              human.isAlliedWith(computer), human.countOpponents());
-                    log.info(human.runAiScript('EnBk'), human.runAiScript('TMCx'), computer.runAiScript('EnBk', game.getLocation(0)));
+                    log.info(human.runAiScript('EnBk'), human.runAiScript('TMCx'), computer.runAiScript('EnBk', game.map.locations.get(0)));
                     try {
                         human.runAiScript('EnB');
                     } catch (error) {
                         log.info(error.name);
                     }
                     try {
-                        game.getPlayer(8).setAlliance(human, Alliance.Ally);
+                        game.players.get(8).setAlliance(human, Alliance.Ally);
                     } catch (error) {
                         log.info(error.name);
                     }
@@ -298,12 +302,12 @@ final class ScriptPlayerCoreTest {
     void mission_objectives_register_each_text_once(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var human = game.getHumanPlayers()[0];
-                    var computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
+                    var human = game.players.getHumans()[0];
+                    var computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
                     human.setMissionObjectives('적 기지를 파괴하십시오.');
                     computer.setMissionObjectives('적 기지를 파괴하십시오.');
                     human.setMissionObjectives('적 기지를 파괴하십시오.');
-                    game.getPlayer(2).setMissionObjectives('');
+                    game.players.get(2).setMissionObjectives('');
                     try {
                         human.setMissionObjectives('a' + String.fromCharCode(0) + 'b');
                     } catch (error) {
@@ -330,8 +334,8 @@ final class ScriptPlayerCoreTest {
     void display_routines_show_for_the_local_player_only(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                 function onStart() {
-                    var human = game.getHumanPlayers()[0];
-                    var computer = game.findUnit({type: UnitType.ZergHatchery}).getOwner();
+                    var human = game.players.getHumans()[0];
+                    var computer = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
                     [computer, human].forEach(function (player) {
                         player.print('quiet', {forced: false});
                         player.pingMinimap(Position.of(320, 480));

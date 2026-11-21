@@ -39,18 +39,18 @@ final class ScriptGraphicsTest {
     private static final @NotNull String SCRIPT = """
             var marine, other, spawnFrame;
             function onFrame(frame) {
-                if (spawnFrame === undefined && game.findUnit({type: UnitType.TerranCommandCenter}) !== null) {
+                if (spawnFrame === undefined && game.units.findOne({type: UnitType.TerranCommandCenter}) !== null) {
                     spawnFrame = frame;
-                    var human = game.getHumanPlayers()[0];
-                    var commandCenter = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
-                    var directionX = commandCenter.getX() < game.getMapWidth() / 2 ? 1 : -1;
-                    var directionY = commandCenter.getY() < game.getMapHeight() / 2 ? 1 : -1;
+                    var human = game.players.getHumans()[0];
+                    var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                    var directionX = commandCenter.getX() < game.map.getWidth() / 2 ? 1 : -1;
+                    var directionY = commandCenter.getY() < game.map.getHeight() / 2 ? 1 : -1;
                     var x = commandCenter.getX() + 160 * directionX;
                     var y = commandCenter.getY() + 160 * directionY;
-                    marine = game.createUnit(UnitType.TerranMarine, human, Position.of(x, y));
-                    other = game.createUnit(UnitType.TerranMarine, human, Position.of(x + 48 * directionX, y));
-                    graphics.replaceImage(marine.getImageType(), {sd: resources.getGrp('units/marine.grp'), hd: resources.getAnim('units/marine.anim')});
-                    graphics.replaceUnitImage(other, {hd2: resources.getAnim('units/marine-hd2.anim')});
+                    marine = game.units.create(UnitType.TerranMarine, human, Position.of(x, y));
+                    other = game.units.create(UnitType.TerranMarine, human, Position.of(x + 48 * directionX, y));
+                    display.images.replace(marine.getImageType(), {sd: game.map.resources.getGrp('units/marine.grp'), hd: game.map.resources.getAnim('units/marine.anim')});
+                    display.images.replaceUnit(other, {hd2: game.map.resources.getAnim('units/marine-hd2.anim')});
                     game.print('ES replaced ' + marine.getImageType().getId() + ' ' + marine.getId() + ' ' + other.getId());
                 } else if (frame === spawnFrame + 3) {
                     other.remove();

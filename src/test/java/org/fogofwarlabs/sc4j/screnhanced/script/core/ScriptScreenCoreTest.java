@@ -81,7 +81,7 @@ final class ScriptScreenCoreTest {
     @Test
     void render_should_draw_each_space_in_call_order() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), """
-                var image = resources.getImage('ui/skull.png');
+                var image = game.map.resources.getImage('ui/skull.png');
                 function onRender(screen) {
                     screen.fillRectangle(1.5, 2.25, 10, 20, Color.fromRgba(1, 2, 3, 0.2));
                     screen.world.drawCircle(100.5, 200, 16, {color: Color.Red, thickness: 2});
@@ -246,10 +246,10 @@ final class ScriptScreenCoreTest {
     @Test
     void images_decode_once_and_know_their_size() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                var png = resources.getImage('ui/skull.png');
-                var dds = resources.getImage('ui/skull.dds');
-                log.info(png === resources.getImage('ui/skull.png'), png.getWidth(), png.getHeight(), dds.getWidth(), dds.getHeight(), png.getName());
-                log.info(error(function () { resources.getImage('ui/none.png'); }), error(function () { resources.getImage('ui/text.txt'); }),
+                var png = game.map.resources.getImage('ui/skull.png');
+                var dds = game.map.resources.getImage('ui/skull.dds');
+                log.info(png === game.map.resources.getImage('ui/skull.png'), png.getWidth(), png.getHeight(), dds.getWidth(), dds.getHeight(), png.getName());
+                log.info(error(function () { game.map.resources.getImage('ui/none.png'); }), error(function () { game.map.resources.getImage('ui/text.txt'); }),
                          error(function () { core.resources.getImageWidth(-1); }));
                 """, createResources());
 

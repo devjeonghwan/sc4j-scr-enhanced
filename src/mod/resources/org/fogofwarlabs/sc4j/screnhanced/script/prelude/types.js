@@ -39,7 +39,7 @@
     var FUNCTION_KEY_COUNT = 12;
     var MOUSE_BUTTON_NAMES = ['Left', 'Right', 'Middle'];
     var SCORE_TYPE_NAMES = ['Total', 'Units', 'Buildings', 'UnitsAndBuildings', 'Kills', 'Razings', 'KillsAndRazings', 'Custom'];
-    // Supply names only the supply icon of the console (console.setResourceIcon); the resource functions refuse it.
+    // Supply names only the supply icon of the console (display.console.setResourceIcon); the resource functions refuse it.
     var RESOURCE_TYPE_NAMES = ['Minerals', 'Gas', 'MineralsAndGas', 'Supply'];
     var ALLIANCE_NAMES = ['Enemy', 'Ally', 'AlliedVictory'];
     // The kinds of the records of core.local.getInputEvents and of the decide entry point, in the ids the runtime gives them.

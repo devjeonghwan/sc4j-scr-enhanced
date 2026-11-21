@@ -32,9 +32,9 @@ final class ScriptTerrainCoreTest {
     void terrain_reads_and_changes_tiles_in_both_layers(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startUseMapSettings(resources.getGameData(), """
                 function findTile(accept) {
-                    for (var tileY = 0; tileY < game.getMapTileHeight(); tileY++) {
-                        for (var tileX = 0; tileX < game.getMapTileWidth(); tileX++) {
-                            var tile = terrain.getTile(tileX, tileY);
+                    for (var tileY = 0; tileY < game.map.getTileHeight(); tileY++) {
+                        for (var tileX = 0; tileX < game.map.getTileWidth(); tileX++) {
+                            var tile = game.map.terrain.getTile(tileX, tileY);
                             if (accept(tile)) {
                                 return tile;
                             }
@@ -46,20 +46,20 @@ final class ScriptTerrainCoreTest {
                     var blocked = findTile(function (tile) { return !tile.isWalkable() && !tile.isPartiallyWalkable() && !tile.hasCreep(); });
                     var open = findTile(function (tile) { return tile.isWalkable() && tile.isBuildable() && !tile.isPartiallyWalkable(); });
                     log.info(blocked.getId(), open.getId());
-                    log.info(blocked !== open, blocked === tileset.getTile(blocked.getGroup(), blocked.getIndex()),
+                    log.info(blocked !== open, blocked === game.map.tileset.getTile(blocked.getGroup(), blocked.getIndex()),
                              blocked.getId() === (blocked.getGroup() << 4 | blocked.getIndex()), String(open) === 'Tile ' + open.getGroup() + ':' + open.getIndex(),
                              core.terrain.isTileWalkable(open.getId()), core.terrain.isTileBuildable(open.getId()), open.getElevation() >= 0,
-                             tileset.getId() === game.getTileset(), tileset.getGroupCount() === core.terrain.getTileGroupCount());
+                             game.map.tileset.getId() === game.map.tileset.getId(), game.map.tileset.getGroupCount() === core.terrain.getTileGroupCount());
                     core.terrain.setTile(1, 1, blocked.getId());
-                    terrain.setTile(2, 1, blocked);
-                    log.info(terrain.getTile(1, 1) === blocked, core.terrain.getTile(2, 1) === blocked.getId());
-                    var source = game.getLocation(3);
-                    var target = game.getLocation(4);
+                    game.map.terrain.setTile(2, 1, blocked);
+                    log.info(game.map.terrain.getTile(1, 1) === blocked, core.terrain.getTile(2, 1) === blocked.getId());
+                    var source = game.map.locations.get(3);
+                    var target = game.map.locations.get(4);
                     source.setBounds(64, 64, 128, 96);
                     target.setBounds(320, 320, 384, 352);
-                    terrain.fillTiles(source, open);
-                    terrain.copyTiles(source, target);
-                    log.info(terrain.getTile(10, 10) === open, terrain.getTile(11, 10) === open, terrain.getTile(12, 10) === open);
+                    game.map.terrain.fillTiles(source, open);
+                    game.map.terrain.copyTiles(source, target);
+                    log.info(game.map.terrain.getTile(10, 10) === open, game.map.terrain.getTile(11, 10) === open, game.map.terrain.getTile(12, 10) === open);
                 }
                 """);
 
@@ -106,18 +106,18 @@ final class ScriptTerrainCoreTest {
                 function onStart() {
                     var value = core.terrain.getTile(0, 0);
                     var missing = core.terrain.getTileGroupCount() * 16;
-                    var small = game.getLocation(3);
-                    var large = game.getLocation(4);
+                    var small = game.map.locations.get(3);
+                    var large = game.map.locations.get(4);
                     small.setBounds(0, 0, 32, 32);
                     large.setBounds(0, 0, 64, 32);
                     log.info(errorOf(function () { core.terrain.setTile(-1, 0, value); }),
-                             errorOf(function () { core.terrain.getTile(0, game.getMapTileHeight()); }),
+                             errorOf(function () { core.terrain.getTile(0, game.map.getTileHeight()); }),
                              errorOf(function () { core.terrain.setTile(0, 0, missing); }),
                              errorOf(function () { core.terrain.isTileWalkable(missing); }),
-                             errorOf(function () { tileset.getTile(0, 16); }),
-                             errorOf(function () { tileset.getTile(core.terrain.getTileGroupCount(), 0); }),
-                             errorOf(function () { terrain.setTile(0, 0, value); }),
-                             errorOf(function () { terrain.copyTiles(small, large); }),
+                             errorOf(function () { game.map.tileset.getTile(0, 16); }),
+                             errorOf(function () { game.map.tileset.getTile(core.terrain.getTileGroupCount(), 0); }),
+                             errorOf(function () { game.map.terrain.setTile(0, 0, value); }),
+                             errorOf(function () { game.map.terrain.copyTiles(small, large); }),
                              core.terrain.isValidTile(-1), core.terrain.isValidTile(value));
                 }
                 """);

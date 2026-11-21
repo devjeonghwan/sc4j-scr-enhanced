@@ -40,19 +40,19 @@ final class ScriptDatCoreTest {
      */
     private static final @NotNull String CHANGES = """
             function onStart() {
-                var human = game.getHumanPlayers()[0];
-                var position = game.findUnit({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
+                var human = game.players.getHumans()[0];
+                var position = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
                 UnitType.TerranVulture.getFlingyType().setTopSpeed(2000);
                 UnitType.TerranMarine.setHitPoints(80 * 256);
-                var vulture = game.createUnit(UnitType.TerranVulture, human, position);
-                vulture.setEnsnareTimer(3);
+                var vulture = game.units.create(UnitType.TerranVulture, human, position);
+                vulture.timers.setEnsnare(3);
                 vulture.issueOrder(Order.Move, Position.of(position.getX() + 160, position.getY()));
-                var marine = game.createUnit(UnitType.TerranMarine, human, position);
-                marine.setLockdownTimer(2);
+                var marine = game.units.create(UnitType.TerranMarine, human, position);
+                marine.timers.setLockdown(2);
                 marine.setKillCount(4);
-                game.findUnit({type: UnitType.TerranSCV, owner: human}).setType(UnitType.TerranFirebat);
-                human.setUpgradeLevel(UpgradeType.IonThrusters, 1);
-                human.setTechResearched(TechType.StimPacks, true);
+                game.units.findOne({type: UnitType.TerranSCV, owner: human}).setType(UnitType.TerranFirebat);
+                human.upgrades.setLevel(UpgradeType.IonThrusters, 1);
+                human.techs.setResearched(TechType.StimPacks, true);
             }
             """;
     /**
@@ -222,19 +222,19 @@ final class ScriptDatCoreTest {
                 var maximumCooldown = 0;
                 var frames = 0;
                 function onStart() {
-                    human = game.getHumanPlayers()[0];
-                    commandCenter = game.findUnit({type: UnitType.TerranCommandCenter, owner: human});
+                    human = game.players.getHumans()[0];
+                    commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
                     UnitType.TerranSCV.setMineralCost(7);
                     human.setMinerals(100);
                     UnitType.TerranMarine.getGroundWeapon().setCooldown(100);
                     var flingy = UnitType.TerranVulture.getFlingyType();
                     var topSpeed = flingy.getTopSpeed();
-                    var vulture = game.createUnit(UnitType.TerranVulture, human, commandCenter.getPosition());
+                    var vulture = game.units.create(UnitType.TerranVulture, human, commandCenter.getPosition());
                     flingy.setTopSpeed(topSpeed * 2);
-                    var fastVulture = game.createUnit(UnitType.TerranVulture, human, commandCenter.getPosition());
+                    var fastVulture = game.units.create(UnitType.TerranVulture, human, commandCenter.getPosition());
                     log.info(commandCenter.getId(), vulture.getTopSpeed() === topSpeed, fastVulture.getTopSpeed() === topSpeed * 2);
-                    marine = game.createUnit(UnitType.TerranMarine, human, commandCenter.getPosition());
-                    marine.issueOrder(Order.AttackUnit, game.createUnit(UnitType.ZergZergling, game.getPlayer(1), marine.getPosition()));
+                    marine = game.units.create(UnitType.TerranMarine, human, commandCenter.getPosition());
+                    marine.issueOrder(Order.AttackUnit, game.units.create(UnitType.ZergZergling, game.players.get(1), marine.getPosition()));
                 }
                 function onFrame() {
                     frames++;

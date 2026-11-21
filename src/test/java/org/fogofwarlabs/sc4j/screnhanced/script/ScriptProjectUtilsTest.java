@@ -83,14 +83,21 @@ final class ScriptProjectUtilsTest {
      * The instances of the upper layer that the prelude makes over a stub {@code core}, by their interface.
      */
     private static final @NotNull Map<String, String> INSTANCES = Map.ofEntries(
-            Map.entry("Player", "game.getPlayer(0)"),
-            Map.entry("Location", "game.getLocation(0)"),
-            Map.entry("Tile", "tileset.getTile(0, 0)"),
+            Map.entry("Player", "game.players.get(0)"),
+            Map.entry("PlayerUpgrades", "game.players.get(0).upgrades"),
+            Map.entry("PlayerTechs", "game.players.get(0).techs"),
+            Map.entry("PlayerUnits", "game.players.get(0).units"),
+            Map.entry("PlayerDeaths", "game.players.get(0).deaths"),
+            Map.entry("PlayerKills", "game.players.get(0).kills"),
+            Map.entry("PlayerScore", "game.players.get(0).score"),
+            Map.entry("Location", "game.map.locations.get(0)"),
+            Map.entry("Tile", "game.map.tileset.getTile(0, 0)"),
             Map.entry("Timer", "game.every(1, function () {})"),
-            Map.entry("Grp", "resources.getGrp('a.grp')"),
-            Map.entry("Anim", "resources.getAnim('a.anim')"),
+            Map.entry("Grp", "game.map.resources.getGrp('a.grp')"),
+            Map.entry("Anim", "game.map.resources.getAnim('a.anim')"),
             Map.entry("Position", "Position.of(1, 2)"),
             Map.entry("Unit", "prelude.createEvent(record(EventKind.UnitCreated.id)).getUnit()"),
+            Map.entry("UnitTimers", "prelude.createEvent(record(EventKind.UnitCreated.id)).getUnit().timers"),
             Map.entry("UnitType", "UnitType.get(0)"),
             Map.entry("WeaponType", "WeaponType.get(0)"),
             Map.entry("FlingyType", "FlingyType.get(0)"),
@@ -110,13 +117,13 @@ final class ScriptProjectUtilsTest {
             Map.entry("DecisionKind", "DecisionKind.get(0)"),
             Map.entry("Channel", "sync.createChannel(function () {})"),
             Map.entry("PlayerValue", "sync.createPlayerValue(0)"),
-            Map.entry("Image", "resources.getImage('a.png')"),
+            Map.entry("Image", "game.map.resources.getImage('a.png')"),
             Map.entry("Font", "Font.get(0)"),
             Map.entry("Align", "Align.get(0)"),
             Map.entry("GraphicsKind", "Graphics.get(0)"),
             Map.entry("ConsoleControl", "ConsoleControl.get(0)"),
             Map.entry("ConsoleImage", "ConsoleImage.get(0)"),
-            Map.entry("ConsoleControlHandle", "console.getControl(ConsoleControl.Minimap)")
+            Map.entry("ConsoleControlHandle", "display.console.getControl(ConsoleControl.Minimap)")
     );
     /**
      * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player, one location

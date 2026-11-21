@@ -903,7 +903,7 @@ interface CoreUnit {
      */
     issueOrder(unit: number, order: number, target: number, x: number, y: number): void;
     /**
-     * [A] The status timers in status steps of eight frames, with the native apply and end routines as {@link Unit.setLockdownTimer} has them.
+     * [A] The status timers in status steps of eight frames, with the native apply and end routines as {@link UnitTimers.setLockdown} has them.
      */
     getStimTimer(unit: number): number;
     /** [S] */

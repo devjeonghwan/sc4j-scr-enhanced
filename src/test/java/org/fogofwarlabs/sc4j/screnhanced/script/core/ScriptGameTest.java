@@ -33,6 +33,7 @@ final class ScriptGameTest {
      * An instruction budget far below the instructions of the prelude.
      */
     private static final int SMALL_INSTRUCTION_BUDGET = 20_000;
+    private static final int UNIT_CAPACITY = 16;
 
     private static @NotNull Game createGame() {
         return Game.create(null, new GameMap(MAP_TILE_WIDTH, MAP_TILE_HEIGHT, MAP_TILESET, new int[MAP_TILE_WIDTH * MAP_TILE_HEIGHT]),
@@ -100,12 +101,95 @@ final class ScriptGameTest {
         game.storeCurrentFrame(7);
 
         ScriptGameScenario scenario = start(game, """
-                log.info(game.getFrame(), game.getMapTileWidth(), game.getMapTileHeight(), game.getMapWidth(), game.getMapHeight(),
-                         game.getTileset(), Time.fromSeconds(10), Time.fromMinutes(1), Time.fromSeconds(0.53), Time.fromMilliseconds(1000),
+                log.info(game.getFrame(), game.map.getTileWidth(), game.map.getTileHeight(), game.map.getWidth(), game.map.getHeight(),
+                         game.map.tileset.getId(), Time.fromSeconds(10), Time.fromMinutes(1), Time.fromSeconds(0.53), Time.fromMilliseconds(1000),
                          Time.fromMilliseconds(21), core.game.getFrameDuration());
                 """);
 
         Assertions.assertEquals(List.of("7 4 3 128 96 2 160 960 8 24 1 42"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void the_globals_group_the_game_and_the_display() throws IOException {
+        ScriptGameScenario scenario = start(createGame(), """
+                var scope = this;
+                log.info(['game', 'local', 'display', 'sync', 'log', 'random', 'UnitType', 'Color'].every(function (name) {
+                    return typeof scope[name] === 'object';
+                }), ['tileset', 'terrain', 'resources', 'graphics', 'console', 'strings', 'messages'].filter(function (name) {
+                    return name in scope;
+                }).join(' '));
+                log.info(Object.keys(game).join(' '));
+                log.info(Object.keys(game.map).join(' '));
+                log.info(Object.keys(display).join(' '));
+                log.info(typeof game.getPlayer, typeof game.getMapWidth, typeof game.findUnits, typeof game.setSwitch, typeof game.getCountdownTimer,
+                         typeof game.showGreedLeaderboard);
+                log.info(game.map === game.map, game.map.tileset === game.map.tileset, game.players === game.players,
+                         display.images === display.images, Object.isFrozen(game.map), Object.isFrozen(game.units), Object.isFrozen(game.countdown),
+                         Object.isFrozen(display.console));
+                """);
+
+        Assertions.assertEquals(List.of("true ",
+                                        "getFrame getElapsedTime isReadOnly print every map players units switches countdown leaderboard",
+                                        "getWidth getHeight getTileWidth getTileHeight tileset terrain locations resources",
+                                        "console strings messages images",
+                                        "undefined undefined undefined undefined undefined undefined",
+                                        "true true true true true true true true"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void players_and_units_are_found_through_their_groups() throws IOException {
+        Game game = createGame();
+
+        game.getUnitSystem().initializeUnitPool(UNIT_CAPACITY);
+
+        ScriptGameScenario scenario = start(game, """
+                var first = game.players.get(0);
+                log.info(first === game.players.get(0), game.players.getAll().length, game.players.getAll()[3] === game.players.get(3),
+                         game.players.get(12), game.players.get(-1));
+                log.info(game.units.getAll().length, game.units.count(), game.units.findOne(), game.units.get(1), game.units.find({owner: first}).length);
+                """);
+
+        Assertions.assertEquals(List.of("true 12 true null null",
+                                        "0 0 null null 0"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void player_groups_are_made_once_per_player() throws IOException {
+        ScriptGameScenario scenario = start(createGame(), """
+                var first = game.players.get(0);
+                var second = game.players.get(1);
+                var names = ['upgrades', 'techs', 'units', 'deaths', 'kills', 'score'];
+                var groups = [];
+                for (var name in first) {
+                    if (names.indexOf(name) >= 0) {
+                        groups.push(name);
+                    }
+                }
+                log.info(groups.join(' '), Object.getOwnPropertyNames(first).length);
+                log.info(names.every(function (name) {
+                    return first[name] === game.players.get(0)[name] && first[name] !== second[name] && Object.isFrozen(first[name]);
+                }), groups.join(' ') === names.join(' '));
+                log.info(typeof first.upgrades.getLevel, typeof first.techs.isResearched, typeof first.units.count, typeof first.deaths.add,
+                         typeof first.kills.get, typeof first.score.subtract, typeof first.getDeaths, typeof first.countUnits,
+                         typeof first.getUpgradeLevel);
+                try {
+                    first.upgrades = null;
+                } catch (error) {
+                    log.info(error.name);
+                }
+                log.info(first.upgrades === game.players.get(0).upgrades);
+                try {
+                    first.deaths.get(ScoreType.Custom);
+                } catch (error) {
+                    log.info(error.name);
+                }
+                """);
+
+        Assertions.assertEquals(List.of("upgrades techs units deaths kills score 1",
+                                        "true true",
+                                        "function function function function function function undefined undefined undefined",
+                                        "true",
+                                        "TypeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 
     @Test
@@ -193,29 +277,29 @@ final class ScriptGameTest {
         Game game = createGame();
         ScriptGameScenario scenario = new ScriptGameScenario(game, """
                 var writes = {
-                    switch: function () { game.setSwitch(0, true); },
-                    toggle: function () { game.toggleSwitch(0); },
-                    countdown: function () { game.setCountdownTimer(5); },
-                    add: function () { game.addCountdownTimer(5); },
-                    subtract: function () { game.subtractCountdownTimer(5); },
-                    pause: function () { game.pauseCountdownTimer(); },
-                    resume: function () { game.resumeCountdownTimer(); },
-                    deaths: function () { game.getPlayer(0).setDeaths(UnitType.TerranMarine, 1); },
-                    addDeaths: function () { game.getPlayer(0).addDeaths(UnitGroup.Men, 1); },
-                    subtractDeaths: function () { game.getPlayer(0).subtractDeaths(UnitType.TerranMarine, 1); },
-                    score: function () { game.getPlayer(0).setScore(ScoreType.Custom, 1); },
-                    addScore: function () { game.getPlayer(0).addScore(ScoreType.Custom, 1); },
-                    subtractScore: function () { game.getPlayer(0).subtractScore(ScoreType.Custom, 1); },
-                    kill: function () { game.getPlayer(0).killUnits(UnitGroup.AnyUnit); },
-                    remove: function () { game.getPlayer(0).removeUnits(UnitGroup.AnyUnit); },
-                    alliance: function () { game.getPlayer(0).setAlliance(game.getPlayer(1), Alliance.Ally); },
-                    script: function () { game.getPlayer(0).runAiScript('EnBk'); },
+                    switch: function () { game.switches.set(0, true); },
+                    toggle: function () { game.switches.toggle(0); },
+                    countdown: function () { game.countdown.set(5); },
+                    add: function () { game.countdown.add(5); },
+                    subtract: function () { game.countdown.subtract(5); },
+                    pause: function () { game.countdown.pause(); },
+                    resume: function () { game.countdown.resume(); },
+                    deaths: function () { game.players.get(0).deaths.set(UnitType.TerranMarine, 1); },
+                    addDeaths: function () { game.players.get(0).deaths.add(UnitGroup.Men, 1); },
+                    subtractDeaths: function () { game.players.get(0).deaths.subtract(UnitType.TerranMarine, 1); },
+                    score: function () { game.players.get(0).score.set(ScoreType.Custom, 1); },
+                    addScore: function () { game.players.get(0).score.add(ScoreType.Custom, 1); },
+                    subtractScore: function () { game.players.get(0).score.subtract(ScoreType.Custom, 1); },
+                    kill: function () { game.players.get(0).units.kill(UnitGroup.AnyUnit); },
+                    remove: function () { game.players.get(0).units.remove(UnitGroup.AnyUnit); },
+                    alliance: function () { game.players.get(0).setAlliance(game.players.get(1), Alliance.Ally); },
+                    script: function () { game.players.get(0).runAiScript('EnBk'); },
                     scriptAt: function () { core.player.runAiScriptAt(0, 0, 0); },
-                    objectives: function () { game.getPlayer(0).setMissionObjectives('Objectives'); },
-                    leaderboard: function () { game.showKillsLeaderboard('Kills', UnitGroup.Men); },
+                    objectives: function () { game.players.get(0).setMissionObjectives('Objectives'); },
+                    leaderboard: function () { game.leaderboard.showKills('Kills', UnitGroup.Men); },
                     leaderboardAt: function () { core.leaderboard.showAt(18, 0, 0, 0, 'Here'); },
-                    greed: function () { game.showGreedLeaderboard(10); },
-                    computers: function () { game.setLeaderboardComputersIncluded(true); },
+                    greed: function () { game.leaderboard.showGreed(10); },
+                    computers: function () { game.leaderboard.setComputersIncluded(true); },
                     resources: function () { core.unit.setResources(1, 5); },
                     hangar: function () { core.unit.addHangarCount(1, 1); },
                     enable: function () { core.unit.enableDoodad(1); },
@@ -255,26 +339,26 @@ final class ScriptGameTest {
                 var frames = 0;
                 var started;
                 function onStart() {
-                    log.info(game.isSwitchSet(3), game.isSwitchSet(4), game.getCountdownTimer(), game.isCountdownTimerPaused());
-                    game.setSwitch(3, true);
-                    game.toggleSwitch(4);
-                    game.toggleSwitch(3);
-                    log.info(game.isSwitchSet(3), game.isSwitchSet(4), core.game.isSwitchSet(4));
-                    game.setCountdownTimer(100);
-                    game.addCountdownTimer(10);
-                    game.subtractCountdownTimer(5);
-                    log.info(game.getCountdownTimer());
-                    game.subtractCountdownTimer(1000);
-                    log.info(game.getCountdownTimer());
-                    game.setCountdownTimer(400000);
-                    log.info(game.getCountdownTimer());
-                    game.setCountdownTimer(60);
-                    game.pauseCountdownTimer();
-                    log.info(game.isCountdownTimerPaused());
-                    game.resumeCountdownTimer();
+                    log.info(game.switches.isSet(3), game.switches.isSet(4), game.countdown.get(), game.countdown.isPaused());
+                    game.switches.set(3, true);
+                    game.switches.toggle(4);
+                    game.switches.toggle(3);
+                    log.info(game.switches.isSet(3), game.switches.isSet(4), core.game.isSwitchSet(4));
+                    game.countdown.set(100);
+                    game.countdown.add(10);
+                    game.countdown.subtract(5);
+                    log.info(game.countdown.get());
+                    game.countdown.subtract(1000);
+                    log.info(game.countdown.get());
+                    game.countdown.set(400000);
+                    log.info(game.countdown.get());
+                    game.countdown.set(60);
+                    game.countdown.pause();
+                    log.info(game.countdown.isPaused());
+                    game.countdown.resume();
                     started = game.getElapsedTime();
                     try {
-                        game.setSwitch(256, true);
+                        game.switches.set(256, true);
                     } catch (error) {
                         log.info(error.name);
                     }
@@ -282,7 +366,7 @@ final class ScriptGameTest {
                 function onFrame() {
                     frames++;
                     if (frames === 48) {
-                        log.info(game.getCountdownTimer(), game.getElapsedTime() - started, game.isCountdownTimerPaused());
+                        log.info(game.countdown.get(), game.getElapsedTime() - started, game.countdown.isPaused());
                     }
                 }
                 """);

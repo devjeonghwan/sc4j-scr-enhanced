@@ -21,11 +21,14 @@
     var ALPHA_FACTOR = 0x1000000;
     var RED_SHIFT = 16;
     var GREEN_SHIFT = 8;
+    // The hidden field of an object that keeps its group objects (defineGroup).
+    var GROUPS_FIELD = 'groups';
 
     var create = Object.create;
     var freeze = Object.freeze;
     var defineProperty = Object.defineProperty;
     var getPrototypeOf = Object.getPrototypeOf;
+    var isExtensible = Object.isExtensible;
 
     // Whether the running entry point is local code: localFrame, render and localInput set it, frame and decide clear it.
     var execution = {local: false};
@@ -46,6 +49,35 @@
         }
 
         return object;
+    }
+
+    // Defines a group of an object's methods under a name of its prototype: a read-only, enumerable property whose group object, of the
+    // group's prototype with the object as its hidden field owner, is made at the first read and kept in the object's hidden field groups, so
+    // that one object always has the same group object.
+    function defineGroup(prototype, name, groupPrototype) {
+        defineProperty(prototype, name, {
+            enumerable: true,
+            get: function () {
+                var groups = this[GROUPS_FIELD];
+
+                if (groups === undefined) {
+                    groups = {};
+
+                    if (isExtensible(this)) {
+                        defineProperty(this, GROUPS_FIELD, {value: groups});
+                    }
+                }
+
+                var group = groups[name];
+
+                if (group === undefined) {
+                    group = freeze(createObject(groupPrototype, {owner: this}));
+                    groups[name] = group;
+                }
+
+                return group;
+            }
+        });
     }
 
     function isObjectOf(value, prototype) {
@@ -254,6 +286,7 @@
             execution: execution,
             requireShared: requireShared,
             createObject: createObject,
+            defineGroup: defineGroup,
             isObjectOf: isObjectOf,
             requireObject: requireObject,
             readOptions: readOptions,

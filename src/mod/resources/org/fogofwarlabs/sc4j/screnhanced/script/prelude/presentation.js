@@ -1,6 +1,6 @@
-// The presentation of the upper layer: the globals resources, graphics, ConsoleControl, ConsoleImage, console, strings and messages, and the
-// Grp, Anim, Image and console control objects they return. Shared code changes the presentation on every peer, local code only on the local
-// machine.
+// The presentation of the upper layer: the globals display (display.console, display.strings, display.messages and display.images),
+// ConsoleControl and ConsoleImage, and the console control objects they return. Shared code changes the presentation on every peer, local
+// code only on the local machine.
 (function (core, prelude) {
     'use strict';
 
@@ -13,6 +13,9 @@
     var resourceTypePrototype = prelude.resourceTypePrototype;
     var ResourceType = prelude.ResourceType;
     var requireUnitId = prelude.requireUnitId;
+    var grpPrototype = prelude.grpPrototype;
+    var animPrototype = prelude.animPrototype;
+    var imagePrototype = prelude.imagePrototype;
 
     var create = Object.create;
     var freeze = Object.freeze;
@@ -21,42 +24,6 @@
     var MINERAL_ICONS = [0];
     var GAS_ICONS = [1, 2, 3];
     var SUPPLY_ICONS = [4, 5, 6];
-
-    var resourcePrototype = {
-        getId: function () {
-            return this.id;
-        },
-        getName: function () {
-            return this.name;
-        },
-        toString: function () {
-            return this.name;
-        }
-    };
-    var grpPrototype = create(resourcePrototype);
-    var animPrototype = create(resourcePrototype);
-    var imagePrototype = create(resourcePrototype);
-    var resourceHandles = [];
-
-    // The pixel size of an image.
-    imagePrototype.getWidth = function () {
-        return core.resources.getImageWidth(this.id);
-    };
-    imagePrototype.getHeight = function () {
-        return core.resources.getImageHeight(this.id);
-    };
-
-    // Returns the object of a resource handle: one object per handle id.
-    function getResource(id, name, prototype) {
-        var resource = resourceHandles[id];
-
-        if (resource === undefined) {
-            resource = freeze(createObject(prototype, {id: id, name: name}));
-            resourceHandles[id] = resource;
-        }
-
-        return resource;
-    }
 
     function readResourceId(resource, prototype, kind) {
         return resource === undefined || resource === null ? NONE : requireObject(resource, prototype, kind).id;
@@ -81,48 +48,27 @@
         return requireObject(imageType, imageTypePrototype, 'An image type').id;
     }
 
-    var resources = freeze({
-        has: function (name) {
-            return core.resources.has(String(name));
-        },
-        getGrp: function (name) {
-            var text = String(name);
-
-            return getResource(core.resources.getGrp(text), text, grpPrototype);
-        },
-        getAnim: function (name) {
-            var text = String(name);
-
-            return getResource(core.resources.getAnim(text), text, animPrototype);
-        },
-        // A PNG or DDS picture to draw (screen.drawImage) or to show on the console.
-        getImage: function (name) {
-            var text = String(name);
-
-            return getResource(core.resources.getImage(text), text, imagePrototype);
-        }
-    });
-
-    var graphics = freeze({
+    // The graphics of the images of the game.
+    var imageGraphics = freeze({
         // Replaces the graphics of every image of an image type with {sd: a GRP, hd: an HD anim, hd2: an HD2 anim}.
-        replaceImage: function (imageType, images) {
+        replace: function (imageType, images) {
             var imageTypeId = requireObject(imageType, imageTypePrototype, 'An image type').id;
             var ids = readGraphicsIds(images);
 
             core.graphics.replaceImage(imageTypeId, ids[0], ids[1], ids[2]);
         },
-        restoreImage: function (imageType) {
+        restore: function (imageType) {
             core.graphics.restoreImage(requireObject(imageType, imageTypePrototype, 'An image type').id);
         },
         // Replaces the graphics of a unit's images of an image type, by default that of its main image now, while the unit lives.
-        replaceUnitImage: function (unit, images, imageType) {
+        replaceUnit: function (unit, images, imageType) {
             var id = requireUnitId(unit);
             var imageTypeId = readUnitImageType(unit, imageType);
             var ids = readGraphicsIds(images);
 
             core.graphics.replaceUnitImage(id, imageTypeId, ids[0], ids[1], ids[2]);
         },
-        restoreUnitImage: function (unit, imageType) {
+        restoreUnit: function (unit, imageType) {
             core.graphics.restoreUnitImage(requireUnitId(unit), readUnitImageType(unit, imageType));
         }
     });
@@ -222,21 +168,21 @@
         }
     });
 
-    [resourcePrototype, grpPrototype, animPrototype, imagePrototype, consoleControlPrototype, consoleImagePrototype,
-     consoleControlObjectPrototype].forEach(freeze);
+    var display = freeze({
+        console: gameConsole,
+        strings: strings,
+        messages: messages,
+        images: imageGraphics
+    });
+
+    [consoleControlPrototype, consoleImagePrototype, consoleControlObjectPrototype].forEach(freeze);
 
     return {
         exports: {
-            resources: resources,
-            graphics: graphics,
             ConsoleControl: ConsoleControl,
             ConsoleImage: ConsoleImage,
-            console: gameConsole,
-            strings: strings,
-            messages: messages
+            display: display
         },
-        shared: {
-            imagePrototype: imagePrototype
-        }
+        shared: {}
     };
 });

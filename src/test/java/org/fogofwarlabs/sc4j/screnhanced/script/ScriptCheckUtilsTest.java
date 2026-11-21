@@ -97,7 +97,7 @@ final class ScriptCheckUtilsTest {
                                 check(folder, withManifest("class.js", "class Marine {}\n",
                                                            "async.js", "var x = 1;\nasync function load() {}\n",
                                                            "spread.js", "log.info(...[1, 2]);\n",
-                                                           "const.js", "for (const unit of game.getUnits()) {}\n",
+                                                           "const.js", "for (const unit of game.units.getAll()) {}\n",
                                                            "export.js", "export var size = 1;\n",
                                                            "rest.js", "function sum(...values) {\n    return values.length;\n}\n")));
     }
@@ -194,7 +194,7 @@ final class ScriptCheckUtilsTest {
                                             while (game.getFrame() < 0) {
                                                 { const next = 1; log.info(next); }
                                             }
-                                            game.getUnits().forEach(function (unit) {
+                                            game.units.getAll().forEach(function (unit) {
                                                 const hp = unit.getHp();
                                                 log.info(hp);
                                             });
@@ -213,7 +213,7 @@ final class ScriptCheckUtilsTest {
                                             for (let index = 0; index < 3; index++) {
                                                 game.every(1, function () { log.info(index); });
                                             }
-                                            for (let unit of game.getUnits()) {
+                                            for (let unit of game.units.getAll()) {
                                                 game.every(1, () => unit.kill());
                                             }
                                             for (let other = 0; other < 3; other++) {
