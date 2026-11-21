@@ -83,7 +83,7 @@ final class ScriptScreenCoreTest {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), """
                 var image = resources.getImage('ui/skull.png');
                 function onRender(screen) {
-                    screen.fillRectangle(1.5, 2.25, 10, 20, Color.fromRgba(1, 2, 3, 4));
+                    screen.fillRectangle(1.5, 2.25, 10, 20, Color.fromRgba(1, 2, 3, 0.2));
                     screen.world.drawCircle(100.5, 200, 16, {color: Color.Red, thickness: 2});
                     screen.drawText('\\x04Hi\\nthere', 320, 10, {font: Font.Large, align: Align.Center});
                     screen.minimap.fillCircle(64, 64, 8, Color.Green);
@@ -105,7 +105,7 @@ final class ScriptScreenCoreTest {
 
         ScrDrawList list = runtime.findDrawList();
 
-        Assertions.assertEquals(List.of("fillRectangle 1.5 2.25 10.0 20.0 4010203",
+        Assertions.assertEquals(List.of("fillRectangle 1.5 2.25 10.0 20.0 33010203",
                                         "drawText \u0004Hi\nthere 320.0 10.0 LARGE CENTER ffffffff",
                                         "drawPicture 2x1 5.0 6.0 2.0 1.0 0.5",
                                         "drawPoint 3.0 4.0 ff000000",
@@ -229,7 +229,7 @@ final class ScriptScreenCoreTest {
     @Test
     void colors_fonts_alignments_and_console_constants_have_their_values() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
-                log.info(Color.White === 0xFFFFFFFF, Color.fromRgba(1, 2, 3, 4) === 0x04010203, Color.fromRgb(255, 0, 0) === Color.Red,
+                log.info(Color.White === 0xFFFFFFFF, Color.fromRgba(1, 2, 3, 0.2) === 0x33010203, Color.fromRgb(255, 0, 0) === Color.Red,
                          Color.Transparent, error(function () { Color.fromRgb(256, 0, 0); }), error(function () { Color.fromRgb(0.5, 0, 0); }),
                          error(function () { Color.fromPalette(1); }));
                 log.info(Font.Small.getId(), Font.Huge.getId(), Font.getCount(), Align.Left.getId(), Align.Right.getId(), Graphics.SD.getId(),

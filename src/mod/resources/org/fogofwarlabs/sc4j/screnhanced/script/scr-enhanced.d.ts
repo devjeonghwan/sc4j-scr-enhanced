@@ -2610,6 +2610,9 @@ interface ColorStatic {
      * @returns the opaque colour; a channel is an integer from 0 to 255, else it throws a RangeError
      */
     fromRgb(red: number, green: number, blue: number): Color;
+    /**
+     * @returns the colour; red, green and blue are integers from 0 to 255 and alpha is the opacity from 0 to 1, else it throws a RangeError
+     */
     fromRgba(red: number, green: number, blue: number, alpha: number): Color;
     /**
      * @returns the opaque colour of a palette index of the map's tileset palette

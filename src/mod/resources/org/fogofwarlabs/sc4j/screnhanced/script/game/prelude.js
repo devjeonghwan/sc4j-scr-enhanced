@@ -1815,6 +1815,17 @@
         return channel;
     }
 
+    // The alpha is the opacity from 0 to 1, like the opacity of drawn images; it is stored rounded to a byte.
+    function readAlpha(value) {
+        var alpha = Number(value);
+
+        if (!(alpha >= 0 && alpha <= 1)) {
+            throw new RangeError('The alpha is a number from 0 to 1, not ' + value + '.');
+        }
+
+        return Math.round(alpha * MAXIMUM_CHANNEL);
+    }
+
     var Color = freeze({
         Transparent: 0x00000000,
         Black: 0xFF000000,
@@ -1828,10 +1839,10 @@
         Magenta: 0xFFFF00FF,
         Orange: 0xFFFFA500,
         fromRgb: function (red, green, blue) {
-            return Color.fromRgba(red, green, blue, MAXIMUM_CHANNEL);
+            return Color.fromRgba(red, green, blue, 1);
         },
         fromRgba: function (red, green, blue, alpha) {
-            return readChannel(alpha, 'alpha') * ALPHA_FACTOR +
+            return readAlpha(alpha) * ALPHA_FACTOR +
                    (readChannel(red, 'red') << RED_SHIFT | readChannel(green, 'green') << GREEN_SHIFT | readChannel(blue, 'blue'));
         },
         // The colour of a palette index of the map's tileset palette, opaque.
