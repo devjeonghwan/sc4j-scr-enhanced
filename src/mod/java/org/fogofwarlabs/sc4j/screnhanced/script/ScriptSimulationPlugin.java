@@ -7,6 +7,8 @@ import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettingsSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
@@ -26,9 +28,10 @@ import org.jetbrains.annotations.NotNull;
  * {@link ScriptInputPlugin} sends those of the local hooks at once.
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
- * forgets the replacements of units whose slot was freed. A game the plugin runs cannot be saved: a saved game would lose the script's state.
+ * forgets the replacements of units whose slot was freed. The classic console of the game merges the console settings of the script
+ * ({@link #getConsoleSettings()}). A game the plugin runs cannot be saved: a saved game would lose the script's state.
  */
-public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageReplacementSource {
+public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageReplacementSource, ConsoleSettingsSource {
     private final @NotNull Game game;
     private final @NotNull ScriptRuntime runtime;
 
@@ -63,6 +66,14 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     @Override
     public @NotNull ImageReplacements getImageReplacements() {
         return this.runtime.getImageReplacements();
+    }
+
+    /**
+     * @return the console settings of the plugin, the same instance for the whole game
+     */
+    @Override
+    public @NotNull ConsoleSettings getConsoleSettings() {
+        return this.runtime.getConsoleSettings();
     }
 
 

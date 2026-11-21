@@ -122,6 +122,24 @@ final class ScriptCoreUtils {
         return values;
     }
 
+    /**
+     * Reads a number argument.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the number as a float
+     * @throws EcmaError if the argument is missing or not a finite number
+     */
+    static float readNumber(@NotNull Object @NotNull [] arguments, int index) {
+        double value = index < arguments.length && arguments[index] instanceof Number number ? number.doubleValue() : Double.NaN;
+
+        if (!Double.isFinite(value)) {
+            throw ScriptRuntime.typeError(Exceptions.format("Argument {0} is not a finite number.", index + 1));
+        }
+
+        return (float) value;
+    }
+
     private static boolean isInteger(double value) {
         return value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE && value == StrictMath.floor(value);
     }

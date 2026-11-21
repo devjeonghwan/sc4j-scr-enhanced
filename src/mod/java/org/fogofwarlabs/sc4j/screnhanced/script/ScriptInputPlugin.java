@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script;
 
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrKeyInput;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
@@ -14,14 +15,15 @@ import java.util.function.Supplier;
 
 /**
  * Hands the local player's keys, mouse buttons and chat lines to the local hooks of the game's script ({@link ScriptRuntime#callLocalHook}),
- * and each frame the local machine plays to {@code onLocalFrame} ({@link ScriptRuntime#callLocalFrame}), then the channel commands that wait
- * to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}).
+ * and each frame the local machine plays to {@code onLocalFrame} ({@link ScriptRuntime#callLocalFrame}) and {@code onRender}
+ * ({@link ScriptRuntime#callRender}), then the channel commands that wait to the local player's outgoing turn
+ * ({@link ScriptRuntime#submitCommands}). The client draws what {@code onRender} drew last ({@link #findDrawList()}).
  * <p>
  * A key event has the map position under the pointer while the local view is known; a mouse button event has the map position under the
  * pointer. An input that a hook consumes reaches neither the later plugins nor the game; the consumption of a release has no effect.
  * <p>
- * A game without a submitter (a replay, or a local observer) calls no input hook and consumes nothing, but calls {@code onLocalFrame}, whose
- * channel commands are dropped. A game without a script calls no local hook.
+ * A game without a submitter (a replay, or a local observer) calls no input hook and consumes nothing, but calls {@code onLocalFrame} and
+ * {@code onRender}, whose channel commands are dropped. A game without a script calls no local hook and draws nothing.
  */
 public final class ScriptInputPlugin implements ScrGamePlugin {
     private final @NotNull Supplier<@Nullable ScriptRuntime> runtime;
@@ -103,8 +105,8 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
      * Called on the local machine after each game frame the client plays, live or replayed, at every playback speed and for a single step of a
      * paused replay; not for the frames a replay seek runs.
      * <p>
-     * The frame number goes to {@code onLocalFrame} when the game has a script, also in a replay and for an observer; the channel commands that
-     * wait then go to the submitter, or are dropped without one.
+     * The frame number goes to {@code onLocalFrame}, then {@code onRender} draws, when the game has a script, also in a replay and for an
+     * observer; the channel commands that wait then go to the submitter, or are dropped without one.
      *
      * @param frame the number of the frame that ran, the game's current frame
      */
@@ -117,7 +119,26 @@ public final class ScriptInputPlugin implements ScrGamePlugin {
         }
 
         scriptRuntime.callLocalFrame(frame);
+        scriptRuntime.callRender();
         scriptRuntime.submitCommands(this.submitter.get());
+    }
+
+    /**
+     * Finds the shapes, texts and pictures the plugin draws over the game in the frame being drawn. The client draws the list of every plugin, in
+     * extension order, at the real resolution: the {@link ScrDrawList.Space#WORLD} commands above the units and below the console, the
+     * {@link ScrDrawList.Space#MINIMAP} commands above the minimap, and the {@link ScrDrawList.Space#SCREEN} commands above the console, below
+     * the game menus. The client reads the list while it draws and keeps nothing of it but the uploaded pictures, so the plugin may refill the
+     * same list for the next frame.
+     * <p>
+     * The list is what the script's last completed {@code onRender} drew.
+     *
+     * @return the list, or {@code null} for none
+     */
+    @Override
+    public @Nullable ScrDrawList findDrawList() {
+        ScriptRuntime scriptRuntime = this.runtime.get();
+
+        return scriptRuntime == null ? null : scriptRuntime.findDrawList();
     }
 
     /**

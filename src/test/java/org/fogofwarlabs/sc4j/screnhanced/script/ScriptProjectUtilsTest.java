@@ -89,7 +89,14 @@ final class ScriptProjectUtilsTest {
             Map.entry("ResourceType", "ResourceType.get(0)"),
             Map.entry("Alliance", "Alliance.get(0)"),
             Map.entry("Channel", "sync.createChannel(function () {})"),
-            Map.entry("PlayerValue", "sync.createPlayerValue(0)")
+            Map.entry("PlayerValue", "sync.createPlayerValue(0)"),
+            Map.entry("Image", "resources.getImage('a.png')"),
+            Map.entry("Font", "Font.get(0)"),
+            Map.entry("Align", "Align.get(0)"),
+            Map.entry("GraphicsKind", "Graphics.get(0)"),
+            Map.entry("ConsoleControl", "ConsoleControl.get(0)"),
+            Map.entry("ConsoleImage", "ConsoleImage.get(0)"),
+            Map.entry("ConsoleControlHandle", "console.getControl(ConsoleControl.Minimap)")
     );
     /**
      * A stub {@code core} with what the prelude reads while it runs and makes the objects above: one type of each kind, one player, one location
@@ -109,7 +116,7 @@ final class ScriptProjectUtilsTest {
                     location: {getCount: function () { return 1; }},
                     terrain: {isValidTile: function () { return true; }},
                     game: {every: function () { return 1; }, getFrameDuration: function () { return 42; }},
-                    resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }},
+                    resources: {getGrp: function () { return 0; }, getAnim: function () { return 1; }, getImage: function () { return 2; }},
                     sync: {createChannel: function () { return 0; }, send: function () {}}
                 };
             })()
@@ -449,7 +456,7 @@ final class ScriptProjectUtilsTest {
 
             ScriptDeclarationsCheck.Member member = hooks.get(name);
 
-            if (member != null && declarations.isInterface(member.getType())) {
+            if (member != null && declarations.isInterface(member.getType()) && hook != ScriptHook.RENDER) {
                 String factory = name.startsWith("onBefore") ? "createDecision" : "createEvent";
 
                 expressions.put(name, "bridge." + factory + "('" + name + "', values)");

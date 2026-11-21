@@ -5,12 +5,17 @@ import org.fogofwarlabs.sc4j.scr.data.resource.ScrImageAnimation;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Creates the small GRP and anim files of the graphics tests and waits for the parse of an anim.
+ * Creates the small GRP, anim, PNG and DDS files of the graphics tests and waits for the parse of an anim.
  */
 public final class ImageFileScenario {
     /**
@@ -18,6 +23,13 @@ public final class ImageFileScenario {
      */
     public static final int HD_SCALE = EmbeddedAnim.HD_SCALE;
     public static final int HD2_SCALE = EmbeddedAnim.HD2_SCALE;
+    /**
+     * The two pixels of {@link #createPng()} and the one colour of {@link #createDds()}.
+     */
+    public static final int PNG_FIRST_COLOR = 0xFFFF0000;
+    public static final int PNG_SECOND_COLOR = 0x800000FF;
+    public static final int DDS_COLOR = 0xFFFF0000;
+    public static final int DDS_SIDE = 4;
     /**
      * The frame count and the canvas of {@link #createGrp(int)}.
      */
@@ -114,6 +126,46 @@ public final class ImageFileScenario {
         Assertions.assertNotNull(sheet, "the anim is parsed");
 
         return sheet;
+    }
+
+    /**
+     * Creates a PNG of two pixels in a row: {@link #PNG_FIRST_COLOR}, then {@link #PNG_SECOND_COLOR}.
+     *
+     * @return the PNG bytes
+     */
+    public static byte @NotNull [] createPng() {
+        BufferedImage image = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        image.setRGB(0, 0, PNG_FIRST_COLOR);
+        image.setRGB(1, 0, PNG_SECOND_COLOR);
+
+        try {
+            ImageIO.write(image, "png", output);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+
+        return output.toByteArray();
+    }
+
+    /**
+     * Creates a {@link #DDS_SIDE} by {@link #DDS_SIDE} DXT1 DDS of one block whose pixels are all {@link #DDS_COLOR}.
+     *
+     * @return the DDS bytes
+     */
+    public static byte @NotNull [] createDds() {
+        ByteBuffer dds = ByteBuffer.allocate(DDS_SIZE).order(ByteOrder.LITTLE_ENDIAN);
+
+        dds.putInt(0x20534444).putInt(124).putInt(0).putInt(DDS_SIDE).putInt(DDS_SIDE);
+        dds.position(28);
+        dds.putInt(1);
+        dds.position(80);
+        dds.putInt(4).putInt(0x31545844);
+        dds.position(128);
+        dds.putShort((short) 0xF800).putShort((short) 0x001F).putInt(0);
+
+        return dds.array();
     }
 
 

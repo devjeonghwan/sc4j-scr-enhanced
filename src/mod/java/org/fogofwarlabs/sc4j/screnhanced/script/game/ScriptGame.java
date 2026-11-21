@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
@@ -10,6 +11,7 @@ import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerModifiers;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
@@ -39,13 +41,15 @@ import java.util.Map;
  * <p>
  * {@code core} is the lower layer of the game API. Its namespaces {@code game}, {@code player}, {@code unit}, {@code location},
  * {@code terrain}, {@code leaderboard}, {@code unitType}, {@code weaponType}, {@code flingyType}, {@code spriteType}, {@code imageType},
- * {@code upgradeType}, {@code techType}, {@code orderType}, {@code dat}, {@code resources}, {@code graphics}, {@code sync} and {@code local}
- * take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables
+ * {@code upgradeType}, {@code techType}, {@code orderType}, {@code dat}, {@code resources}, {@code graphics}, {@code sync}, {@code local},
+ * {@code screen}, {@code world}, {@code minimap}, {@code console}, {@code strings} and {@code messages} take and return ids and raw values (hit points, shields and energy in {@code 1/256} units, supply in half units, DAT values as the tables
  * hold them); a write takes the routine that the trigger action or the order system runs for it. A text that a routine shows as a map string
  * takes a registered map string ({@link #findStringIndex}). The graphics replacements ({@link ScriptGraphicsCore}) change only what is drawn
  * and count as writes. The channels ({@link ScriptSyncCore}) carry values from one peer to every peer. The local information
- * ({@link ScriptLocalCore}) is readable only in local code. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own
- * and defines the upper layer as read-only globals over {@code core}.
+ * ({@link ScriptLocalCore}) is readable only in local code. The drawing functions ({@link ScriptScreenCore}) work only in a render call
+ * ({@link #beginRender()}); the console ({@link ScriptConsoleCore}) and the texts ({@link ScriptTextCore}) change only what the local machine
+ * shows. The prelude ({@value #PRELUDE_RESOURCE}) runs once in a function scope of its own and defines the upper layer as read-only globals over
+ * {@code core}.
  * <p>
  * A timer of {@code core.game.every} runs first at the frame its interval after the current game frame, then every interval; the timers of a
  * frame run in the order of their due frames, then of their registration. While the game is read-only, every {@code core} function that
@@ -53,7 +57,8 @@ import java.util.Map;
  * cancelling a timer throws a {@code TypeError} as well.
  * <p>
  * The prelude also makes the event and decision objects of the hooks ({@link #createEvent}, {@link #createLocalEvent},
- * {@link #createDecision}); the values a decision hook left in a decision object go back into the decision with {@link #applyDecision}.
+ * {@link #createDecision}) and the screen object of {@code onRender} ({@link #getScreenObject()}); the values a decision hook left in a decision
+ * object go back into the decision with {@link #applyDecision}.
  */
 public final class ScriptGame {
     /**
@@ -70,6 +75,10 @@ public final class ScriptGame {
      */
     private static final @NotNull String CREATE_EVENT_FUNCTION = "createEvent";
     private static final @NotNull String CREATE_DECISION_FUNCTION = "createDecision";
+    /**
+     * The property of the object the prelude returns that holds the screen object of {@code onRender}.
+     */
+    private static final @NotNull String SCREEN_PROPERTY = "screen";
     /**
      * The value of a local event that its {@code consume()} sets.
      */
@@ -120,6 +129,8 @@ public final class ScriptGame {
         ScriptableObject core = (ScriptableObject) context.newObject(global);
         ScriptUnitCore unitCore = new ScriptUnitCore(scriptGame);
         ScriptGraphicsCore graphicsCore = new ScriptGraphicsCore(scriptGame, unitCore, resources);
+        ScriptScreenCore screenCore = new ScriptScreenCore(scriptGame, graphicsCore);
+        ScriptTextCore textCore = new ScriptTextCore(scriptGame);
 
         scriptGame.defineGameFunctions(ScriptCoreUtils.createNamespace(context, global, core, "game"), global);
         new ScriptPlayerCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "player"), global);
@@ -133,6 +144,18 @@ public final class ScriptGame {
         graphicsCore.defineGraphics(ScriptCoreUtils.createNamespace(context, global, core, "graphics"), global);
         scriptGame.sync.define(ScriptCoreUtils.createNamespace(context, global, core, "sync"));
         new ScriptLocalCore(scriptGame).define(ScriptCoreUtils.createNamespace(context, global, core, "local"), global);
+
+        ScriptableObject screen = ScriptCoreUtils.createNamespace(context, global, core, "screen");
+
+        screenCore.defineDrawing(screen, global, ScrDrawList.Space.SCREEN);
+        screenCore.defineScreen(screen, global);
+        screenCore.defineDrawing(ScriptCoreUtils.createNamespace(context, global, core, "world"), global, ScrDrawList.Space.WORLD);
+        screenCore.defineDrawing(ScriptCoreUtils.createNamespace(context, global, core, "minimap"), global, ScrDrawList.Space.MINIMAP);
+        new ScriptConsoleCore(scriptGame.consoleSettings, graphicsCore).define(ScriptCoreUtils.createNamespace(context, global, core, "console"),
+                                                                              global);
+        textCore.defineStrings(ScriptCoreUtils.createNamespace(context, global, core, "strings"), global);
+        textCore.defineMessages(ScriptCoreUtils.createNamespace(context, global, core, "messages"), global);
+        scriptGame.screenCore = screenCore;
 
         for (Object name : core.getAllIds()) {
             ((ScriptableObject) core.get((String) name, core)).preventExtensions();
@@ -152,6 +175,8 @@ public final class ScriptGame {
 
     private final @NotNull ImageReplacements imageReplacements;
     private final @NotNull ScriptSyncCore sync;
+    private final @NotNull ConsoleSettings consoleSettings;
+    private @Nullable ScriptScreenCore screenCore;
 
     private final @NotNull List<Timer> timers;
     private int nextTimerId;
@@ -175,6 +200,8 @@ public final class ScriptGame {
 
         this.imageReplacements = new ImageReplacements(() -> game.getUnitSystem().getUnitPool());
         this.sync              = new ScriptSyncCore(global);
+        this.consoleSettings   = new ConsoleSettings();
+        this.screenCore        = null;
 
         this.timers      = new ArrayList<>();
         this.nextTimerId = 1;
@@ -197,6 +224,62 @@ public final class ScriptGame {
      */
     public @NotNull ImageReplacements getImageReplacements() {
         return this.imageReplacements;
+    }
+
+    /**
+     * @return the console settings of the script ({@code core.console}), the same instance for the whole game
+     */
+    public @NotNull ConsoleSettings getConsoleSettings() {
+        return this.consoleSettings;
+    }
+
+    /**
+     * Finds what the last completed render call drew ({@code core.screen}, {@code core.world} and {@code core.minimap}).
+     *
+     * @return the draw list, or {@code null} if the last call drew nothing or no call completed
+     */
+    public @Nullable ScrDrawList findDrawList() {
+        return this.requireScreenCore().findDrawList();
+    }
+
+    /**
+     * Starts a render call: the drawing functions add to a new draw list until {@link #endRender(boolean)}.
+     */
+    public void beginRender() {
+        this.requireScreenCore().beginRender();
+    }
+
+    /**
+     * Ends a render call: its draw list becomes the drawn one, or is dropped so that nothing is drawn.
+     *
+     * @param completed {@code true} to draw the call's list, {@code false} to drop it
+     */
+    public void endRender(boolean completed) {
+        this.requireScreenCore().endRender(completed);
+    }
+
+    private @NotNull ScriptScreenCore requireScreenCore() {
+        ScriptScreenCore core = this.screenCore;
+
+        if (core == null) {
+            throw Exceptions.newIllegalStateException("The script game has no screen functions.");
+        }
+
+        return core;
+    }
+
+    /**
+     * @return the screen object the prelude made for {@code onRender}
+     * @throws IllegalStateException if the prelude has not run or made no screen object
+     */
+    public @NotNull Scriptable getScreenObject() {
+        Scriptable prelude = this.bridge;
+
+        if (prelude == null || !(ScriptableObject.getProperty(prelude, SCREEN_PROPERTY) instanceof Scriptable screen)) {
+            throw Exceptions.newIllegalStateException("The script game prelude made no {0} object.", SCREEN_PROPERTY);
+        }
+
+        return screen;
     }
 
     /**

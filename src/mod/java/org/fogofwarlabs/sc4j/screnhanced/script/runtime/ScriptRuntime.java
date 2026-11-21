@@ -3,10 +3,12 @@ package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.base.log.LogLevel;
 import org.fogofwarlabs.sc4j.base.log.Logger;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
@@ -43,15 +45,17 @@ import java.util.List;
  * with the game read-only and copies what a hook decided back into the decision; {@link #setReadOnly(boolean)} makes the functions that
  * change the game state throw. All of this is shared code, which runs the same on every peer.
  * <p>
- * {@link #callLocalHook} and {@link #callLocalFrame} call a local hook at once, on the local machine only, with the game read-only and local:
- * no timer, no random number, no new module, and the local information of {@code core.local} readable. The values a script sends wait in the
- * game's channel outbox until {@link #submitCommands} hands them to the local player's submitter.
+ * {@link #callLocalHook}, {@link #callLocalFrame} and {@link #callRender} call a local hook at once, on the local machine only, with the game
+ * read-only and local: no timer, no random number, no new module, and the local information of {@code core.local} readable. The values a script
+ * sends wait in the game's channel outbox until {@link #submitCommands} hands them to the local player's submitter. {@link #callRender} also lets
+ * the drawing functions draw: the list of a completed call is the one drawn ({@link #findDrawList()}) until the next call.
  * <p>
- * Each call of {@link #start()}, {@link #runFrame(int)}, {@link #decide}, {@link #callLocalHook} and {@link #callLocalFrame} has an instruction
- * budget; a decision that a running call causes, as when a hook issues an order, shares the budget of that call. A shared call that exceeds it,
+ * Each call of {@link #start()}, {@link #runFrame(int)}, {@link #decide}, {@link #callLocalHook}, {@link #callLocalFrame} and
+ * {@link #callRender} has an instruction budget; a decision that a running call causes, as when a hook issues an order, shares the budget of that call. A shared call that exceeds it,
  * or overflows the Java stack, stops the script: the runtime calls no hook for the rest of the game. An uncaught script error ends only the
  * hook call (or the module loading) it happened in; a decision hook that fails leaves the decision as it was. A local call that fails in any of
- * these ways ends only that call and never stops the script. Every such event is written to the log output once, with the module name.
+ * these ways ends only that call and never stops the script; a render call that exceeds its budget or overflows the stack draws nothing, while a
+ * render call that throws keeps what it drew before. Every such event is written to the log output once, with the module name.
  * <p>
  * Every method runs on the caller's thread; the runtime starts no thread. It is not thread-safe.
  */
@@ -198,6 +202,7 @@ public final class ScriptRuntime {
     private boolean loaded;
     private boolean running;
     private boolean local;
+    private boolean overran;
     private boolean stopped;
     private boolean disposed;
 
@@ -229,6 +234,7 @@ public final class ScriptRuntime {
         this.loaded   = false;
         this.running  = false;
         this.local    = false;
+        this.overran  = false;
         this.stopped  = false;
         this.disposed = false;
     }
@@ -264,6 +270,24 @@ public final class ScriptRuntime {
      */
     public @NotNull ImageReplacements getImageReplacements() {
         return this.requireScriptGame().getImageReplacements();
+    }
+
+    /**
+     * @return the console settings of the script, the same instance for the whole game
+     * @throws IllegalStateException if the runtime has no game
+     */
+    public @NotNull ConsoleSettings getConsoleSettings() {
+        return this.requireScriptGame().getConsoleSettings();
+    }
+
+    /**
+     * Finds what the last completed {@link #callRender} drew.
+     *
+     * @return the draw list, or {@code null} if it drew nothing
+     * @throws IllegalStateException if the runtime has no game
+     */
+    public @Nullable ScrDrawList findDrawList() {
+        return this.requireScriptGame().findDrawList();
     }
 
     /**
@@ -388,6 +412,33 @@ public final class ScriptRuntime {
     public void callLocalFrame(int frame) {
         this.checkNotDisposed();
         this.callLocal(this.requireScriptGame(), ScriptHook.LOCAL_FRAME, context -> (double) frame);
+    }
+
+    /**
+     * Calls the {@link ScriptHook#RENDER} hook in every module that has it, in load order, with the screen object, the game read-only and local
+     * as for {@link #callLocalHook}, the drawing functions drawing into a new list. The new list replaces the drawn one; a call that exceeds the
+     * budget or overflows the stack replaces it with nothing. Before {@link #start()}, once the script stopped and when no module has the hook,
+     * nothing is drawn. Does nothing while another call runs.
+     *
+     * @throws IllegalStateException if the runtime has no game or is disposed
+     */
+    public void callRender() {
+        this.checkNotDisposed();
+
+        ScriptGame game = this.requireScriptGame();
+
+        if (this.running) {
+            return;
+        }
+
+        this.overran = false;
+        game.beginRender();
+
+        try {
+            this.callLocal(game, ScriptHook.RENDER, context -> game.getScreenObject());
+        } finally {
+            game.endRender(!this.overran);
+        }
     }
 
     /**
@@ -719,6 +770,7 @@ public final class ScriptRuntime {
             action.run();
         } catch (ScriptContextFactory.InstructionBudgetError error) {
             if (this.local) {
+                this.overran = true;
                 this.logOutput.write(LogLevel.ERROR, moduleName, Exceptions.format("{0} ran more than the budget of instructions.", callName));
 
                 return CallResult.FAILED;
@@ -727,6 +779,7 @@ public final class ScriptRuntime {
             this.stop(moduleName, Exceptions.format("{0} ran more than the budget of instructions; the script stopped.", callName));
         } catch (StackOverflowError error) {
             if (this.local) {
+                this.overran = true;
                 this.logOutput.write(LogLevel.ERROR, moduleName, Exceptions.format("{0} overflowed the stack.", callName));
 
                 return CallResult.FAILED;
@@ -780,7 +833,7 @@ public final class ScriptRuntime {
      * Disposes resources.
      * <p>
      * The runtime forgets its modules, events, timers and waiting channel commands; later calls of {@link #start()}, {@link #runFrame(int)},
-     * {@link #queueEvent}, {@link #queueModCommand}, {@link #decide}, {@link #callLocalHook}, {@link #callLocalFrame} and
+     * {@link #queueEvent}, {@link #queueModCommand}, {@link #decide}, {@link #callLocalHook}, {@link #callLocalFrame}, {@link #callRender} and
      * {@link #submitCommands} fail.
      */
     public void dispose() {

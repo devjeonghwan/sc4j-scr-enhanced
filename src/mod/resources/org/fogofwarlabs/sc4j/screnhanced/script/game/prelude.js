@@ -1,6 +1,8 @@
 // The upper layer of the SC:R Enhanced Script game API over the lower layer core: the globals game, Time, Position, UnitType, UnitGroup,
 // WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType, Order, ScoreType, ResourceType, Alliance, Key, MouseButton, Modifier,
-// resources, graphics, tileset, terrain, sync and local, and the Unit, Player, Location, Tile, Channel and PlayerValue objects they return. One unit,
+// resources, graphics, tileset, terrain, sync, local, Color, Font, Align, Graphics, ConsoleControl, ConsoleImage, console, strings and
+// messages, and the Unit, Player, Location, Tile, Channel, PlayerValue, Image and console control objects they return, and the screen object
+// of onRender. One unit,
 // player, location or tile is always the same object; a unit object stays with its unit, and exists() becomes false once the unit is gone.
 // Hit points, shields and energy are the shown values (core's raw values divided by 256; no shields or energy for a unit without them), supply
 // the shown supply (core's half units divided by 2). The DAT methods of the type objects come from the DAT tables the game passes
@@ -384,7 +386,8 @@
 
     var UnitGroup = createUnitGroups();
     var SCORE_TYPE_NAMES = ['Total', 'Units', 'Buildings', 'UnitsAndBuildings', 'Kills', 'Razings', 'KillsAndRazings', 'Custom'];
-    var RESOURCE_TYPE_NAMES = ['Minerals', 'Gas', 'MineralsAndGas'];
+    // Supply names only the supply icon of the console (console.setResourceIcon); the resource functions refuse it.
+    var RESOURCE_TYPE_NAMES = ['Minerals', 'Gas', 'MineralsAndGas', 'Supply'];
     var ALLIANCE_NAMES = ['Enemy', 'Ally', 'AlliedVictory'];
     var ScoreType = createConstantTable(scoreTypePrototype, SCORE_TYPE_NAMES, SCORE_TYPE_NAMES.length, 'Score ');
     var ResourceType = createConstantTable(resourceTypePrototype, RESOURCE_TYPE_NAMES, RESOURCE_TYPE_NAMES.length, 'Resource ');
@@ -1120,7 +1123,16 @@
     };
     var grpPrototype = create(resourcePrototype);
     var animPrototype = create(resourcePrototype);
+    var imagePrototype = create(resourcePrototype);
     var resourceHandles = [];
+
+    // The pixel size of an image.
+    imagePrototype.getWidth = function () {
+        return core.resources.getImageWidth(this.id);
+    };
+    imagePrototype.getHeight = function () {
+        return core.resources.getImageHeight(this.id);
+    };
 
     // Returns the object of a resource handle: one object per handle id.
     function getResource(id, name, prototype) {
@@ -1170,6 +1182,12 @@
             var text = String(name);
 
             return getResource(core.resources.getAnim(text), text, animPrototype);
+        },
+        // A PNG or DDS picture to draw (screen.drawImage) or to show on the console.
+        getImage: function (name) {
+            var text = String(name);
+
+            return getResource(core.resources.getImage(text), text, imagePrototype);
         }
     });
 
@@ -1781,6 +1799,245 @@
         }
     });
 
+    // Colours are numbers, packed 0xAARRGGBB with straight alpha.
+    var MAXIMUM_CHANNEL = 255;
+    var ALPHA_FACTOR = 0x1000000;
+    var RED_SHIFT = 16;
+    var GREEN_SHIFT = 8;
+
+    function readChannel(value, name) {
+        var channel = Number(value);
+
+        if (channel !== floor(channel) || channel < 0 || channel > MAXIMUM_CHANNEL) {
+            throw new RangeError('The ' + name + ' channel is an integer from 0 to 255, not ' + value + '.');
+        }
+
+        return channel;
+    }
+
+    var Color = freeze({
+        Transparent: 0x00000000,
+        Black: 0xFF000000,
+        White: 0xFFFFFFFF,
+        Gray: 0xFF808080,
+        Red: 0xFFFF0000,
+        Green: 0xFF00FF00,
+        Blue: 0xFF0000FF,
+        Yellow: 0xFFFFFF00,
+        Cyan: 0xFF00FFFF,
+        Magenta: 0xFFFF00FF,
+        Orange: 0xFFFFA500,
+        fromRgb: function (red, green, blue) {
+            return Color.fromRgba(red, green, blue, MAXIMUM_CHANNEL);
+        },
+        fromRgba: function (red, green, blue, alpha) {
+            return readChannel(alpha, 'alpha') * ALPHA_FACTOR +
+                   (readChannel(red, 'red') << RED_SHIFT | readChannel(green, 'green') << GREEN_SHIFT | readChannel(blue, 'blue'));
+        },
+        // The colour of a palette index of the map's tileset palette, opaque.
+        fromPalette: function (index) {
+            return core.screen.getPaletteColor(index);
+        }
+    });
+
+    var fontPrototype = create(typePrototype);
+    var alignPrototype = create(typePrototype);
+    var graphicsPrototype = create(typePrototype);
+    var consoleControlPrototype = create(typePrototype);
+    var consoleImagePrototype = create(typePrototype);
+    // The four fonts of the game interface: font8, font10, font16 and font16x.
+    var Font = createConstantTable(fontPrototype, ['Small', 'Medium', 'Large', 'Huge'], 4, 'Font ');
+    var Align = createConstantTable(alignPrototype, ['Left', 'Center', 'Right'], 3, 'Align ');
+    var Graphics = createConstantTable(graphicsPrototype, ['SD', 'HD', 'HD2'], 3, 'Graphics ');
+    var ConsoleControl = createConstantTable(consoleControlPrototype,
+                                             ['CommandCard', 'Selection', 'Resources', 'Portrait', 'Minimap', 'Menu', 'TextBox'], 7, 'Control ');
+    var ConsoleImage = createConstantTable(consoleImagePrototype, ['Console'], 1, 'Image ');
+    var DEFAULT_THICKNESS = 1;
+    var DEFAULT_OPACITY = 1;
+
+    function readColorOption(color) {
+        return color === undefined ? Color.White : color;
+    }
+
+    function readThicknessOption(values) {
+        return values.thickness === undefined ? DEFAULT_THICKNESS : values.thickness;
+    }
+
+    function readFontOption(font) {
+        return font === undefined ? Font.Medium.id : requireObject(font, fontPrototype, 'A font').id;
+    }
+
+    // The drawing functions of one space over its core namespace: they work only in onRender.
+    function createDrawing(namespace) {
+        return {
+            fillRectangle: function (x, y, width, height, color) {
+                namespace.fillRectangle(x, y, width, height, readColorOption(color));
+            },
+            // Options {color, thickness}; the outline lies inside the rectangle.
+            drawRectangle: function (x, y, width, height, options) {
+                var values = readOptions(options);
+
+                namespace.drawRectangle(x, y, width, height, readColorOption(values.color), readThicknessOption(values));
+            },
+            fillCircle: function (x, y, radius, color) {
+                namespace.fillCircle(x, y, radius, readColorOption(color));
+            },
+            // Options {color, thickness}; the outline is centered on the circle.
+            drawCircle: function (x, y, radius, options) {
+                var values = readOptions(options);
+
+                namespace.drawCircle(x, y, radius, readColorOption(values.color), readThicknessOption(values));
+            },
+            // Options {color, thickness}.
+            drawLine: function (x1, y1, x2, y2, options) {
+                var values = readOptions(options);
+
+                namespace.drawLine(x1, y1, x2, y2, readColorOption(values.color), readThicknessOption(values));
+            },
+            drawPoint: function (x, y, color) {
+                namespace.drawPoint(x, y, readColorOption(color));
+            },
+            // Options {font, color, align}: the lines, broken at \n, from the top at y, each aligned on x; colour codes in the text work.
+            drawText: function (text, x, y, options) {
+                var values = readOptions(options);
+                var align = values.align === undefined ? Align.Left.id : requireObject(values.align, alignPrototype, 'An alignment').id;
+
+                namespace.drawText(x, y, String(text), readFontOption(values.font), readColorOption(values.color), align);
+            },
+            // Options {width, height, opacity}; the size is the image's pixel size in the space's units by default.
+            drawImage: function (image, x, y, options) {
+                var values = readOptions(options);
+                var id = requireObject(image, imagePrototype, 'An image').id;
+                var width = values.width === undefined ? image.getWidth() : values.width;
+                var height = values.height === undefined ? image.getHeight() : values.height;
+
+                namespace.drawImage(id, x, y, width, height, values.opacity === undefined ? DEFAULT_OPACITY : values.opacity);
+            },
+            // The width of the widest line in interface units, in the client's fonts; only in local code.
+            measureText: function (text, font) {
+                return namespace.measureText(String(text), readFontOption(font));
+            }
+        };
+    }
+
+    // The screen object of onRender: the game screen in interface units, its world (map pixels, following the camera) and its minimap.
+    var screenObject = createDrawing(core.screen);
+
+    screenObject.getWidth = function () {
+        return core.screen.getWidth();
+    };
+    screenObject.getHeight = function () {
+        return core.screen.getHeight();
+    };
+    screenObject.getScale = function () {
+        return core.screen.getScale();
+    };
+    screenObject.getGraphics = function () {
+        return Graphics.get(core.screen.getGraphics());
+    };
+    // Rounds an interface coordinate to the real pixel grid.
+    screenObject.snap = function (value) {
+        var scale = core.screen.getScale();
+
+        return round(value * scale) / scale;
+    };
+    screenObject.world = freeze(createDrawing(core.world));
+    screenObject.minimap = freeze(createDrawing(core.minimap));
+    freeze(screenObject);
+
+    var consoleControlObjects = [];
+
+    // A console control: one of the console dialogs, placed by its top left in the classic 640 by 480 screen.
+    var consoleControlObjectPrototype = {
+        getControl: function () {
+            return this.control;
+        },
+        setPosition: function (x, y) {
+            core.console.setDialogPosition(this.control.id, round(x), round(y));
+        },
+        setVisible: function (visible) {
+            core.console.setDialogVisible(this.control.id, visible === true);
+        },
+        isVisible: function () {
+            return core.console.isDialogVisible(this.control.id);
+        }
+    };
+
+    // The resource icon frames of a resource type: minerals, then gas and supply for the Zerg, Terran and Protoss consoles.
+    function readResourceIcons(resourceType) {
+        var id = requireObject(resourceType, resourceTypePrototype, 'A resource type').id;
+
+        if (id === ResourceType.Minerals.id) {
+            return [0];
+        }
+
+        if (id === ResourceType.Gas.id) {
+            return [1, 2, 3];
+        }
+
+        if (id === ResourceType.Supply.id) {
+            return [4, 5, 6];
+        }
+
+        throw new TypeError('The resource type ' + resourceType + ' has no console icon.');
+    }
+
+    // The console: shared code sets it on every peer, local code only on the local machine. A setting wins over what EUD memory gives for the
+    // same item; EUD memory still drives the items the script never set.
+    var gameConsole = freeze({
+        setVisible: function (visible) {
+            core.console.setVisible(visible === true);
+        },
+        isVisible: function () {
+            return core.console.isVisible();
+        },
+        getControl: function (control) {
+            var id = requireObject(control, consoleControlPrototype, 'A console control').id;
+            var object = consoleControlObjects[id];
+
+            if (object === undefined) {
+                object = freeze(createObject(consoleControlObjectPrototype, {control: control}));
+                consoleControlObjects[id] = object;
+            }
+
+            return object;
+        },
+        // Draws an image instead of a console image, null for the installed one.
+        replaceImage: function (consoleImage, image) {
+            var id = requireObject(consoleImage, consoleImagePrototype, 'A console image').id;
+
+            core.console.replaceImage(id, image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id);
+        },
+        // Draws an image for the icon of a resource type, null for the icon of EUD memory or the installed one.
+        setResourceIcon: function (resourceType, image) {
+            var icons = readResourceIcons(resourceType);
+            var imageId = image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id;
+
+            for (var index = 0; index < icons.length; index++) {
+                core.console.setResourceIcon(icons[index], imageId);
+            }
+        }
+    });
+
+    // The stat_txt strings by their one-based ids; a text wins over the game's table, null shows the game's string again.
+    var strings = freeze({
+        setStatText: function (id, text) {
+            core.strings.setStatText(id, text === null || text === undefined ? null : String(text));
+        }
+    });
+
+    var messages = freeze({
+        // Empties the message lines on the screen.
+        clear: function () {
+            core.messages.clear();
+        }
+    });
+
+    // The name of a unit type in its stat_txt string, which tooltips, the selection and messages show; null shows the game's name again.
+    unitTypePrototype.setName = function (text) {
+        strings.setStatText(this.id + 1, text);
+    };
+
     // The functions the game calls, which the scripts do not see.
     var gameFunctions = freeze({
         createEvent: function (hookName, values) {
@@ -1792,7 +2049,8 @@
             var kind = decisionKinds[hookName];
 
             return freeze(createObject(kind.prototype, kind.read(values)));
-        }
+        },
+        screen: screenObject
     });
 
     var game = freeze({
@@ -1968,6 +2226,13 @@
     freeze(resourcePrototype);
     freeze(grpPrototype);
     freeze(animPrototype);
+    freeze(imagePrototype);
+    freeze(fontPrototype);
+    freeze(alignPrototype);
+    freeze(graphicsPrototype);
+    freeze(consoleControlPrototype);
+    freeze(consoleImagePrototype);
+    freeze(consoleControlObjectPrototype);
     freeze(channelPrototype);
     freeze(playerValuePrototype);
 
@@ -2003,6 +2268,15 @@
     defineGlobal('terrain', terrain);
     defineGlobal('sync', sync);
     defineGlobal('local', local);
+    defineGlobal('Color', Color);
+    defineGlobal('Font', Font);
+    defineGlobal('Align', Align);
+    defineGlobal('Graphics', Graphics);
+    defineGlobal('ConsoleControl', ConsoleControl);
+    defineGlobal('ConsoleImage', ConsoleImage);
+    defineGlobal('console', gameConsole);
+    defineGlobal('strings', strings);
+    defineGlobal('messages', messages);
 
     return gameFunctions;
 });

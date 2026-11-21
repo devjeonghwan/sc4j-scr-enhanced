@@ -36,8 +36,9 @@ import java.util.Map;
  * decision object while the game routine waits for the decision. The kind of such a hook is the class of the SC:R simulation event or
  * decision it receives. These hooks run on every peer, as does the rest of the shared code.
  * <p>
- * A local hook ({@code onLocal*}) has no kind: it receives one local event of the local player's input at once, or the frame number after a
- * played frame ({@link #LOCAL_FRAME}), on the local machine only, with the game read-only ({@link #isLocal()}).
+ * A local hook ({@code onLocal*} and {@link #RENDER}) has no kind: it receives one local event of the local player's input at once, the frame
+ * number after a played frame ({@link #LOCAL_FRAME}), or the screen object to draw on ({@link #RENDER}), on the local machine only, with the
+ * game read-only ({@link #isLocal()}).
  */
 public enum ScriptHook {
     /**
@@ -142,6 +143,11 @@ public enum ScriptHook {
      * Called on the local machine with the frame number after each game frame the machine plays, live or replayed.
      */
     LOCAL_FRAME("onLocalFrame", null),
+    /**
+     * Called on the local machine with the screen object after each game frame the machine plays, live or replayed, after
+     * {@link #LOCAL_FRAME}; what it draws is shown until the next call.
+     */
+    RENDER("onRender", null, true),
 
     /**
      * Called with the decision on the damage of a weapon hit.
@@ -217,10 +223,16 @@ public enum ScriptHook {
 
     private final @NotNull String functionName;
     private final @Nullable Class<?> kind;
+    private final boolean local;
 
     ScriptHook(@NotNull String functionName, @Nullable Class<?> kind) {
+        this(functionName, kind, functionName.startsWith(LOCAL_NAME_PREFIX));
+    }
+
+    ScriptHook(@NotNull String functionName, @Nullable Class<?> kind, boolean local) {
         this.functionName = functionName;
         this.kind         = kind;
+        this.local        = local;
     }
 
     /**
@@ -231,10 +243,10 @@ public enum ScriptHook {
     }
 
     /**
-     * @return {@code true} if the hook runs on the local machine only, its name starting with {@value #LOCAL_NAME_PREFIX}, {@code false} if it
-     *         runs on every peer
+     * @return {@code true} if the hook runs on the local machine only, its name starting with {@value #LOCAL_NAME_PREFIX} or {@link #RENDER},
+     *         {@code false} if it runs on every peer
      */
     public boolean isLocal() {
-        return this.functionName.startsWith(LOCAL_NAME_PREFIX);
+        return this.local;
     }
 }

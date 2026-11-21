@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.graphics;
 
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
+import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
@@ -15,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * The classic console of one game, as a map changes it: the console dialogs and the text box moved through their rectangles, their controls moved
@@ -31,6 +33,13 @@ import java.util.List;
  * <p>
  * The resource icons are the GRP at the address {@link ClassicMemory#RESOURCE_ICONS} holds ({@link ClassicResourceIcons}); once written, the
  * console draws its frames instead of the installed icons.
+ * <p>
+ * The console settings of the game's map script ({@link ConsoleSettings}) are merged item by item: what the script set for an item wins over
+ * EUD memory, and EUD memory still drives every item the script never set. The items are the console as a whole (the script can hide it), each
+ * dialog's visibility (a script setting wins over a dialog that EUD memory hides by its picture size), each dialog's position (wins over the
+ * dialog's written rectangle), the console art (a script picture is drawn whole instead of the installed or transparency-masked art; the
+ * transparency still masks the dialogs) and each resource icon (a script picture wins over the frame of the GRP in memory). The controls, the
+ * dialog pictures and the transparency come from EUD memory alone.
  * <p>
  * The plugin observes the writes through the game's memory view and never changes the game.
  */
@@ -100,6 +109,10 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
         }
     }
 
+    private final @NotNull Supplier<@Nullable ConsoleSettings> settingsSource;
+    private @Nullable ConsoleSettings settings;
+    private long settingsChange;
+
     private final @NotNull List<ObservedDialog> dialogs;
     private final @NotNull ScrConsolePlacement placement;
     private final byte @NotNull [] transparency;
@@ -119,9 +132,15 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
 
     /**
      * Creates a {@link ClassicConsoleGraphics} instance with the installed console.
+     *
+     * @param settingsSource finds the console settings of the game's map script, {@code null} while the game has none
      */
-    public ClassicConsoleGraphics() {
+    public ClassicConsoleGraphics(@NotNull Supplier<@Nullable ConsoleSettings> settingsSource) {
         int screenPixels = ClassicMemory.SCREEN_WIDTH * ClassicMemory.SCREEN_HEIGHT;
+
+        this.settingsSource = settingsSource;
+        this.settings       = null;
+        this.settingsChange = -1;
 
         this.dialogs      = new ArrayList<>();
         this.placement    = new ScrConsolePlacement(ClassicMemory.SCREEN_WIDTH, ClassicMemory.SCREEN_HEIGHT);
@@ -207,6 +226,21 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
         }
     }
 
+    /**
+     * Finds the observed console dialog of a placement name.
+     *
+     * @return the dialog, or {@code null} if it is not observed
+     */
+    private @Nullable ObservedDialog findObserved(ScrConsolePlacement.@NotNull Dialog dialog) {
+        for (ObservedDialog observed : this.dialogs) {
+            if (observed.dialog == dialog) {
+                return observed;
+            }
+        }
+
+        return null;
+    }
+
     private boolean isObserved(int base) {
         for (ObservedDialog observed : this.dialogs) {
             if (observed.base == base) {
@@ -224,6 +258,62 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
         if (observed.pictureBase != 0) {
             memory.observeWrites(observed.pictureBase, PICTURE_BUFFER_SIZE, (address, value) -> this.onPictureWrite(observed, address, value));
         }
+    }
+
+    /**
+     * Finds the console settings of the game's map script, once they exist.
+     *
+     * @return the settings, or {@code null} while the game has no map script
+     */
+    private @Nullable ConsoleSettings findSettings() {
+        if (this.settings == null) {
+            this.settings = this.settingsSource.get();
+        }
+
+        return this.settings;
+    }
+
+    /**
+     * @return {@code true} if the map script hid the console, {@code false} otherwise
+     */
+    @Override
+    public boolean isConsoleHidden() {
+        ConsoleSettings current = this.findSettings();
+
+        return current != null && !current.isConsoleVisible();
+    }
+
+    /**
+     * Finds the picture the console draws instead of its installed art: fitted to the interface height and centered in the interface width,
+     * whole, over the art's place; the console is hit where the picture is not transparent. The same picture is returned while the art is
+     * unchanged.
+     * <p>
+     * The picture is the one the map script set.
+     *
+     * @return the picture, or {@code null} for the installed art
+     */
+    @Override
+    public @Nullable Picture findConsoleArt() {
+        ConsoleSettings current = this.findSettings();
+
+        return current == null ? null : current.getArt();
+    }
+
+    /**
+     * Finds the picture the console draws for a resource icon instead of its installed icon and of the frame of {@link #findResourceIcons}: fitted
+     * into the installed icon's box. The same picture is returned while the icon is unchanged.
+     * <p>
+     * The picture is the one the map script set for the icon.
+     *
+     * @param icon the resource icon frame: {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran
+     *             and Protoss
+     * @return the picture, or {@code null} for the other icons
+     */
+    @Override
+    public @Nullable Picture findResourceIconPicture(int icon) {
+        ConsoleSettings current = this.findSettings();
+
+        return current == null || icon < 0 || icon >= ConsoleSettings.RESOURCE_ICON_COUNT ? null : current.getResourceIcon(icon);
     }
 
     /**
@@ -246,44 +336,56 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
     }
 
     /**
-     * Finds how the map placed the console.
+     * Finds how the map placed the console, its map script's dialog settings merged in.
      *
-     * @return the placement, or {@code null} while the map wrote no dialog and no transparency
+     * @return the placement, or {@code null} while the map wrote no dialog and no transparency and its script set no dialog
      */
     @Override
     public @Nullable ScrConsolePlacement findConsolePlacement() {
-        if (!this.written) {
+        ConsoleSettings current = this.findSettings();
+        boolean scripted = current != null && current.hasDialogSettings();
+
+        if (!this.written && !scripted) {
             return null;
         }
 
-        if (this.changed) {
-            this.changed = false;
-            this.update();
+        long change = current == null ? -1 : current.getChangeCount();
+
+        if (this.changed || change != this.settingsChange) {
+            this.changed        = false;
+            this.settingsChange = change;
+            this.update(current);
         }
 
         return this.placement;
     }
 
     /**
-     * Brings the placement to the written dialogs, controls, transparency and pictures.
+     * Brings the placement to the written dialogs, controls, transparency and pictures and to the script's dialog settings: a dialog is hidden
+     * when the script hid it, or when it did not set its visibility and EUD memory gave it a picture; a shown dialog is moved to the script's
+     * position, else to its written rectangle, else restored to its installed place.
+     *
+     * @param current the console settings of the map script, or {@code null} without a script
      */
-    private void update() {
-        for (ObservedDialog observed : this.dialogs) {
-            ScrConsolePlacement.Dialog dialog = observed.dialog;
-            ClassicDialogStructure structure = observed.structure;
+    private void update(@Nullable ConsoleSettings current) {
+        for (ScrConsolePlacement.Dialog dialog : PLACED_DIALOGS) {
+            ObservedDialog observed = this.findObserved(dialog);
+            boolean hidden = current != null && current.isDialogVisibilitySet(dialog)
+                             ? !current.isDialogVisible(dialog)
+                             : observed != null && observed.pictureWritten;
 
-            if (dialog == null || structure == null) {
-                continue;
-            }
-
-            if (observed.pictureWritten) {
+            if (hidden) {
                 this.placement.hideDialog(dialog);
-            } else if (observed.rectangleWritten) {
+            } else if (current != null && current.isDialogPositionSet(dialog)) {
+                this.placement.moveDialog(dialog, current.getDialogLeft(dialog), current.getDialogTop(dialog));
+            } else if (observed != null && observed.rectangleWritten) {
                 this.placement.moveDialog(dialog, observed.getLeft(), observed.getTop());
+            } else {
+                this.placement.restoreDialog(dialog);
             }
 
-            if (observed.controlWritten) {
-                this.placeControls(dialog, structure, observed);
+            if (observed != null && observed.structure != null && observed.controlWritten) {
+                this.placeControls(dialog, observed.structure, observed);
             }
         }
 

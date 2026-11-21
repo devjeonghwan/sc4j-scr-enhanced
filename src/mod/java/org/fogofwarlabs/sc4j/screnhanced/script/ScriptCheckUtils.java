@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.PictureFileUtils;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptFinding.Severity;
 import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptDatTables;
 import org.fogofwarlabs.sc4j.screnhanced.script.game.ScriptGame;
@@ -64,7 +65,7 @@ import java.util.regex.Pattern;
  * {@code local.*} at the top level of a module or directly in a shared hook, where they throw (errors), unless the script declares
  * {@code local}.
  * <p>
- * Each resource named {@code *.grp} or {@code *.anim}, read as the runtime reads a GRP or an anim. The size: the script trailer with every file
+ * Each resource named {@code *.grp}, {@code *.anim}, {@code *.png} or {@code *.dds}, read as the runtime reads a GRP, an anim or an image. The size: the script trailer with every file
  * stored as it is against the largest map file (a warning).
  */
 public final class ScriptCheckUtils {
@@ -76,6 +77,8 @@ public final class ScriptCheckUtils {
     private static final @NotNull String RESOURCE_FILE_PREFIX = ScriptPackage.RESOURCE_FOLDER + "/";
     private static final @NotNull String GRP_EXTENSION = ".grp";
     private static final @NotNull String ANIM_EXTENSION = ".anim";
+    private static final @NotNull String PNG_EXTENSION = ".png";
+    private static final @NotNull String DDS_EXTENSION = ".dds";
     private static final int FIRST_LINE = 1;
     private static final @NotNull String FUNCTION_CONSTRUCTOR_NAME = "Function";
     /**
@@ -422,7 +425,7 @@ public final class ScriptCheckUtils {
         }
 
         findings.add(new ScriptFinding(scriptName, get.getLineno(), Severity.ERROR,
-                                       Exceptions.format("local.{0} throws in {1}, which is shared code: read it in a local hook (onLocal*).",
+                                       Exceptions.format("local.{0} throws in {1}, which is shared code: read it in a local hook (onLocal*, onRender).",
                                                          get.getProperty().getIdentifier(), place)));
     }
 
@@ -594,7 +597,8 @@ public final class ScriptCheckUtils {
     }
 
     /**
-     * Reads every {@value #GRP_EXTENSION} and {@value #ANIM_EXTENSION} resource as the runtime reads a GRP or an anim.
+     * Reads every {@value #GRP_EXTENSION}, {@value #ANIM_EXTENSION}, {@value #PNG_EXTENSION} and {@value #DDS_EXTENSION} resource as the runtime
+     * reads a GRP, an anim or an image.
      */
     private static void checkResources(@NotNull Map<String, byte[]> resources, @NotNull List<ScriptFinding> findings) {
         ImageReplacements reader = new ImageReplacements(() -> null);
@@ -609,6 +613,8 @@ public final class ScriptCheckUtils {
                     reader.readGrp(content, 0, content.length, name);
                 } else if (lowerName.endsWith(ANIM_EXTENSION)) {
                     reader.readAnim(content, 0, content.length, name);
+                } else if (lowerName.endsWith(PNG_EXTENSION) || lowerName.endsWith(DDS_EXTENSION)) {
+                    PictureFileUtils.read(content, name);
                 }
             } catch (IOException | RuntimeException exception) {
                 findings.add(new ScriptFinding(RESOURCE_FILE_PREFIX + name, ScriptFinding.NO_LINE, Severity.ERROR,

@@ -1,11 +1,13 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.game;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.scr.content.ScrImages;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageAnim;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGraphics;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGrp;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.PictureFileUtils;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.jetbrains.annotations.NotNull;
@@ -22,13 +24,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Defines {@code core.resources} and {@code core.graphics}: the GRPs and anims of the map's resources, and the graphics they replace.
+ * Defines {@code core.resources} and {@code core.graphics}: the GRPs, anims and images of the map's resources, and the graphics they replace.
  * <p>
- * {@code core.resources}: {@code has(name)}, {@code getGrp(name)} and {@code getAnim(name)}. A resource name is relative to the resource folder
- * with {@code /} separators. {@code getGrp} and {@code getAnim} return the id of a resource handle, the same id for the same name, after checking
- * the resource once: a GRP header with a readable frame table whose frames decode, or a single-entry anim of asset scale {@code 4} (HD) or
- * {@code 2} (HD2) with a canvas and a {@code diffuse} layer. A missing or invalid resource throws an {@code Error}. The resources are read from
- * the map's script trailer, inflated and checked, when they are first asked for.
+ * {@code core.resources}: {@code has(name)}, {@code getGrp(name)}, {@code getAnim(name)} and {@code getImage(name)}, and
+ * {@code getImageWidth(id)} and {@code getImageHeight(id)} (the pixel size of an image handle). A resource name is relative to the resource folder
+ * with {@code /} separators. {@code getGrp}, {@code getAnim} and {@code getImage} return the id of a resource handle, the same id for the same
+ * name, after checking the resource once: a GRP header with a readable frame table whose frames decode, a single-entry anim of asset scale
+ * {@code 4} (HD) or {@code 2} (HD2) with a canvas and a {@code diffuse} layer, or a PNG or DDS picture that decodes ({@link PictureFileUtils}).
+ * A missing or invalid resource throws an {@code Error}. The resources are read from the map's script trailer, inflated and checked, when they
+ * are first asked for; an image is decoded once and drawn from the same picture afterwards.
  * <p>
  * {@code core.graphics}: {@code replaceImage(imageType, grp, hdAnim, hd2Anim)} replaces the graphics of every image of an image type,
  * {@code replaceUnitImage(unit, imageType, grp, hdAnim, hd2Anim)} those of one live unit's images of the type, while the unit lives;
@@ -71,6 +75,7 @@ final class ScriptGraphicsCore {
     private final @NotNull List<Object> handles;
     private final @NotNull Map<String, Integer> grpIds;
     private final @NotNull Map<String, Integer> animIds;
+    private final @NotNull Map<String, Integer> imageIds;
 
     /**
      * Creates a {@link ScriptGraphicsCore} instance without resource handles.
@@ -84,9 +89,10 @@ final class ScriptGraphicsCore {
         this.unitCore   = unitCore;
         this.resources  = resources;
 
-        this.handles = new ArrayList<>();
-        this.grpIds  = new HashMap<>();
-        this.animIds = new HashMap<>();
+        this.handles  = new ArrayList<>();
+        this.grpIds   = new HashMap<>();
+        this.animIds  = new HashMap<>();
+        this.imageIds = new HashMap<>();
     }
 
     /**
@@ -111,6 +117,46 @@ final class ScriptGraphicsCore {
 
             return (double) this.findHandle(this.animIds, name, "anim", () -> this.readAnim(name));
         });
+        ScriptCoreUtils.defineFunction(global, namespace, "getImage", 1, (context, scope, thisObject, arguments) -> {
+            String name = ScriptCoreUtils.readString(arguments, 0);
+
+            return (double) this.findHandle(this.imageIds, name, "image", () -> PictureFileUtils.read(this.resources.read(this.requireEntry(name)),
+                                                                                                     name));
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getImageWidth", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readPicture(arguments, 0).getWidth());
+        ScriptCoreUtils.defineFunction(global, namespace, "getImageHeight", 1,
+                                       (context, scope, thisObject, arguments) -> (double) this.readPicture(arguments, 0).getHeight());
+    }
+
+    /**
+     * Reads an image handle argument ({@code core.resources.getImage}).
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the picture of the image
+     * @throws EcmaError if the argument is not an integer or names no image handle
+     */
+    @NotNull Picture readPicture(@NotNull Object @NotNull [] arguments, int index) {
+        Picture picture = this.readOptionalPicture(arguments, index);
+
+        if (picture == null) {
+            throw ScriptRuntime.rangeError("An image handle is needed, not -1.");
+        }
+
+        return picture;
+    }
+
+    /**
+     * Reads an image handle argument ({@code core.resources.getImage}) or {@code -1} for none.
+     *
+     * @param arguments the call arguments
+     * @param index     the argument index
+     * @return the picture of the image, or {@code null} for {@code -1}
+     * @throws EcmaError if the argument is not an integer or names no image handle
+     */
+    @Nullable Picture readOptionalPicture(@NotNull Object @NotNull [] arguments, int index) {
+        return this.readHandle(arguments, index, Picture.class, "image");
     }
 
     /**

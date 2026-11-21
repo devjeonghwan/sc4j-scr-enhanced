@@ -539,8 +539,8 @@ declare const random: Random;
  * change the decision. Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
  *
  * Shared code (module top level, onStart, onFrame, the event and decision hooks, channel handlers, timers) runs the same on every peer and may
- * change the game. Local hooks ({@code onLocal*}) run on the local machine only, at once; the input hooks not in replays and not for
- * observers, onLocalFrame also there. They may read the game and the local information ({@link local}), move the local screen, print and send
+ * change the game. Local hooks ({@code onLocal*}, onRender) run on the local machine only, at once; the input hooks not in replays and not
+ * for observers, onLocalFrame and onRender also there. They may read the game and the local information ({@link local}), move the local screen, print and send
  * ({@link Channel.send}, {@link PlayerValue.set}; nothing is sent in a replay or by an observer), but changing the game, adding or cancelling
  * a timer, drawing a random number or loading a new module throws. They must not change variables that shared code reads.
  */
@@ -615,6 +615,11 @@ interface Hooks {
      * Local: called after each game frame this machine plays, live or in a replay, with the frame number that onFrame received.
      */
     onLocalFrame?(frame: number): void;
+    /**
+     * Local: called after onLocalFrame to draw; what it draws stays on screen until the next call. It has its own instruction budget: a call
+     * over it draws nothing; a call that throws keeps what it drew.
+     */
+    onRender?(screen: Screen): void;
     /**
      * Decides the damage of a weapon hit.
      */
@@ -1802,6 +1807,11 @@ interface CoreDat {
  * A unit type (units.dat); its DAT values are those of {@link UnitTypeData}.
  */
 interface UnitType extends GameType, UnitTypeData {
+    /**
+     * Shows a name instead of the type's stat_txt name (tooltips, the selection, messages), also over the map's name of the type; null shows
+     * the game's name again. Shared code sets it on every peer, local code only on this machine.
+     */
+    setName(text: string | null): void;
 }
 
 /**
@@ -2370,6 +2380,20 @@ interface Grp extends Resource {
 interface Anim extends Resource {
 }
 
+/**
+ * A PNG or DDS picture to draw ({@link Drawing.drawImage}) or to show on the console.
+ */
+interface Image extends Resource {
+    /**
+     * @returns the width in pixels
+     */
+    getWidth(): number;
+    /**
+     * @returns the height in pixels
+     */
+    getHeight(): number;
+}
+
 interface Resources {
     has(name: string): boolean;
     /**
@@ -2380,6 +2404,10 @@ interface Resources {
      * Reads a single-entry HD or HD2 anim; a missing or invalid one throws.
      */
     getAnim(name: string): Anim;
+    /**
+     * Reads a PNG or DDS picture once; a missing or invalid one throws.
+     */
+    getImage(name: string): Image;
 }
 
 declare const resources: Resources;
@@ -2521,8 +2549,8 @@ interface Sync {
 declare const sync: Sync;
 
 /**
- * What only this machine knows, which differs from peer to peer. Readable only in local code (the onLocal* hooks); anywhere else every
- * function throws a TypeError.
+ * What only this machine knows, which differs from peer to peer. Readable only in local code (the onLocal* hooks and onRender); anywhere else
+ * every function throws a TypeError.
  */
 interface Local {
     /**
@@ -2556,6 +2584,273 @@ interface Local {
 }
 
 declare const local: Local;
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Presentation: drawing in onRender, the console and the texts.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * A colour: a number packed 0xAARRGGBB with straight alpha.
+ */
+type Color = number;
+
+interface ColorStatic {
+    readonly Transparent: Color;
+    readonly Black: Color;
+    readonly White: Color;
+    readonly Gray: Color;
+    readonly Red: Color;
+    readonly Green: Color;
+    readonly Blue: Color;
+    readonly Yellow: Color;
+    readonly Cyan: Color;
+    readonly Magenta: Color;
+    readonly Orange: Color;
+    /**
+     * @returns the opaque colour; a channel is an integer from 0 to 255, else it throws a RangeError
+     */
+    fromRgb(red: number, green: number, blue: number): Color;
+    fromRgba(red: number, green: number, blue: number, alpha: number): Color;
+    /**
+     * @returns the opaque colour of a palette index of the map's tileset palette
+     */
+    fromPalette(index: number): Color;
+}
+
+declare const Color: ColorStatic;
+
+/**
+ * A font of the game interface.
+ */
+interface Font extends GameType {
+}
+
+interface FontTable extends ConstantTable<Font> {
+    /**
+     * font8
+     */
+    readonly Small: Font;
+    /**
+     * font10, the default
+     */
+    readonly Medium: Font;
+    /**
+     * font16
+     */
+    readonly Large: Font;
+    /**
+     * font16x
+     */
+    readonly Huge: Font;
+}
+
+declare const Font: FontTable;
+
+/**
+ * How the lines of a text stand from its x.
+ */
+interface Align extends GameType {
+}
+
+interface AlignTable extends ConstantTable<Align> {
+    readonly Left: Align;
+    readonly Center: Align;
+    readonly Right: Align;
+}
+
+declare const Align: AlignTable;
+
+/**
+ * The graphics this machine draws.
+ */
+interface GraphicsKind extends GameType {
+}
+
+interface GraphicsTable extends ConstantTable<GraphicsKind> {
+    readonly SD: GraphicsKind;
+    readonly HD: GraphicsKind;
+    readonly HD2: GraphicsKind;
+}
+
+declare const Graphics: GraphicsTable;
+
+interface LineOptions {
+    /**
+     * Color.White by default.
+     */
+    color?: Color;
+    /**
+     * 1 by default.
+     */
+    thickness?: number;
+}
+
+interface TextOptions {
+    /**
+     * Font.Medium by default.
+     */
+    font?: Font;
+    /**
+     * Color.White by default; colour codes in the text switch it.
+     */
+    color?: Color;
+    /**
+     * Align.Left by default.
+     */
+    align?: Align;
+}
+
+interface ImageOptions {
+    /**
+     * The image's pixel width in the drawing's units by default.
+     */
+    width?: number;
+    height?: number;
+    /**
+     * From 0 to 1, 1 by default.
+     */
+    opacity?: number;
+}
+
+/**
+ * Draws in one space, only in onRender (anywhere else every drawing function throws a TypeError). Coordinates are numbers with fractions,
+ * drawn at the real resolution; what a call draws is drawn in call order and stays until the next onRender call.
+ */
+interface Drawing {
+    fillRectangle(x: number, y: number, width: number, height: number, color?: Color): void;
+    /**
+     * The outline lies inside the rectangle.
+     */
+    drawRectangle(x: number, y: number, width: number, height: number, options?: LineOptions): void;
+    fillCircle(x: number, y: number, radius: number, color?: Color): void;
+    /**
+     * The outline is centered on the circle.
+     */
+    drawCircle(x: number, y: number, radius: number, options?: LineOptions): void;
+    drawLine(x1: number, y1: number, x2: number, y2: number, options?: LineOptions): void;
+    /**
+     * A square of one unit of line thickness with its top left at the position.
+     */
+    drawPoint(x: number, y: number, color?: Color): void;
+    /**
+     * Draws the lines, broken at \n, from the top at y, each aligned on x.
+     */
+    drawText(text: string, x: number, y: number, options?: TextOptions): void;
+    drawImage(image: Image, x: number, y: number, options?: ImageOptions): void;
+    /**
+     * @returns the width of the widest line in interface units in this machine's fonts, 0 before the client drew a frame; only in local code
+     */
+    measureText(text: string, font?: Font): number;
+}
+
+/**
+ * The game screen of onRender in interface units: 480 high, as wide as the interface (640, 853, ...), drawn above the console and below the
+ * game menus. Sizes, line thicknesses and texts are in interface units. {@link world} draws in map pixels following the camera, above the units
+ * and below the console (thicknesses and texts in map pixels, so they follow the zoom); {@link minimap} in map pixels on the minimap (thicknesses,
+ * points and texts in interface units). The screen's size, scale and graphics are readable only in local code.
+ */
+interface Screen extends Drawing {
+    getWidth(): number;
+    getHeight(): number;
+    /**
+     * @returns the real pixels per interface unit
+     */
+    getScale(): number;
+    getGraphics(): GraphicsKind;
+    /**
+     * @returns the interface coordinate rounded to the real pixel grid
+     */
+    snap(value: number): number;
+    readonly world: Drawing;
+    readonly minimap: Drawing;
+}
+
+/**
+ * A console dialog.
+ */
+interface ConsoleControl extends GameType {
+}
+
+interface ConsoleControlTable extends ConstantTable<ConsoleControl> {
+    readonly CommandCard: ConsoleControl;
+    readonly Selection: ConsoleControl;
+    readonly Resources: ConsoleControl;
+    readonly Portrait: ConsoleControl;
+    readonly Minimap: ConsoleControl;
+    readonly Menu: ConsoleControl;
+    readonly TextBox: ConsoleControl;
+}
+
+declare const ConsoleControl: ConsoleControlTable;
+
+/**
+ * A console picture that an image can replace.
+ */
+interface ConsoleImage extends GameType {
+}
+
+interface ConsoleImageTable extends ConstantTable<ConsoleImage> {
+    /**
+     * The console art: the replacing image is fitted to the interface height, centered, drawn whole; the console is hit where it is not
+     * transparent.
+     */
+    readonly Console: ConsoleImage;
+}
+
+declare const ConsoleImage: ConsoleImageTable;
+
+/**
+ * One console dialog, placed by its top left in the classic 640 by 480 screen.
+ */
+interface ConsoleControlHandle {
+    getControl(): ConsoleControl;
+    setPosition(x: number, y: number): void;
+    setVisible(visible: boolean): void;
+    isVisible(): boolean;
+}
+
+/**
+ * The console. Shared code sets it on every peer, local code only on this machine; it changes no game state. A setting wins over what EUD memory
+ * gives for the same item (the console, a dialog's position, a dialog's visibility, the console art, a resource icon); EUD memory still drives
+ * the items the script never set.
+ */
+interface Console {
+    setVisible(visible: boolean): void;
+    isVisible(): boolean;
+    getControl(control: ConsoleControl): ConsoleControlHandle;
+    /**
+     * Draws an image instead of a console image; null for the installed one.
+     */
+    replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
+    /**
+     * Draws an image for the console icon of Minerals, Gas or Supply (every race's icon), fitted into the icon's box; null for the icon of EUD
+     * memory or the installed one.
+     */
+    setResourceIcon(resourceType: ResourceType, image: Image | null): void;
+}
+
+declare const console: Console;
+
+/**
+ * The stat_txt strings by their one-based ids. Shared code sets them on every peer, local code only on this machine.
+ */
+interface Strings {
+    /**
+     * Shows a text instead of a string; null shows the game's string again. It wins over the installed table and the table EUD memory commits.
+     */
+    setStatText(id: number, text: string | null): void;
+}
+
+declare const strings: Strings;
+
+interface Messages {
+    /**
+     * Empties the message lines on the screen.
+     */
+    clear(): void;
+}
+
+declare const messages: Messages;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The events and decisions of the hooks.
@@ -2803,6 +3098,10 @@ interface ResourceTypeTable extends ConstantTable<ResourceType> {
     readonly Minerals: ResourceType;
     readonly Gas: ResourceType;
     readonly MineralsAndGas: ResourceType;
+    /**
+     * Only for the console icon ({@link Console.setResourceIcon}); the resource functions refuse it.
+     */
+    readonly Supply: ResourceType;
 }
 
 declare const ResourceType: ResourceTypeTable;
@@ -3946,6 +4245,9 @@ interface CoreResources {
      */
     getGrp(name: string): number;
     getAnim(name: string): number;
+    getImage(name: string): number;
+    getImageWidth(image: number): number;
+    getImageHeight(image: number): number;
 }
 
 interface CoreGraphics {
@@ -4004,6 +4306,60 @@ interface CoreLocal {
     getSelection(): number[];
 }
 
+/**
+ * The drawing of one space ({@link Drawing}) with numbers: colours 0xAARRGGBB, fonts and alignments by id, images by handle.
+ */
+interface CoreDrawing {
+    fillRectangle(x: number, y: number, width: number, height: number, argb: number): void;
+    drawRectangle(x: number, y: number, width: number, height: number, argb: number, thickness: number): void;
+    fillCircle(x: number, y: number, radius: number, argb: number): void;
+    drawCircle(x: number, y: number, radius: number, argb: number, thickness: number): void;
+    drawLine(x1: number, y1: number, x2: number, y2: number, argb: number, thickness: number): void;
+    drawPoint(x: number, y: number, argb: number): void;
+    drawText(x: number, y: number, text: string, font: number, argb: number, align: number): void;
+    drawImage(image: number, x: number, y: number, width: number, height: number, opacity: number): void;
+    measureText(text: string, font: number): number;
+}
+
+/**
+ * The game screen ({@link Screen}) with numbers, and the classic 640 by 480 palette screen that EUD maps write: its pixels, written from any
+ * code, stay shown.
+ */
+interface CoreScreen extends CoreDrawing {
+    getWidth(): number;
+    getHeight(): number;
+    getScale(): number;
+    /**
+     * @returns 0 SD, 1 HD, 2 HD2
+     */
+    getGraphics(): number;
+    setPixel(x: number, y: number, paletteIndex: number): void;
+    fillPixels(x: number, y: number, width: number, height: number, paletteIndex: number): void;
+    getPaletteColor(index: number): number;
+}
+
+/**
+ * The console ({@link Console}) with numbers: the dialogs by {@link ConsoleControl} id, the console images by {@link ConsoleImage} id, the resource
+ * icons by frame (0 minerals, 1 to 3 gas and 4 to 6 supply of the Zerg, Terran and Protoss), images by handle, -1 for none.
+ */
+interface CoreConsole {
+    setVisible(visible: boolean): void;
+    isVisible(): boolean;
+    setDialogVisible(dialog: number, visible: boolean): void;
+    isDialogVisible(dialog: number): boolean;
+    setDialogPosition(dialog: number, x: number, y: number): void;
+    replaceImage(consoleImage: number, image: number): void;
+    setResourceIcon(icon: number, image: number): void;
+}
+
+interface CoreStrings {
+    setStatText(id: number, text: string | null): void;
+}
+
+interface CoreMessages {
+    clear(): void;
+}
+
 interface Core {
     readonly game: CoreGame;
     readonly player: CorePlayer;
@@ -4024,6 +4380,12 @@ interface Core {
     readonly graphics: CoreGraphics;
     readonly sync: CoreSync;
     readonly local: CoreLocal;
+    readonly screen: CoreScreen;
+    readonly world: CoreDrawing;
+    readonly minimap: CoreDrawing;
+    readonly console: CoreConsole;
+    readonly strings: CoreStrings;
+    readonly messages: CoreMessages;
 }
 
 declare const core: Core;
