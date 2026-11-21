@@ -86,8 +86,7 @@ public final class ScriptCommands {
      *
      * @param player the slot id of the issuing player
      * @param data   the command data
-     * @return the value the command completed, or {@code null} if the data is no script command, the player is out of range or the value
-     * continues
+     * @return the value the command completed, or {@code null} if the data is no script command, the player is out of range or the value continues
      */
     public @Nullable ScriptCommandMessage read(int player, byte @NotNull [] data) {
         if (player < 0 || player >= PlayerTable.PLAYER_SLOTS || data.length < HEADER_LENGTH || (data[TAG_OFFSET] & BYTE_MASK) != TAG ||

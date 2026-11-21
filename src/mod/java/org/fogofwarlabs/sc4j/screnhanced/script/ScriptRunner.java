@@ -22,9 +22,9 @@ import java.util.stream.Stream;
  *     --install <install> --mod <install>/mods/scr-enhanced.jar -- --ums <packed map>
  *}
  * A melee run ends the command line with {@code --melee <packed map> --computer random} instead: one computer player of a random race against
- * the human of the client's default race, name and slot. The runtime takes the settings, storage and log folders of the mod from the install. The packed map is
- * {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside the map folder the client lists; the source map
- * stays as it is.
+ * the human of the client's default race, name and slot. The runtime takes the settings, storage and log folders of the mod from the install.
+ * The packed map is {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside the map folder the
+ * client lists; the source map stays as it is.
  * <p>
  * {@link #repackIfChanged()} packs again when a file that the package holds ({@value ScriptManifest#FILE_NAME}, a script or a resource) was
  * added, removed or changed in size or modification time since the last pack; a running game keeps the scripts it loaded.

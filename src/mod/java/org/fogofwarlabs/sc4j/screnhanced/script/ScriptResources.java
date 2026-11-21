@@ -122,8 +122,7 @@ public final class ScriptResources {
      * @param entry       the file
      * @param description the name of the bytes used in messages
      * @return the original bytes
-     * @throws IOException if the file has no stored bytes, the stored size exceeds the original size, or the inflated bytes or their digest
-     *                     do not match
+     * @throws IOException if the file has no stored bytes, the stored size exceeds the original size, or the inflated bytes or their digest do not match
      */
     static byte @NotNull [] readFile(byte @NotNull [] data, @NotNull Entry entry, @NotNull String description) throws IOException {
         if (entry.getOffset() == NO_OFFSET) {
@@ -257,11 +256,10 @@ public final class ScriptResources {
     }
 
     /**
-     * Selects the resources that references name, when these resources hold each referenced file.
+     * Selects the resources that references name, when these resources hold each referenced file with the same original size and digest.
      *
      * @param references the referenced resources, with or without stored bytes
-     * @return the resources of the references in their order, with the stored bytes of these resources, or {@code null} if a reference names a
-     * resource these resources do not hold with the same original size and digest
+     * @return the resources of the references in their order, with the stored bytes of these resources, or {@code null} if one is not held
      */
     public @Nullable ScriptResources select(@NotNull Collection<Entry> references) {
         Map<String, Entry> selected = new LinkedHashMap<>();

@@ -229,6 +229,7 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
     /**
      * Finds the observed console dialog of a placement name.
      *
+     * @param dialog the placement name of the dialog
      * @return the dialog, or {@code null} if it is not observed
      */
     private @Nullable ObservedDialog findObserved(ScrConsolePlacement.@NotNull Dialog dialog) {
@@ -305,8 +306,7 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
      * <p>
      * The picture is the one the map script set for the icon.
      *
-     * @param icon the resource icon frame: {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran
-     *             and Protoss
+     * @param icon the resource icon frame: {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran and Protoss
      * @return the picture, or {@code null} for the other icons
      */
     @Override

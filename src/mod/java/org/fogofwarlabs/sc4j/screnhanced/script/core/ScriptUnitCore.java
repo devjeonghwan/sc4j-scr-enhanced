@@ -147,8 +147,7 @@ final class ScriptUnitCore {
      * @param context   the current context
      * @param global    the global scope
      * @param pool      the unit pool
-     * @param selection the pool index at a position from {@code 0} to {@link UnitSelection#MAXIMUM_SELECTED} minus one, {@code 0} for an empty
-     *                  position
+     * @param selection the pool index at a position from {@code 0} to {@link UnitSelection#MAXIMUM_SELECTED} minus one, {@code 0} for an empty position
      * @return the array of the unit ids
      */
     static @NotNull Scriptable createSelectionIds(@NotNull Context context, @NotNull Scriptable global, @NotNull UnitPool pool,
@@ -758,8 +757,7 @@ final class ScriptUnitCore {
      * Changes a unit's type through the morph routine, which keeps the unit, its owner, order and links, scales its hit points and rebuilds its
      * sprite and status overlays.
      *
-     * @return {@code true} if the routine took the unit, {@code false} for a subunit, a subunit type, or a type with a turret for a unit
-     * without one or the reverse
+     * @return {@code true} if the routine took the unit, {@code false} for a subunit, a subunit type, or a type with a turret for a unit without one or the reverse
      */
     private boolean changeType(@NotNull Unit unit, int type) {
         ScrUnitTypeView units = this.getUnitTypes();

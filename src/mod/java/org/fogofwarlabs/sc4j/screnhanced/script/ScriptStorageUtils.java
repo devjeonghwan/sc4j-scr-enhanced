@@ -245,15 +245,14 @@ public final class ScriptStorageUtils {
 
     /**
      * Writes a script package into a map file that is not protected: the map without its old trailer, then the padding its MPQ ranges need and
-     * the new trailer.
+     * the new trailer. An MPQ table may reach at most {@value #MAXIMUM_PADDING} bytes past the end of the map, a name at most {@code 65535}
+     * UTF-8 bytes and the new file at most {@link MpqArchive#MAXIMUM_FILE_SIZE} bytes.
      *
      * @param mapFile       the whole map file, not modified
      * @param description   the map name used in messages
      * @param scriptPackage the script package
      * @return the new map file
-     * @throws IOException if the old trailer is not valid, the map holds no MPQ archive the map reader opens, an MPQ table reaches more than
-     *                     {@value #MAXIMUM_PADDING} bytes past the end of the map, a name exceeds {@code 65535} UTF-8 bytes, or the new file
-     *                     exceeds {@link MpqArchive#MAXIMUM_FILE_SIZE} bytes
+     * @throws IOException if the old trailer is not valid, the map holds no MPQ archive the map reader opens, or a size limit is exceeded
      */
     public static byte @NotNull [] writePackage(byte @NotNull [] mapFile, @NotNull String description,
                                                 @NotNull ScriptPackage scriptPackage) throws IOException {
@@ -262,16 +261,15 @@ public final class ScriptStorageUtils {
 
     /**
      * Writes a script package into a map file: the map without its old trailer, then the padding its MPQ ranges need and the new trailer, with
-     * the flag {@value #PROTECTED_FLAG} for a protected map.
+     * the flag {@value #PROTECTED_FLAG} for a protected map. An MPQ table may reach at most {@value #MAXIMUM_PADDING} bytes past the end of the
+     * map, a name at most {@code 65535} UTF-8 bytes and the new file at most {@link MpqArchive#MAXIMUM_FILE_SIZE} bytes.
      *
      * @param mapFile       the whole map file, not modified
      * @param description   the map name used in messages
      * @param scriptPackage the script package, with protected scripts for a protected map
      * @param protectedMap  whether the map is protected
      * @return the new map file
-     * @throws IOException if the old trailer is not valid, the map holds no MPQ archive the map reader opens, an MPQ table reaches more than
-     *                     {@value #MAXIMUM_PADDING} bytes past the end of the map, a name exceeds {@code 65535} UTF-8 bytes, or the new file
-     *                     exceeds {@link MpqArchive#MAXIMUM_FILE_SIZE} bytes
+     * @throws IOException if the old trailer is not valid, the map holds no MPQ archive the map reader opens, or a size limit is exceeded
      */
     public static byte @NotNull [] writePackage(byte @NotNull [] mapFile, @NotNull String description, @NotNull ScriptPackage scriptPackage,
                                                 boolean protectedMap) throws IOException {
@@ -509,17 +507,16 @@ public final class ScriptStorageUtils {
     }
 
     /**
-     * Reads the directory of a trailer.
+     * Reads the directory of a trailer. A valid directory ends with its last record, has unique UTF-8 names and no stored bytes for a
+     * reference, and its stored sizes add up to the data size.
      *
      * @param directory           the directory bytes
      * @param dataSize            the size of the data before the directory
-     * @param dataStart           the offset of the data in the bytes that hold the trailer, or {@link ScriptResources#NO_OFFSET} to read no
-     *                            offsets
+     * @param dataStart           the offset of the data in the bytes that hold the trailer, or {@link ScriptResources#NO_OFFSET} to read no offsets
      * @param referencedResources whether the resources are references without stored bytes
      * @param description         the trailer name used in messages
      * @return the files in directory order, with their offsets
-     * @throws IOException if the directory ends inside a record or holds bytes after its last record, a name is not UTF-8 or repeats, a
-     *                     reference has stored bytes, or the stored sizes do not add up to the data size
+     * @throws IOException if the directory is not valid
      */
     private static @NotNull List<ScriptResources.Entry> readDirectory(@NotNull ByteBuffer directory, long dataSize, int dataStart,
                                                                       boolean referencedResources, @NotNull String description) throws IOException {

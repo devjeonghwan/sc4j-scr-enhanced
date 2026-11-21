@@ -35,15 +35,15 @@ public final class ScriptPackage {
     private static final char FIRST_PRINTABLE_CHARACTER = 0x20;
 
     /**
-     * Creates a {@link ScriptPackage} instance after checking its names and its manifest.
+     * Creates a {@link ScriptPackage} instance after checking its names and its manifest. The script and resource names must be valid, unique
+     * ignoring letter case and none the folder of another name of its kind; every script name ends with {@value #SCRIPT_EXTENSION} and lies
+     * outside {@value #RESOURCE_FOLDER}.
      *
      * @param manifest  the manifest
      * @param scripts   the script contents by name, in the stored order; the map is copied, the contents are not
      * @param resources the resource contents by name, in the stored order; the map is copied, the contents are not
      * @return the created {@link ScriptPackage} instance
-     * @throws IOException if a name is not valid, two names are equal ignoring letter case or one is the folder of another, a script name
-     *                     does not end with {@value #SCRIPT_EXTENSION} or lies under {@value #RESOURCE_FOLDER}, or the manifest's
-     *                     {@code main} names no script
+     * @throws IOException if a name is not valid or the manifest's {@code main} names no script
      */
     public static @NotNull ScriptPackage create(@NotNull ScriptManifest manifest, @NotNull Map<String, byte[]> scripts,
                                                 @NotNull Map<String, byte[]> resources) throws IOException {
@@ -62,8 +62,7 @@ public final class ScriptPackage {
      *
      * @param folder the script folder
      * @return the read script package
-     * @throws IOException if the folder or a file cannot be read, the folder has no {@value ScriptManifest#FILE_NAME}, or the manifest or
-     *                     the names are not valid ({@link #create})
+     * @throws IOException if a file cannot be read, the folder has no {@value ScriptManifest#FILE_NAME}, or the package is not valid ({@link #create})
      */
     public static @NotNull ScriptPackage readFolder(@NotNull Path folder) throws IOException {
         Path manifestFile = folder.resolve(ScriptManifest.FILE_NAME);
@@ -125,8 +124,7 @@ public final class ScriptPackage {
      *
      * @param scriptNames   the script names
      * @param resourceNames the resource names
-     * @throws IOException if a name is not valid, two names of one kind are equal ignoring letter case or one is the folder of another, or a
-     *                     script name does not end with {@value #SCRIPT_EXTENSION} or lies under {@value #RESOURCE_FOLDER}
+     * @throws IOException if a name breaks one of these rules
      */
     static void checkNames(@NotNull Set<String> scriptNames, @NotNull Set<String> resourceNames) throws IOException {
         for (String scriptName : scriptNames) {

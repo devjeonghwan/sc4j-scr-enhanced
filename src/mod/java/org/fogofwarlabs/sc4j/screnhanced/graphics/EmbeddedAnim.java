@@ -118,8 +118,7 @@ final class EmbeddedAnim {
      *
      * @param data the anim bytes
      * @return the texture sheet
-     * @throws IOException if the bytes are no single-entry anim of scale {@code 4} or {@code 2} with a canvas and a block-compressed
-     *                     {@code diffuse} layer
+     * @throws IOException if the bytes are no single-entry anim of scale {@code 4} or {@code 2} with a canvas and a block-compressed {@code diffuse} layer
      */
     static @NotNull TextureSheet parse(byte @NotNull [] data) throws IOException {
         return AnimTextureUtils.createSheet(readFile(data));
@@ -130,8 +129,7 @@ final class EmbeddedAnim {
      *
      * @param data the anim bytes
      * @return the asset scale: {@value #HD_SCALE} or {@value #HD2_SCALE}
-     * @throws IOException if the bytes are no single-entry anim of scale {@code 4} or {@code 2} with a canvas and a block-compressed
-     *                     {@code diffuse} layer
+     * @throws IOException if the bytes are no single-entry anim of scale {@code 4} or {@code 2} with a canvas and a block-compressed {@code diffuse} layer
      */
     static int check(byte @NotNull [] data) throws IOException {
         AnimFile file = readFile(data);

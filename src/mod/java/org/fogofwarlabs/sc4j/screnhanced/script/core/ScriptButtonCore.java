@@ -424,8 +424,7 @@ final class ScriptButtonCore {
     }
 
     /**
-     * Makes every set that holds an array hold another; the array itself never changes, so that the readers that keep converted arrays stay
-     * right.
+     * Makes every set that holds an array hold another; arrays never change in place, so readers that keep converted arrays stay valid.
      */
     private void replaceArray(HostButtonSets.@NotNull Button @NotNull [] array, HostButtonSets.@NotNull Button @NotNull [] changed) {
         HostButtonSets host = this.requireChangedTable();

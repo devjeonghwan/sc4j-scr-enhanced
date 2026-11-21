@@ -249,6 +249,8 @@ final class ScriptTypeCore {
     /**
      * Defines {@code getAnimImageType(id)} of the image type namespace.
      *
+     * @param namespace      the namespace object
+     * @param global         the global scope
      * @param animImageTypes the image type whose HD anim each image type draws, by image type
      */
     private static void defineAnimImageTypes(@NotNull Scriptable namespace, @NotNull Scriptable global, int @NotNull [] animImageTypes) {
@@ -292,8 +294,7 @@ final class ScriptTypeCore {
      * Resolves the image type whose HD anim each {@code images.dat} entry draws, after the installed {@code images.rel}.
      *
      * @param gameData the game data, or {@code null} for a game without game data
-     * @return the image types, by entry: the entry itself for an entry with its own anim, for a game without game data and when
-     * {@code images.rel} cannot be read
+     * @return the image types, by entry: the entry itself for an entry with its own anim, for a game without game data and when {@code images.rel} cannot be read
      */
     private static int @NotNull [] createAnimImageTypes(@Nullable GameData gameData) {
         int[] animImageTypes = new int[ScrImages.COUNT];

@@ -257,8 +257,7 @@ final class ScriptGraphicsCore {
     /**
      * Reads the three handle arguments of graphics: a GRP, an HD anim and an HD2 anim, each {@code -1} for none.
      *
-     * @throws EcmaError if an argument is not an integer or names no handle of its kind, all three are {@code -1}, the HD anim is an HD2 anim or
-     *                   the HD2 anim an HD anim
+     * @throws EcmaError if an argument is not an integer or names no handle of its kind, all three are {@code -1}, the HD anim is an HD2 anim or the HD2 anim an HD anim
      */
     private @NotNull ImageGraphics readGraphics(@NotNull Object @NotNull [] arguments, int index) {
         ImageGrp grp = this.readHandle(arguments, index, ImageGrp.class, "GRP");

@@ -104,6 +104,8 @@ public final class ImageReplacements {
     /**
      * Checks whether a replacement's unit is still in its slot.
      *
+     * @param pool        the game's unit pool
+     * @param replacement the replacement
      * @return {@code true} if the slot is allocated and keeps the generation of the replacement's unit, {@code false} otherwise
      */
     private static boolean isHeld(@NotNull UnitPool pool, @NotNull UnitReplacement replacement) {
@@ -473,6 +475,8 @@ public final class ImageReplacements {
     /**
      * Checks whether an override's image is still in its slot.
      *
+     * @param override the override
+     * @param slot     the image pool slot of the override
      * @return {@code true} if the slot is allocated and keeps the generation of the override's image, {@code false} otherwise
      */
     private static boolean isHeld(@NotNull ImageOverride override, int slot) {
@@ -496,6 +500,8 @@ public final class ImageReplacements {
     /**
      * Finds the override of an allocated image, creating it for the image in its slot.
      *
+     * @param image an allocated image of the image pool
+     * @return the override
      * @throws IllegalArgumentException if the image's slot is not allocated
      */
     private @NotNull ImageOverride requireImageOverride(@NotNull SpriteImage image) {

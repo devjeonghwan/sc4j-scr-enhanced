@@ -166,8 +166,7 @@ public final class ScriptDatTables {
         }
 
         /**
-         * @return the id that stands for no object, the count of the referred table, or {@link ScriptDatTables#NOT_NULLABLE} for a reference
-         * that always names an object
+         * @return the id that stands for no object, the count of the referred table, or {@link ScriptDatTables#NOT_NULLABLE} for a reference that always names an object
          */
         public int getNoneId() {
             return this.noneId;
@@ -196,8 +195,7 @@ public final class ScriptDatTables {
         }
 
         /**
-         * @return the name of the flag's methods, the column prefix followed by the constant in upper camel case ({@code Building},
-         * {@code GroupZerg})
+         * @return the name of the flag's methods, the column prefix followed by the constant in upper camel case ({@code Building}, {@code GroupZerg})
          */
         public @NotNull String getName() {
             return this.name;
@@ -492,7 +490,14 @@ public final class ScriptDatTables {
     /**
      * Creates the description of a table from its SC:R schema and definitions class.
      *
+     * @param name        the name of the table under {@code core.dat}
+     * @param fileName    the DAT file name
+     * @param kind        the kind of an entry id in messages and parameter names
+     * @param type        the type objects of the table's entries
+     * @param count       the number of entries
+     * @param table       finds the table of a game's data
      * @param definitions the class whose public string constants name the schema's fields
+     * @param schema      the SC:R schema of the table
      * @param references  the reference of each column that refers to type objects, by field name
      * @param flagClasses the flag class of each flag column, by field name
      * @param firstIds    the first id of each column that holds fewer entries than the table and not from id {@code 0}, by field name

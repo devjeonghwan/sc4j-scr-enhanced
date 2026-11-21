@@ -115,13 +115,13 @@ public final class ScriptValueUtils {
 
 
     /**
-     * Encodes a script value.
+     * Encodes a script value. The value and the values inside it must be of the encoded kinds, arrays without holes, nested at most
+     * {@value #MAXIMUM_DEPTH} levels and not into themselves.
      *
      * @param value  the value
      * @param global the global scope, whose {@code Object.prototype} plain objects have
      * @return the encoded bytes
-     * @throws EcmaError if the value or a value inside it is not one of the encoded kinds, an array has a hole, or the value nests deeper than
-     *                   {@value #MAXIMUM_DEPTH} levels or into itself
+     * @throws EcmaError if the value cannot be encoded
      */
     public static byte @NotNull [] encode(@Nullable Object value, @NotNull Scriptable global) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();

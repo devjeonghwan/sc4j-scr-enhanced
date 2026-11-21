@@ -546,8 +546,7 @@ public final class ScriptProtector {
     }
 
     /**
-     * @return {@code true} if a destructured parameter of the function has a default value, which Rhino keeps out of the tree, {@code false}
-     * otherwise
+     * @return {@code true} if a destructured parameter of the function has a default value, which Rhino keeps out of the tree, {@code false} otherwise
      */
     private boolean hasDestructuredDefault(@NotNull FunctionNode function) {
         for (AstNode parameter : function.getParams()) {

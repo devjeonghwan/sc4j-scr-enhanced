@@ -37,8 +37,8 @@ import java.util.regex.Pattern;
  * {@code local.*} at the top level of a module or directly in a shared hook, where they throw (errors), unless the script declares
  * {@code local}.
  * <p>
- * Each resource named {@code *.grp}, {@code *.anim}, {@code *.png} or {@code *.dds}, read as the runtime reads a GRP, an anim or an image. The size: the script trailer with every file
- * stored as it is against the largest map file (a warning).
+ * Each resource named {@code *.grp}, {@code *.anim}, {@code *.png} or {@code *.dds}, read as the runtime reads a GRP, an anim or an image.
+ * The size: the script trailer with every file stored as it is against the largest map file (a warning).
  */
 public final class ScriptCheckUtils {
     /**
