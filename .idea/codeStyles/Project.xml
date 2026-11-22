@@ -7,6 +7,7 @@
         <fileSet type="globPattern" pattern="*.json" />
         <fileSet type="globPattern" pattern="*.md" />
         <fileSet type="globPattern" pattern="*.svg" />
+        <fileSet type="globPattern" pattern="**/script/runtime/typescript/**" />
       </list>
     </option>
     <JavaCodeStyleSettings>
