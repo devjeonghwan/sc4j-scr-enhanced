@@ -20,9 +20,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tests {@code core.console} and its upper layer ({@code console}, {@code ConsoleControl}, {@code ConsoleImage}, {@code ConsoleAnchor}) on a game
- * without game data: the settings they set in shared and in local code, those of the dialogs' controls, anchors and the minimap size included,
- * the resource icons of each resource type, the refusals, the classic console that shows them, and the drawn rectangles local code reads.
+ * Tests {@code core.console} and its upper layer ({@code console}, {@code ConsoleControl}, {@code ConsoleImage}, {@code ConsoleAnchor},
+ * {@code ConsoleChild}) on a game without game data: the settings they set in shared and in local code, those of the dialogs' controls, anchors
+ * and the minimap size included, the resource icons of each resource type, the refusals, the classic console that shows them, the drawn
+ * rectangles local code reads and the control names.
  */
 final class ScriptConsoleCoreTest {
     private static final int MAP_TILE_SIZE = 4;
@@ -171,13 +172,18 @@ final class ScriptConsoleCoreTest {
                                                                                     display.console.setMinimapSize(192);
                                                                                     log.info(display.console.getMinimapSize(), ConsoleAnchor.Right.getId(), error(function () { display.console.setMinimapSize(0); }),
                                                                                              error(function () { display.console.setMinimapSize(481); }), error(function () { core.console.setDialogAnchor(4, 3); }),
-                                                                                             error(function () { minimap.setAnchor(2); }), error(function () { minimap.getRectangle(); }));
+                                                                                             error(function () { minimap.setAnchor(2); }), error(function () { minimap.getRectangle(); }),
+                                                                                             error(function () { display.console.getMinimapRectangle(); }));
+                                                                                    log.info(ConsoleChild.MinimapArea, ConsoleChild.MinimapDiplomacy, ConsoleChild.CommandCardButton9, ConsoleChild.SelectionQueue1,
+                                                                                             ConsoleChild.SelectionGroup12, ConsoleChild.ResourcesCounter6, ConsoleChild.TextBoxEdit, Object.isFrozen(ConsoleChild));
                                                                                     function onLocalFrame(frame) {
                                                                                         var rectangle = minimap.getRectangle();
                                                                                         var area = minimap.getChildRectangle(1);
+                                                                                        var minimapArea = display.console.getMinimapRectangle();
                                                                                         log.info(rectangle === null ? 'none' : rectangle.x + ' ' + rectangle.y + ' ' + rectangle.width + ' ' + rectangle.height + ' ' +
                                                                                                                                Object.isFrozen(rectangle),
-                                                                                                 area === null ? 'none' : area.x + ' ' + area.width, minimap.getChildRectangle(2));
+                                                                                                 area === null ? 'none' : area.x + ' ' + area.width, minimap.getChildRectangle(2),
+                                                                                                 minimapArea === null ? 'none' : minimapArea.y + ' ' + minimapArea.width);
                                                                                     }
                                                                                     """);
 
@@ -210,7 +216,8 @@ final class ScriptConsoleCoreTest {
         });
         scenario.getRuntime().callLocalFrame(2);
 
-        Assertions.assertEquals(List.of("192 2 RangeError RangeError RangeError TypeError TypeError", "none none null", "6 348.5 180 132 true 6 192 null"),
+        Assertions.assertEquals(List.of("192 2 RangeError RangeError RangeError TypeError TypeError TypeError", "1 4 9 2 44 6 7 true",
+                                        "none none null none", "6 348.5 180 132 true 6 192 null 348.5 192"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 }

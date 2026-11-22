@@ -56,7 +56,7 @@ HD는 HD anim을, 없으면 HD2 anim을 그립니다. HD2는 HD2 anim을, 없으
 
 ### 5. Enhanced Script
 
-맵에 JavaScript를 담아 모든 플레이어의 게임에서 락스텝으로 실행할 수 있습니다. 프레임, 이벤트, 입력 훅, 타이머, 화면 그리기, 커맨드 카드 버튼, 유닛과 플레이어와 게임 데이터 접근을 제공합니다.
+맵에 JavaScript(또는 JavaScript로 컴파일한 TypeScript)를 담아 모든 플레이어의 게임에서 락스텝으로 실행할 수 있습니다. 프레임, 이벤트, 입력 훅, 타이머, 화면 그리기, 커맨드 카드 버튼, 유닛과 플레이어와 게임 데이터 접근을 제공합니다.
 
 ```js
 game.every(Time.fromSeconds(30), () => {

@@ -56,7 +56,7 @@ StarCraft: Remastered and the SC:R mod ignore these writes and show the original
 
 ### 5. Enhanced Script
 
-A map can carry JavaScript that runs on every player's game in lockstep: hooks for frames, events and input, timers, screen drawing, command card buttons, and access to units, players and the game data.
+A map can carry JavaScript (or TypeScript compiled to it) that runs on every player's game in lockstep: hooks for frames, events and input, timers, screen drawing, command card buttons, and access to units, players and the game data.
 
 ```js
 game.every(Time.fromSeconds(30), () => {

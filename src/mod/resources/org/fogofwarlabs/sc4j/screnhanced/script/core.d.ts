@@ -3979,7 +3979,9 @@ interface CoreConsole {
     setDialogAnchor(dialog: number, anchor: number): void;
 
     /**
-     * Sets the side of the drawn minimap area, which grows or shrinks from its top left.
+     * Sets the side of the drawn minimap area. The minimap dialog grows or shrinks with it by size - 128 in width and height, its controls kept at
+     * their offsets from its top left: a dialog placed by {@link CoreConsole.setDialogPosition} keeps its top left, an unplaced one its bottom
+     * left.
      *
      * @param size the side in interface units, 1 to 480 (128 installed); another value throws a RangeError
      */
@@ -4001,11 +4003,19 @@ interface CoreConsole {
     /**
      * Local code only.
      *
-     * @param control the control's identifier in the dialog's definition, -32768 to 32767
+     * @param control the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      * @returns the control's rectangle as the client last drew it, [x, y, width, height] in interface units, or null while it or its dialog is
      * hidden, the dialog has no such control or the console is not drawn
      */
     getControlRectangle(dialog: number, control: number): number[] | null;
+
+    /**
+     * Local code only.
+     *
+     * @returns the rectangle of the minimap area (control 1 of the minimap dialog) as the client last drew it, [x, y, width, height] in interface
+     * units, the minimap size wide and high, or null while it or the minimap dialog is hidden or the console is not drawn
+     */
+    getMinimapRectangle(): number[] | null;
 
     /**
      * Replaces a console art file with an image.

@@ -6,6 +6,9 @@
 // counting loop): use let. A const declared in a loop body keeps its first value, and the functions created in the body of a for (let ...)
 // loop share one binding of its variables; a let declared in the loop body is new in every iteration. Promise jobs run when the call into the
 // script that queued them returns ({@link Promise}). There is no eval, no Function from strings, and no Date, timer or Java access.
+// TypeScript compiled by tsc with target ES5 and module commonjs runs with those forms, its helpers included (guide section 2.6).
+//
+// A top-level function, or variable holding one, with a hook name is a hook of its module, exported or not: give helpers other names.
 //
 // Shared code is the module top level, onStart, onFrame, the event and decision hooks, the timers of game.every and game.after, and the
 // channel handlers. It runs identically on every player's game and may change the game state. Local code is onLocalFrame, onRender and the
@@ -335,6 +338,8 @@ interface ReadonlyArray<T> {
 
     map<U>(callback: (value: T, index: number, array: readonly T[]) => U, thisArgument?: any): U[];
 
+    filter<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArgument?: any): S[];
+
     filter(predicate: (value: T, index: number, array: readonly T[]) => unknown, thisArgument?: any): T[];
 
     [Symbol.iterator](): IterableIterator<T>;
@@ -358,6 +363,8 @@ interface Array<T> {
     every(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): boolean;
 
     fill(value: T, start?: number, end?: number): this;
+
+    filter<S extends T>(predicate: (value: T, index: number, array: T[]) => value is S, thisArgument?: any): S[];
 
     filter(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): T[];
 
@@ -477,21 +484,45 @@ interface SymbolConstructor {
 
 declare var Symbol: SymbolConstructor;
 
-interface IteratorResult<T> {
-    done?: boolean;
+interface IteratorYieldResult<T> {
+    done?: false;
     value: T;
 }
 
-interface Iterator<T> {
-    next(): IteratorResult<T>;
+interface IteratorReturnResult<TReturn> {
+    done: true;
+    value: TReturn;
 }
 
-interface Iterable<T> {
-    [Symbol.iterator](): Iterator<T>;
+type IteratorResult<T, TReturn = any> = IteratorYieldResult<T> | IteratorReturnResult<TReturn>;
+
+interface Iterator<T, TReturn = any, TNext = any> {
+    next(...[value]: [] | [TNext]): IteratorResult<T, TReturn>;
+
+    return?(value?: TReturn): IteratorResult<T, TReturn>;
+
+    throw?(error?: any): IteratorResult<T, TReturn>;
 }
 
-interface IterableIterator<T> extends Iterator<T> {
-    [Symbol.iterator](): IterableIterator<T>;
+interface Iterable<T, TReturn = any, TNext = any> {
+    [Symbol.iterator](): Iterator<T, TReturn, TNext>;
+}
+
+interface IterableIterator<T, TReturn = any, TNext = any> extends Iterator<T, TReturn, TNext> {
+    [Symbol.iterator](): IterableIterator<T, TReturn, TNext>;
+}
+
+/**
+ * The object a generator function returns.
+ */
+interface Generator<T = unknown, TReturn = any, TNext = any> extends IterableIterator<T, TReturn, TNext> {
+    next(...[value]: [] | [TNext]): IteratorResult<T, TReturn>;
+
+    return(value: TReturn): IteratorResult<T, TReturn>;
+
+    throw(error: any): IteratorResult<T, TReturn>;
+
+    [Symbol.iterator](): Generator<T, TReturn, TNext>;
 }
 
 interface Map<K, V> {
@@ -597,9 +628,9 @@ declare var WeakSet: WeakSetConstructor;
  * callback that throws rejects the promise that then, catch or finally returned; a rejection that no callback handles is not logged.
  */
 interface Promise<T> {
-    then<R1 = T, R2 = never>(onFulfilled?: (value: T) => R1 | Promise<R1>, onRejected?: (reason: any) => R2 | Promise<R2>): Promise<R1 | R2>;
+    then<R1 = T, R2 = never>(onFulfilled?: (value: T) => R1 | PromiseLike<R1>, onRejected?: (reason: any) => R2 | PromiseLike<R2>): Promise<R1 | R2>;
 
-    catch<R = never>(onRejected?: (reason: any) => R | Promise<R>): Promise<T | R>;
+    catch<R = never>(onRejected?: (reason: any) => R | PromiseLike<R>): Promise<T | R>;
 
     finally(onFinally?: () => void): Promise<T>;
 }
@@ -623,13 +654,13 @@ interface PromiseConstructor {
     /**
      * Creates a promise and calls the executor at once.
      */
-    new<T>(executor: (resolve: (value: T | Promise<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
+    new<T>(executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
 
     readonly prototype: Promise<any>;
 
     resolve(): Promise<void>;
 
-    resolve<T>(value: T | Promise<T>): Promise<T>;
+    resolve<T>(value: T | PromiseLike<T>): Promise<T>;
 
     reject<T = never>(reason?: any): Promise<T>;
 
@@ -646,6 +677,20 @@ interface PromiseConstructor {
 }
 
 declare var Promise: PromiseConstructor;
+
+/**
+ * An object with a then method, as await and a promise's resolve function take it.
+ */
+interface PromiseLike<T> {
+    then<R1 = T, R2 = never>(onFulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+                             onRejected?: ((reason: any) => R2 | PromiseLike<R2>) | null): PromiseLike<R1 | R2>;
+}
+
+/**
+ * The constructor that the code TypeScript writes for async functions below ES2017 calls.
+ */
+type PromiseConstructorLike = new<T>(executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void) =>
+    PromiseLike<T>;
 
 interface JSON {
     parse(text: string, reviver?: (key: string, value: any) => any): any;
@@ -4885,13 +4930,14 @@ interface PlayerValue<T> {
 interface Sync {
     /**
      * Creates a channel. The handler runs as shared code with the sending player, the value, and the live units the player had selected when
-     * the command ran. Shared code only.
+     * the command ran. Shared code only. The value comes from another player's game, which may send any channel value whatever T is, so the
+     * handler receives it as unknown: check its kind before using it.
      *
      * @param handler the function that receives the sent values
-     * @returns the channel
+     * @returns the channel, whose send takes T
      * @throws TypeError if the handler is no function
      */
-    createChannel<T>(handler: (player: Player, value: T, units: Unit[]) => void): Channel<T>;
+    createChannel<T = unknown>(handler: (player: Player, value: unknown, units: Unit[]) => void): Channel<T>;
 
     /**
      * Creates a value per player over a new channel. Shared code only.
@@ -5517,6 +5563,81 @@ interface ConsoleAnchorTable extends ConstantTable<ConsoleAnchor> {
 declare const ConsoleAnchor: ConsoleAnchorTable;
 
 /**
+ * The identifiers of the well-known controls of the console dialogs in their definitions, for {@link ConsoleControlHandle.setChildVisible},
+ * {@link ConsoleControlHandle.setChildPosition}, {@link ConsoleControlHandle.restoreChild} and {@link ConsoleControlHandle.getChildRectangle} of
+ * the dialog the name starts with. A numbered series counts from 1.
+ */
+interface ConsoleChildTable {
+    /** 1 to 9: the command card buttons, row by row from the top left. */
+    readonly CommandCardButton1: number;
+    readonly CommandCardButton2: number;
+    readonly CommandCardButton3: number;
+    readonly CommandCardButton4: number;
+    readonly CommandCardButton5: number;
+    readonly CommandCardButton6: number;
+    readonly CommandCardButton7: number;
+    readonly CommandCardButton8: number;
+    readonly CommandCardButton9: number;
+    /** 1: the wireframe of a single selected unit. */
+    readonly SelectionWireframe: number;
+    /** -5: the unit name line. */
+    readonly SelectionName: number;
+    /** -7: the hit points line under the wireframe. */
+    readonly SelectionHitPoints: number;
+    /** -8: the energy or time line under the wireframe. */
+    readonly SelectionEnergy: number;
+    /** 2 to 6: the production queue, the current slot first, then the waiting slots from the left. */
+    readonly SelectionQueue1: number;
+    readonly SelectionQueue2: number;
+    readonly SelectionQueue3: number;
+    readonly SelectionQueue4: number;
+    readonly SelectionQueue5: number;
+    /** 7: the progress bar of the production queue. */
+    readonly SelectionProgress: number;
+    /** 33 to 44: the wireframes of a group selection, column by column from the top left. */
+    readonly SelectionGroup1: number;
+    readonly SelectionGroup2: number;
+    readonly SelectionGroup3: number;
+    readonly SelectionGroup4: number;
+    readonly SelectionGroup5: number;
+    readonly SelectionGroup6: number;
+    readonly SelectionGroup7: number;
+    readonly SelectionGroup8: number;
+    readonly SelectionGroup9: number;
+    readonly SelectionGroup10: number;
+    readonly SelectionGroup11: number;
+    readonly SelectionGroup12: number;
+    /** 1 to 6: the resource counters from the right: the supply of each race the player has supply of, then gas, then minerals. */
+    readonly ResourcesCounter1: number;
+    readonly ResourcesCounter2: number;
+    readonly ResourcesCounter3: number;
+    readonly ResourcesCounter4: number;
+    readonly ResourcesCounter5: number;
+    readonly ResourcesCounter6: number;
+    /** -10: the countdown timer. */
+    readonly ResourcesCountdown: number;
+    /** 1: the portrait. */
+    readonly PortraitPicture: number;
+    /** 1: the menu button. */
+    readonly MenuButton: number;
+    /** 1: the minimap area ({@link Console.getMinimapRectangle}). */
+    readonly MinimapArea: number;
+    /** 2: the terrain button. */
+    readonly MinimapTerrain: number;
+    /** 3: the message button of a multiplayer game. */
+    readonly MinimapMessage: number;
+    /** 4: the diplomacy button of a multiplayer game, at the place of the terrain button. */
+    readonly MinimapDiplomacy: number;
+    /** 7: the chat line of the text box. */
+    readonly TextBoxEdit: number;
+}
+
+/**
+ * The identifiers of the console dialogs' controls.
+ */
+declare const ConsoleChild: ConsoleChildTable;
+
+/**
  * A rectangle in interface units ({@link ConsoleControlHandle.getRectangle}).
  */
 interface ScreenRectangle {
@@ -5571,7 +5692,7 @@ interface ConsoleControlHandle {
     /**
      * Shows or hides a control of the dialog; it wins over EUD memory until {@link ConsoleControlHandle.restoreChild}.
      *
-     * @param id      the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id      the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      * @param visible true to show it
      */
     setChildVisible(id: number, visible: boolean): void;
@@ -5579,7 +5700,7 @@ interface ConsoleControlHandle {
     /**
      * Places a control of the dialog by its top left; it wins over EUD memory until {@link ConsoleControlHandle.restoreChild}.
      *
-     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      * @param x  the left in classic screen pixels, rounded
      * @param y  the top in classic screen pixels, rounded
      */
@@ -5588,7 +5709,7 @@ interface ConsoleControlHandle {
     /**
      * Forgets the visibility and the position set on a control of the dialog, so that EUD memory drives it again.
      *
-     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      */
     restoreChild(id: number): void;
 
@@ -5603,7 +5724,7 @@ interface ConsoleControlHandle {
 
     /**
      * Returns the rectangle of the dialog as the client last drew it, placed by the settings and EUD memory, for hit tests and layouts of the
-     * script's own drawing. Local code only.
+     * script's own drawing. The minimap dialog grows with the minimap size ({@link Console.setMinimapSize}). Local code only.
      *
      * @returns the rectangle in interface units, or null while the dialog is hidden or the console was not drawn
      */
@@ -5613,7 +5734,7 @@ interface ConsoleControlHandle {
      * Returns the rectangle of a control of the dialog as the client last drew it, such as a command card button or the minimap area (the
      * minimap size of {@link Console.setMinimapSize}). Local code only.
      *
-     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      * @returns the rectangle in interface units, or null while the control or its dialog is hidden, the dialog has no such control or the
      * console was not drawn
      */
@@ -5653,9 +5774,10 @@ interface Console {
     replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
 
     /**
-     * Sets the side of the drawn minimap area: the minimap, its view frame and the drawing of {@link Screen.minimap} grow or shrink from the
-     * area's top left, and clicks hit the drawn minimap. The minimap dialog's other controls keep their places; move them with
-     * {@link ConsoleControlHandle.setChildPosition}. Where EUD console transparency hides the console, it hides the minimap too.
+     * Sets the side of the drawn minimap area: the minimap, its view frame and the drawing of {@link Screen.minimap} grow or shrink with it, and
+     * clicks hit the drawn minimap. The minimap dialog grows or shrinks with the area, 10 + size wide and 37 + size high, its controls kept at
+     * their offsets from its top left (the area at 6, 33): a dialog placed by {@link ConsoleControlHandle.setPosition} keeps its top left, an
+     * unplaced one its bottom left, so that the area keeps its bottom. Where EUD console transparency hides the console, it hides the minimap too.
      *
      * @param size the side in interface units, 1 to 480; 128 is the installed size; another value throws a RangeError
      */
@@ -5665,6 +5787,13 @@ interface Console {
      * @returns the side of the drawn minimap area in interface units
      */
     getMinimapSize(): number;
+
+    /**
+     * Returns the rectangle of the minimap area as the client last drew it, the minimap size wide and high. Local code only.
+     *
+     * @returns the rectangle in interface units, or null while the area or the minimap dialog is hidden or the console was not drawn
+     */
+    getMinimapRectangle(): ScreenRectangle | null;
 
     /**
      * Draws an image for the console icon of a resource, every race's icon, fitted into the icon's box.

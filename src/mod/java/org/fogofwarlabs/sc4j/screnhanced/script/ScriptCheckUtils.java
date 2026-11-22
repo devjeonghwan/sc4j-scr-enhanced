@@ -26,16 +26,17 @@ import java.util.regex.Pattern;
  * The manifest: present and valid, the main script in the folder, the script API {@value ScriptProjectUtils#API_VERSION} (a warning
  * otherwise); the names of the scripts and resources (errors of the folder {@value #FOLDER_FILE}).
  * <p>
- * Each script, read as UTF-8 and compiled by Rhino with the settings of the runtime: the syntax errors, the first of each line, with a note
- * when the line holds syntax that Rhino 1.8.1 lacks ({@code class}, {@code async} and {@code await}, spread {@code ...},
- * {@code for (const ...)}, {@code import} and {@code export}); after a successful compile, references to the globals the runtime does not
- * have ({@code eval}, {@code Date}, {@code java}, {@code Packages} and the other Java and timer globals) and calls of the {@code Function}
- * constructor (errors) unless the script declares the name, top-level functions with the form of a hook name that no hook has (warnings, as
- * the runtime warns), a {@code const} in a loop, which keeps its first value in Rhino 1.8.1 (a warning), and functions in the body of a
- * {@code for (let ...)} loop that use its variables, which all iterations share in Rhino 1.8.1 (a warning), and names under {@code core.dat}
- * that the DAT tables do not have, a table or a function of a table (errors), unless the script declares {@code core}, and uses of
- * {@code local.*} at the top level of a module or directly in a shared hook, where they throw (errors), unless the script declares
- * {@code local}.
+ * Each script, read as UTF-8 and compiled by Rhino with the settings of the runtime: the syntax errors, the first of each line, with a note when the
+ * line holds syntax that Rhino 1.8.1 lacks ({@code class} and {@code super}, {@code async} and {@code await}, spread {@code ...},
+ * {@code for (const ...)}, {@code import} and {@code export}), which names the TypeScript target that avoids it; after a successful compile,
+ * references to the globals the runtime does not have ({@code eval}, {@code Date}, {@code java}, {@code Packages} and the other Java and timer
+ * globals) and calls of the {@code Function} constructor (errors) unless the script declares the name, top-level functions with the form of a hook
+ * name that no hook has (warnings, as the runtime warns), a hook name assigned to {@code exports} or {@code module.exports}, whose function the
+ * runtime calls as a hook besides the modules that call it (a warning, once per name), a {@code const} in a loop, which keeps its first value in
+ * Rhino 1.8.1 (a warning), and functions in the body of a {@code for (let ...)} loop that use its variables, which all iterations share in Rhino
+ * 1.8.1 (a warning), and names under {@code core.dat} that the DAT tables do not have, a table or a function of a table (errors), unless the script
+ * declares {@code core}, and uses of {@code local.*} at the top level of a module or directly in a shared hook, where they throw (errors), unless
+ * the script declares {@code local}.
  * <p>
  * Each resource named {@code *.grp}, {@code *.anim}, {@code *.png} or {@code *.dds}, read as the runtime reads a GRP, an anim or an image.
  * The size: the script trailer with every file stored as it is against the largest map file (a warning).
@@ -64,6 +65,11 @@ public final class ScriptCheckUtils {
     private static final @NotNull String GETTER_PREFIX = "get";
     private static final @NotNull String SETTER_PREFIX = "set";
     /**
+     * The name of a module's exports and the property of {@code module} that holds them.
+     */
+    private static final @NotNull String EXPORTS_NAME = "exports";
+    private static final @NotNull String MODULE_NAME = "module";
+    /**
      * The globals a script does not have: removed from Rhino's standard objects, or Java, XML and timer globals that the runtime never defines.
      */
     private static final @NotNull Set<String> UNAVAILABLE_GLOBALS = Set.of(
@@ -75,11 +81,15 @@ public final class ScriptCheckUtils {
      * The notes of the syntax that Rhino 1.8.1 lacks, for a line with a syntax error that holds it.
      */
     private static final @NotNull List<SyntaxNote> SYNTAX_NOTES = List.of(
-            new SyntaxNote("\\bclass\\b", "Rhino 1.8.1 has no class syntax; use functions and prototypes"),
-            new SyntaxNote("\\basync\\b|\\bawait\\b", "Rhino 1.8.1 has no async and await"),
-            new SyntaxNote("\\bfor\\s*\\(\\s*const\\b", "Rhino 1.8.1 has no for (const ...); use let"),
-            new SyntaxNote("\\.\\.\\.", "Rhino 1.8.1 has no spread ...; only rest parameters"),
-            new SyntaxNote("^\\s*(import|export)\\b", "Rhino 1.8.1 has no import and export; use require and module.exports")
+            new SyntaxNote("\\bclass\\b", "Rhino 1.8.1 has no class syntax; use functions and prototypes, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\bsuper\\b", "Rhino 1.8.1 has no class syntax and takes super only in object literal methods; use functions and " +
+                                            "prototypes, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\basync\\b|\\bawait\\b", "Rhino 1.8.1 has no async and await; use promises, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\bfor\\s*\\(\\s*const\\b", "Rhino 1.8.1 has no for (const ...); use let, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\.\\.\\.", "Rhino 1.8.1 has no spread ... and no rest element in destructuring, only rest parameters; compile " +
+                                        "TypeScript with target ES5"),
+            new SyntaxNote("^\\s*(import|export)\\b", "Rhino 1.8.1 has no import and export; use require and module.exports, or compile " +
+                                                    "TypeScript with module commonjs")
     );
 
     /**
@@ -307,6 +317,7 @@ public final class ScriptCheckUtils {
      */
     private static void checkTree(@NotNull String scriptName, @NotNull AstRoot root, @NotNull List<ScriptFinding> findings) {
         Set<String> declaredNames = collectDeclaredNames(root);
+        Set<String> exportedHooks = new HashSet<>();
 
         root.visitAll(node -> {
             if (node instanceof Name name && UNAVAILABLE_GLOBALS.contains(name.getIdentifier()) && isReference(name) &&
@@ -323,6 +334,8 @@ public final class ScriptCheckUtils {
                 checkDeclaration(scriptName, declaration, findings);
             } else if (node instanceof Loop loop) {
                 checkLetLoop(scriptName, loop, findings);
+            } else if (node instanceof Assignment assignment) {
+                checkExportedHook(scriptName, assignment, exportedHooks, findings);
             } else if (node instanceof PropertyGet get) {
                 if (!declaredNames.contains(ScriptGame.CORE_NAME)) {
                     checkDatName(scriptName, get, findings);
@@ -461,6 +474,35 @@ public final class ScriptCheckUtils {
         if (ScriptHook.isHookName(functionName) && ScriptHook.findByFunctionName(functionName) == null) {
             findings.add(new ScriptFinding(scriptName, line, Severity.WARNING,
                                            Exceptions.format("{0} is not a known hook and is not called.", functionName)));
+        }
+    }
+
+    /**
+     * Warns of a function with a hook name assigned to {@code exports.name} or {@code module.exports.name}, as TypeScript writes an exported
+     * function: the runtime calls it as a hook of the module, and a module that calls it runs it again. An assignment of {@code void 0}, also at
+     * the end of a chain {@code exports.a = exports.b = void 0}, which TypeScript writes before the exports, is not reported.
+     */
+    private static void checkExportedHook(@NotNull String scriptName, @NotNull Assignment assignment, @NotNull Set<String> exportedHooks,
+                                          @NotNull List<ScriptFinding> findings) {
+        AstNode value = assignment.getRight();
+
+        while (value instanceof Assignment chained) {
+            value = chained.getRight();
+        }
+
+        if (!(assignment.getLeft() instanceof PropertyGet target) || value instanceof UnaryExpression unary && unary.getType() == Token.VOID) {
+            return;
+        }
+
+        String name = target.getProperty().getIdentifier();
+        boolean exports = target.getTarget() instanceof Name object && object.getIdentifier().equals(EXPORTS_NAME) ||
+                          target.getTarget() instanceof PropertyGet moduleExports && moduleExports.getTarget() instanceof Name module &&
+                          module.getIdentifier().equals(MODULE_NAME) && moduleExports.getProperty().getIdentifier().equals(EXPORTS_NAME);
+
+        if (exports && ScriptHook.findByFunctionName(name) != null && exportedHooks.add(name)) {
+            findings.add(new ScriptFinding(scriptName, assignment.getLineno(), Severity.WARNING,
+                                           Exceptions.format("{0} is exported, but its name makes it a hook of this module: the runtime " +
+                                                             "calls it besides any caller; give a helper another name.", name)));
         }
     }
 

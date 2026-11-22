@@ -1,5 +1,6 @@
 // The presentation of the upper layer: the globals display (display.console, display.strings, display.messages, display.sound, display.images
-// and display.commandCard of command-card.js), ConsoleControl, ConsoleImage and ConsoleAnchor, and the console control objects they return.
+// and display.commandCard of command-card.js), ConsoleControl, ConsoleImage, ConsoleAnchor and ConsoleChild, and the console control objects
+// they return.
 // Shared code changes the presentation on every peer, local code only on the local machine.
 (function (core, prelude) {
     'use strict';
@@ -74,6 +75,31 @@
                                            'Image ');
     // The interface edges the classic screen of a console control's positions stands at.
     var ConsoleAnchor = createConstantTable(consoleAnchorPrototype, ['Left', 'Center', 'Right'], 3, 'Anchor ');
+    // The identifiers of the well-known controls of the console dialogs in their definitions, by dialog.
+    var consoleChildren = {
+        SelectionWireframe: 1,
+        SelectionName: -5,
+        SelectionHitPoints: -7,
+        SelectionEnergy: -8,
+        SelectionProgress: 7,
+        ResourcesCountdown: -10,
+        PortraitPicture: 1,
+        MenuButton: 1,
+        MinimapArea: 1,
+        MinimapTerrain: 2,
+        MinimapMessage: 3,
+        MinimapDiplomacy: 4,
+        TextBoxEdit: 7
+    };
+
+    // The numbered children: name prefix, first identifier, count.
+    [['CommandCardButton', 1, 9], ['SelectionQueue', 2, 5], ['SelectionGroup', 33, 12], ['ResourcesCounter', 1, 6]].forEach(function (series) {
+        for (var index = 0; index < series[2]; index++) {
+            consoleChildren[series[0] + (index + 1)] = series[1] + index;
+        }
+    });
+
+    var ConsoleChild = freeze(consoleChildren);
     var consoleControlObjects = [];
 
     // The rectangle {x, y, width, height} of the lower layer's [x, y, width, height], null for none.
@@ -170,6 +196,10 @@
                                  getMinimapSize: function () {
                                      return core.console.getMinimapSize();
                                  },
+                                 // The minimap area as the client last drew it, null while hidden or not drawn. Local code only.
+                                 getMinimapRectangle: function () {
+                                     return toRectangle(core.console.getMinimapRectangle());
+                                 },
                                  // Draws an image for the icon of a resource type, null for the icon of EUD memory or the installed one.
                                  setResourceIcon: function (resourceType, image) {
                                      var icons = readResourceIcons(resourceType);
@@ -235,6 +265,7 @@
             ConsoleControl: ConsoleControl,
             ConsoleImage: ConsoleImage,
             ConsoleAnchor: ConsoleAnchor,
+            ConsoleChild: ConsoleChild,
             display: display
         },
         shared: {}

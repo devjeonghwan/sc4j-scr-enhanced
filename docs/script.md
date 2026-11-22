@@ -102,11 +102,99 @@ function onStart() {
 }
 ```
 
-Every module can define hooks; each hook runs in every module that has it, in load order. Call `require` in shared code (chapter 3): local code cannot load a new module.
+Every module can define hooks; each hook runs in every module that has it, in load order. A top-level function, or a variable holding one, with a hook name is a hook of its module even when the module exports it, so give helpers other names; `check` warns of an exported hook name. Call `require` in shared code (chapter 3): local code cannot load a new module.
 
 ### 2.5 Logs
 
 `log.info`, `log.warn` and `log.error` write to the SC:R Enhanced log `<install>/userdata/logs/scr-enhanced/sc4j.log`, prefixed with the module name. Script errors go there too, with the script file and line that threw them (`main.js:12`); for an error of an API call, the line of the call.
+
+### 2.6 TypeScript
+
+Scripts can be written in TypeScript and compiled with `tsc` (checked with TypeScript 5.9). The map holds only the compiled JavaScript.
+
+```text
+my-map/                 the TypeScript project
+  tsconfig.json
+  src/main.ts           the sources
+  src/bonus.ts
+  script/               the script folder that is packed: made by init, filled by tsc
+    manifest.json       {"name": "my-map", "main": "main.js", "api": "1"}
+    scr-enhanced.d.ts
+    core.d.ts
+    resources/
+```
+
+Make `script/` with `init my-map/script`, set the name in its `manifest.json`, delete its `main.js` and `jsconfig.json`, and add `my-map/tsconfig.json`:
+
+```json
+{
+    "compilerOptions": {
+        "target": "ES5",
+        "module": "commonjs",
+        "moduleDetection": "force",
+        "noLib": true,
+        "types": [],
+        "strict": true,
+        "noImplicitReturns": true,
+        "rootDir": "src",
+        "outDir": "script"
+    },
+    "files": ["script/scr-enhanced.d.ts", "script/core.d.ts"],
+    "include": ["src/**/*.ts"]
+}
+```
+
+- `files` names the declaration files, because tsc leaves the files of `outDir` out of `include`.
+- tsc writes `main.js` and the other modules next to `manifest.json` and copies no other file: `manifest.json` and `resources/` stay in `script/`.
+- Leave `noUnusedLocals` off: nothing in the scripts calls the hooks, so it reports them.
+- Import modules with relative paths (`./bonus`).
+
+```powershell
+tsc -p my-map
+SC4J.bat tool scr-enhanced script check my-map/script
+SC4J.bat tool scr-enhanced script pack Map.scx --script my-map/script -o Out.scx
+```
+
+`tsc -w -p my-map` next to `run Map.scx --script my-map/script --watch` loads each compile when the map starts again. `--protect` works on the output too.
+
+```ts
+// main.ts
+import { give } from './bonus';
+
+function onStart(): void {
+    game.players.getHumans().forEach((player) => give(player, 100));
+}
+```
+
+```ts
+// bonus.ts
+export function give(player: Player, amount: number): void {
+    player.addMinerals(amount);
+}
+```
+
+Hooks are top-level functions, as in JavaScript. Do not export them, and give helpers names that are not hook names: a top-level function, or a variable holding one, with a hook name is a hook of its module, exported or not. A helper `onLocalFrame` that another module calls every frame runs twice per frame. `check` warns of an exported hook name.
+
+What works with target ES5, which tsc writes as ES5 with its helpers in each file:
+
+- classes with inheritance, `super`, getters and static members
+- arrow functions, template strings, rest and default parameters
+- `let` and `const`, also in loops with closures
+- destructuring with defaults and rest elements
+- spread in calls, arrays and objects
+- optional chaining `?.` and `??`
+- enums, const enums and namespaces
+- generators
+- `async` and `await` on the runtime's `Promise`; the jobs run as chapter 7 says
+- `for...of` over arrays; over `Map`, `Set` and strings with `"downlevelIteration": true`
+- imports between modules, default imports included
+
+What does not:
+
+- Targets ES2015 and later keep forms Rhino lacks: `class`, spread, rest elements in destructuring and `for (const ...)` from ES2015, `async` functions from ES2017, object spread from ES2018. `let` and `const` in loops then follow Rhino's loop rules (chapter 7). `check` reports these.
+- `noEmitHelpers` leaves the helpers out, and the scripts fail with a `ReferenceError`. `importHelpers` loads them from a module `tslib`: copy `tslib.js` of the npm package `tslib` into the script folder.
+- `module` other than `commonjs`, `import()`, and the libraries of browsers and Node.js.
+- Errors and logs name the line of the compiled JavaScript (`main.js:72`), not of the TypeScript source.
 
 ## 3. Shared code and local code
 
@@ -161,7 +249,7 @@ function onLocalChat(event) {
 
 - Create channels in shared code, in the same order on every game: at the module top level or in `onStart`.
 - The handler gets the sending player, the value, and the live units the player had selected.
-- A value is `null`, a boolean, a number, a string, or an array or plain object of these.
+- A value is `null`, a boolean, a number, a string, or an array or plain object of these. It comes from another player's game, so check its kind before using it; the declarations give it the type `unknown`.
 - `send` in shared code sends once from every human player's game.
 - `sync.createPlayerValue(initial)` keeps one value per player on its own channel: `get(player)`, `set(value)` for the sending player, `set(player, value)`.
 
@@ -341,9 +429,21 @@ function onLocalMouseDown(event) {
 ```
 
 - `local.getPointerPosition()` gives the pointer in interface units; `local.getInterfaceWidth()` and `local.getInterfaceHeight()` give the interface size outside `onRender` too.
-- `getRectangle()` of a console control and `getChildRectangle(id)` of one of its controls (a command card button, the minimap area) give what the client last drew, or `null` while hidden.
+- `getRectangle()` of a console control and `getChildRectangle(id)` of one of its controls (a command card button, the minimap area) give what the client last drew, or `null` while hidden. `display.console.getMinimapRectangle()` gives the minimap area.
+- `ConsoleChild` names the controls of the console dialogs for `setChildVisible`, `setChildPosition`, `restoreChild` and `getChildRectangle`: `ConsoleChild.MinimapArea`, `MinimapTerrain`, `CommandCardButton1` to `CommandCardButton9`, `SelectionWireframe`, `ResourcesCountdown`, `MenuButton` and more. The declarations list them all.
 - `setAnchor(ConsoleAnchor.Right)` makes the positions of a control stand at the interface's right edge: a layout made for 640 units stays at the same distance from the right edge at any width. `Left` and `Center` (the default) work the same way.
-- `display.console.setMinimapSize(size)` draws the minimap area `size` units wide and high instead of 128, grown from its top left; clicks follow it.
+- `display.console.setMinimapSize(size)` draws the minimap area `size` units wide and high instead of 128; clicks follow it. The minimap dialog grows with it to `10 + size` by `37 + size` units, the area still at 6, 33 from its top left. At its installed place the dialog keeps its bottom left, so the area stays on the screen; a dialog placed with `setPosition` keeps its top left.
+
+```js
+const SIZE = 160;
+const minimap = display.console.getControl(ConsoleControl.Minimap);
+
+display.console.setMinimapSize(SIZE);
+minimap.setAnchor(ConsoleAnchor.Right);
+minimap.setPosition(640 - (10 + SIZE), 480 - (37 + SIZE));
+```
+
+The minimap stands in the bottom right corner at any interface width.
 
 ### 5.6 Data files
 
@@ -388,7 +488,7 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 
 ## 7. Limits
 
-- Language: Rhino 1.8.1 has no `class`, `async`/`await`, spread (`...`), `import`/`export` or `for (const ...)` in any form (`of`, `in` or a counting loop); use `let`. A `const` declared in a loop body keeps its first value; use `let`. The functions created in the body of a `for (let ...)` loop share one binding of its variables; copy the variable into a `let` inside the body. `check` reports these.
+- Language: Rhino 1.8.1 has no `class`, `async`/`await`, spread (`...`), `import`/`export` or `for (const ...)` in any form (`of`, `in` or a counting loop); use `let`. A `const` declared in a loop body keeps its first value; use `let`. The functions created in the body of a `for (let ...)` loop share one binding of its variables; copy the variable into a `let` inside the body. `check` reports these. TypeScript compiled with target ES5 has none of these limits (section 2.6).
 - Promises: `Promise` works. Its jobs (`then`, `catch`, `finally`) run when the call into the script that queued them returns (the loading, a hook, a timer or a channel handler), within the same instruction budget. Promises do not wait for time: use `game.after`.
 - Globals: no `eval`, no `Function` from strings, no `Date`, no `setTimeout` or other timers, no Java access. `Math` gives the same results on every platform.
 - Instruction budget: each call into the script (loading, a frame, a decision, a local input, a local frame, a render) may run 5,000,000 interpreter instructions; function calls may nest 10,000 deep. Spread long work over frames with timers.

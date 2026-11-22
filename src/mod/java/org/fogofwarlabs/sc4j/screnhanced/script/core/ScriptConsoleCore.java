@@ -29,9 +29,10 @@ import org.mozilla.javascript.Scriptable;
  * {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran and Protoss; {@code -1} for the icon of
  * EUD memory or the installed one).
  * <p>
- * Local code only: {@code getDialogRectangle(dialog)} and {@code getControlRectangle(dialog, control)} return the rectangle the client last
- * drew, {@code [x, y, width, height]} in interface units ({@link LocalDisplay#findDialogRectangle}), or {@code null} for a hidden or not yet
- * drawn dialog or control.
+ * Local code only: {@code getDialogRectangle(dialog)}, {@code getControlRectangle(dialog, control)} and {@code getMinimapRectangle()} (the
+ * minimap area, control {@value ScrConsolePlacement#MINIMAP_AREA_CONTROL} of the minimap dialog) return the rectangle the client last drew,
+ * {@code [x, y, width, height]} in interface units ({@link LocalDisplay#findDialogRectangle}), or {@code null} for a hidden or not yet drawn
+ * dialog or control.
  */
 final class ScriptConsoleCore {
     private static final @NotNull ScrConsolePlacement.Dialog @NotNull [] DIALOGS = ScrConsolePlacement.Dialog.values();
@@ -122,6 +123,18 @@ final class ScriptConsoleCore {
             float[] rectangle = new float[RECTANGLE_VALUES];
 
             if (!this.getLocalDisplay().findControlRectangle(readDialog(arguments), readControl(arguments), rectangle)) {
+                return null;
+            }
+
+            return createRectangle(context, global, rectangle);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getMinimapRectangle", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            float[] rectangle = new float[RECTANGLE_VALUES];
+            ScrConsolePlacement.Dialog minimap = ScrConsolePlacement.Dialog.MINIMAP;
+
+            if (!this.getLocalDisplay().findControlRectangle(minimap, ScrConsolePlacement.MINIMAP_AREA_CONTROL, rectangle)) {
                 return null;
             }
 
