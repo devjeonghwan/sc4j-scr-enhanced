@@ -3,11 +3,11 @@
 //
 // A script button (createButton) is made in shared code, in the same order on every peer, which gives it its id k from 0 to 255: its
 // condition is Script with the value k and its action Script, or ScriptTarget for a target button, with the value k. Each local frame sets
-// the local state of k from isEnabled over the local selection; a press (or the target of a target button) that no local input hook consumed
-// calls onLocalPressed, and when that does not consume it either, sends the target {x, y, unit, generation} (null without a target) over the
-// button's channel. When the command runs, every peer and every replay calls isEnabled again for each unit the sender had selected and calls
-// onPressed with the player, the units for which it returned true, and the target {position, unit}. isEnabled therefore reads the game state
-// only, never local information.
+// the local state of k from isEnabled over the local selection; a press, and the target of a target button, that no local input hook consumed
+// calls onLocalPressed, and when that does not consume it either, the press of a button without target sends null and the target of a target
+// button sends {x, y, unit, generation} over the button's channel. When the command runs, every peer and every replay calls isEnabled again for
+// each unit the sender had selected and calls onPressed with the player, the units for which it returned true, and the target {position,
+// unit}. isEnabled therefore reads the game state only, never local information.
 (function (core, prelude) {
     'use strict';
 
@@ -191,15 +191,15 @@
         }
     }
 
-    // Handles a press or a target of the local input hooks that no hook consumed: the press of a script button, or the target of a script
-    // target button, calls its onLocalPressed and, unless that consumed it, sends the target over the button's channel.
+    // Handles a press or a target of the local input hooks that no hook consumed: the press of a script button, and the target of a script
+    // target button, call its onLocalPressed. Unless that consumed it, the press of a button without target and the target of a target button
+    // send over the button's channel; the press of a target button goes on to the game, which starts the targeting.
     function handleScriptButtonInput(record, event, callForValue) {
         var targeted = record.kind === InputKind.ButtonTargeted.id;
-        var action = targeted ? ButtonAction.ScriptTarget.id : ButtonAction.Script.id;
         var button = scriptButtons[record.actionValue];
 
-        if (record.consumed === true || record.kind !== InputKind.ButtonPressed.id && !targeted || record.action !== action ||
-            button === undefined || button.target !== targeted) {
+        if (record.consumed === true || record.kind !== InputKind.ButtonPressed.id && !targeted || button === undefined ||
+            record.action !== (button.target ? ButtonAction.ScriptTarget.id : ButtonAction.Script.id) || targeted && !button.target) {
             return;
         }
 
@@ -207,7 +207,7 @@
             callForValue(LOCAL_PRESSED_CALL, button.onLocalPressed, [event]);
         }
 
-        if (record.consumed !== true && button.channel !== null) {
+        if (record.consumed !== true && button.channel !== null && targeted === button.target) {
             button.channel.send(targeted ? {x: record.x, y: record.y, unit: record.target, generation: record.targetGeneration} : null);
         }
     }

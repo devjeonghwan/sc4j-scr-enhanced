@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,32 @@ final class ScriptGraphicsCoreTest {
 
         Assertions.assertEquals(List.of("true units/marine.grp units/marine.grp true false false", "Error Error Error TypeError"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void text_resources_read_as_utf8_and_parse_as_json() throws IOException {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+
+        files.put("data/heroes.json", "﻿{\"name\": \"Zeratul\", \"skills\": [1, 2]}".getBytes(StandardCharsets.UTF_8));
+        files.put("data/notes.txt", "한 줄\nline".getBytes(StandardCharsets.UTF_8));
+        files.put("data/broken.txt", new byte[]{(byte) 0xC3, (byte) 0x28});
+
+        ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
+                                                                                            var resources = game.map.resources;
+                                                                                            var heroes = resources.readJson('data/heroes.json');
+                                                                                            heroes.skills.push(3);
+                                                                                            log.info(heroes.name, resources.readJson('data/heroes.json').skills.length, resources.readText('data/notes.txt').length);
+                                                                                            log.info(error(function () { resources.readText('data/none.txt'); }), error(function () { resources.readText('data/broken.txt'); }),
+                                                                                                     error(function () { resources.readJson('data/notes.txt'); }));
+                                                                                            function onLocalFrame() {
+                                                                                                log.info(resources.readText('data/notes.txt').split('\\n')[1]);
+                                                                                            }
+                                                                                            """, ScriptMapScenario.createResources(files));
+
+        scenario.getRuntime().start();
+        scenario.getRuntime().callLocalFrame(0);
+
+        Assertions.assertEquals(List.of("Zeratul 2 8", "Error Error SyntaxError", "line"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }
 
     @Test

@@ -55,6 +55,7 @@
     var spriteTypePrototype = prelude.spriteTypePrototype;
     var weaponTypePrototype = prelude.weaponTypePrototype;
     var drawFunctionPrototype = prelude.drawFunctionPrototype;
+    var animationPrototype = prelude.animationPrototype;
 
     var create = Object.create;
     var freeze = Object.freeze;
@@ -244,6 +245,21 @@
         return unit.id;
     }
 
+    // Deals a raw damage to a unit with an optional source: a unit (its owner is the attacking player) or a player.
+    function damageUnit(id, amount, source) {
+        if (source === undefined || source === null) {
+            return core.unit.damage(id, amount, NONE, NONE);
+        }
+
+        if (isObjectOf(source, unitPrototype)) {
+            var sourceId = requireUnitId(source);
+
+            return core.unit.damage(id, amount, sourceId, core.unit.getOwner(sourceId));
+        }
+
+        return core.unit.damage(id, amount, NONE, requireObject(source, playerPrototype, 'A unit or a player').id);
+    }
+
     // Returns the test of a unit filter: a function of the unit, or an object with an optional type (a UnitType) and owner (a Player).
     function createUnitTest(filter) {
         if (typeof filter === 'function') {
@@ -421,6 +437,10 @@
         useWeapon: function (weaponType) {
             core.unit.useWeapon(requireUnitId(this), requireObject(weaponType, weaponTypePrototype, 'A weapon type').id);
         },
+        // Plays an iscript Animation on the images of the unit's sprite as an order does; Init and Death throw a RangeError. Shared code only.
+        playAnimation: function (animation) {
+            core.unit.playAnimation(requireUnitId(this), requireObject(animation, animationPrototype, 'An animation').id);
+        },
         setInvincible: function (invincible) {
             core.unit.setInvincible(requireUnitId(this), invincible);
         },
@@ -449,8 +469,16 @@
         addHangarCount: function (count) {
             return core.unit.addHangarCount(requireUnitId(this), count);
         },
-        kill: function () {
-            return core.unit.kill(requireUnitId(this));
+        // Kills the unit; without a source as the Kill Unit action does, with a source unit or player through the damage routine, so that the
+        // death and the kill count for the source.
+        kill: function (source) {
+            var id = requireUnitId(this);
+
+            return source === undefined || source === null ? core.unit.kill(id) : damageUnit(id, core.unit.getHp(id), source);
+        },
+        // Takes hit points off the unit as a hit does after armor and shields; a unit whose hit points run out dies, credited to the source.
+        damage: function (hp, source) {
+            return damageUnit(requireUnitId(this), round(hp * RAW_SCALE), source);
         },
         remove: function () {
             return core.unit.remove(requireUnitId(this));
@@ -1283,6 +1311,10 @@
         setFrame: function (frame) {
             core.graphics.setImageFrame(spriteImages.requireId(this), frame === null ? NONE : frame);
         },
+        // Draws a frame while the image's iscript steps its own frame, until null releases it or another frame is set.
+        holdFrame: function (frame) {
+            core.graphics.holdImageFrame(spriteImages.requireId(this), frame === null ? NONE : frame);
+        },
         // The frame offset of the image's direction inside its frame group.
         getDirection: function () {
             return core.image.getDirection(spriteImages.requireId(this));
@@ -1544,6 +1576,14 @@
                                    var text = String(name);
 
                                    return getResource(core.resources.getImage(text), text, imagePrototype);
+                               },
+                               // Any file as UTF-8 text.
+                               readText: function (name) {
+                                   return core.resources.readText(String(name));
+                               },
+                               // A JSON file as a new value: each call parses the text again, so a change to the value stays with the caller.
+                               readJson: function (name) {
+                                   return JSON.parse(core.resources.readText(String(name)));
                                }
                            });
 

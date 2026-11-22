@@ -16,6 +16,11 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,8 +34,9 @@ import java.util.Map;
  * with {@code /} separators. {@code getGrp}, {@code getAnim} and {@code getImage} return the id of a resource handle, the same id for the same
  * name, after checking the resource once: a GRP header with a readable frame table whose frames decode, a single-entry anim of asset scale
  * {@code 4} (HD) or {@code 2} (HD2) with a canvas and a {@code diffuse} layer, or a PNG or DDS picture that decodes ({@link PictureFileUtils}).
- * A missing or invalid resource throws an {@code Error}. The resources are read from the map's script trailer, inflated and checked, when they
- * are first asked for; an image is decoded once and drawn from the same picture afterwards.
+ * A missing or invalid resource throws an {@code Error}. {@code readText(name)} returns any resource as text: its bytes decoded as UTF-8, a
+ * leading byte order mark left out; bytes that are no UTF-8 throw an {@code Error}. The resources are read from the map's script trailer,
+ * inflated and checked, when they are first asked for; an image is decoded once and drawn from the same picture afterwards, a text decoded once.
  * <p>
  * {@code core.graphics}: {@code replaceImage(imageType, grp, hdAnim, hd2Anim)} replaces the graphics of every image of an image type,
  * {@code replaceUnitImage(unit, imageType, grp, hdAnim, hd2Anim)} those of one live unit's images of the type, while the unit lives;
@@ -44,7 +50,9 @@ import java.util.Map;
  * {@code restoreImageGraphics(image)} (its graphics win over those of its unit and image type); {@code setImageFrame(image, frame)} (a drawn
  * frame from {@code 0} to {@value #MAXIMUM_FRAME}) and {@code setImageDrawFunction(image, drawFunction)} (from {@code 0} to
  * {@code 17}) draw that frame or draw function until the image's own drawn frame or draw function changes, as an EUD write of the image's
- * entry does; {@code -1} gives back the image's own. A frame or draw function a script set wins over an EUD write. The {@code core.graphics}
+ * entry does; {@code -1} gives back the image's own. {@code holdImageFrame(image, frame)} draws the frame while the image's iscript steps its
+ * own frame, until {@code -1} releases it, another frame is set or the image is gone. A frame or draw function a script set wins over an EUD
+ * write. The {@code core.graphics}
  * functions change no game state and work anywhere: shared code replaces on every peer, local code on the local machine only.
  */
 final class ScriptGraphicsCore {
@@ -53,6 +61,10 @@ final class ScriptGraphicsCore {
      * The largest drawn frame of an image, a WORD.
      */
     private static final int MAXIMUM_FRAME = 0xFFFF;
+    /**
+     * The byte order mark a text resource may start with, which {@code readText} leaves out.
+     */
+    private static final char BYTE_ORDER_MARK = '﻿';
 
     /**
      * Reads one resource.
@@ -96,6 +108,10 @@ final class ScriptGraphicsCore {
     private final @NotNull Map<String, Integer> grpIds;
     private final @NotNull Map<String, Integer> animIds;
     private final @NotNull Map<String, Integer> imageIds;
+    /**
+     * The decoded text resources by name.
+     */
+    private final @NotNull Map<String, String> texts;
 
     /**
      * Creates a {@link ScriptGraphicsCore} instance without resource handles.
@@ -116,6 +132,7 @@ final class ScriptGraphicsCore {
         this.grpIds   = new HashMap<>();
         this.animIds  = new HashMap<>();
         this.imageIds = new HashMap<>();
+        this.texts    = new HashMap<>();
     }
 
     /**
@@ -145,6 +162,36 @@ final class ScriptGraphicsCore {
 
             return (double) this.findHandle(this.imageIds, name, "image", () -> PictureFileUtils.read(this.resources.read(this.requireEntry(name)),
                                                                                                       name));
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "readText", 1, (context, scope, thisObject, arguments) -> {
+            String name = ScriptCoreUtils.readString(arguments, 0);
+            String text = this.texts.get(name);
+
+            if (text != null) {
+                return text;
+            }
+
+            try {
+                byte[] content = this.resources.read(this.requireEntry(name));
+                CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                                                         .onUnmappableCharacter(CodingErrorAction.REPORT);
+
+                text = decoder.decode(ByteBuffer.wrap(content)).toString();
+            } catch (CharacterCodingException exception) {
+                throw ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The resource {0} is no UTF-8 text.", name));
+            } catch (IOException exception) {
+                String message = Exceptions.format("The resource {0} cannot be read: {1}", name, exception.getMessage());
+
+                throw ScriptRuntime.constructError(ERROR_NAME, message);
+            }
+
+            if (!text.isEmpty() && text.charAt(0) == BYTE_ORDER_MARK) {
+                text = text.substring(1);
+            }
+
+            this.texts.put(name, text);
+
+            return text;
         });
         ScriptCoreUtils.defineFunction(global, namespace, "getImageWidth", 1,
                                        (context, scope, thisObject, arguments) -> (double) this.readPicture(arguments, 0).getWidth());
@@ -236,6 +283,14 @@ final class ScriptGraphicsCore {
             int frame = readOptionalValue(arguments, 1, "frame", MAXIMUM_FRAME);
 
             this.getReplacements().setImageFrame(image, frame);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "holdImageFrame", 2, (context, scope, thisObject, arguments) -> {
+            SpriteImage image = this.spriteCore.readImage(arguments, 0);
+            int frame = readOptionalValue(arguments, 1, "frame", MAXIMUM_FRAME);
+
+            this.getReplacements().holdImageFrame(image, frame);
 
             return Context.getUndefinedValue();
         });

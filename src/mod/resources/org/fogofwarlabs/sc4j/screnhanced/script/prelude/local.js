@@ -42,6 +42,17 @@
                                   getMousePosition: function () {
                                       return core.local.isViewKnown() ? createPosition(core.local.getMouseX(), core.local.getMouseY()) : null;
                                   },
+                                  // The pointer in interface units {x, y}, the units of the screen drawing, at any interface size and zoom.
+                                  getPointerPosition: function () {
+                                      return core.local.isPointerKnown() ? Object.freeze({x: core.local.getPointerX(), y: core.local.getPointerY()}) : null;
+                                  },
+                                  // The size of the local interface in interface units: as wide as the interface, 480 high.
+                                  getInterfaceWidth: function () {
+                                      return core.screen.getWidth();
+                                  },
+                                  getInterfaceHeight: function () {
+                                      return core.screen.getHeight();
+                                  },
                                   // The units of the local interface's selection, which may differ from the local player's synchronized selection
                                   // until its selection command runs.
                                   getSelection: function () {

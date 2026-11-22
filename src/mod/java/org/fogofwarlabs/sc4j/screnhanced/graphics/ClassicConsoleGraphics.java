@@ -361,15 +361,21 @@ public final class ClassicConsoleGraphics implements ScrGamePlugin {
     }
 
     /**
-     * Brings the placement to the written dialogs, controls, transparency and pictures and to the script's dialog settings: a dialog is hidden
-     * when the script hid it, or when it did not set its visibility and EUD memory gave it a picture; a shown dialog is moved to the script's
-     * position, else to its written rectangle, else restored to its installed place; its controls are placed the same way ({@link #placeControls}).
+     * Brings the placement to the written dialogs, controls, transparency and pictures and to the script's dialog settings: the minimap size and
+     * the dialog anchors are the script's; a dialog is hidden when the script hid it, or when it did not set its visibility and EUD memory gave
+     * it a picture; a shown dialog is moved to the script's position, else to its written rectangle, else restored to its installed place; its
+     * controls are placed the same way ({@link #placeControls}).
      *
      * @param current the console settings of the map script, or {@code null} without a script
      */
     private void update(@Nullable ConsoleSettings current) {
+        this.placement.setMinimapSize(current == null ? ScrConsolePlacement.MINIMAP_SIZE : current.getMinimapSize());
+
         for (ScrConsolePlacement.Dialog dialog : PLACED_DIALOGS) {
             ObservedDialog observed = this.findObserved(dialog);
+
+            this.placement.setDialogAnchor(dialog, current == null ? ScrConsolePlacement.Anchor.CENTER : current.getDialogAnchor(dialog));
+
             boolean hidden = current != null && current.isDialogVisibilitySet(dialog)
                              ? !current.isDialogVisible(dialog)
                              : observed != null && observed.pictureWritten;

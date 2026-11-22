@@ -154,6 +154,31 @@ final class ScriptUnitCoreTest {
     }
 
     @Test
+    void damage_and_kill_with_a_source_credit_the_kill_to_the_source(@NotNull InstallationTestResources resources) throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                                                                                                     function onStart() {
+                                                                                                         var human = game.players.getHumans()[0];
+                                                                                                         var other = game.units.findOne({type: UnitType.ZergHatchery}).getOwner();
+                                                                                                         var position = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human}).getPosition();
+                                                                                                         var marine = game.units.create(UnitType.TerranMarine, human, position);
+                                                                                                         var first = game.units.create(UnitType.ZergZergling, other, position);
+                                                                                                         var second = game.units.create(UnitType.ZergZergling, other, position);
+                                                                                                         var third = game.units.create(UnitType.ZergZergling, other, position);
+                                                                                                         var kills = human.kills.get(UnitType.ZergZergling);
+                                                                                                         log.info(first.damage(10, marine), first.getHp(), first.damage(first.getHp(), marine), first.exists(), marine.getKillCount());
+                                                                                                         log.info(second.kill(marine), marine.getKillCount(), third.kill(human), marine.getKillCount(),
+                                                                                                                  human.kills.get(UnitType.ZergZergling) - kills);
+                                                                                                         game.units.create(UnitType.TerranSiegeTankTankMode, human, position);
+                                                                                                         var subunit = game.units.findOne({type: UnitType.TerranSiegeTankTankModeTurret, owner: human});
+                                                                                                         log.info(subunit.damage(1), subunit.kill(human));
+                                                                                                     }
+                                                                                                     """);
+
+        Assertions.assertEquals(List.of("true 25 true false 1", "true 2 true 2 3", "false false"), scenario.getInfoMessages(),
+                                scenario.getLines()::toString);
+    }
+
+    @Test
     void status_timers_take_the_apply_and_end_routines_of_their_effects(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                                                                                                      var marine;

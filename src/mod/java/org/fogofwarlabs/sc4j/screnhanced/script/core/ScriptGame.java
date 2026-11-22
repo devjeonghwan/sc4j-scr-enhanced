@@ -116,8 +116,8 @@ public final class ScriptGame {
         screenCore.defineScreen(screen, global);
         screenCore.defineDrawing(ScriptCoreUtils.createNamespace(context, global, core, "world"), global, ScrDrawList.Space.WORLD);
         screenCore.defineDrawing(ScriptCoreUtils.createNamespace(context, global, core, "minimap"), global, ScrDrawList.Space.MINIMAP);
-        new ScriptConsoleCore(scriptGame.consoleSettings, graphicsCore).define(ScriptCoreUtils.createNamespace(context, global, core, "console"),
-                                                                               global);
+        new ScriptConsoleCore(scriptGame, scriptGame.consoleSettings, graphicsCore)
+                .define(ScriptCoreUtils.createNamespace(context, global, core, "console"), global);
         textCore.defineStrings(ScriptCoreUtils.createNamespace(context, global, core, "strings"), global);
         textCore.defineMessages(ScriptCoreUtils.createNamespace(context, global, core, "messages"), global);
         scriptGame.soundCore.define(ScriptCoreUtils.createNamespace(context, global, core, "sound"), global);

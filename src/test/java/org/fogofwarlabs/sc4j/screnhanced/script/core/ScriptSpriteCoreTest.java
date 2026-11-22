@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.core;
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.SpriteIds;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
+import org.fogofwarlabs.sc4j.scr.game.sprite.script.IscriptExecutor;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
@@ -144,6 +145,53 @@ final class ScriptSpriteCoreTest {
                                         "reused true true true false true",
                                         "local TypeError true",
                                         "local frame true"), scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void a_played_animation_runs_the_iscript_of_the_unit_and_a_held_frame_stays_through_it(@NotNull InstallationTestResources resources)
+            throws IOException {
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
+                                                                                                     var marine;
+                                                                                                     var main;
+                                                                                                     function attempt(call) {
+                                                                                                         try {
+                                                                                                             call();
+                                                                                                             return 'played';
+                                                                                                         } catch (error) {
+                                                                                                             return error.name;
+                                                                                                         }
+                                                                                                     }
+                                                                                                     function onStart() {
+                                                                                                         var human = game.players.getHumans()[0];
+                                                                                                         var commandCenter = game.units.findOne({type: UnitType.TerranCommandCenter, owner: human});
+                                                                                                         marine = game.units.create(UnitType.TerranMarine, human, commandCenter.getPosition());
+                                                                                                         main = marine.getSprite().getMainImage();
+                                                                                                         main.holdFrame(%d);
+                                                                                                         log.info(attempt(function () { marine.playAnimation(Animation.Walking); }),
+                                                                                                                  attempt(function () { marine.playAnimation(Animation.Death); }),
+                                                                                                                  attempt(function () { marine.playAnimation(Animation.Init); }),
+                                                                                                                  attempt(function () { core.unit.playAnimation(marine.getId(), 28); }), Animation.get(7).getName());
+                                                                                                         log.info('main ' + main.getId());
+                                                                                                     }
+                                                                                                     function onLocalFrame() {
+                                                                                                         log.info('local ' + attempt(function () { marine.playAnimation(Animation.Walking); }));
+                                                                                                     }
+                                                                                                     """.formatted(SCRIPT_FRAME));
+        int mainImage = Integer.parseInt(scenario.getInfoMessages().get(1).substring("main ".length()));
+        SpriteImage image = scenario.getGame().getSpriteSystem().requireImagePool().getImage(mainImage);
+        int playedAnimation = image.getAnimationType();
+
+        for (int frame = 0; frame < CHANGE_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        scenario.runLocalFrame();
+
+        Assertions.assertEquals(List.of("played RangeError RangeError RangeError CastSpell", "main " + mainImage),
+                                scenario.getInfoMessages().subList(0, 2), scenario.getLines()::toString);
+        Assertions.assertTrue(scenario.getInfoMessages().contains("local TypeError"), scenario.getLines()::toString);
+        Assertions.assertEquals(IscriptExecutor.ANIMATION_WALKING, playedAnimation, "the image runs the played animation");
+        Assertions.assertEquals(SCRIPT_FRAME, scenario.getRuntime().getImageReplacements().findImageFrame(image), "the held frame stays");
     }
 
     @Test

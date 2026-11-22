@@ -257,6 +257,32 @@ final class ScriptSimulationPluginTest {
     }
 
     @Test
+    void a_kill_with_a_source_names_the_killer_in_on_unit_died(@NotNull InstallationTestResources resources,
+                                                              @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
+                                                                                                                          var victim;
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame === spawnFrame) {
+                                                                                                                                  victim = game.units.create(UnitType.ZergZergling, computer, marine.getPosition());
+                                                                                                                                  zergling.kill(marine);
+                                                                                                                                  victim.damage(victim.getHp(), human);
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          function onUnitDied(event) {
+                                                                                                                              if (event.getUnit() === zergling || event.getUnit() === victim) {
+                                                                                                                                  game.print('ES ' + (event.getUnit() === zergling ? 'zergling ' : 'victim ') +
+                                                                                                                                             (event.getKiller() === marine) + ' ' + (event.getKillerPlayer() === human) + ' ' +
+                                                                                                                                             event.getWeapon());
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
+
+        scenario.stepUntilPrinted("victim", FIGHT_FRAMES);
+
+        Assertions.assertEquals(List.of("victim false true null", "zergling true true null"), scenario.getPrints());
+    }
+
+    @Test
     void on_before_damage_doubles_the_damage_of_a_weapon_hit(@NotNull InstallationTestResources resources,
                                                              @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """

@@ -65,7 +65,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `jsconfig.json` | 편집기 설정. 선언 파일만 쓰고, 스크립트를 검사하고, 파일마다 별도 모듈 |
 | `scr-enhanced.d.ts` | 상위 API, 런타임, 표준 객체의 선언 |
 | `core.d.ts` | 하위 API `core`의 선언 |
-| `resources/` | 스크립트가 읽는 파일: GRP, anim, PNG, DDS |
+| `resources/` | 스크립트가 읽는 파일: GRP, anim, PNG, DDS, 그리고 텍스트나 JSON으로 읽는 모든 파일 |
 
 맵에는 `manifest.json`, `resources/` 밖의 `.js` 파일, `resources/` 아래 파일만 들어갑니다.
 
@@ -106,7 +106,7 @@ function onStart() {
 
 ### 2.5 로그
 
-`log.info`, `log.warn`, `log.error`는 모듈 이름을 앞에 붙여 SC:R Enhanced 로그 `<install>/userdata/logs/scr-enhanced/sc4j.log`에 씁니다. 스크립트 오류도 위치(`main.js:12`)와 함께 여기에 남습니다.
+`log.info`, `log.warn`, `log.error`는 모듈 이름을 앞에 붙여 SC:R Enhanced 로그 `<install>/userdata/logs/scr-enhanced/sc4j.log`에 씁니다. 스크립트 오류도 오류를 던진 스크립트 파일과 줄(`main.js:12`)과 함께 여기에 남습니다. API 호출이 던진 오류는 그 호출의 줄이 남습니다.
 
 ## 3. 공유 코드와 로컬 코드
 
@@ -268,7 +268,7 @@ display.commandCard.createButton({
 - `isEnabled(unit)`은 `true`(활성), `false`(회색), `null`(숨김)을 돌려줍니다. 버튼이 눌리면 모든 게임이 다시 부르므로 `local`이 아닌 게임만 읽어야 합니다.
 - `onPressed(player, units, target)`은 공유 코드이고, `units`는 선택한 유닛 중 `isEnabled`가 `true`를 돌려준 유닛입니다.
 - `target: true`면 대상 버튼입니다. 플레이어가 유닛이나 지점을 고르고, `target`에 `position`과 `unit`이 들어옵니다.
-- `onLocalPressed(event)`는 누른 컴퓨터에서 먼저 실행됩니다. `event.consume()`하면 아무것도 보내지 않습니다.
+- `onLocalPressed(event)`는 누른 컴퓨터에서 먼저 실행됩니다. 누를 때 불리고, 대상 버튼은 대상을 고를 때도 불립니다. 둘은 `event.getRecord().kind`(`InputKind.ButtonPressed`, `InputKind.ButtonTargeted`)로 구분합니다. `event.consume()`하면 아무것도 보내지 않고, 대상 버튼의 누름을 소비하면 대상 지정이 시작되지 않습니다.
 
 ### 5.3 화면 텍스트와 메시지
 
@@ -302,7 +302,7 @@ function onRender(screen) {
 }
 ```
 
-`screen`은 인터페이스 단위(높이 480, 너비 `screen.getWidth()`)로, `screen.world`는 유닛 위에 맵 픽셀로, `screen.minimap`은 미니맵에 맵 픽셀로 그립니다. `drawImage`는 `resources/`의 그림을 그립니다: `game.map.resources.getImage('logo.png')`.
+`screen`은 인터페이스 단위(높이 480, 너비 `screen.getWidth()`)로, `screen.world`는 유닛 위에 맵 픽셀로, `screen.minimap`은 미니맵에 맵 픽셀로 그립니다. `drawImage`는 `resources/`의 그림을 그립니다: `game.map.resources.getImage('logo.png')`. `source: {x, y, width, height}`를 주면 스프라이트 시트의 한 프레임처럼 그림의 일부만 그립니다.
 
 ### 5.4 유닛 죽음에 반응하기
 
@@ -318,6 +318,48 @@ function onUnitDied(event) {
 ```
 
 이벤트에는 유닛이 죽은 순간의 값이 있습니다: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`. 유닛은 이미 사라졌을 수 있습니다.
+
+스크립트가 준 피해에도 출처를 붙일 수 있습니다. `unit.damage(hp, source)`는 방어력과 실드를 거친 공격처럼 체력을 깎고, `unit.kill(source)`는 같은 루틴으로 유닛을 죽입니다. 출처는 유닛(그 주인이 죽인 플레이어)이나 플레이어입니다. 죽음 이벤트에 출처가 남고 처치 수도 출처에 올라갑니다. 출처 없는 `unit.kill()`은 Kill Unit처럼 아무에게도 처치를 주지 않습니다.
+
+### 5.5 나만의 콘솔
+
+로컬 코드는 화면 위치를 `screen`이 그리는 단위로 읽습니다. 인터페이스 크기와 확대 배율에 상관없이 맞습니다.
+
+```js
+const card = display.console.getControl(ConsoleControl.CommandCard);
+
+/** @param {LocalMouseButtonEvent} event */
+function onLocalMouseDown(event) {
+    const pointer = local.getPointerPosition();
+    const area = card.getRectangle();
+
+    if (pointer !== null && area !== null && pointer.x >= area.x && pointer.x < area.x + area.width &&
+        pointer.y >= area.y && pointer.y < area.y + area.height) {
+        log.info('on the command card');
+    }
+}
+```
+
+- `local.getPointerPosition()`은 포인터를 인터페이스 단위로 줍니다. `local.getInterfaceWidth()`와 `local.getInterfaceHeight()`는 `onRender` 밖에서도 인터페이스 크기를 줍니다.
+- 콘솔 컨트롤의 `getRectangle()`과 그 안 컨트롤의 `getChildRectangle(id)`(명령 카드 버튼, 미니맵 영역)는 클라이언트가 마지막으로 그린 사각형을 줍니다. 숨겨져 있으면 `null`입니다.
+- `setAnchor(ConsoleAnchor.Right)`를 쓰면 컨트롤의 위치가 인터페이스 오른쪽 가장자리를 기준으로 놓입니다. 640 단위에 맞춘 배치가 어떤 너비에서도 오른쪽 가장자리와 같은 거리에 있습니다. `Left`와 `Center`(기본값)도 같은 방식입니다.
+- `display.console.setMinimapSize(size)`는 미니맵 영역을 128 대신 가로세로 `size` 단위로, 왼쪽 위를 기준으로 그립니다. 클릭도 그 크기를 따릅니다.
+
+### 5.6 데이터 파일
+
+`game.map.resources.readText(name)`은 `resources/`의 아무 파일이나 UTF-8 텍스트로 읽고, `readJson(name)`은 JSON 파일을 파싱합니다.
+
+```js
+const heroes = game.map.resources.readJson('data/heroes.json');
+```
+
+`readJson`은 부를 때마다 새 값을 돌려줍니다. 공유 코드와 로컬 코드 모두에서 읽을 수 있습니다.
+
+### 5.7 유닛 그래픽
+
+- `image.setFrame(frame)`은 이미지 자신의 프레임이 바뀔 때까지 그 프레임을 그리고, `image.holdFrame(frame)`은 iscript가 계속 돌아도 `holdFrame(null)`까지 그 프레임을 유지합니다. 둘 다 그리는 것만 바꿉니다. 프레임에는 방향(`image.getDirection()`)이 포함되고, 이미지 그래픽에 그 프레임이 있어야 합니다.
+- `unit.playAnimation(Animation.CastSpell)`은 명령처럼 iscript 애니메이션을 그 안의 opcode와 함께 실행합니다. 공격 애니메이션은 유닛의 대상을 공격합니다. 끊으면 안 되는 구간을 실행 중인 스프라이트는 애니메이션을 유지하고, 유닛의 명령은 상태가 바뀌면 자기 애니메이션을 다시 실행합니다. `Init`과 `Death`는 거부됩니다. 공유 코드 전용입니다.
+- 스프라이트 타입의 선택 원, 그 세로 오프셋, 체력 바 너비를 바꿀 수 있습니다: `SpriteType.setSelectionCircle(size)`(0~9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. 원은 보일 때, 바는 그릴 때 이 값을 씁니다. 공유 코드 전용입니다.
 
 ## 6. 맵 보호
 
@@ -353,3 +395,4 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - 스크립트 버튼: 게임마다 최대 256개.
 - 채널 값: `null`, 불리언, 숫자, 문자열, 이것들로 된 배열과 일반 객체.
 - 저장 게임: 스크립트가 있는 게임은 저장할 수 없습니다.
+- 시작 유닛: 스타크래프트와 같이, 맵 설정 사용(Use Map Settings) 게임은 트리거가 있든 없든 맵에서 종족이 User Selectable인 플레이어에게 본진 건물과 일꾼 넷을 주고, 그 플레이어의 미리 놓인 유닛은 중립 유닛만 남깁니다. 맵에서 종족을 정해 두거나 `onStart`에서 유닛을 지우세요.

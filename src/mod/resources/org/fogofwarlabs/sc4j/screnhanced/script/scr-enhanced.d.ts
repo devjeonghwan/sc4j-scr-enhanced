@@ -1832,8 +1832,10 @@ interface SpriteTypeData {
 
     setImage(imageType: ImageType): void;
 
-    /** Health Bar (sprite types 130 to 516, read only) */
+    /** Health Bar (sprite types 130 to 516) */
     getHealthBarWidth(): number;
+
+    setHealthBarWidth(value: number): void;
 
     /** Unused */
     getUnused(): number;
@@ -1845,11 +1847,15 @@ interface SpriteTypeData {
 
     setVisible(value: number): void;
 
-    /** Selection Circle (sprite types 130 to 516, read only) */
+    /** Selection Circle (sprite types 130 to 516, below 10) */
     getSelectionCircle(): number;
 
-    /** Y Position (sprite types 130 to 516, read only) */
+    setSelectionCircle(value: number): void;
+
+    /** Y Position (sprite types 130 to 516) */
     getSelectionCircleOffset(): number;
+
+    setSelectionCircleOffset(value: number): void;
 }
 
 /**
@@ -2635,11 +2641,25 @@ interface Unit {
     addHangarCount(count: number): boolean;
 
     /**
-     * Kills the unit as Kill Unit does. Shared code only.
+     * Kills the unit. Without a source it dies as Kill Unit does, credited to nobody; with a source it dies through the damage routine (see
+     * {@link Unit.damage}), so that the death event names the killer and the kill counts for the source. Shared code only.
      *
-     * @returns false when the routine refuses
+     * @param source the killer: a unit (its owner is the killing player) or a player; null or left out for none
+     * @returns false when the routine refuses, as for a subunit
      */
-    kill(): boolean;
+    kill(source?: Unit | Player | null): boolean;
+
+    /**
+     * Takes hit points off the unit as a hit does after armor and shields; a unit whose hit points run out dies. With a source the death event
+     * names the killer ({@link UnitDiedEvent.getKiller}, {@link UnitDiedEvent.getKillerPlayer}), the source unit's kill count grows against an
+     * enemy, the source player's kill and score counters count the unit, and a source unit is revealed to this unit's owner as an attacker is.
+     * Shared code only.
+     *
+     * @param hp     the hit points to take off, at least 0
+     * @param source the attacker: a unit (its owner is the attacking player) or a player; null or left out for none
+     * @returns false for a subunit, which stays with its unit
+     */
+    damage(hp: number, source?: Unit | Player | null): boolean;
 
     /**
      * Removes the unit as Remove Unit does. Shared code only.
@@ -2959,6 +2979,16 @@ interface Unit {
      * factor 2, none for a weapon without a flingy. Shared code only.
      */
     useWeapon(weaponType: WeaponType): void;
+
+    /**
+     * Plays an iscript animation on the images of the unit's sprite, as an order does when its state changes: each image switches to the
+     * animation and runs it at once, with the opcodes the game runs (an attack animation attacks the unit's order target). An image whose
+     * iscript lacks the animation, and every image while the sprite runs a section that must not be broken, keeps its own. The unit's orders
+     * play their own animations again when their state changes. Shared code only.
+     *
+     * @param animation the animation, Animation.GroundAttackInit to Animation.Enable; Init and Death throw a RangeError
+     */
+    playAnimation(animation: Animation): void;
 }
 
 /**
@@ -3980,6 +4010,15 @@ interface SpriteImage {
     setFrame(frame: number | null): void;
 
     /**
+     * Holds a drawn frame: it stays while the image's iscript steps the image's own frame, until it is released with null, another frame is
+     * set or held, or the image is gone. It changes only what is drawn; the image's own frame and its iscript go on as before. The frame is the
+     * whole drawn frame, the direction included ({@link SpriteImage.getDirection}); the graphics of the image must have it.
+     *
+     * @param frame the frame, 0 to 65535, or null to draw the image's own frame again
+     */
+    holdFrame(frame: number | null): void;
+
+    /**
      * @returns the frame offset of the image's direction inside its frame group
      */
     getDirection(): number;
@@ -4556,7 +4595,7 @@ interface Image extends Resource {
 
 /**
  * The files of the map's resource folder ({@link GameMap.resources}). A file is read once; later calls with the same name return the same
- * object. A missing file or one that is not valid for the kind throws an Error.
+ * object. A missing file or one that is not valid for the kind throws an Error. Reading works in shared and local code.
  */
 interface Resources {
     /**
@@ -4588,6 +4627,23 @@ interface Resources {
      * @returns the picture
      */
     getImage(name: string): Image;
+
+    /**
+     * Reads a file as UTF-8 text; a leading byte order mark is left out. A file that is no UTF-8 throws an Error.
+     *
+     * @param name the path relative to resources/
+     * @returns the text
+     */
+    readText(name: string): string;
+
+    /**
+     * Reads a JSON file: the UTF-8 text of {@link Resources.readText}, parsed with JSON.parse. Each call returns a new value; a text that is no
+     * JSON throws a SyntaxError.
+     *
+     * @param name the path relative to resources/
+     * @returns the parsed value
+     */
+    readJson(name: string): any;
 }
 
 /**
@@ -4900,6 +4956,29 @@ interface Local {
     getMousePosition(): Position | null;
 
     /**
+     * Returns the pointer in interface units, the units {@link Screen} draws in, for hit tests of the script's own screen drawing: correct at any
+     * interface size, graphics and camera zoom, outside the interface too. It follows every pointer move, so the input hooks read the pointer of
+     * their input. Local code only.
+     *
+     * @returns the pointer from the interface's top left, or null while the client has not supplied it
+     */
+    getPointerPosition(): ScreenPoint | null;
+
+    /**
+     * Local code only.
+     *
+     * @returns the interface width in interface units (640, 853, ...), the width {@link Screen.getWidth} gives in onRender
+     */
+    getInterfaceWidth(): number;
+
+    /**
+     * Local code only.
+     *
+     * @returns the interface height in interface units, 480
+     */
+    getInterfaceHeight(): number;
+
+    /**
      * Returns the units of the local interface's selection, which may differ from the local player's {@link Player.getSelection} until the
      * selection command runs. Local code only.
      *
@@ -4956,6 +5035,20 @@ interface Local {
  * The local information of this player's machine.
  */
 declare const local: Local;
+
+/**
+ * A point in interface units ({@link Local.getPointerPosition}).
+ */
+interface ScreenPoint {
+    /**
+     * The column from the interface's left edge.
+     */
+    readonly x: number;
+    /**
+     * The row from the game screen's top edge.
+     */
+    readonly y: number;
+}
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Presentation: drawing in onRender, the console and the texts.
@@ -5134,21 +5227,48 @@ interface TextOptions {
 }
 
 /**
+ * A rectangle of an image in its pixels ({@link ImageOptions.source}).
+ */
+interface ImageRegion {
+    /**
+     * The left in image pixels.
+     */
+    x: number;
+    /**
+     * The top in image pixels.
+     */
+    y: number;
+    /**
+     * The width in image pixels, at least 0.
+     */
+    width: number;
+    /**
+     * The height in image pixels, at least 0.
+     */
+    height: number;
+}
+
+/**
  * The options of a drawn image.
  */
 interface ImageOptions {
     /**
-     * The drawn width in the drawing's units, the image's pixel width by default.
+     * The drawn width in the drawing's units; by default the pixel width of the source rectangle, else of the image.
      */
     width?: number;
     /**
-     * The drawn height in the drawing's units, the image's pixel height by default.
+     * The drawn height in the drawing's units; by default the pixel height of the source rectangle, else of the image.
      */
     height?: number;
     /**
      * The opacity from 0 to 1, 1 by default; values outside are clamped.
      */
     opacity?: number;
+    /**
+     * The rectangle of the image to draw, as a frame of a sprite sheet or a crop; the whole image by default. A rectangle not inside the image
+     * throws a RangeError.
+     */
+    source?: ImageRegion;
 }
 
 /**
@@ -5374,7 +5494,53 @@ interface ConsoleImageTable extends ConstantTable<ConsoleImage> {
 declare const ConsoleImage: ConsoleImageTable;
 
 /**
- * One console dialog ({@link Console.getControl}), placed by its top left in the classic 640 by 480 screen. A setting wins over EUD memory.
+ * The interface edge that the classic 640 by 480 screen of a console dialog's positions stands at ({@link ConsoleControlHandle.setAnchor}).
+ */
+interface ConsoleAnchor extends GameType {
+}
+
+/**
+ * The interface edges of the console dialogs.
+ */
+interface ConsoleAnchorTable extends ConstantTable<ConsoleAnchor> {
+    /** The classic screen stands at the interface's left edge. */
+    readonly Left: ConsoleAnchor;
+    /** The classic screen stands centered in the interface, the installed place. */
+    readonly Center: ConsoleAnchor;
+    /** The classic screen stands at the interface's right edge. */
+    readonly Right: ConsoleAnchor;
+}
+
+/**
+ * The interface edges of the console dialogs.
+ */
+declare const ConsoleAnchor: ConsoleAnchorTable;
+
+/**
+ * A rectangle in interface units ({@link ConsoleControlHandle.getRectangle}).
+ */
+interface ScreenRectangle {
+    /**
+     * The left from the interface's left edge.
+     */
+    readonly x: number;
+    /**
+     * The top from the game screen's top edge.
+     */
+    readonly y: number;
+    /**
+     * The width.
+     */
+    readonly width: number;
+    /**
+     * The height.
+     */
+    readonly height: number;
+}
+
+/**
+ * One console dialog ({@link Console.getControl}), placed by its top left in the classic 640 by 480 screen, which stands centered in a wider
+ * interface or at its anchor's edge. A setting wins over EUD memory.
  */
 interface ConsoleControlHandle {
     /**
@@ -5425,6 +5591,33 @@ interface ConsoleControlHandle {
      * @param id the control's identifier in the dialog's definition, -32768 to 32767
      */
     restoreChild(id: number): void;
+
+    /**
+     * Sets the interface edge that the classic screen of the dialog's positions, and those of its controls, stands at: with Right, a position
+     * set for a 640 wide screen stays at the same distance from the right edge at any interface width. Positions EUD memory gives follow it too;
+     * the console art and its transparency stay centered.
+     *
+     * @param anchor the edge, ConsoleAnchor.Center by default
+     */
+    setAnchor(anchor: ConsoleAnchor): void;
+
+    /**
+     * Returns the rectangle of the dialog as the client last drew it, placed by the settings and EUD memory, for hit tests and layouts of the
+     * script's own drawing. Local code only.
+     *
+     * @returns the rectangle in interface units, or null while the dialog is hidden or the console was not drawn
+     */
+    getRectangle(): ScreenRectangle | null;
+
+    /**
+     * Returns the rectangle of a control of the dialog as the client last drew it, such as a command card button or the minimap area (the
+     * minimap size of {@link Console.setMinimapSize}). Local code only.
+     *
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @returns the rectangle in interface units, or null while the control or its dialog is hidden, the dialog has no such control or the
+     * console was not drawn
+     */
+    getChildRectangle(id: number): ScreenRectangle | null;
 }
 
 /**
@@ -5458,6 +5651,20 @@ interface Console {
      * @param image        the image, or null for the installed file
      */
     replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
+
+    /**
+     * Sets the side of the drawn minimap area: the minimap, its view frame and the drawing of {@link Screen.minimap} grow or shrink from the
+     * area's top left, and clicks hit the drawn minimap. The minimap dialog's other controls keep their places; move them with
+     * {@link ConsoleControlHandle.setChildPosition}. Where EUD console transparency hides the console, it hides the minimap too.
+     *
+     * @param size the side in interface units, 1 to 480; 128 is the installed size; another value throws a RangeError
+     */
+    setMinimapSize(size: number): void;
+
+    /**
+     * @returns the side of the drawn minimap area in interface units
+     */
+    getMinimapSize(): number;
 
     /**
      * Draws an image for the console icon of a resource, every race's icon, fitted into the icon's box.
@@ -5730,8 +5937,9 @@ interface ScriptButtonOptions {
     isEnabled?(unit: Unit): boolean | null;
 
     /**
-     * Called as local code on the pressing machine for the press, or for the target of a target button; consuming the event sends nothing,
-     * and keeps the targeting mode of a target button.
+     * Called as local code on the pressing machine for the press of the button and, for a target button, for its target too; the record kind
+     * tells them apart (InputKind.ButtonPressed, InputKind.ButtonTargeted). Consuming the press sends nothing, and a target button then does
+     * not start its targeting mode; consuming the target sends nothing and keeps the targeting mode.
      *
      * @param event the press, or the target of a target button
      */
@@ -7247,6 +7455,51 @@ interface BulletStateTable extends ConstantTable<BulletState> {
  * The order states of a bullet.
  */
 declare const BulletState: BulletStateTable;
+
+/**
+ * An iscript animation of an image ({@link Unit.playAnimation}).
+ */
+interface Animation extends GameType {
+}
+
+/**
+ * The iscript animations, in the order of an iscript entry's animation table.
+ */
+interface AnimationTable extends ConstantTable<Animation> {
+    readonly Init: Animation;
+    readonly Death: Animation;
+    readonly GroundAttackInit: Animation;
+    readonly AirAttackInit: Animation;
+    readonly Unused1: Animation;
+    readonly GroundAttackRepeat: Animation;
+    readonly AirAttackRepeat: Animation;
+    readonly CastSpell: Animation;
+    readonly GroundAttackToIdle: Animation;
+    readonly AirAttackToIdle: Animation;
+    readonly Unused2: Animation;
+    readonly Walking: Animation;
+    readonly WalkingToIdle: Animation;
+    readonly SpecialState1: Animation;
+    readonly SpecialState2: Animation;
+    readonly AlmostBuilt: Animation;
+    readonly Built: Animation;
+    readonly Landing: Animation;
+    readonly LiftOff: Animation;
+    readonly IsWorking: Animation;
+    readonly WorkingToIdle: Animation;
+    readonly WarpIn: Animation;
+    readonly Unused3: Animation;
+    readonly StarEditInit: Animation;
+    readonly Disable: Animation;
+    readonly Burrow: Animation;
+    readonly Unburrow: Animation;
+    readonly Enable: Animation;
+}
+
+/**
+ * The iscript animations.
+ */
+declare const Animation: AnimationTable;
 
 /**
  * The mouse buttons of a local mouse button input.

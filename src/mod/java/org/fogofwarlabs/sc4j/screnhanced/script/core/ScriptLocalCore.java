@@ -5,6 +5,7 @@ import org.fogofwarlabs.sc4j.scr.data.type.constant.ButtonSetIds;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrPauseRequester;
 import org.fogofwarlabs.sc4j.scr.game.presentation.HostButtonSets;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
+import org.fogofwarlabs.sc4j.scr.game.presentation.LocalDisplay;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.presentation.ScrButtonStates;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
@@ -27,7 +28,9 @@ import java.util.List;
  * {@code getPlayer()} (the slot id of the local player, {@code -1} in a replay and for an observer), {@code isReplay()}, {@code isChatOpen()}
  * (the chat box is open), {@code isViewKnown()} (the client supplied the screen and pointer positions), {@code getScreenX()} and
  * {@code getScreenY()} (the map position of the screen's top left), {@code getMouseX()} and {@code getMouseY()} (the map position under the
- * pointer: the screen position plus the pointer's screen position), and {@code getSelection()} (the ids of the live units of the local
+ * pointer: the screen position plus the pointer's screen position), {@code isPointerKnown()}, {@code getPointerX()} and {@code getPointerY()} (the
+ * pointer in interface units, the units of {@code core.screen}, at any interface size and camera zoom; {@code 0} while unknown,
+ * {@link LocalDisplay#setPointer}), and {@code getSelection()} (the ids of the live units of the local
  * interface's selection, up to its first empty slot). {@code setScreenPosition(x, y)} moves the local screen's top left at once, as the camera
  * move of Center View does ({@link LocalView#moveScreen}), and returns {@code false} while the view or its display geometry is unknown; it
  * changes no game state.
@@ -197,6 +200,21 @@ final class ScriptLocalCore {
             LocalView view = this.getInterfaceLink().getLocalView();
 
             return (double) (view.getScreenY() + view.getMouseY());
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isPointerKnown", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            return this.getInterfaceLink().getLocalDisplay().isPointerKnown();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getPointerX", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            return (double) this.getInterfaceLink().getLocalDisplay().getPointerX();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "getPointerY", 0, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkLocal();
+
+            return (double) this.getInterfaceLink().getLocalDisplay().getPointerY();
         });
         ScriptCoreUtils.defineFunction(global, namespace, "setScreenPosition", 2, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkLocal();

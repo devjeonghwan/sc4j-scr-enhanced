@@ -148,12 +148,12 @@ final class ScriptCheckUtilsTest {
     void check_should_report_names_that_core_dat_lacks(@TempDir @NotNull Path folder) throws IOException {
         Assertions.assertEquals(List.of("main.js:2: error: core.dat has no table unit.",
                                         "main.js:3: error: core.dat.units has no function getMineralCosts.",
-                                        "main.js:4: error: core.dat.sprites has no function setHealthBarWidth."),
+                                        "main.js:4: error: core.dat.images has no function setGraphicsFile."),
                                 check(folder, withManifest("main.js", """
                                                                       function onStart() {
                                                                           core.dat.unit.getMineralCost(0);
                                                                           core.dat.units.getMineralCosts(0);
-                                                                          core.dat.sprites.setHealthBarWidth(130, 1);
+                                                                          core.dat.images.setGraphicsFile(0, 1);
                                                                           core.dat.units.setMineralCost(0, core.dat.units.getMineralCost(0) + 1);
                                                                           core.dat.weapons.getTargetFlags(0);
                                                                       }

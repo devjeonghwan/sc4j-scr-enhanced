@@ -610,4 +610,33 @@ final class ClassicImageGraphicsTest {
         Assertions.assertThrows(IllegalArgumentException.class, () -> replacements.setImageFrame(reused, SCRIPT_FRAME),
                                 "a free slot takes no frame");
     }
+
+    @Test
+    void a_held_frame_stays_through_the_frame_steps_of_the_image_until_it_is_released() {
+        SpriteImagePool pool = new SpriteImagePool(1);
+        ImageReplacements replacements = new ImageReplacements(() -> null);
+        SpriteImage image = createImage(pool);
+
+        replacements.holdImageFrame(image, SCRIPT_FRAME);
+        image.setFrameIndex(1);
+        image.setFrameIndex(2);
+
+        Assertions.assertEquals(SCRIPT_FRAME, replacements.findImageFrame(image), "the held frame stays while the image steps its frame");
+
+        replacements.setImageFrame(image, SCRIPT_FRAME);
+        image.setFrameIndex(3);
+
+        Assertions.assertEquals(-1, replacements.findImageFrame(image), "a set frame replaces the held one and ends at the next step");
+
+        replacements.holdImageFrame(image, SCRIPT_FRAME);
+        replacements.holdImageFrame(image, -1);
+
+        Assertions.assertEquals(-1, replacements.findImageFrame(image), "a released frame draws the image's own frame");
+
+        replacements.holdImageFrame(image, SCRIPT_FRAME);
+        pool.recycle(image);
+        replacements.removeFreedUnits();
+
+        Assertions.assertEquals(-1, replacements.findImageFrame(createImage(pool)), "a new image in the slot holds no frame");
+    }
 }

@@ -348,6 +348,35 @@ final class ScriptRuntimeTest {
     }
 
     @Test
+    void an_error_of_the_api_is_logged_at_the_line_of_the_calling_script() throws IOException {
+        ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
+                ScriptRuntimeScenario.MAIN_NAME, """
+                                                 const helper = require('./helper.js');
+                                                 function onStart() {
+                                                     helper.readPlayer();
+                                                 }
+                                                 function onFrame(frame) {
+                                                     local.setScreenPosition(frame);
+                                                 }
+                                                 """,
+                "helper.js", """
+                             exports.readPlayer = function () {
+                                 return local.getPlayer();
+                             };
+                             """
+        );
+
+        List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 1);
+
+        Assertions.assertEquals(2, lines.size(), lines::toString);
+        Assertions.assertTrue(lines.get(0).startsWith("ERROR main.js: onStart failed: TypeError: "), lines::toString);
+        Assertions.assertTrue(lines.get(0).endsWith(" (helper.js:2)"), lines::toString);
+        Assertions.assertTrue(lines.get(1).startsWith("ERROR main.js: onFrame failed: TypeError: "), lines::toString);
+        Assertions.assertTrue(lines.get(1).endsWith(" (main.js:6)"), lines::toString);
+        Assertions.assertTrue(lines.stream().noneMatch(line -> line.contains("prelude/")), lines::toString);
+    }
+
+    @Test
     void a_syntax_error_ends_the_loading_of_its_script() throws IOException {
         ScriptRuntimeScenario scenario = ScriptRuntimeScenario.start("""
                                                                      function onFrame(frame) {

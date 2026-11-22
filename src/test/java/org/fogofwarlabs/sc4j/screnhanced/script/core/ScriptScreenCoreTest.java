@@ -119,6 +119,32 @@ final class ScriptScreenCoreTest {
     }
 
     @Test
+    void draw_image_should_draw_a_source_rectangle_inside_the_image() throws IOException {
+        ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
+                                                                                            var image = game.map.resources.getImage('ui/skull.png');
+                                                                                            function onRender(screen) {
+                                                                                                screen.drawImage(image, 7, 8, {source: {x: 1, y: 0, width: 1, height: 1}});
+                                                                                                screen.world.drawImage(image, 0, 0, {source: {x: 0, y: 0, width: 1, height: 1}, width: 16, height: 16});
+                                                                                                screen.minimap.drawImage(image, 1, 1, {source: {x: 0, y: 0, width: 2, height: 1}, opacity: 0.25});
+                                                                                                log.info(error(function () { screen.drawImage(image, 0, 0, {source: {x: 1, y: 0, width: 2, height: 1}}); }),
+                                                                                                         error(function () { screen.drawImage(image, 0, 0, {source: {x: -1, y: 0, width: 1, height: 1}}); }),
+                                                                                                         error(function () { core.screen.drawImageRegion(-1, 0, 0, 1, 1, 0, 0, 1, 1, 1); }));
+                                                                                            }
+                                                                                            """, createResources());
+        ScriptRuntime runtime = scenario.getRuntime();
+
+        runtime.start();
+        runtime.callRender();
+
+        ScrDrawList list = runtime.findDrawList();
+
+        Assertions.assertEquals(List.of("RangeError RangeError RangeError"), scenario.getInfoMessages(), scenario.getLines()::toString);
+        Assertions.assertEquals(List.of("drawPicture 2x1 7.0 8.0 1.0 1.0 1.0 from 1.0 0.0 1.0 1.0"), DrawListCheck.describe(list, ScrDrawList.Space.SCREEN));
+        Assertions.assertEquals(List.of("drawPicture 2x1 0.0 0.0 16.0 16.0 1.0 from 0.0 0.0 1.0 1.0"), DrawListCheck.describe(list, ScrDrawList.Space.WORLD));
+        Assertions.assertEquals(List.of("drawPicture 2x1 1.0 1.0 2.0 1.0 0.25"), DrawListCheck.describe(list, ScrDrawList.Space.MINIMAP));
+    }
+
+    @Test
     void drawing_throws_outside_on_render() throws IOException {
         ScriptGameScenario scenario = new ScriptGameScenario(createGame(), ERROR_FUNCTION + """
                                                                                             var saved = null;
@@ -219,6 +245,32 @@ final class ScriptScreenCoreTest {
 
         Assertions.assertEquals(List.of("640 480 1 false 1 4 0 0", "853 480 2.25 true 1.3333333333333333 4 9 4", "TypeError TypeError"),
                                 scenario.getInfoMessages(), scenario.getLines()::toString);
+    }
+
+    @Test
+    void local_reports_the_pointer_and_the_interface_size_in_interface_units() throws IOException {
+        Game game = createGame();
+        ScriptGameScenario scenario = new ScriptGameScenario(game, ERROR_FUNCTION + """
+                                                                                    function onFrame(frame) {
+                                                                                        log.info(error(function () { local.getPointerPosition(); }), error(function () { local.getInterfaceWidth(); }));
+                                                                                    }
+                                                                                    function onLocalFrame() {
+                                                                                        var pointer = local.getPointerPosition();
+                                                                                        log.info(pointer === null ? 'unknown' : pointer.x + ' ' + pointer.y + ' ' + Object.isFrozen(pointer),
+                                                                                                 local.getInterfaceWidth(), local.getInterfaceHeight());
+                                                                                    }
+                                                                                    """);
+        ScriptRuntime runtime = scenario.getRuntime();
+
+        runtime.start();
+        runtime.callLocalFrame(0);
+        game.getInterfaceLink().getLocalDisplay().setScreen(WIDE_WIDTH, 480, HD_SCALE, AssetResolver.AssetSet.HD);
+        game.getInterfaceLink().getLocalDisplay().setPointer(812.5f, 470.25f);
+        runtime.callLocalFrame(0);
+        runtime.runFrame(1);
+
+        Assertions.assertEquals(List.of("unknown 640 480", "812.5 470.25 true 853 480", "TypeError TypeError"), scenario.getInfoMessages(),
+                                scenario.getLines()::toString);
     }
 
     @Test

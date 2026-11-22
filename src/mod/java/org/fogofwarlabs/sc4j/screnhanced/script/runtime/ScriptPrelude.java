@@ -95,6 +95,14 @@ final class ScriptPrelude {
         return new ScriptPrelude(global, entryPoints);
     }
 
+    /**
+     * @param sourceName the source name of a stack frame
+     * @return {@code true} if the source name is that of an area file of the prelude, {@code false} otherwise
+     */
+    static boolean isPreludeSource(@NotNull String sourceName) {
+        return sourceName.startsWith(SOURCE_PREFIX) && FILE_NAMES.contains(sourceName.substring(SOURCE_PREFIX.length()));
+    }
+
     private static @NotNull String readFile(@NotNull String fileName) {
         try (InputStream input = ScriptPrelude.class.getResourceAsStream(RESOURCE_FOLDER + fileName)) {
             if (input == null) {

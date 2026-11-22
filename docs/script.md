@@ -65,7 +65,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `jsconfig.json` | editor settings: only the declaration files, scripts checked, every file its own module |
 | `scr-enhanced.d.ts` | declarations of the upper API, the runtime and the standard objects |
 | `core.d.ts` | declarations of the lower API `core` |
-| `resources/` | files the script reads: GRP, anim, PNG and DDS |
+| `resources/` | files the script reads: GRP, anim, PNG and DDS, and any file as text or JSON |
 
 Only `manifest.json`, the `.js` files outside `resources/` and the files under `resources/` go into the map.
 
@@ -106,7 +106,7 @@ Every module can define hooks; each hook runs in every module that has it, in lo
 
 ### 2.5 Logs
 
-`log.info`, `log.warn` and `log.error` write to the SC:R Enhanced log `<install>/userdata/logs/scr-enhanced/sc4j.log`, prefixed with the module name. Script errors go there too, with their location (`main.js:12`).
+`log.info`, `log.warn` and `log.error` write to the SC:R Enhanced log `<install>/userdata/logs/scr-enhanced/sc4j.log`, prefixed with the module name. Script errors go there too, with the script file and line that threw them (`main.js:12`); for an error of an API call, the line of the call.
 
 ## 3. Shared code and local code
 
@@ -268,7 +268,7 @@ display.commandCard.createButton({
 - `isEnabled(unit)` returns `true` (enabled), `false` (gray) or `null` (hidden). It must read only the game, never `local`: every game calls it again when the press runs.
 - `onPressed(player, units, target)` is shared code; `units` are the selected units for which `isEnabled` returned `true`.
 - `target: true` makes a target button: the player picks a unit or a point, and `target` holds `position` and `unit`.
-- `onLocalPressed(event)` runs first, on the pressing machine; `event.consume()` sends nothing.
+- `onLocalPressed(event)` runs first, on the pressing machine, for the press and, for a target button, for the target too; `event.getRecord().kind` tells them apart (`InputKind.ButtonPressed`, `InputKind.ButtonTargeted`). `event.consume()` sends nothing; a consumed press of a target button starts no targeting.
 
 ### 5.3 Screen text and messages
 
@@ -302,7 +302,7 @@ function onRender(screen) {
 }
 ```
 
-`screen` draws in interface units (480 high, `screen.getWidth()` wide), `screen.world` in map pixels above the units, `screen.minimap` in map pixels on the minimap. `drawImage` draws a picture of `resources/`: `game.map.resources.getImage('logo.png')`.
+`screen` draws in interface units (480 high, `screen.getWidth()` wide), `screen.world` in map pixels above the units, `screen.minimap` in map pixels on the minimap. `drawImage` draws a picture of `resources/`: `game.map.resources.getImage('logo.png')`; with `source: {x, y, width, height}` it draws a part of the picture, as a frame of a sprite sheet.
 
 ### 5.4 Reacting to a unit death
 
@@ -318,6 +318,48 @@ function onUnitDied(event) {
 ```
 
 The event holds the values of the moment the unit died: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`. The unit may be gone already.
+
+Script damage names its source: `unit.damage(hp, source)` takes hit points off as a hit does after armor and shields, and `unit.kill(source)` kills through the same routine. The source is a unit (its owner is the killing player) or a player; the death event names it, and the kill counts for it. `unit.kill()` without a source kills as Kill Unit does, credited to nobody.
+
+### 5.5 Your own console
+
+Local code reads where things are on the screen, in the units `screen` draws in, at any interface size and zoom:
+
+```js
+const card = display.console.getControl(ConsoleControl.CommandCard);
+
+/** @param {LocalMouseButtonEvent} event */
+function onLocalMouseDown(event) {
+    const pointer = local.getPointerPosition();
+    const area = card.getRectangle();
+
+    if (pointer !== null && area !== null && pointer.x >= area.x && pointer.x < area.x + area.width &&
+        pointer.y >= area.y && pointer.y < area.y + area.height) {
+        log.info('on the command card');
+    }
+}
+```
+
+- `local.getPointerPosition()` gives the pointer in interface units; `local.getInterfaceWidth()` and `local.getInterfaceHeight()` give the interface size outside `onRender` too.
+- `getRectangle()` of a console control and `getChildRectangle(id)` of one of its controls (a command card button, the minimap area) give what the client last drew, or `null` while hidden.
+- `setAnchor(ConsoleAnchor.Right)` makes the positions of a control stand at the interface's right edge: a layout made for 640 units stays at the same distance from the right edge at any width. `Left` and `Center` (the default) work the same way.
+- `display.console.setMinimapSize(size)` draws the minimap area `size` units wide and high instead of 128, grown from its top left; clicks follow it.
+
+### 5.6 Data files
+
+`game.map.resources.readText(name)` reads any file of `resources/` as UTF-8 text, and `readJson(name)` parses a JSON file:
+
+```js
+const heroes = game.map.resources.readJson('data/heroes.json');
+```
+
+Each `readJson` call returns a new value. Reading works in shared and local code.
+
+### 5.7 Unit graphics
+
+- `image.setFrame(frame)` draws a frame until the image's own frame changes; `image.holdFrame(frame)` keeps it while the image's iscript runs on, until `holdFrame(null)`. Both change only what is drawn. The frame includes the direction (`image.getDirection()`), and the image's graphics must have it.
+- `unit.playAnimation(Animation.CastSpell)` plays an iscript animation as an order does, with the opcodes it has: an attack animation attacks the unit's target. A sprite in a section that must not be broken keeps its animation, and the unit's orders play their own animations again when their state changes. `Init` and `Death` are refused. Shared code only.
+- The selection circle, its vertical offset and the health bar width of a sprite type can be set: `SpriteType.setSelectionCircle(size)` (0 to 9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. A circle takes them when it is shown, a bar when it is drawn. Shared code only.
 
 ## 6. Map protection
 
@@ -353,3 +395,4 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - Script buttons: at most 256 per game.
 - Channel values: `null`, booleans, numbers, strings, and arrays and plain objects of these.
 - Saved games: a game with a script cannot be saved.
+- Start units: as in StarCraft, a Use Map Settings game gives every player whose race in the map is User Selectable a town hall and four workers, with or without triggers, and keeps only the neutral preplaced units of those players. Set fixed races in the map, or remove the units in `onStart`.

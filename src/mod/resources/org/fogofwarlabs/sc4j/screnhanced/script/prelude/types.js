@@ -1,6 +1,6 @@
 // The type and value tables of the upper layer: the globals UnitType, WeaponType, FlingyType, SpriteType, ImageType, UpgradeType, TechType, Order,
 // Key, MouseButton, Modifier, UnitGroup, ScoreType, ResourceType, Alliance, EventKind, InputKind, DecisionKind, GameSpeed, Cheat, GameMode,
-// UnitSize, DamageType, LocationFlag, DrawFunction and BulletState. The DAT methods of the type objects come from the DAT tables
+// UnitSize, DamageType, LocationFlag, DrawFunction, BulletState and Animation. The DAT methods of the type objects come from the DAT tables
 // (prelude.datTables) over core.dat, with its raw values.
 (function (core, prelude) {
     'use strict';
@@ -72,6 +72,11 @@
                                'UpdateRectangle', 'Hallucination', 'WarpFlash'];
     // The order states of a bullet.
     var BULLET_STATE_NAMES = ['Init', 'Move', 'Follow', 'Bounce', 'DamageOverTime', 'Dying', 'HitNearTarget'];
+    // The iscript animations, in the order of an iscript entry's animation table.
+    var ANIMATION_NAMES = ['Init', 'Death', 'GroundAttackInit', 'AirAttackInit', 'Unused1', 'GroundAttackRepeat', 'AirAttackRepeat', 'CastSpell',
+                           'GroundAttackToIdle', 'AirAttackToIdle', 'Unused2', 'Walking', 'WalkingToIdle', 'SpecialState1', 'SpecialState2',
+                           'AlmostBuilt', 'Built', 'Landing', 'LiftOff', 'IsWorking', 'WorkingToIdle', 'WarpIn', 'Unused3', 'StarEditInit',
+                           'Disable', 'Burrow', 'Unburrow', 'Enable'];
 
     var unitTypePrototype = create(typePrototype);
     var weaponTypePrototype = create(typePrototype);
@@ -314,6 +319,7 @@
     var locationFlagPrototype = create(typePrototype);
     var drawFunctionPrototype = create(typePrototype);
     var bulletStatePrototype = create(typePrototype);
+    var animationPrototype = create(typePrototype);
 
     // The factor that scales the damage of the damage type against a unit size, 1 for full damage; setMultiplier is shared code only.
     damageTypePrototype.getMultiplier = function (size) {
@@ -333,6 +339,7 @@
     var LocationFlag = createBitTable(locationFlagPrototype, LOCATION_FLAGS);
     var DrawFunction = createConstantTable(drawFunctionPrototype, DRAW_FUNCTION_NAMES, DRAW_FUNCTION_NAMES.length, 'Draw function ');
     var BulletState = createConstantTable(bulletStatePrototype, BULLET_STATE_NAMES, BULLET_STATE_NAMES.length, 'Bullet state ');
+    var Animation = createConstantTable(animationPrototype, ANIMATION_NAMES, ANIMATION_NAMES.length, 'Animation ');
 
     // The kinds of the lower records: the events of core.events.getFrameEvents by their names in core.events, the local inputs and the
     // decisions.
@@ -366,7 +373,8 @@
     [unitTypePrototype, weaponTypePrototype, flingyTypePrototype, spriteTypePrototype, imageTypePrototype, upgradeTypePrototype,
      techTypePrototype, orderPrototype, keyPrototype, mouseButtonPrototype, unitGroupPrototype, scoreTypePrototype, resourceTypePrototype,
      alliancePrototype, eventKindPrototype, inputKindPrototype, decisionKindPrototype, gameSpeedPrototype, cheatPrototype, gameModePrototype,
-     unitSizePrototype, damageTypePrototype, locationFlagPrototype, drawFunctionPrototype, bulletStatePrototype].forEach(freeze);
+     unitSizePrototype, damageTypePrototype, locationFlagPrototype, drawFunctionPrototype, bulletStatePrototype,
+     animationPrototype].forEach(freeze);
 
     return {
         exports: {
@@ -395,7 +403,8 @@
             DamageType: DamageType,
             LocationFlag: LocationFlag,
             DrawFunction: DrawFunction,
-            BulletState: BulletState
+            BulletState: BulletState,
+            Animation: Animation
         },
         shared: {
             GameSpeed: GameSpeed,
@@ -403,6 +412,7 @@
             cheatPrototype: cheatPrototype,
             locationFlagPrototype: locationFlagPrototype,
             drawFunctionPrototype: drawFunctionPrototype,
+            animationPrototype: animationPrototype,
             spriteTypePrototype: spriteTypePrototype,
             weaponTypePrototype: weaponTypePrototype,
             unitTypePrototype: unitTypePrototype,

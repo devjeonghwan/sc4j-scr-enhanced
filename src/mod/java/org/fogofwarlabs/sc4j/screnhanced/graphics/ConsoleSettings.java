@@ -6,15 +6,17 @@ import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * What a map script sets on the console: whether the console is shown, the visibility and the top-left corner of each console dialog and of the
- * controls of a dialog in the classic screen, the pictures drawn instead of the console art files ({@link ScrConsoleArt}) and the pictures of the
- * resource icons. An item the script never set, or restored, is unset, so that the classic console ({@link ClassicConsoleGraphics}) shows what
- * EUD memory gives for it; an item the script set wins over EUD memory from then on. The change count grows with every change.
+ * controls of a dialog in the classic screen, the interface edge the classic screen of a dialog stands at ({@link ScrConsolePlacement.Anchor}),
+ * the size of the minimap area, the pictures drawn instead of the console art files ({@link ScrConsoleArt}) and the pictures of the resource
+ * icons. An item the script never set, or restored, is unset, so that the classic console ({@link ClassicConsoleGraphics}) shows what EUD memory
+ * gives for it; an item the script set wins over EUD memory from then on. The change count grows with every change.
  */
 public final class ConsoleSettings {
     /**
@@ -54,7 +56,9 @@ public final class ConsoleSettings {
     private final boolean @NotNull [] positionSet;
     private final int @NotNull [] lefts;
     private final int @NotNull [] tops;
+    private final ScrConsolePlacement.@NotNull Anchor @NotNull [] anchors;
     private final @NotNull Map<ScrConsolePlacement.Dialog, Map<Integer, ControlSetting>> controls;
+    private int minimapSize;
 
     private final @Nullable Picture @NotNull [] arts;
     private final @Nullable Picture @NotNull [] resourceIcons;
@@ -72,12 +76,16 @@ public final class ConsoleSettings {
         this.positionSet   = new boolean[DIALOG_COUNT];
         this.lefts         = new int[DIALOG_COUNT];
         this.tops          = new int[DIALOG_COUNT];
+        this.anchors       = new ScrConsolePlacement.Anchor[DIALOG_COUNT];
         this.controls      = new EnumMap<>(ScrConsolePlacement.Dialog.class);
+        this.minimapSize   = ScrConsolePlacement.MINIMAP_SIZE;
 
         this.arts          = new Picture[ART_COUNT];
         this.resourceIcons = new Picture[RESOURCE_ICON_COUNT];
 
         this.changeCount = 0;
+
+        Arrays.fill(this.anchors, ScrConsolePlacement.Anchor.CENTER);
     }
 
     /**
@@ -107,11 +115,16 @@ public final class ConsoleSettings {
     }
 
     /**
-     * @return {@code true} if the script set the visibility or the position of a dialog or of a control, {@code false} otherwise
+     * @return {@code true} if the script set the visibility, the position or the anchor of a dialog, the visibility or the position of a control,
+     * or the minimap size, {@code false} otherwise
      */
     public boolean hasDialogSettings() {
+        if (this.minimapSize != ScrConsolePlacement.MINIMAP_SIZE) {
+            return true;
+        }
+
         for (int index = 0; index < DIALOG_COUNT; index++) {
-            if (this.visibilitySet[index] || this.positionSet[index]) {
+            if (this.visibilitySet[index] || this.positionSet[index] || this.anchors[index] != ScrConsolePlacement.Anchor.CENTER) {
                 return true;
             }
         }
@@ -153,6 +166,46 @@ public final class ConsoleSettings {
         if (!this.visibilitySet[index] || this.visible[index] != visible) {
             this.visibilitySet[index] = true;
             this.visible[index]       = visible;
+            this.changeCount++;
+        }
+    }
+
+    /**
+     * @param dialog the dialog
+     * @return the interface edge the classic screen of the dialog's positions stands at, {@link ScrConsolePlacement.Anchor#CENTER} by default
+     */
+    public ScrConsolePlacement.@NotNull Anchor getDialogAnchor(ScrConsolePlacement.@NotNull Dialog dialog) {
+        return this.anchors[dialog.ordinal()];
+    }
+
+    /**
+     * Sets the interface edge the classic screen of a dialog's positions, and those of its controls, stands at.
+     *
+     * @param dialog the dialog
+     * @param anchor the anchor
+     */
+    public void setDialogAnchor(ScrConsolePlacement.@NotNull Dialog dialog, ScrConsolePlacement.@NotNull Anchor anchor) {
+        if (this.anchors[dialog.ordinal()] != anchor) {
+            this.anchors[dialog.ordinal()] = anchor;
+            this.changeCount++;
+        }
+    }
+
+    /**
+     * @return the side of the drawn minimap area in interface units, {@link ScrConsolePlacement#MINIMAP_SIZE} by default
+     */
+    public int getMinimapSize() {
+        return this.minimapSize;
+    }
+
+    /**
+     * Sets the side of the drawn minimap area.
+     *
+     * @param minimapSize the side in interface units, positive
+     */
+    public void setMinimapSize(int minimapSize) {
+        if (this.minimapSize != minimapSize) {
+            this.minimapSize = minimapSize;
             this.changeCount++;
         }
     }
