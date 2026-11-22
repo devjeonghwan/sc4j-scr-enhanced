@@ -166,6 +166,33 @@ final class ScriptModuleLoader {
     }
 
     /**
+     * Finds the module of a script name.
+     *
+     * @param name the script name
+     * @return the loaded or loading module, or {@code null} if no module has the name
+     */
+    @Nullable ScriptModule findModule(@NotNull String name) {
+        return this.modulesByName.get(name);
+    }
+
+    /**
+     * Lists the loaded modules.
+     *
+     * @return the modules that have loaded, in the order their loading started
+     */
+    @NotNull List<ScriptModule> getLoadedModules() {
+        List<ScriptModule> loaded = new ArrayList<>();
+
+        for (ScriptModule module : this.modules) {
+            if (module.isLoaded()) {
+                loaded.add(module);
+            }
+        }
+
+        return loaded;
+    }
+
+    /**
      * Returns the records of the loaded modules ({@link ScriptModule#getRecord}) in the order their loading started, as a script array: the
      * same array until another module has loaded.
      *

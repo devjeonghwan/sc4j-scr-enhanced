@@ -37,14 +37,14 @@ Relative paths are relative to the current folder.
 |---|---|
 | `init <folder>` | writes a new script folder; the folder must be absent or empty |
 | `check <folder>` | prints the errors and warnings of a script folder |
-| `run <map> --script <folder> [--melee] [--watch]` | packs the folder into a copy of the map and starts SC:R Enhanced on it |
+| `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]` | packs the folder into a copy of the map and starts SC:R Enhanced on it |
 | `pack <map> --script <folder> -o <output>` | writes the map with the script package to `<output>`; an old package is replaced |
 | `pack <map> --script <folder> -o <output> --protect` | the same, as a protected map (chapter 6) |
 | `unpack <map> -o <folder>` | writes the script package of a map to a folder that is absent or empty |
 | `trace <source map> --at <script>:<line>` | prints the original line of a line of a protected script |
 | `trace <source map> --log <file>` | prints a file, such as a log, with the original lines |
 
-`run` starts a Use Map Settings game, or with `--melee` a melee game against one computer of a random race. The copy of the map goes to `<install>/userdata/mods/scr-enhanced/script-run/`; the source map stays as it is. With `--watch` a change of the folder is packed again and loads when the map starts again. The command ends when the game ends; `--install <folder>` names another SC4J install.
+`run` starts a Use Map Settings game, or with `--melee` a melee game against one computer of a random race. The copy of the map goes to `<install>/userdata/mods/scr-enhanced/script-run/`; the source map stays as it is. With `--watch` a change of the folder is packed again and loads when the map starts again. With `--inspect` the DevTools console is on (section 2.7). The command ends when the game ends; `--install <folder>` names another SC4J install.
 
 In a clone of this repository the same commands run with Gradle, paths relative to the repository root:
 
@@ -197,6 +197,54 @@ What does not:
 - `noEmitHelpers` leaves the helpers out, and the scripts fail with a `ReferenceError`. `importHelpers` loads them from a module `tslib`: copy `tslib.js` of the npm package `tslib` into the script folder.
 - `module` other than `commonjs`, `import()`, and the libraries of browsers and Node.js.
 - Errors and logs name the line of the compiled JavaScript (`main.js:72`), not of the TypeScript source.
+
+### 2.7 DevTools console
+
+Chrome or Edge DevTools can run code in the script of a running game: a console with completion, object previews and the script's log.
+
+Start it with `run`, or in a game with the chat command `/inspect`:
+
+```powershell
+SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
+```
+
+| Start | Port |
+|---|---|
+| `run ... --inspect` | 9339 |
+| `run ... --inspect=9340` | 9340 |
+| `/inspect` | 9339; `/inspect` again stops it |
+| `/inspect 9340` | 9340 |
+| `/inspect off` | stops it |
+
+The console is off by default. When it attaches to a game, the message area shows `DevTools console: 127.0.0.1:9339, shared code`.
+
+Open `chrome://inspect` (Edge: `edge://inspect`), choose Configure, add `127.0.0.1:9339`, and click inspect under the target `SC:R Enhanced script`. The log `<install>/userdata/logs/scr-enhanced/sc4j.log` also has the address of the DevTools window (`devtools://devtools/bundled/js_app.html?...`); paste it into the address bar to open it directly.
+
+Console code runs between frames, at the frame start after `onFrame`. Its context decides what it may do (chapter 3); pick the context in the context menu at the top of the Console panel.
+
+| Game | Contexts |
+|---|---|
+| single player, also `run` | `Shared code` (the default): may change the game and the script's variables; `Local code` |
+| multiplayer, replay | `Local code` only: the shared-only functions throw, so the console cannot make the games differ |
+
+What the console has:
+
+- The main script's top-level names, `require`, `log` and the globals. Names that the console declares stay in the console.
+- `$_`: the last result.
+- `modules`: the top level of each loaded module by file name, such as `modules['bonus.js'].count`.
+- Assigning a top-level name of the script, such as `score = 10`, changes it in shared code and throws a `TypeError` in local code.
+- Objects expand. A unit, player, type or position shows its name (`Unit 12`, `Player 0`) and the values of its `get`, `is` and `has` methods.
+- `log.info`, `log.warn`, `log.error` and the script's errors appear in the console, an error with its file and line.
+- A line has the instruction budget of one call (chapter 7). A line over the budget ends with an error; the script runs on.
+
+What it does not have:
+
+- No debugger: no breakpoints, no stepping, no Sources panel, no profiler.
+- Code waits while the game runs no frame: while the game menu pauses a single-player game, or while a replay is paused. After 5 seconds DevTools shows an error.
+- While you type, DevTools previews names and property reads only; it calls no function.
+- In local code, changing an object of the script, such as `state.score = 1`, or calling a function that does is not refused. As in the local hooks, do not change what shared code reads (section 3.3).
+- The replay of a game whose console changed the game does not have those changes.
+- The server listens on 127.0.0.1 only and refuses web pages: a request with another `Host` or a web page's `Origin` header.
 
 ## 3. Shared code and local code
 

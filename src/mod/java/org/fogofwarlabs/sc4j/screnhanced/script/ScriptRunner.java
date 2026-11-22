@@ -22,7 +22,8 @@ import java.util.stream.Stream;
  *     --install <install> --mod <install>/mods/scr-enhanced.jar -- --ums <packed map>
  *}
  * A melee run ends the command line with {@code --melee <packed map> --computer random} instead: one computer player of a random race against
- * the human of the client's default race, name and slot. The runtime takes the settings, storage and log folders of the mod from the install.
+ * the human of the client's default race, name and slot. A run with a DevTools port adds {@code --command "/inspect <port>"}, which switches the
+ * client's DevTools console on once the game runs. The runtime takes the settings, storage and log folders of the mod from the install.
  * The packed map is {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside the map folder the
  * client lists; the source map stays as it is.
  * <p>
@@ -42,6 +43,10 @@ public final class ScriptRunner {
      * The system property that names the SC4J install when the command line does not.
      */
     public static final @NotNull String INSTALL_PROPERTY = "sc4j.install";
+    /**
+     * The DevTools port of a run without the DevTools console.
+     */
+    public static final int NO_INSPECT_PORT = -1;
 
     private static final @NotNull String RUNTIME_FOLDER = "runtime";
     private static final @NotNull String BINARY_FOLDER = "bin";
@@ -62,6 +67,8 @@ public final class ScriptRunner {
     private static final @NotNull String MELEE_OPTION = "--melee";
     private static final @NotNull String COMPUTER_OPTION = "--computer";
     private static final @NotNull String MELEE_COMPUTER_RACES = "random";
+    private static final @NotNull String COMMAND_OPTION = "--command";
+    private static final @NotNull String INSPECT_COMMAND = "/inspect ";
     private static final @NotNull String TEMPORARY_SUFFIX = ".tmp";
     private static final @NotNull String RESOURCE_PREFIX = ScriptPackage.RESOURCE_FOLDER + "/";
 
@@ -142,6 +149,7 @@ public final class ScriptRunner {
     private final @NotNull Path map;
     private final @NotNull Path scriptFolder;
     private final boolean melee;
+    private final int inspectPort;
     private final @NotNull ProcessStarter starter;
 
     private final @NotNull Path packedMap;
@@ -154,13 +162,16 @@ public final class ScriptRunner {
      * @param map          the map to pack the scripts into
      * @param scriptFolder the script folder
      * @param melee        whether the packed map starts as a melee game instead of a Use Map Settings game
+     * @param inspectPort  the port of the client's DevTools console, or {@link #NO_INSPECT_PORT} for none
      * @param starter      starts the runtime process
      */
-    public ScriptRunner(@NotNull Path install, @NotNull Path map, @NotNull Path scriptFolder, boolean melee, @NotNull ProcessStarter starter) {
+    public ScriptRunner(@NotNull Path install, @NotNull Path map, @NotNull Path scriptFolder, boolean melee, int inspectPort,
+                        @NotNull ProcessStarter starter) {
         this.install      = install.toAbsolutePath().normalize();
         this.map          = map.toAbsolutePath().normalize();
         this.scriptFolder = scriptFolder.toAbsolutePath().normalize();
         this.melee        = melee;
+        this.inspectPort  = inspectPort;
         this.starter      = starter;
 
         Path mapName = this.map.getFileName();
@@ -235,7 +246,8 @@ public final class ScriptRunner {
     }
 
     /**
-     * Creates the command line that starts SC:R Enhanced on the packed map, as a melee or a Use Map Settings game.
+     * Creates the command line that starts SC:R Enhanced on the packed map, as a melee or a Use Map Settings game, with the DevTools console
+     * when the run has a port for it.
      *
      * @param javaProgram the Java program
      * @return the command line, one argument per element
@@ -270,6 +282,10 @@ public final class ScriptRunner {
             command.addAll(List.of(MELEE_OPTION, this.packedMap.toString(), COMPUTER_OPTION, MELEE_COMPUTER_RACES));
         } else {
             command.addAll(List.of(MAP_SETTINGS_OPTION, this.packedMap.toString()));
+        }
+
+        if (this.inspectPort != NO_INSPECT_PORT) {
+            command.addAll(List.of(COMMAND_OPTION, INSPECT_COMMAND + this.inspectPort));
         }
 
         return command;

@@ -37,14 +37,14 @@ SC4J.bat tool scr-enhanced script <command> [arguments]
 |---|---|
 | `init <folder>` | 새 스크립트 폴더를 만듦. 폴더는 없거나 비어 있어야 함 |
 | `check <folder>` | 스크립트 폴더의 오류와 경고를 출력 |
-| `run <map> --script <folder> [--melee] [--watch]` | 폴더를 맵 복사본에 넣고 그 맵으로 SC:R Enhanced를 시작 |
+| `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]` | 폴더를 맵 복사본에 넣고 그 맵으로 SC:R Enhanced를 시작 |
 | `pack <map> --script <folder> -o <output>` | 스크립트 패키지를 넣은 맵을 `<output>`에 씀. 이전 패키지는 교체 |
 | `pack <map> --script <folder> -o <output> --protect` | 같은 일을 보호된 맵으로(6장) |
 | `unpack <map> -o <folder>` | 맵의 스크립트 패키지를 없거나 빈 폴더에 씀 |
 | `trace <source map> --at <script>:<line>` | 보호된 스크립트의 줄에 해당하는 원래 줄을 출력 |
 | `trace <source map> --log <file>` | 로그 같은 파일을 원래 줄로 바꿔 출력 |
 
-`run`은 맵 설정 사용 게임을, `--melee`를 주면 무작위 종족 컴퓨터 하나와 하는 밀리 게임을 시작합니다. 맵 복사본은 `<install>/userdata/mods/scr-enhanced/script-run/`에 놓이고 원본 맵은 그대로입니다. `--watch`를 주면 폴더가 바뀔 때 다시 넣고, 맵을 다시 시작하면 불러옵니다. 명령은 게임이 끝나면 끝납니다. `--install <folder>`로 다른 SC4J 설치본을 지정합니다.
+`run`은 맵 설정 사용 게임을, `--melee`를 주면 무작위 종족 컴퓨터 하나와 하는 밀리 게임을 시작합니다. 맵 복사본은 `<install>/userdata/mods/scr-enhanced/script-run/`에 놓이고 원본 맵은 그대로입니다. `--watch`를 주면 폴더가 바뀔 때 다시 넣고, 맵을 다시 시작하면 불러옵니다. `--inspect`를 주면 DevTools 콘솔이 켜집니다(2.7절). 명령은 게임이 끝나면 끝납니다. `--install <folder>`로 다른 SC4J 설치본을 지정합니다.
 
 이 저장소를 복제했다면 같은 명령을 Gradle로 실행할 수 있습니다. 경로는 저장소 루트 기준입니다.
 
@@ -197,6 +197,54 @@ target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣어 ES5�
 - `noEmitHelpers`는 도우미 함수를 빼므로 스크립트가 `ReferenceError`로 실패합니다. `importHelpers`는 도우미 함수를 `tslib` 모듈에서 불러오므로 npm 패키지 `tslib`의 `tslib.js`를 스크립트 폴더에 복사하세요.
 - `commonjs`가 아닌 `module`, `import()`, 브라우저와 Node.js 라이브러리.
 - 오류와 로그는 TypeScript 소스가 아니라 컴파일한 JavaScript의 줄(`main.js:72`)을 알려 줍니다.
+
+### 2.7 DevTools 콘솔
+
+Chrome이나 Edge의 DevTools로 실행 중인 게임의 스크립트에서 코드를 실행할 수 있습니다. 자동 완성, 객체 미리 보기, 스크립트 로그가 있는 콘솔입니다.
+
+`run`으로, 또는 게임에서 채팅 명령 `/inspect`로 켭니다.
+
+```powershell
+SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
+```
+
+| 켜기 | 포트 |
+|---|---|
+| `run ... --inspect` | 9339 |
+| `run ... --inspect=9340` | 9340 |
+| `/inspect` | 9339. `/inspect`를 다시 하면 끔 |
+| `/inspect 9340` | 9340 |
+| `/inspect off` | 끔 |
+
+콘솔은 기본으로 꺼져 있습니다. 콘솔이 게임에 붙으면 메시지 영역에 `DevTools console: 127.0.0.1:9339, shared code`가 나옵니다.
+
+`chrome://inspect`(Edge는 `edge://inspect`)를 열고 Configure에서 `127.0.0.1:9339`를 추가한 뒤, 대상 `SC:R Enhanced script` 아래의 inspect를 누르세요. 로그 `<install>/userdata/logs/scr-enhanced/sc4j.log`에도 DevTools 창 주소(`devtools://devtools/bundled/js_app.html?...`)가 있으니 주소창에 붙여 넣어 바로 열 수도 있습니다.
+
+콘솔 코드는 프레임 사이, `onFrame` 다음의 프레임 시작에서 실행됩니다. 컨텍스트가 할 수 있는 일을 정합니다(3장). Console 패널 위쪽의 컨텍스트 메뉴에서 고르세요.
+
+| 게임 | 컨텍스트 |
+|---|---|
+| 싱글 플레이, `run`도 | `Shared code`(기본): 게임과 스크립트 변수를 바꿀 수 있음. `Local code` |
+| 멀티 플레이, 리플레이 | `Local code`만: 공유 코드 전용 함수가 예외를 던지므로 콘솔이 게임끼리 달라지게 할 수 없음 |
+
+콘솔에 있는 것:
+
+- 메인 스크립트의 최상위 이름, `require`, `log`, 전역. 콘솔에서 선언한 이름은 콘솔에만 남습니다.
+- `$_`: 마지막 결과.
+- `modules`: 불러온 모듈마다의 최상위, 파일 이름으로. 예: `modules['bonus.js'].count`.
+- 스크립트의 최상위 이름에 대입하면(`score = 10`) 공유 코드에서는 바뀌고 로컬 코드에서는 `TypeError`를 던집니다.
+- 객체를 펼칠 수 있습니다. 유닛, 플레이어, 타입, 위치는 이름(`Unit 12`, `Player 0`)과 `get`, `is`, `has` 메서드의 값을 보여 줍니다.
+- `log.info`, `log.warn`, `log.error`와 스크립트 오류가 콘솔에 나옵니다. 오류는 파일과 줄과 함께 나옵니다.
+- 한 줄은 호출 하나의 명령어 예산을 씁니다(7장). 예산을 넘은 줄은 오류로 끝나고 스크립트는 계속 실행됩니다.
+
+콘솔에 없는 것:
+
+- 디버거가 없습니다. 중단점, 단계 실행, Sources 패널, 프로파일러가 없습니다.
+- 게임이 프레임을 실행하지 않는 동안 코드는 기다립니다. 게임 메뉴가 싱글 플레이 게임을 멈춘 동안, 리플레이가 일시 정지된 동안입니다. 5초 뒤 DevTools에 오류가 나옵니다.
+- 입력하는 동안 DevTools는 이름과 속성 읽기만 미리 보고 함수는 호출하지 않습니다.
+- 로컬 코드에서 스크립트의 객체를 바꾸거나(`state.score = 1`) 그런 함수를 호출하는 것은 막지 않습니다. 로컬 훅처럼 공유 코드가 읽는 것은 바꾸지 마세요(3.3절).
+- 콘솔이 게임을 바꾼 게임의 리플레이에는 그 변경이 없습니다.
+- 서버는 127.0.0.1에서만 받고 웹 페이지를 거부합니다. 다른 `Host`나 웹 페이지의 `Origin` 헤더가 있는 요청입니다.
 
 ## 3. 공유 코드와 로컬 코드
 
