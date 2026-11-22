@@ -14,12 +14,11 @@ How to write map scripts for SC:R Enhanced. The full API reference is the declar
 
 ## 1. What it is
 
-A map script is JavaScript stored inside the map file. SC:R Enhanced runs it with [Rhino](https://github.com/mozilla/rhino) 1.8.1 in interpreted mode, at the newest ECMAScript level Rhino supports; chapter 7 lists what it lacks and when `Promise` jobs run.
+A map script is JavaScript stored inside the map file. SC:R Enhanced runs it with [Rhino](https://github.com/mozilla/rhino) 1.8.1 in interpreted mode, at the newest ECMAScript level Rhino supports; chapter 7 lists the limits.
 
 - The map file keeps its own data as it is; the script package (the manifest, the scripts and the files of `resources/`) is stored after it.
 - The script runs on every player's game in lockstep: the same code, at the same frame, with the same results. Every player of a game runs SC:R Enhanced.
 - A replay holds the scripts and plays them again. It reads the resources from the map: keep the map in `<install>/userdata/mods/scr-enhanced/maps/`.
-- A game with a script cannot be saved.
 
 ## 2. Getting started
 
@@ -37,14 +36,14 @@ Relative paths are relative to the current folder.
 |---|---|
 | `init <folder>` | writes a new script folder; the folder must be absent or empty |
 | `check <folder>` | prints the errors and warnings of a script folder |
-| `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]` | packs the folder into a copy of the map and starts SC:R Enhanced on it |
+| `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]] [--install <folder>]` | packs the folder into a copy of the map and starts SC:R Enhanced on it |
 | `pack <map> --script <folder> -o <output>` | writes the map with the script package to `<output>`; an old package is replaced |
 | `pack <map> --script <folder> -o <output> --protect` | the same, as a protected map (chapter 6) |
 | `unpack <map> -o <folder>` | writes the script package of a map to a folder that is absent or empty |
 | `trace <source map> --at <script>:<line>` | prints the original line of a line of a protected script |
 | `trace <source map> --log <file>` | prints a file, such as a log, with the original lines |
 
-`run` starts a Use Map Settings game, or with `--melee` a melee game against one computer of a random race. The copy of the map goes to `<install>/userdata/mods/scr-enhanced/script-run/`; the source map stays as it is. With `--watch` a change of the folder is packed again and loads when the map starts again. With `--inspect` the DevTools console is on (section 2.7). The command ends when the game ends; `--install <folder>` names another SC4J install.
+`run` starts a Use Map Settings game, or with `--melee` a melee game against one computer of a random race. The copy of the map goes to `<install>/userdata/mods/scr-enhanced/script-run/`; the source map stays as it is. With `--watch` a change of the folder is packed again and loads when the map starts again. With `--inspect` the DevTools console is on (section 2.7). `--install` names another SC4J install. The command ends when the game ends.
 
 In a clone of this repository the same commands run with Gradle, paths relative to the repository root:
 
@@ -102,7 +101,7 @@ function onStart() {
 }
 ```
 
-Every module can define hooks; each hook runs in every module that has it, in load order. A top-level function, or a variable holding one, with a hook name is a hook of its module even when the module exports it, so give helpers other names; `check` warns of an exported hook name. Call `require` in shared code (chapter 3): local code cannot load a new module.
+Every module can define hooks (section 3.1). Call `require` in shared code (chapter 3): local code cannot load a new module.
 
 ### 2.5 Logs
 
@@ -146,7 +145,7 @@ Make `script/` with `init my-map/script`, set the name in its `manifest.json`, d
 
 - `files` names the declaration files, because tsc leaves the files of `outDir` out of `include`.
 - tsc writes `main.js` and the other modules next to `manifest.json` and copies no other file: `manifest.json` and `resources/` stay in `script/`.
-- Define the hooks with `defineHooks` (section 3.1): tsc types their parameters, reports a misspelled hook name, and finds no unused hook with `noUnusedLocals`.
+- Define the hooks with `defineHooks` (section 3.1): tsc types their parameters and reports a misspelled hook name. tsc does not know that the runtime calls top-level function hooks: `noUnusedLocals` reports them, and a misspelled name goes unnoticed.
 - Import modules with relative paths (`./bonus`).
 
 ```powershell
@@ -175,9 +174,7 @@ export function give(player: Player, amount: number): void {
 }
 ```
 
-Top-level function hooks work too, but tsc does not know that the runtime calls them: `noUnusedLocals` reports them, and a misspelled name stays unnoticed. Do not export hooks, and give helpers names that are not hook names: a top-level function, or a variable holding one, with a hook name is a hook of its module, exported or not. A helper `onLocalFrame` that another module calls every frame runs twice per frame. `check` warns of an exported hook name.
-
-What works with target ES5, which tsc writes as ES5 with its helpers in each file:
+What works with target ES5 (tsc writes its helpers into each file):
 
 - classes with inheritance, `super`, getters and static members
 - arrow functions, template strings, rest and default parameters
@@ -202,7 +199,7 @@ What does not:
 
 Chrome or Edge DevTools can run code in the script of a running game: a console with completion, object previews and the script's log.
 
-Start it with `run`, or in a game with the chat command `/inspect`:
+The console is off until `run` or the chat command `/inspect` starts it:
 
 ```powershell
 SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
@@ -213,10 +210,11 @@ SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
 | `run ... --inspect` | 9339 |
 | `run ... --inspect=9340` | 9340 |
 | `/inspect` | 9339; `/inspect` again stops it |
+| `/inspect on` | 9339 |
 | `/inspect 9340` | 9340 |
 | `/inspect off` | stops it |
 
-The console is off by default. When it attaches to a game, the message area shows `DevTools console: 127.0.0.1:9339, shared code`.
+When it attaches to a game, the message area shows `DevTools console: 127.0.0.1:9339, shared code`.
 
 Open `chrome://inspect` (Edge: `edge://inspect`), choose Configure, add `127.0.0.1:9339`, and click inspect under the target `SC:R Enhanced script`. The log `<install>/userdata/logs/scr-enhanced/sc4j.log` also has the address of the DevTools window (`devtools://devtools/bundled/js_app.html?...`); paste it into the address bar to open it directly.
 
@@ -287,6 +285,7 @@ Both kinds run the same way: in every module that has the hook, in load order, w
 - Every property of the object must be a function with a hook name; any other name throws a `TypeError` that names it, and `check` reports it.
 - A module may call `defineHooks` more than once with other hooks. A hook defined twice in a module, by two calls or by a call and a top-level function, throws, and the module does not load.
 - A method runs with `this` set to the object, a top-level function with `this` set to the module's top level.
+- A top-level function, or a variable holding one, with a hook name is a hook of its module, exported or not. Give helpers other names: a helper `onLocalFrame` that another module calls every frame runs twice per frame. `check` warns of an exported hook name.
 
 | Hook | When |
 |---|---|
@@ -304,7 +303,7 @@ A frame runs, at the frame start before the triggers: `onStart` (first frame onl
 
 A local input hook can call `event.consume()` to keep a key, mouse button, chat line or button press from the game.
 
-A decision hook changes the decision object: `setAmount` or `cancel` for damage, `setOrder`, `setTarget` or `reject` for an order, `setTarget` for a target. The game is read-only meanwhile.
+A decision hook changes the decision object: `setAmount` or `cancel` for damage, `setOrder`, `setTarget` or `reject` for an order, `setTarget` for a target.
 
 ### 3.2 From local input to shared code
 
@@ -387,8 +386,6 @@ display.strings.setStatText(1, 'Marine');
 
 Positions are map pixels unless a member names tiles; player slots and type ids start at 0. An object of a unit, sprite, image or bullet throws an `Error` once that thing is gone; check `exists()` first when unsure.
 
-For each member, its arguments and its notes, read the declaration files. Your editor shows them on completion.
-
 ## 5. Examples
 
 ### 5.1 A timer that gives minerals
@@ -429,7 +426,7 @@ display.commandCard.createButton({
 });
 ```
 
-- `createButton` is shared code; call it at the module top level or in `onStart`. A game has at most 256 script buttons.
+- `createButton` is shared code; call it at the module top level or in `onStart`.
 - `position` is the card slot 1 to 9; `icon` is a cmdicons frame.
 - `isEnabled(unit)` returns `true` (enabled), `false` (gray) or `null` (hidden). It must read only the game, never `local`: every game calls it again when the press runs.
 - `onPressed(player, units, target)` is shared code; `units` are the selected units for which `isEnabled` returned `true`.
@@ -539,7 +536,7 @@ Each `readJson` call returns a new value. Reading works in shared and local code
 
 - `image.setFrame(frame)` draws a frame until the image's own frame changes; `image.holdFrame(frame)` keeps it while the image's iscript runs on, until `holdFrame(null)`. Both change only what is drawn. The frame includes the direction (`image.getDirection()`), and the image's graphics must have it.
 - `unit.playAnimation(Animation.CastSpell)` plays an iscript animation as an order does, with the opcodes it has: an attack animation attacks the unit's target. A sprite in a section that must not be broken keeps its animation, and the unit's orders play their own animations again when their state changes. `Init` and `Death` are refused. Shared code only.
-- The selection circle, its vertical offset and the health bar width of a sprite type can be set: `SpriteType.setSelectionCircle(size)` (0 to 9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. A circle takes them when it is shown, a bar when it is drawn. Shared code only.
+- The selection circle, its vertical offset and the health bar width of a sprite type can be set: `spriteType.setSelectionCircle(size)` (0 to 9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. A circle takes them when it is shown, a bar when it is drawn. Shared code only.
 
 ## 6. Map protection
 
@@ -573,6 +570,5 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - Globals: no `eval`, no `Function` from strings, no `Date`, no `setTimeout` or other timers, no Java access. `Math` gives the same results on every platform.
 - Instruction budget: each call into the script (loading, a frame, a decision, a local input, a local frame, a render) may run 5,000,000 interpreter instructions; function calls may nest 10,000 deep. Spread long work over frames with timers.
 - Script buttons: at most 256 per game.
-- Channel values: `null`, booleans, numbers, strings, and arrays and plain objects of these.
 - Saved games: a game with a script cannot be saved.
 - Start units: as in StarCraft, a Use Map Settings game gives every player whose race in the map is User Selectable a town hall and four workers, with or without triggers, and keeps only the neutral preplaced units of those players. Set fixed races in the map, or remove the units in `onStart`.

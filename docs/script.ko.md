@@ -14,12 +14,11 @@ SC:R Enhanced의 맵 스크립트를 쓰는 방법입니다. 전체 API 레퍼�
 
 ## 1. 개요
 
-맵 스크립트는 맵 파일 안에 저장된 JavaScript입니다. SC:R Enhanced는 [Rhino](https://github.com/mozilla/rhino) 1.8.1의 인터프리터 모드로, Rhino가 지원하는 가장 새 ECMAScript 수준에서 실행합니다. 없는 문법과 `Promise` 작업이 실행되는 때는 7장에 있습니다.
+맵 스크립트는 맵 파일 안에 저장된 JavaScript입니다. SC:R Enhanced는 [Rhino](https://github.com/mozilla/rhino) 1.8.1의 인터프리터 모드로, Rhino가 지원하는 가장 새 ECMAScript 수준에서 실행합니다. 제한은 7장에 있습니다.
 
 - 맵 파일의 원래 데이터는 그대로 두고, 스크립트 패키지(매니페스트, 스크립트, `resources/`의 파일)를 그 뒤에 저장합니다.
 - 스크립트는 모든 플레이어의 게임에서 락스텝으로 실행됩니다. 같은 코드가 같은 프레임에 같은 결과를 냅니다. 게임의 모든 플레이어가 SC:R Enhanced를 실행합니다.
 - 리플레이는 스크립트를 담고 있어 다시 실행합니다. 리소스는 맵에서 읽으므로 맵을 `<install>/userdata/mods/scr-enhanced/maps/`에 두세요.
-- 스크립트가 있는 게임은 저장할 수 없습니다.
 
 ## 2. 시작하기
 
@@ -37,14 +36,14 @@ SC4J.bat tool scr-enhanced script <command> [arguments]
 |---|---|
 | `init <folder>` | 새 스크립트 폴더를 만듦. 폴더는 없거나 비어 있어야 함 |
 | `check <folder>` | 스크립트 폴더의 오류와 경고를 출력 |
-| `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]` | 폴더를 맵 복사본에 넣고 그 맵으로 SC:R Enhanced를 시작 |
+| `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]] [--install <folder>]` | 폴더를 맵 복사본에 넣고 그 맵으로 SC:R Enhanced를 시작 |
 | `pack <map> --script <folder> -o <output>` | 스크립트 패키지를 넣은 맵을 `<output>`에 씀. 이전 패키지는 교체 |
 | `pack <map> --script <folder> -o <output> --protect` | 같은 일을 보호된 맵으로(6장) |
 | `unpack <map> -o <folder>` | 맵의 스크립트 패키지를 없거나 빈 폴더에 씀 |
 | `trace <source map> --at <script>:<line>` | 보호된 스크립트의 줄에 해당하는 원래 줄을 출력 |
 | `trace <source map> --log <file>` | 로그 같은 파일을 원래 줄로 바꿔 출력 |
 
-`run`은 맵 설정 사용 게임을, `--melee`를 주면 무작위 종족 컴퓨터 하나와 하는 밀리 게임을 시작합니다. 맵 복사본은 `<install>/userdata/mods/scr-enhanced/script-run/`에 놓이고 원본 맵은 그대로입니다. `--watch`를 주면 폴더가 바뀔 때 다시 넣고, 맵을 다시 시작하면 불러옵니다. `--inspect`를 주면 DevTools 콘솔이 켜집니다(2.7절). 명령은 게임이 끝나면 끝납니다. `--install <folder>`로 다른 SC4J 설치본을 지정합니다.
+`run`은 맵 설정 사용 게임을, `--melee`를 주면 무작위 종족 컴퓨터 하나와 하는 밀리 게임을 시작합니다. 맵 복사본은 `<install>/userdata/mods/scr-enhanced/script-run/`에 놓이고 원본 맵은 그대로입니다. `--watch`를 주면 폴더가 바뀔 때 다시 넣고, 맵을 다시 시작하면 불러옵니다. `--inspect`를 주면 DevTools 콘솔이 켜집니다(2.7절). `--install`은 다른 SC4J 설치본을 지정합니다. 명령은 게임이 끝나면 끝납니다.
 
 이 저장소를 복제했다면 같은 명령을 Gradle로 실행할 수 있습니다. 경로는 저장소 루트 기준입니다.
 
@@ -102,7 +101,7 @@ function onStart() {
 }
 ```
 
-모든 모듈이 훅을 정의할 수 있고, 훅은 그 훅이 있는 모든 모듈에서 불러온 순서대로 실행됩니다. 훅 이름을 가진 최상위 함수나 함수를 담은 변수는 모듈이 내보내더라도 그 모듈의 훅이므로, 도우미 함수에는 다른 이름을 붙이세요. `check`는 내보낸 훅 이름을 경고합니다. `require`는 공유 코드에서 부릅니다(3장). 로컬 코드는 새 모듈을 불러올 수 없습니다.
+모든 모듈이 훅을 정의할 수 있습니다(3.1절). `require`는 공유 코드에서 부릅니다(3장). 로컬 코드는 새 모듈을 불러올 수 없습니다.
 
 ### 2.5 로그
 
@@ -146,7 +145,7 @@ my-map/                 TypeScript 프로젝트
 
 - tsc는 `outDir`의 파일을 `include`에서 빼므로 선언 파일은 `files`에 적습니다.
 - tsc는 `main.js`와 다른 모듈을 `manifest.json` 옆에 쓰고 다른 파일은 복사하지 않습니다. `manifest.json`과 `resources/`는 `script/`에 그대로 둡니다.
-- 훅은 `defineHooks`(3.1절)로 정의하세요. tsc가 매개변수 타입을 정하고, 잘못 쓴 훅 이름을 알려 주며, `noUnusedLocals`에서도 쓰지 않는 훅으로 보고하지 않습니다.
+- 훅은 `defineHooks`(3.1절)로 정의하세요. tsc가 매개변수 타입을 정하고 잘못 쓴 훅 이름을 알려 줍니다. tsc는 런타임이 최상위 함수 훅을 부른다는 것을 모르므로, `noUnusedLocals`가 그 훅을 보고하고 훅 이름을 잘못 써도 알 수 없습니다.
 - 모듈은 상대 경로(`./bonus`)로 가져오세요.
 
 ```powershell
@@ -175,9 +174,7 @@ export function give(player: Player, amount: number): void {
 }
 ```
 
-최상위 함수 훅도 동작하지만, tsc는 런타임이 그 함수를 부른다는 것을 모릅니다. `noUnusedLocals`가 훅을 보고하고, 훅 이름을 잘못 써도 알 수 없습니다. 훅은 내보내지 말고, 도우미 함수에는 훅 이름이 아닌 이름을 붙이세요. 훅 이름을 가진 최상위 함수나 함수를 담은 변수는 내보내든 아니든 그 모듈의 훅입니다. 다른 모듈이 매 프레임 부르는 도우미 `onLocalFrame`은 프레임마다 두 번 실행됩니다. `check`는 내보낸 훅 이름을 경고합니다.
-
-target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣어 ES5로 씁니다):
+target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣습니다):
 
 - 상속, `super`, getter, static 멤버가 있는 클래스
 - 화살표 함수, 템플릿 문자열, 나머지 매개변수와 기본값 매개변수
@@ -202,7 +199,7 @@ target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣어 ES5�
 
 Chrome이나 Edge의 DevTools로 실행 중인 게임의 스크립트에서 코드를 실행할 수 있습니다. 자동 완성, 객체 미리 보기, 스크립트 로그가 있는 콘솔입니다.
 
-`run`으로, 또는 게임에서 채팅 명령 `/inspect`로 켭니다.
+콘솔은 `run`이나 채팅 명령 `/inspect`로 켜기 전까지 꺼져 있습니다.
 
 ```powershell
 SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
@@ -213,10 +210,11 @@ SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
 | `run ... --inspect` | 9339 |
 | `run ... --inspect=9340` | 9340 |
 | `/inspect` | 9339. `/inspect`를 다시 하면 끔 |
+| `/inspect on` | 9339 |
 | `/inspect 9340` | 9340 |
 | `/inspect off` | 끔 |
 
-콘솔은 기본으로 꺼져 있습니다. 콘솔이 게임에 붙으면 메시지 영역에 `DevTools console: 127.0.0.1:9339, shared code`가 나옵니다.
+콘솔이 게임에 붙으면 메시지 영역에 `DevTools console: 127.0.0.1:9339, shared code`가 나옵니다.
 
 `chrome://inspect`(Edge는 `edge://inspect`)를 열고 Configure에서 `127.0.0.1:9339`를 추가한 뒤, 대상 `SC:R Enhanced script` 아래의 inspect를 누르세요. 로그 `<install>/userdata/logs/scr-enhanced/sc4j.log`에도 DevTools 창 주소(`devtools://devtools/bundled/js_app.html?...`)가 있으니 주소창에 붙여 넣어 바로 열 수도 있습니다.
 
@@ -287,6 +285,7 @@ function onStart() {
 - 객체의 모든 속성은 훅 이름을 가진 함수여야 합니다. 다른 이름이 있으면 그 이름을 알려 주는 `TypeError`를 던지고, `check`도 알려 줍니다.
 - 한 모듈에서 `defineHooks`를 다른 훅으로 여러 번 부를 수 있습니다. 한 모듈에서 같은 훅을 두 번 정의하면(두 번의 호출, 또는 호출과 최상위 함수) 오류를 던지고 모듈을 불러오지 못합니다.
 - 메서드는 `this`가 그 객체인 채로, 최상위 함수는 `this`가 모듈 최상위인 채로 실행됩니다.
+- 훅 이름을 가진 최상위 함수나 함수를 담은 변수는 내보내든 아니든 그 모듈의 훅입니다. 도우미 함수에는 다른 이름을 붙이세요. 다른 모듈이 매 프레임 부르는 도우미 `onLocalFrame`은 프레임마다 두 번 실행됩니다. `check`는 내보낸 훅 이름을 경고합니다.
 
 | 훅 | 호출 시점 |
 |---|---|
@@ -304,7 +303,7 @@ function onStart() {
 
 로컬 입력 훅은 `event.consume()`으로 키, 마우스 버튼, 채팅 줄, 버튼 누름을 게임이 처리하지 않게 막을 수 있습니다.
 
-결정 훅은 결정 객체를 바꿉니다. 피해는 `setAmount`나 `cancel`, 명령은 `setOrder`, `setTarget`, `reject`, 대상은 `setTarget`입니다. 그동안 게임은 읽기 전용입니다.
+결정 훅은 결정 객체를 바꿉니다. 피해는 `setAmount`나 `cancel`, 명령은 `setOrder`, `setTarget`, `reject`, 대상은 `setTarget`입니다.
 
 ### 3.2 로컬 입력을 공유 코드로
 
@@ -387,8 +386,6 @@ display.strings.setStatText(1, 'Marine');
 
 멤버가 타일을 명시하지 않으면 위치는 맵 픽셀입니다. 플레이어 슬롯과 타입 id는 0부터 셉니다. 유닛, 스프라이트, 이미지, 총알 객체는 그 대상이 사라지면 `Error`를 던집니다. 확실하지 않으면 먼저 `exists()`를 확인하세요.
 
-멤버마다 인자와 주의 사항은 선언 파일을 보세요. 편집기가 자동 완성에서 보여 줍니다.
-
 ## 5. 예제
 
 ### 5.1 미네랄을 주는 타이머
@@ -429,7 +426,7 @@ display.commandCard.createButton({
 });
 ```
 
-- `createButton`은 공유 코드입니다. 모듈 최상위나 `onStart`에서 부르세요. 게임마다 스크립트 버튼은 최대 256개입니다.
+- `createButton`은 공유 코드입니다. 모듈 최상위나 `onStart`에서 부르세요.
 - `position`은 카드 칸 1~9, `icon`은 cmdicons 프레임입니다.
 - `isEnabled(unit)`은 `true`(활성), `false`(회색), `null`(숨김)을 돌려줍니다. 버튼이 눌리면 모든 게임이 다시 부르므로 `local`이 아닌 게임만 읽어야 합니다.
 - `onPressed(player, units, target)`은 공유 코드이고, `units`는 선택한 유닛 중 `isEnabled`가 `true`를 돌려준 유닛입니다.
@@ -539,7 +536,7 @@ const heroes = game.map.resources.readJson('data/heroes.json');
 
 - `image.setFrame(frame)`은 이미지 자신의 프레임이 바뀔 때까지 그 프레임을 그리고, `image.holdFrame(frame)`은 iscript가 계속 돌아도 `holdFrame(null)`까지 그 프레임을 유지합니다. 둘 다 그리는 것만 바꿉니다. 프레임에는 방향(`image.getDirection()`)이 포함되고, 이미지 그래픽에 그 프레임이 있어야 합니다.
 - `unit.playAnimation(Animation.CastSpell)`은 명령처럼 iscript 애니메이션을 그 안의 opcode와 함께 실행합니다. 공격 애니메이션은 유닛의 대상을 공격합니다. 끊으면 안 되는 구간을 실행 중인 스프라이트는 애니메이션을 유지하고, 유닛의 명령은 상태가 바뀌면 자기 애니메이션을 다시 실행합니다. `Init`과 `Death`는 거부됩니다. 공유 코드 전용입니다.
-- 스프라이트 타입의 선택 원, 그 세로 오프셋, 체력 바 너비를 바꿀 수 있습니다: `SpriteType.setSelectionCircle(size)`(0~9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. 원은 보일 때, 바는 그릴 때 이 값을 씁니다. 공유 코드 전용입니다.
+- 스프라이트 타입의 선택 원, 그 세로 오프셋, 체력 바 너비를 바꿀 수 있습니다: `spriteType.setSelectionCircle(size)`(0~9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. 원은 보일 때, 바는 그릴 때 이 값을 씁니다. 공유 코드 전용입니다.
 
 ## 6. 맵 보호
 
@@ -573,6 +570,5 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - 전역: `eval`, 문자열로 만드는 `Function`, `Date`, `setTimeout` 같은 타이머, Java 접근이 없습니다. `Math`는 모든 플랫폼에서 같은 결과를 냅니다.
 - 명령어 예산: 스크립트 호출 하나(불러오기, 프레임, 결정, 로컬 입력, 로컬 프레임, 그리기)는 인터프리터 명령어 5,000,000개까지 실행할 수 있고, 함수 호출은 10,000단계까지 중첩됩니다. 긴 작업은 타이머로 여러 프레임에 나누세요.
 - 스크립트 버튼: 게임마다 최대 256개.
-- 채널 값: `null`, 불리언, 숫자, 문자열, 이것들로 된 배열과 일반 객체.
 - 저장 게임: 스크립트가 있는 게임은 저장할 수 없습니다.
 - 시작 유닛: 스타크래프트와 같이, 맵 설정 사용(Use Map Settings) 게임은 트리거가 있든 없든 맵에서 종족이 User Selectable인 플레이어에게 본진 건물과 일꾼 넷을 주고, 그 플레이어의 미리 놓인 유닛은 중립 유닛만 남깁니다. 맵에서 종족을 정해 두거나 `onStart`에서 유닛을 지우세요.
