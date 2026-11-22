@@ -411,7 +411,7 @@ final class ScriptInspectorTest {
     }
 
     @Test
-    void debugger_enable_lists_the_scripts_and_their_sources_without_breakpoints() throws Exception {
+    void debugger_enable_lists_the_scripts_and_their_sources() throws Exception {
         try (InspectedRuntimeScenario scenario = start();
              DevToolsClientScenario client = scenario.connect()) {
             client.call("Debugger.enable", Map.of());
@@ -425,8 +425,60 @@ final class ScriptInspectorTest {
             Assertions.assertEquals(UTIL_SCRIPT, client.call("Debugger.getScriptSource", Map.of("scriptId", util.get("scriptId"))).get(
                     "scriptSource"));
             Assertions.assertNotNull(client.send("Debugger.getScriptSource", Map.of("scriptId", "missing")).get("error"));
-            Assertions.assertNotNull(client.send("Debugger.setBreakpointByUrl", Map.of("url", UTIL_NAME, "lineNumber", 1)).get("error"));
+            Assertions.assertNotNull(client.send("Debugger.setBreakpoint", Map.of("location", Map.of("scriptId", "1", "lineNumber", 1))).get(
+                    "error"));
             Assertions.assertEquals(Map.of("locations", List.of()), client.call("Debugger.getPossibleBreakpoints", Map.of()));
+        }
+    }
+
+    @Test
+    void a_breakpoint_holds_the_frame_which_evaluates_in_its_scope_and_steps() throws Exception {
+        String main = """
+                      var total = 0;
+                      function add(value) {
+                          var doubled = value * 2;
+                          total += doubled;
+                          return total;
+                      }
+                      function onFrame(frame) {
+                          add(frame);
+                      }
+                      """;
+
+        try (InspectedRuntimeScenario scenario = InspectedRuntimeScenario.start(main);
+             DevToolsClientScenario client = DevToolsClientScenario.connect(scenario.getPort(), () -> {
+             })) {
+            client.call("Debugger.enable", Map.of());
+
+            Map<String, Object> breakpoint = client.call("Debugger.setBreakpointByUrl", Map.of("url", InspectedRuntimeScenario.MAIN_NAME,
+                                                                                                "lineNumber", 3));
+            Thread gameThread = Thread.ofPlatform().start(() -> scenario.getRuntime().runFrame(1));
+
+            Map<String, Object> paused = client.awaitEvent("Debugger.paused");
+            Map<String, Object> top = DevToolsClientScenario.asObject(DevToolsClientScenario.asList(paused.get("callFrames")).getFirst());
+            Map<String, Object> scope = DevToolsClientScenario.asObject(DevToolsClientScenario.asList(top.get("scopeChain")).getFirst());
+
+            Assertions.assertEquals(List.of(breakpoint.get("breakpointId")), paused.get("hitBreakpoints"));
+            Assertions.assertEquals("add", top.get("functionName"));
+            Assertions.assertEquals(3, ((Number) DevToolsClientScenario.asObject(top.get("location")).get("lineNumber")).intValue());
+            Assertions.assertEquals("local", scope.get("type"));
+            Assertions.assertEquals(2, ((Number) DevToolsClientScenario.asObject(client.call("Debugger.evaluateOnCallFrame", Map.of(
+                    "callFrameId", top.get("callFrameId"), "expression", "doubled")).get("result")).get("value")).intValue());
+
+            client.call("Debugger.stepOver", Map.of());
+            client.awaitEvent("Debugger.resumed");
+
+            Map<String, Object> stepped = client.awaitEvent("Debugger.paused");
+            Map<String, Object> next = DevToolsClientScenario.asObject(DevToolsClientScenario.asList(stepped.get("callFrames")).getFirst());
+
+            Assertions.assertEquals(4, ((Number) DevToolsClientScenario.asObject(next.get("location")).get("lineNumber")).intValue());
+
+            client.call("Debugger.removeBreakpoint", Map.of("breakpointId", breakpoint.get("breakpointId")));
+            client.call("Debugger.resume", Map.of());
+            client.awaitEvent("Debugger.resumed");
+            gameThread.join(10_000);
+
+            Assertions.assertFalse(gameThread.isAlive(), "the frame ends after the resume");
         }
     }
 

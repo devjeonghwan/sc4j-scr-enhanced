@@ -43,7 +43,7 @@ Relative paths are relative to the current folder.
 | `trace <source map> --at <script>:<line>` | prints the original line of a line of a protected script |
 | `trace <source map> --log <file>` | prints a file, such as a log, with the original lines |
 
-`run` starts a Use Map Settings game, or with `--melee` a melee game against one computer of a random race. The copy of the map goes to `<install>/userdata/mods/scr-enhanced/script-run/`; the source map stays as it is. With `--watch` a change of the folder is packed again and loads when the map starts again. With `--inspect` the DevTools console is on (section 2.7). `--install` names another SC4J install. The command ends when the game ends.
+`run` starts a Use Map Settings game, or with `--melee` a melee game against one computer of a random race. The copy of the map goes to `<install>/userdata/mods/scr-enhanced/script-run/`; the source map stays as it is. With `--watch` a change of the folder is packed again and loads when the map starts again. With `--inspect` DevTools can debug the script (section 2.7). `--install` names another SC4J install. The command ends when the game ends.
 
 In a clone of this repository the same commands run with Gradle, paths relative to the repository root:
 
@@ -195,11 +195,11 @@ What does not:
 - `module` other than `commonjs`, `import()`, and the libraries of browsers and Node.js.
 - Errors and logs name the line of the compiled JavaScript (`main.js:72`), not of the TypeScript source.
 
-### 2.7 DevTools console
+### 2.7 DevTools
 
-Chrome or Edge DevTools can run code in the script of a running game: a console with completion, object previews and the script's log.
+Chrome or Edge DevTools can debug the script of a running game: a console with completion, object previews and the script's log, the scripts in the Sources panel, breakpoints and stepping.
 
-The console is off until `run` or the chat command `/inspect` starts it:
+DevTools is off unless `run` starts the game with `--inspect`:
 
 ```powershell
 SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
@@ -209,10 +209,6 @@ SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
 |---|---|
 | `run ... --inspect` | 9339 |
 | `run ... --inspect=9340` | 9340 |
-| `/inspect` | 9339; `/inspect` again stops it |
-| `/inspect on` | 9339 |
-| `/inspect 9340` | 9340 |
-| `/inspect off` | stops it |
 
 When it attaches to a game, the message area shows `DevTools console: 127.0.0.1:9339, shared code`.
 
@@ -235,9 +231,16 @@ What the console has:
 - `log.info`, `log.warn`, `log.error` and the script's errors appear in the console, an error with its file and line.
 - A line has the instruction budget of one call (chapter 7). A line over the budget ends with an error; the script runs on.
 
+The debugger:
+
+- The Sources panel lists the scripts of the map by file name, read only. With TypeScript it shows the compiled `.js` files.
+- Breakpoints on a line, also with a condition; `debugger` statements; Pause on exceptions, which also pauses at an error that the script catches.
+- At a pause: the call stack, the variables of each frame and the functions around it, the module and the globals; Step over, into and out, Resume; console code runs in the selected frame.
+- A pause holds the game thread: the game and its window stop until Resume, and in a multiplayer game every player waits or drops.
+
 What it does not have:
 
-- No debugger: the Sources panel shows the scripts of the map, read only; no breakpoints, no stepping, no profiler.
+- No column breakpoints, no Restart frame, no editing of the scripts, no profiler.
 - Code waits while the game runs no frame: while the game menu pauses a single-player game, or while a replay is paused. After 5 seconds DevTools shows an error.
 - While you type, DevTools previews names and property reads only; it calls no function.
 - In local code, changing an object of the script, such as `state.score = 1`, or calling a function that does is not refused. As in the local hooks, do not change what shared code reads (section 3.3).

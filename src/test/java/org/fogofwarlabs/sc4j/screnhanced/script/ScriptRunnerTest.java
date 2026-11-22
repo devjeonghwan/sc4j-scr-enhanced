@@ -189,8 +189,8 @@ final class ScriptRunnerTest {
         ScriptRunner runner = new ScriptRunner(install, writeMap(folder), folder.resolve("script"), false, 9340, new RecordingStarter(0));
         List<String> command = runner.createCommand(Path.of("java"));
 
-        Assertions.assertEquals(List.of("--ums", runner.getPackedMap().toString(), "--command", "/inspect 9340"),
-                                command.subList(command.size() - 4, command.size()));
+        Assertions.assertEquals(List.of("java", "-Dsc4j.scr-enhanced.inspect=9340"), command.subList(0, 2));
+        Assertions.assertEquals(List.of("--ums", runner.getPackedMap().toString()), command.subList(command.size() - 2, command.size()));
     }
 
     @Test

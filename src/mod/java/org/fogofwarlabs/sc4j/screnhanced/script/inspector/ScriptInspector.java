@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptLogOutput;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.mozilla.javascript.Context;
 import org.mozilla.javascript.RhinoException;
 
 import java.io.IOException;
@@ -31,7 +32,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * it runs there, between the frames of the simulation, and its answer goes back on the session's thread. A single-player game
  * ({@link #isSharedGame}) has a context of shared code, the default one, and a context of local code; a multiplayer game and a replay have
  * only the local context, so that the console cannot make the game differ between the players or from its replay. The log output of a game
- * ({@link #createLogOutput}) sends the script's {@code log} messages and errors of the attached game to the sessions.
+ * ({@link #createLogOutput}) sends the script's {@code log} messages and errors of the attached game to the sessions. The debugger
+ * ({@link ScriptDebugger}) holds the attached game's script calls at breakpoints and runs the requests there.
  * <p>
  * The game thread calls {@link #onFrameStarted}, {@link #onFramePlayed} and the log outputs; any thread calls {@link #start} and
  * {@link #stop}.
@@ -45,6 +47,10 @@ public final class ScriptInspector {
      * The address the server listens on.
      */
     public static final @NotNull String HOST = "127.0.0.1";
+    /**
+     * The system property whose port starts the server of {@link #getShared()}.
+     */
+    public static final @NotNull String PORT_PROPERTY = "sc4j.scr-enhanced.inspect";
 
     /**
      * The time a request waits for a frame before it is answered with an error, while the game is paused or has ended.
@@ -56,17 +62,32 @@ public final class ScriptInspector {
     static final @NotNull String FRONTEND_URL = "devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws=";
 
     private static final @NotNull Logger LOGGER = Logger.of(ScriptInspector.class);
-    private static final @NotNull ScriptInspector SHARED = new ScriptInspector();
+    private static final @NotNull ScriptInspector SHARED = createShared();
     /**
      * The time the message area shows the console's address.
      */
     private static final int ANNOUNCE_MILLISECONDS = 20_000;
 
     /**
-     * @return the inspector of the client, which the games and the {@code /inspect} command share
+     * @return the inspector of the client, which the games share; its server runs when {@value #PORT_PROPERTY} names a port
      */
     public static @NotNull ScriptInspector getShared() {
         return SHARED;
+    }
+
+    private static @NotNull ScriptInspector createShared() {
+        ScriptInspector inspector = new ScriptInspector();
+        String port = System.getProperty(PORT_PROPERTY);
+
+        if (port != null) {
+            try {
+                inspector.start(Integer.parseInt(port));
+            } catch (IOException | NumberFormatException exception) {
+                LOGGER.warning("The DevTools console cannot use port {0}: {1}", port, exception.getMessage());
+            }
+        }
+
+        return inspector;
     }
 
     /**
@@ -90,6 +111,7 @@ public final class ScriptInspector {
      * The objects of the log messages, which give no object an id.
      */
     private final @NotNull InspectorObjects logObjects;
+    private final @NotNull ScriptDebugger debugger;
 
     private volatile @Nullable InspectorServer server;
     private volatile @Nullable InspectedGame inspected;
@@ -103,6 +125,7 @@ public final class ScriptInspector {
         this.sessions   = new CopyOnWriteArrayList<>();
         this.tasks      = new ConcurrentLinkedQueue<>();
         this.logObjects = new InspectorObjects();
+        this.debugger   = new ScriptDebugger(this);
 
         this.server        = null;
         this.inspected     = null;
@@ -216,10 +239,72 @@ public final class ScriptInspector {
             }
         }
 
+        this.runTasks(current);
+    }
+
+    /**
+     * Runs the requests that wait, on the game thread.
+     *
+     * @param game the attached game
+     * @return {@code true} if a request ran, {@code false} otherwise
+     */
+    boolean runTasks(@NotNull InspectedGame game) {
+        boolean ran = false;
+
         for (InspectorTask task = this.tasks.poll(); task != null; task = this.tasks.poll()) {
             if (task.claim()) {
-                task.getSession().runTask(task, current);
+                task.getSession().runTask(task, game);
+
+                ran = true;
             }
+        }
+
+        return ran;
+    }
+
+    /**
+     * @return the debugger of the attached game
+     */
+    @NotNull ScriptDebugger getDebugger() {
+        return this.debugger;
+    }
+
+    /**
+     * @return {@code true} if a session receives the {@code Debugger} events, {@code false} otherwise
+     */
+    boolean hasDebuggerSessions() {
+        for (InspectorSession session : this.sessions) {
+            if (session.isDebuggerEnabled()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Sends the {@code Debugger.paused} event to the sessions, on the game thread.
+     *
+     * @param context the current context
+     * @param game    the attached game
+     * @param frames  the frames of the held call, the innermost first
+     * @param reason  the reason
+     * @param data    the thrown value, or {@code null} for none
+     * @param hits    the ids of the breakpoints that hold
+     */
+    void sendPaused(@NotNull Context context, @NotNull InspectedGame game, @NotNull List<ScriptDebugger.Frame> frames, @NotNull String reason,
+                    @Nullable Object data, @NotNull List<String> hits) {
+        for (InspectorSession session : this.sessions) {
+            session.sendPaused(context, game, frames, reason, data, hits);
+        }
+    }
+
+    /**
+     * Sends the {@code Debugger.resumed} event to the sessions, on the game thread.
+     */
+    void sendResumed() {
+        for (InspectorSession session : this.sessions) {
+            session.sendResumed();
         }
     }
 
@@ -270,6 +355,8 @@ public final class ScriptInspector {
             this.nextContextId += attached.getContexts().size();
             this.inspected      = attached;
 
+            this.debugger.attach(attached);
+
             for (InspectorSession session : this.sessions) {
                 session.onGameAttached(attached);
             }
@@ -296,6 +383,7 @@ public final class ScriptInspector {
      */
     void removeSession(@NotNull InspectorSession session) {
         this.sessions.remove(session);
+        this.debugger.removeBreakpoints(session);
     }
 
     /**

@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.client.configuration.InstallLayout;
+import org.fogofwarlabs.sc4j.screnhanced.script.inspector.ScriptInspector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -22,8 +23,8 @@ import java.util.stream.Stream;
  *     --install <install> --mod <install>/mods/scr-enhanced.jar -- --ums <packed map>
  *}
  * A melee run ends the command line with {@code --melee <packed map> --computer random} instead: one computer player of a random race against
- * the human of the client's default race, name and slot. A run with a DevTools port adds {@code --command "/inspect <port>"}, which switches the
- * client's DevTools console on once the game runs. The runtime takes the settings, storage and log folders of the mod from the install.
+ * the human of the client's default race, name and slot. A run with a DevTools port puts the system property
+ * {@code -D}{@value ScriptInspector#PORT_PROPERTY}{@code =<port>} before the launch file's lines, which starts the client's DevTools server. The runtime takes the settings, storage and log folders of the mod from the install.
  * The packed map is {@code <install>/userdata/mods/scr-enhanced/script-run/<map file name>}, in the mod's storage outside the map folder the
  * client lists; the source map stays as it is.
  * <p>
@@ -67,8 +68,7 @@ public final class ScriptRunner {
     private static final @NotNull String MELEE_OPTION = "--melee";
     private static final @NotNull String COMPUTER_OPTION = "--computer";
     private static final @NotNull String MELEE_COMPUTER_RACES = "random";
-    private static final @NotNull String COMMAND_OPTION = "--command";
-    private static final @NotNull String INSPECT_COMMAND = "/inspect ";
+    private static final @NotNull String SYSTEM_PROPERTY_PREFIX = "-D";
     private static final @NotNull String TEMPORARY_SUFFIX = ".tmp";
     private static final @NotNull String RESOURCE_PREFIX = ScriptPackage.RESOURCE_FOLDER + "/";
 
@@ -270,6 +270,10 @@ public final class ScriptRunner {
 
         command.add(javaProgram.toString());
 
+        if (this.inspectPort != NO_INSPECT_PORT) {
+            command.add(SYSTEM_PROPERTY_PREFIX + ScriptInspector.PORT_PROPERTY + "=" + this.inspectPort);
+        }
+
         for (String line : Files.readAllLines(launchFile, StandardCharsets.UTF_8)) {
             if (!line.isBlank()) {
                 command.add(line.strip().replace(APPLICATION_HOME_TOKEN, runtime.toString()));
@@ -282,10 +286,6 @@ public final class ScriptRunner {
             command.addAll(List.of(MELEE_OPTION, this.packedMap.toString(), COMPUTER_OPTION, MELEE_COMPUTER_RACES));
         } else {
             command.addAll(List.of(MAP_SETTINGS_OPTION, this.packedMap.toString()));
-        }
-
-        if (this.inspectPort != NO_INSPECT_PORT) {
-            command.addAll(List.of(COMMAND_OPTION, INSPECT_COMMAND + this.inspectPort));
         }
 
         return command;

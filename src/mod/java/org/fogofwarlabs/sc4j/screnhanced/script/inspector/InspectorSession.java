@@ -26,8 +26,9 @@ import java.util.regex.Pattern;
  * {@code getProperties}, {@code releaseObject} and {@code releaseObjectGroup}, which run on the game thread at the next frame start
  * ({@link #runTask}), and {@code compileScript}, {@code globalLexicalScopeNames}, {@code getIsolateId} and {@code getHeapUsage}, which it answers
  * at once. Of the {@code Debugger} domain it answers {@code enable}, which sends a {@code Debugger.scriptParsed} event for each script of the
- * script package, and {@code getScriptSource}, so that the Sources panel shows the scripts; breakpoints are refused, since the scripts run
- * without a debugger. Any other method, of any domain, gets an empty result, so that DevTools works without a profiler or pages.
+ * script package, {@code getScriptSource}, the breakpoints by URL with their conditions, the pause on exceptions and the pause request at
+ * once, and {@code resume}, the steps and {@code evaluateOnCallFrame} on the game thread ({@link ScriptDebugger}). Any other method, of any
+ * domain, gets an empty result, so that DevTools works without a profiler or pages.
  * <p>
  * An evaluation with {@code throwOnSideEffect}, which DevTools sends while the console's text is typed, runs only a name or a chain of property
  * reads, as local code; any other text is refused. The {@code getCompletions} function of DevTools runs as Java code, since Rhino keeps the
@@ -54,7 +55,10 @@ final class InspectorSession {
     private static final @NotNull String NO_OBJECT_MESSAGE = "Could not find object with given id";
     private static final @NotNull String NO_CONTEXT_MESSAGE = "Cannot find context with specified id";
     private static final @NotNull String NO_SCRIPT_MESSAGE = "No script for id: {0}";
-    private static final @NotNull String NO_BREAKPOINTS_MESSAGE = "Breakpoints are not supported: the scripts run without a debugger.";
+    private static final @NotNull String NO_BREAKPOINTS_MESSAGE = "Only breakpoints by URL are supported.";
+    private static final @NotNull String NO_CALL_FRAME_MESSAGE = "Could not find call frame with given id";
+    private static final @NotNull String BACKTRACE_GROUP = "backtrace";
+    private static final @NotNull String NO_EXCEPTIONS_STATE = "none";
     /**
      * A name or a chain of property reads with names, numbers and string literals: the text that an evaluation with
      * {@code throwOnSideEffect} runs.
@@ -211,6 +215,13 @@ final class InspectorSession {
         this.debuggerEnabled = debuggerEnabled;
     }
 
+    /**
+     * @return {@code true} if the session receives the {@code Debugger} events, {@code false} otherwise
+     */
+    boolean isDebuggerEnabled() {
+        return this.debuggerEnabled && !this.closed;
+    }
+
 
     /**
      * Reads and answers the requests on the calling thread until the connection ends, with a writer thread of its own; then closes the session.
@@ -315,7 +326,26 @@ final class InspectorSession {
             }
             case "Debugger.getScriptSource" -> this.reply(requestId, Map.of("scriptSource", this.findScriptSource(requireString(parameters, "scriptId"))));
             case "Debugger.getPossibleBreakpoints" -> this.reply(requestId, Map.of("locations", List.of()));
-            case "Debugger.setBreakpoint", "Debugger.setBreakpointByUrl", "Debugger.setBreakpointOnFunctionCall" ->
+            case "Debugger.setBreakpointByUrl" -> this.reply(requestId, this.setBreakpointByUrl(parameters));
+            case "Debugger.removeBreakpoint" -> {
+                this.inspector.getDebugger().removeBreakpoint(requireString(parameters, "breakpointId"));
+                this.reply(requestId, Map.of());
+            }
+            case "Debugger.setBreakpointsActive" -> {
+                this.inspector.getDebugger().setActive(isSet(parameters, "active"));
+                this.reply(requestId, Map.of());
+            }
+            case "Debugger.setPauseOnExceptions" -> {
+                this.inspector.getDebugger().setPauseOnExceptions(!NO_EXCEPTIONS_STATE.equals(findString(parameters, "state")));
+                this.reply(requestId, Map.of());
+            }
+            case "Debugger.pause" -> {
+                this.inspector.getDebugger().requestPause();
+                this.reply(requestId, Map.of());
+            }
+            case "Debugger.resume", "Debugger.stepOver", "Debugger.stepInto", "Debugger.stepOut", "Debugger.evaluateOnCallFrame" ->
+                    this.queueTask(requestId, method, parameters);
+            case "Debugger.setBreakpoint", "Debugger.setBreakpointOnFunctionCall" ->
                     this.send(createResponse(requestId, "error", createError(NO_BREAKPOINTS_MESSAGE)));
             default -> this.reply(requestId, Map.of());
         }
@@ -339,7 +369,7 @@ final class InspectorSession {
      */
     private void answerUnavailable(long requestId, @NotNull String method, @NotNull String message) {
         switch (method) {
-            case "Runtime.evaluate", "Runtime.callFunctionOn" -> this.reply(requestId, createRefusalResult("Error: " + message));
+            case "Runtime.evaluate", "Runtime.callFunctionOn", "Debugger.evaluateOnCallFrame" -> this.reply(requestId, createRefusalResult("Error: " + message));
             case "Runtime.releaseObject", "Runtime.releaseObjectGroup" -> this.reply(requestId, Map.of());
             default -> this.send(createResponse(requestId, "error", createError(message)));
         }
@@ -374,6 +404,35 @@ final class InspectorSession {
     }
 
     /**
+     * Adds a breakpoint by {@code url} or {@code urlRegex} at {@code lineNumber}, with an optional {@code condition}; its location is the
+     * script of the attached game with the URL as its name.
+     */
+    private @NotNull Map<String, Object> setBreakpointByUrl(@NotNull Map<String, Object> parameters) {
+        String url = findString(parameters, "url");
+        String urlRegex = findString(parameters, "urlRegex");
+
+        if (url == null && urlRegex == null || !(parameters.get("lineNumber") instanceof Number lineNumber)) {
+            throw Exceptions.newIllegalArgumentException("Invalid parameters: url or urlRegex and lineNumber are missing.");
+        }
+
+        int line = lineNumber.intValue();
+        String id = this.inspector.getDebugger().addBreakpoint(this, url, url == null ? Pattern.compile(urlRegex) : null, line + 1,
+                                                               findString(parameters, "condition"));
+        InspectedGame game = this.inspector.getInspected();
+        List<Object> locations = new ArrayList<>();
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        if (game != null && url != null && game.findScriptSource(game.getScriptId(url)) != null) {
+            locations.add(Map.of("scriptId", game.getScriptId(url), "lineNumber", line, "columnNumber", 0));
+        }
+
+        result.put("breakpointId", id);
+        result.put("locations", locations);
+
+        return result;
+    }
+
+    /**
      * Finds the source of a script of the attached game.
      */
     private @NotNull String findScriptSource(@NotNull String scriptId) {
@@ -404,6 +463,110 @@ final class InspectorSession {
         if (this.debuggerEnabled) {
             this.sendScripts(game);
         }
+    }
+
+    /**
+     * Sends the {@code Debugger.paused} event, on the game thread, with the frames of the held call, their scopes and {@code this} as remote
+     * objects of the group {@value #BACKTRACE_GROUP}.
+     *
+     * @param context the current context
+     * @param game    the attached game
+     * @param frames  the frames, the innermost first
+     * @param reason  the reason
+     * @param data    the thrown value, or {@code null} for none
+     * @param hits    the ids of the breakpoints that hold
+     */
+    void sendPaused(@NotNull Context context, @NotNull InspectedGame game, @NotNull List<ScriptDebugger.Frame> frames, @NotNull String reason,
+                    @Nullable Object data, @NotNull List<String> hits) {
+        if (!this.isDebuggerEnabled()) {
+            return;
+        }
+
+        InspectedGame.ExecutionContext executionContext = game.getContexts().getFirst();
+        InspectorObjects.Origin origin = new InspectorObjects.Origin(BACKTRACE_GROUP, executionContext.getId(), executionContext.isLocal());
+        List<Object> callFrames = new ArrayList<>();
+        Map<String, Object> parameters = new LinkedHashMap<>();
+
+        for (int index = 0; index < frames.size(); index++) {
+            ScriptDebugger.Frame frame = frames.get(index);
+            Map<String, Object> callFrame = new LinkedHashMap<>();
+
+            callFrame.put("callFrameId", this.inspector.getDebugger().createFrameId(index));
+            callFrame.put("functionName", frame.getFunctionName());
+            callFrame.put("location", Map.of("scriptId", game.getScriptId(frame.getScriptName()), "lineNumber", Math.max(frame.getLine() - 1, 0),
+                                             "columnNumber", 0));
+            callFrame.put("url", frame.getScriptName());
+            callFrame.put("scopeChain", this.createScopeChain(context, frame.getActivation(), origin));
+            callFrame.put("this", this.objects.createRemoteObject(context, frame.getThis(), origin, false));
+
+            callFrames.add(callFrame);
+        }
+
+        parameters.put("callFrames", callFrames);
+        parameters.put("reason", reason);
+        parameters.put("hitBreakpoints", hits);
+
+        if (data != null) {
+            parameters.put("data", this.objects.createRemoteObject(context, data, origin, true));
+        }
+
+        this.send(Map.of("method", "Debugger.paused", "params", parameters));
+    }
+
+    /**
+     * Creates the scope chain of a frame: its variables ({@code local}), the variables of the functions around it ({@code closure}), the top
+     * level of its module ({@code module}) and the global scope ({@code global}).
+     */
+    private @NotNull List<Object> createScopeChain(@NotNull Context context, @Nullable Scriptable activation, @NotNull InspectorObjects.Origin origin) {
+        List<Object> scopes = new ArrayList<>();
+
+        for (Scriptable scope = activation; scope != null; scope = scope.getParentScope()) {
+            String type = scope.getParentScope() == null ? "global"
+                        : scope instanceof NativeCall ? (scope == activation ? "local" : "closure")
+                        : "module";
+
+            scopes.add(Map.of("type", type, "object", this.objects.createRemoteObject(context, scope, origin, false)));
+        }
+
+        return scopes;
+    }
+
+    /**
+     * Sends the {@code Debugger.resumed} event and releases the remote objects of the held call, on the game thread.
+     */
+    void sendResumed() {
+        this.objects.releaseGroup(BACKTRACE_GROUP);
+
+        if (this.isDebuggerEnabled()) {
+            this.send(Map.of("method", "Debugger.resumed", "params", Map.of()));
+        }
+    }
+
+    /**
+     * Runs {@code Debugger.evaluateOnCallFrame}: the expression in the scope of a frame of the held call, with the rules of the default
+     * context.
+     */
+    private @NotNull Map<String, Object> evaluateOnCallFrame(@NotNull Map<String, Object> parameters, @NotNull InspectedGame game) {
+        ScriptDebugger debugger = this.inspector.getDebugger();
+        ScriptDebugger.Frame frame = debugger.findHeldFrame(requireString(parameters, "callFrameId"));
+        String expression = requireString(parameters, "expression");
+
+        if (frame == null || frame.getActivation() == null) {
+            throw Exceptions.newIllegalArgumentException(NO_CALL_FRAME_MESSAGE);
+        }
+
+        if (isSet(parameters, "throwOnSideEffect") && !PROPERTY_READS.matcher(expression).matches()) {
+            return createRefusalResult(SIDE_EFFECT_DESCRIPTION);
+        }
+
+        InspectedGame.ExecutionContext context = game.getContexts().getFirst();
+        InspectorObjects.Origin origin = new InspectorObjects.Origin(Objects.requireNonNullElse(findString(parameters, "objectGroup"), ""),
+                                                                     context.getId(), context.isLocal());
+        ScriptConsole console = game.getConsole();
+
+        return this.runConsole(console, origin, scriptContext -> this.createResult(scriptContext, console,
+                                                                                    debugger.evaluate(scriptContext, frame, expression), origin,
+                                                                                    parameters));
     }
 
     /**
@@ -444,6 +607,11 @@ final class InspectorSession {
                 case "Runtime.evaluate" -> this.evaluate(parameters, game);
                 case "Runtime.callFunctionOn" -> this.callFunctionOn(parameters, game);
                 case "Runtime.getProperties" -> this.getProperties(parameters, game);
+                case "Debugger.evaluateOnCallFrame" -> this.evaluateOnCallFrame(parameters, game);
+                case "Debugger.resume" -> this.resume(ScriptDebugger.Step.NONE);
+                case "Debugger.stepOver" -> this.resume(ScriptDebugger.Step.OVER);
+                case "Debugger.stepInto" -> this.resume(ScriptDebugger.Step.INTO);
+                case "Debugger.stepOut" -> this.resume(ScriptDebugger.Step.OUT);
                 case "Runtime.releaseObject" -> {
                     this.objects.release(requireString(parameters, "objectId"));
 
@@ -461,6 +629,12 @@ final class InspectorSession {
         } catch (RuntimeException exception) {
             this.send(createResponse(task.getRequestId(), "error", createError(String.valueOf(exception.getMessage()))));
         }
+    }
+
+    private @NotNull Map<String, Object> resume(@NotNull ScriptDebugger.Step step) {
+        this.inspector.getDebugger().resume(step);
+
+        return Map.of();
     }
 
     /**

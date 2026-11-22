@@ -43,7 +43,7 @@ SC4J.bat tool scr-enhanced script <command> [arguments]
 | `trace <source map> --at <script>:<line>` | 보호된 스크립트의 줄에 해당하는 원래 줄을 출력 |
 | `trace <source map> --log <file>` | 로그 같은 파일을 원래 줄로 바꿔 출력 |
 
-`run`은 맵 설정 사용 게임을, `--melee`를 주면 무작위 종족 컴퓨터 하나와 하는 밀리 게임을 시작합니다. 맵 복사본은 `<install>/userdata/mods/scr-enhanced/script-run/`에 놓이고 원본 맵은 그대로입니다. `--watch`를 주면 폴더가 바뀔 때 다시 넣고, 맵을 다시 시작하면 불러옵니다. `--inspect`를 주면 DevTools 콘솔이 켜집니다(2.7절). `--install`은 다른 SC4J 설치본을 지정합니다. 명령은 게임이 끝나면 끝납니다.
+`run`은 맵 설정 사용 게임을, `--melee`를 주면 무작위 종족 컴퓨터 하나와 하는 밀리 게임을 시작합니다. 맵 복사본은 `<install>/userdata/mods/scr-enhanced/script-run/`에 놓이고 원본 맵은 그대로입니다. `--watch`를 주면 폴더가 바뀔 때 다시 넣고, 맵을 다시 시작하면 불러옵니다. `--inspect`를 주면 DevTools로 스크립트를 디버그할 수 있습니다(2.7절). `--install`은 다른 SC4J 설치본을 지정합니다. 명령은 게임이 끝나면 끝납니다.
 
 이 저장소를 복제했다면 같은 명령을 Gradle로 실행할 수 있습니다. 경로는 저장소 루트 기준입니다.
 
@@ -195,11 +195,11 @@ target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣습니�
 - `commonjs`가 아닌 `module`, `import()`, 브라우저와 Node.js 라이브러리.
 - 오류와 로그는 TypeScript 소스가 아니라 컴파일한 JavaScript의 줄(`main.js:72`)을 알려 줍니다.
 
-### 2.7 DevTools 콘솔
+### 2.7 DevTools
 
-Chrome이나 Edge의 DevTools로 실행 중인 게임의 스크립트에서 코드를 실행할 수 있습니다. 자동 완성, 객체 미리 보기, 스크립트 로그가 있는 콘솔입니다.
+Chrome이나 Edge의 DevTools로 실행 중인 게임의 스크립트를 디버그할 수 있습니다. 자동 완성, 객체 미리 보기, 스크립트 로그가 있는 콘솔, Sources 패널의 스크립트, 중단점과 단계 실행입니다.
 
-콘솔은 `run`이나 채팅 명령 `/inspect`로 켜기 전까지 꺼져 있습니다.
+DevTools는 `run`이 `--inspect`로 게임을 시작할 때만 켜집니다.
 
 ```powershell
 SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
@@ -209,10 +209,6 @@ SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
 |---|---|
 | `run ... --inspect` | 9339 |
 | `run ... --inspect=9340` | 9340 |
-| `/inspect` | 9339. `/inspect`를 다시 하면 끔 |
-| `/inspect on` | 9339 |
-| `/inspect 9340` | 9340 |
-| `/inspect off` | 끔 |
 
 콘솔이 게임에 붙으면 메시지 영역에 `DevTools console: 127.0.0.1:9339, shared code`가 나옵니다.
 
@@ -235,9 +231,16 @@ SC4J.bat tool scr-enhanced script run Map.scx --script my-map --inspect
 - `log.info`, `log.warn`, `log.error`와 스크립트 오류가 콘솔에 나옵니다. 오류는 파일과 줄과 함께 나옵니다.
 - 한 줄은 호출 하나의 명령어 예산을 씁니다(7장). 예산을 넘은 줄은 오류로 끝나고 스크립트는 계속 실행됩니다.
 
-콘솔에 없는 것:
+디버거:
 
-- 디버거가 없습니다. Sources 패널은 맵의 스크립트를 읽기 전용으로 보여 줍니다. 중단점, 단계 실행, 프로파일러는 없습니다.
+- Sources 패널은 맵의 스크립트를 파일 이름으로 읽기 전용으로 보여 줍니다. TypeScript는 컴파일된 `.js` 파일로 보입니다.
+- 줄 중단점(조건도 가능), `debugger` 문, 예외에서 일시 정지. 예외에서 일시 정지는 스크립트가 잡는 오류에서도 멈춥니다.
+- 멈춘 동안: 호출 스택, 각 프레임과 바깥 함수의 변수, 모듈과 전역. Step over, into, out, Resume. 콘솔 코드는 고른 프레임에서 실행됩니다.
+- 멈추면 게임 스레드가 멈춥니다. Resume까지 게임과 창이 멈추고, 멀티 플레이 게임에서는 모든 플레이어가 기다리거나 끊깁니다.
+
+없는 것:
+
+- 열 단위 중단점, Restart frame, 스크립트 수정, 프로파일러는 없습니다.
 - 게임이 프레임을 실행하지 않는 동안 코드는 기다립니다. 게임 메뉴가 싱글 플레이 게임을 멈춘 동안, 리플레이가 일시 정지된 동안입니다. 5초 뒤 DevTools에 오류가 나옵니다.
 - 입력하는 동안 DevTools는 이름과 속성 읽기만 미리 보고 함수는 호출하지 않습니다.
 - 로컬 코드에서 스크립트의 객체를 바꾸거나(`state.score = 1`) 그런 함수를 호출하는 것은 막지 않습니다. 로컬 훅처럼 공유 코드가 읽는 것은 바꾸지 마세요(3.3절).

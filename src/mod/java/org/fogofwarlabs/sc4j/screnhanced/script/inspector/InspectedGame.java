@@ -174,7 +174,7 @@ final class InspectedGame {
             String source = new String(script.getValue(), StandardCharsets.UTF_8);
             Map<String, Object> description = new LinkedHashMap<>();
 
-            description.put("scriptId", defaultContext.uniqueId + SCRIPT_ID_SEPARATOR + script.getKey());
+            description.put("scriptId", this.getScriptId(script.getKey()));
             description.put("url", script.getKey());
             description.put("startLine", 0);
             description.put("startColumn", 0);
@@ -190,6 +190,16 @@ final class InspectedGame {
         }
 
         return descriptions;
+    }
+
+    /**
+     * Creates the id of a script in the {@code Debugger.scriptParsed} event: the unique id of the default context and the script name.
+     *
+     * @param scriptName the script name
+     * @return the id
+     */
+    @NotNull String getScriptId(@NotNull String scriptName) {
+        return this.contexts.getFirst().uniqueId + SCRIPT_ID_SEPARATOR + scriptName;
     }
 
     /**

@@ -19,6 +19,7 @@ import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommandMessage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.debug.Debugger;
 
 import java.io.Serial;
 import java.util.Collections;
@@ -212,6 +213,7 @@ public final class ScriptRuntime {
     private boolean overran;
     private boolean stopped;
     private boolean disposed;
+    private boolean held;
 
     /**
      * Creates a {@link ScriptRuntime} instance and runs the prelude over the game API and the runtime's host.
@@ -611,9 +613,28 @@ public final class ScriptRuntime {
     }
 
     /**
+     * Sets the debugger of the script calls from the next one on: Rhino reports to it each call and line of the scripts.
+     *
+     * @param debugger the debugger, or {@code null} for none
+     */
+    public void setDebugger(@Nullable Debugger debugger) {
+        this.contextFactory.setDebugger(debugger);
+    }
+
+    /**
+     * Sets whether a debugger holds the current call at a line; console code then runs inside that call.
+     *
+     * @param held {@code true} while the debugger holds the call
+     */
+    public void setHeld(boolean held) {
+        this.held = held;
+    }
+
+    /**
      * Runs a call of console code within one instruction budget, as shared code, or as local code with the game read-only and local as for
      * {@link #callLocalInput}; then the promise jobs it queued. An exceeded budget or a Java stack overflow ends the call with a script error
-     * and does not stop the script; console code also runs once the script stopped.
+     * and does not stop the script; console code also runs once the script stopped. While a debugger holds a call ({@link #setHeld}), console
+     * code runs inside it, with its budget and its shared or local rules.
      *
      * @param local {@code true} to run local code, {@code false} to run shared code
      * @param call  the call
@@ -630,6 +651,12 @@ public final class ScriptRuntime {
         }
 
         if (this.callDepth > 0) {
+            Context current = Context.getCurrentContext();
+
+            if (this.held && current != null) {
+                return call.run(current);
+            }
+
             throw Exceptions.newIllegalStateException("The script runtime runs another call.");
         }
 
