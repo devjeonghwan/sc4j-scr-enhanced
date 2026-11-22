@@ -69,7 +69,7 @@ function onUnitDied(event) {
 }
 ```
 
-The script tool makes a script folder, packs it into a map and protects it: `SC4J.bat tool scr-enhanced script init my-map`. Guide: [Enhanced Script](docs/script.md).
+Guide: [Enhanced Script](docs/script.md).
 
 ## Layout
 

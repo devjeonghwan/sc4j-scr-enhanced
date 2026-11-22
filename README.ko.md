@@ -69,7 +69,7 @@ function onUnitDied(event) {
 }
 ```
 
-스크립트 도구로 스크립트 폴더를 만들고, 맵에 넣고, 보호합니다: `SC4J.bat tool scr-enhanced script init my-map`. 가이드: [Enhanced Script](docs/script.ko.md).
+가이드: [Enhanced Script](docs/script.ko.md).
 
 ## 구성
 
