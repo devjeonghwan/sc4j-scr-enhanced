@@ -43,10 +43,9 @@ final class ScriptProjectUtilsTest {
      */
     private static final int MAXIMUM_PATH_DEPTH = 3;
     /**
-     * The runtime globals the declarations leave to TypeScript (the CommonJS names of a module) or leave out (the generator function
-     * replacement, which only throws).
+     * The runtime globals the declarations leave out: the generator function replacement, which only throws.
      */
-    private static final @NotNull Set<String> UNDECLARED_GLOBALS = Set.of("module", "exports", "require", "GeneratorFunction");
+    private static final @NotNull Set<String> UNDECLARED_GLOBALS = Set.of("GeneratorFunction");
     /**
      * The globals that Rhino's standard objects have and the runtime replaces.
      */

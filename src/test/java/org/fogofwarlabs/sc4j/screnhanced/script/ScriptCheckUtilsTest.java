@@ -90,6 +90,8 @@ final class ScriptCheckUtilsTest {
         Assertions.assertEquals(List.of("async.js:2: error: missing ; before statement (Rhino 1.8.1 has no async and await)",
                                         "class.js:1: error: identifier is a reserved word: class (Rhino 1.8.1 has no class syntax; use functions " +
                                         "and prototypes)",
+                                        "const-count.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let)",
+                                        "const-in.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let)",
                                         "const.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let)",
                                         "export.js:1: error: identifier is a reserved word: export (Rhino 1.8.1 has no import and export; use " +
                                         "require and module.exports)",
@@ -98,6 +100,8 @@ final class ScriptCheckUtilsTest {
                                                            "async.js", "var x = 1;\nasync function load() {}\n",
                                                            "spread.js", "log.info(...[1, 2]);\n",
                                                            "const.js", "for (const unit of game.units.getAll()) {}\n",
+                                                           "const-in.js", "for (const key in game) {}\n",
+                                                           "const-count.js", "for (const index = 0; index < 1; ) {}\n",
                                                            "export.js", "export var size = 1;\n",
                                                            "rest.js", "function sum(...values) {\n    return values.length;\n}\n")));
     }

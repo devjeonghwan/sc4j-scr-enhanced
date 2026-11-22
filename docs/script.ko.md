@@ -14,7 +14,7 @@ SC:R Enhanced의 맵 스크립트를 쓰는 방법입니다. 전체 API 레퍼�
 
 ## 1. 개요
 
-맵 스크립트는 맵 파일 안에 저장된 JavaScript입니다. SC:R Enhanced는 [Rhino](https://github.com/mozilla/rhino) 1.8.1의 인터프리터 모드로, Rhino가 지원하는 가장 새 ECMAScript 수준에서 실행합니다.
+맵 스크립트는 맵 파일 안에 저장된 JavaScript입니다. SC:R Enhanced는 [Rhino](https://github.com/mozilla/rhino) 1.8.1의 인터프리터 모드로, Rhino가 지원하는 가장 새 ECMAScript 수준에서 실행합니다. 없는 문법과 `Promise` 작업이 실행되는 때는 7장에 있습니다.
 
 - 맵 파일의 원래 데이터는 그대로 두고, 스크립트 패키지(매니페스트, 스크립트, `resources/`의 파일)를 그 뒤에 저장합니다.
 - 스크립트는 모든 플레이어의 게임에서 락스텝으로 실행됩니다. 같은 코드가 같은 프레임에 같은 결과를 냅니다. 게임의 모든 플레이어가 SC:R Enhanced를 실행합니다.
@@ -84,7 +84,7 @@ function onUnitDied(event) {
 
 ### 2.4 모듈
 
-`.js` 파일마다 자체 최상위 범위를 가진 모듈입니다. `require`는 다른 스크립트를 한 번 불러와 그 `module.exports`를 돌려줍니다. `./`와 `../`는 부르는 스크립트 기준, 다른 id는 폴더 기준이고, `.js`는 생략할 수 있습니다.
+`.js` 파일마다 자체 최상위 범위를 가진 모듈입니다. `require`는 다른 스크립트를 한 번 불러와 그 `module.exports`를 돌려줍니다. `./`와 `../`는 부르는 스크립트의 폴더 기준, 다른 id는 스크립트 폴더 기준이고, `.js`는 생략할 수 있습니다. `exports`에 속성을 더하거나, 다른 값을 내보내려면 `module.exports`에 대입합니다.
 
 ```js
 // bonus.js
@@ -346,7 +346,8 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 
 ## 7. 제한
 
-- 언어: Rhino 1.8.1에는 `class`, `async`/`await`, 전개 구문(`...`), `import`/`export`, `for (const ... of ...)`가 없습니다. 반복문 안의 `const`는 첫 값을 유지하고, `for (let ...)` 반복문 하나의 클로저들은 바인딩 하나를 공유합니다. `check`가 이것들을 알려 줍니다.
+- 언어: Rhino 1.8.1에는 `class`, `async`/`await`, 전개 구문(`...`), `import`/`export`, 그리고 어떤 형태(`of`, `in`, 카운트 반복문)의 `for (const ...)`도 없습니다. `let`을 쓰세요. 반복문 본문에서 선언한 `const`는 첫 값을 유지하므로 `let`을 쓰세요. `for (let ...)` 반복문 본문에서 만든 함수들은 그 변수의 바인딩 하나를 공유하므로, 본문 안의 `let`에 변수를 복사하세요. `check`가 이것들을 알려 줍니다.
+- Promise: `Promise`를 쓸 수 있습니다. 작업(`then`, `catch`, `finally`)은 그것을 대기열에 넣은 스크립트 호출(불러오기, 훅, 타이머, 채널 핸들러)이 끝날 때 같은 명령어 예산 안에서 실행됩니다. Promise는 시간을 기다리지 않으니 `game.after`를 쓰세요.
 - 전역: `eval`, 문자열로 만드는 `Function`, `Date`, `setTimeout` 같은 타이머, Java 접근이 없습니다. `Math`는 모든 플랫폼에서 같은 결과를 냅니다.
 - 명령어 예산: 스크립트 호출 하나(불러오기, 프레임, 결정, 로컬 입력, 로컬 프레임, 그리기)는 인터프리터 명령어 5,000,000개까지 실행할 수 있고, 함수 호출은 10,000단계까지 중첩됩니다. 긴 작업은 타이머로 여러 프레임에 나누세요.
 - 스크립트 버튼: 게임마다 최대 256개.

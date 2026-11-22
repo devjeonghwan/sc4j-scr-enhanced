@@ -2,8 +2,10 @@
 // The declarations stand alone: use them with "noLib": true, as the jsconfig.json of a new script project does, so that no browser or
 // Node.js global is offered.
 //
-// Scripts run in Rhino's interpreter: no class, async/await, spread (...) or for (const ... of ...); a const in a loop keeps its first value
-// and the closures of one for (let ...) loop share one binding. There is no eval, no Function from strings, and no Date, timer or Java access.
+// Scripts run in Rhino 1.8.1's interpreter: no class, async/await, spread (...), import/export, or for (const ...) in any form (of, in or a
+// counting loop): use let. A const declared in a loop body keeps its first value, and the functions created in the body of a for (let ...)
+// loop share one binding of its variables; a let declared in the loop body is new in every iteration. Promise jobs run when the call into the
+// script that queued them returns ({@link Promise}). There is no eval, no Function from strings, and no Date, timer or Java access.
 //
 // Shared code is the module top level, onStart, onFrame, the event and decision hooks, the timers of game.every and game.after, and the
 // channel handlers. It runs identically on every player's game and may change the game state. Local code is onLocalFrame, onRender and the
@@ -588,6 +590,63 @@ interface WeakSetConstructor {
 
 declare var WeakSet: WeakSetConstructor;
 
+/**
+ * A promise. Its jobs, the callbacks of then, catch and finally, run when the call into the script that queued them returns: the module
+ * loading, the hook, the timer or the channel handler, before the next one and within the same instruction budget. A promise that is still
+ * pending then settles only when a later call resolves or rejects it; promises do not wait for time, timers do ({@link Game.after}). A
+ * callback that throws rejects the promise that then, catch or finally returned; a rejection that no callback handles is not logged.
+ */
+interface Promise<T> {
+    then<R1 = T, R2 = never>(onFulfilled?: (value: T) => R1 | Promise<R1>, onRejected?: (reason: any) => R2 | Promise<R2>): Promise<R1 | R2>;
+
+    catch<R = never>(onRejected?: (reason: any) => R | Promise<R>): Promise<T | R>;
+
+    finally(onFinally?: () => void): Promise<T>;
+}
+
+interface PromiseFulfilledResult<T> {
+    status: 'fulfilled';
+    value: T;
+}
+
+/**
+ * The result of a rejected promise in {@link PromiseConstructor.allSettled}: Rhino 1.8.1 writes its status with a leading space.
+ */
+interface PromiseRejectedResult {
+    status: ' rejected';
+    reason: any;
+}
+
+type PromiseSettledResult<T> = PromiseFulfilledResult<T> | PromiseRejectedResult;
+
+interface PromiseConstructor {
+    /**
+     * Creates a promise and calls the executor at once.
+     */
+    new<T>(executor: (resolve: (value: T | Promise<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
+
+    readonly prototype: Promise<any>;
+
+    resolve(): Promise<void>;
+
+    resolve<T>(value: T | Promise<T>): Promise<T>;
+
+    reject<T = never>(reason?: any): Promise<T>;
+
+    all<T>(values: Iterable<T | Promise<T>>): Promise<T[]>;
+
+    allSettled<T>(values: Iterable<T | Promise<T>>): Promise<PromiseSettledResult<T>[]>;
+
+    /**
+     * @returns a promise of the first fulfilled value, rejected with an AggregateError when every promise rejects
+     */
+    any<T>(values: Iterable<T | Promise<T>>): Promise<T>;
+
+    race<T>(values: Iterable<T | Promise<T>>): Promise<T>;
+}
+
+declare var Promise: PromiseConstructor;
+
 interface JSON {
     parse(text: string, reviver?: (key: string, value: any) => any): any;
 
@@ -616,6 +675,20 @@ declare var ReferenceError: ErrorConstructor;
 declare var SyntaxError: ErrorConstructor;
 declare var TypeError: ErrorConstructor;
 declare var URIError: ErrorConstructor;
+
+interface AggregateError extends Error {
+    errors: any[];
+}
+
+interface AggregateErrorConstructor {
+    new(errors: Iterable<any>, message?: string): AggregateError;
+
+    (errors: Iterable<any>, message?: string): AggregateError;
+
+    readonly prototype: Error;
+}
+
+declare var AggregateError: AggregateErrorConstructor;
 
 declare var NaN: number;
 declare var Infinity: number;
@@ -731,6 +804,48 @@ declare var Math: Math;
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The script runtime: modules, log and the script random numbers.
 // ---------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * The module object of a script. Each script of the package is a module: it runs once, in its own top-level scope, and shares its values
+ * through {@link Module.exports}.
+ */
+interface Module {
+    /**
+     * The script name: the path of the script in the package, with {@code .js}, such as {@code lib/util.js}.
+     */
+    readonly id: string;
+
+    /**
+     * The value {@link require} returns for this script: at first the object that {@link exports} names. Assign another value to export it
+     * instead.
+     */
+    exports: any;
+}
+
+/**
+ * The module object of the current script.
+ */
+declare var module: Module;
+
+/**
+ * The first value of {@link Module.exports}: properties added to it are exported. Assigning another value to {@code exports} exports nothing;
+ * assign {@link Module.exports} instead.
+ */
+declare var exports: any;
+
+/**
+ * Loads a script of the package as a module and returns its {@link Module.exports}. An id that starts with {@code ./} or {@code ../} names a
+ * script relative to the folder of the requiring script, any other id a script relative to the package root; {@code .js} is added when the id
+ * does not end with it. The script runs at its first require; later calls return its current {@link Module.exports}, also while it is still
+ * loading, so that cycles end. An error of the loading script passes to the caller, and the next require loads the script again. Local code
+ * may require a script that has loaded, but loads no new one.
+ *
+ * @param id the script id, such as {@code './bonus'} or {@code 'lib/util.js'}
+ * @returns the {@link Module.exports} of the script
+ * @throws TypeError if the id is not a string, or in local code if the script has not loaded
+ * @throws Error if the id is empty, starts with {@code /}, has an empty segment or leaves the package root, or if the package has no such script
+ */
+declare function require(id: string): any;
 
 /**
  * Writes lines to the SC:R Enhanced log, prefixed with the module name: the values are converted to strings and joined with spaces.

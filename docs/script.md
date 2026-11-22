@@ -14,7 +14,7 @@ How to write map scripts for SC:R Enhanced. The full API reference is the declar
 
 ## 1. What it is
 
-A map script is JavaScript stored inside the map file. SC:R Enhanced runs it with [Rhino](https://github.com/mozilla/rhino) 1.8.1 in interpreted mode, at the newest ECMAScript level Rhino supports.
+A map script is JavaScript stored inside the map file. SC:R Enhanced runs it with [Rhino](https://github.com/mozilla/rhino) 1.8.1 in interpreted mode, at the newest ECMAScript level Rhino supports; chapter 7 lists what it lacks and when `Promise` jobs run.
 
 - The map file keeps its own data as it is; the script package (the manifest, the scripts and the files of `resources/`) is stored after it.
 - The script runs on every player's game in lockstep: the same code, at the same frame, with the same results. Every player of a game runs SC:R Enhanced.
@@ -84,7 +84,7 @@ function onUnitDied(event) {
 
 ### 2.4 Modules
 
-Each `.js` file is a module with its own top level. `require` loads another script once and returns its `module.exports`; `./` and `../` are relative to the requiring script, other ids relative to the folder, and `.js` may be left out.
+Each `.js` file is a module with its own top level. `require` loads another script once and returns its `module.exports`; `./` and `../` are relative to the folder of the requiring script, other ids relative to the script folder, and `.js` may be left out. Add properties to `exports`, or assign `module.exports` to export another value.
 
 ```js
 // bonus.js
@@ -346,7 +346,8 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 
 ## 7. Limits
 
-- Language: Rhino 1.8.1 has no `class`, `async`/`await`, spread (`...`), `import`/`export` or `for (const ... of ...)`. A `const` in a loop keeps its first value, and the closures of one `for (let ...)` loop share one binding. `check` reports these.
+- Language: Rhino 1.8.1 has no `class`, `async`/`await`, spread (`...`), `import`/`export` or `for (const ...)` in any form (`of`, `in` or a counting loop); use `let`. A `const` declared in a loop body keeps its first value; use `let`. The functions created in the body of a `for (let ...)` loop share one binding of its variables; copy the variable into a `let` inside the body. `check` reports these.
+- Promises: `Promise` works. Its jobs (`then`, `catch`, `finally`) run when the call into the script that queued them returns (the loading, a hook, a timer or a channel handler), within the same instruction budget. Promises do not wait for time: use `game.after`.
 - Globals: no `eval`, no `Function` from strings, no `Date`, no `setTimeout` or other timers, no Java access. `Math` gives the same results on every platform.
 - Instruction budget: each call into the script (loading, a frame, a decision, a local input, a local frame, a render) may run 5,000,000 interpreter instructions; function calls may nest 10,000 deep. Spread long work over frames with timers.
 - Script buttons: at most 256 per game.
