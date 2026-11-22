@@ -8,7 +8,8 @@
 // script that queued them returns ({@link Promise}). There is no eval, no Function from strings, and no Date, timer or Java access.
 // TypeScript compiled by tsc with target ES5 and module commonjs runs with those forms, its helpers included (guide section 2.6).
 //
-// A top-level function, or variable holding one, with a hook name is a hook of its module, exported or not: give helpers other names.
+// A hook is a method of the object given to defineHooks, or a top-level function, or variable holding one, with a hook name; the latter is a
+// hook of its module exported or not: give helpers other names.
 //
 // Shared code is the module top level, onStart, onFrame, the event and decision hooks, the timers of game.every and game.after, and the
 // channel handlers. It runs identically on every player's game and may change the game state. Local code is onLocalFrame, onRender and the
@@ -947,15 +948,17 @@ interface Random {
 declare const random: Random;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// The hooks: top-level functions of a script with these names. Every script (module) that has a hook gets the call, in load order.
+// The hooks: methods of the object given to defineHooks, or top-level functions of a script with these names. Every script (module) that has
+// a hook gets the call, in load order.
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * The hooks a script may define, as top-level functions: {@code function onUnitDied(event) { ... }}. The runtime collects them per module once
- * the module has loaded and calls them from the game. A frame calls onStart (the first frame only), the due timers, the channel handlers of
- * the frame's commands, the event hooks ({@code on*}) of the frame's events ({@link CoreEvents.getFrameEvents}) and onFrame, in this order, at
- * the frame start before the triggers. The decision hooks ({@code onBefore*}) run inside the game routine and may change only the decision.
- * Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
+ * The hooks a script may define, as methods of the object given to {@link defineHooks}: {@code defineHooks({ onUnitDied(event) { ... } })},
+ * or as top-level functions: {@code function onUnitDied(event) { ... }}. The runtime collects them per module once the module has loaded and
+ * calls them from the game. A frame calls onStart (the first frame only), the due timers, the channel handlers of the frame's commands, the
+ * event hooks ({@code on*}) of the frame's events ({@link CoreEvents.getFrameEvents}) and onFrame, in this order, at the frame start before the
+ * triggers. The decision hooks ({@code onBefore*}) run inside the game routine and may change only the decision. A method of defineHooks gets
+ * the type of its parameter from here; give a top-level function's parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
  *
  * The local hooks ({@code onLocal*}, onRender) are local code and run on this player's machine only, at once. The input hooks do not run in
  * replays or for observers; onLocalFrame and onRender do. Local code may read the game and the local information ({@link local}), move the
@@ -1128,6 +1131,21 @@ interface Hooks {
      */
     onBeforeTargetAcquired?(decision: TargetAcquisitionDecision): void;
 }
+
+/**
+ * Defines hooks of this module: each method of the object, named as a member of {@link Hooks}, becomes the module's hook, as a top-level
+ * function of that name would: the same calls, in the same order, with the same budget and errors. A method runs with {@code this} set to the
+ * object. The object's own enumerable properties are read once, at the call.
+ *
+ * Call it while the module loads, at its top level; a module may call it more than once with other hooks. A hook defined twice, by two calls
+ * or by a call and a top-level function, throws an Error; a top-level function assigned after the call makes the loading fail when the module
+ * has run to its end.
+ *
+ * @param hooks the hooks
+ * @throws TypeError if hooks is no object, a property name is no hook name or a property is no function
+ * @throws Error if the module has loaded or a hook is defined already
+ */
+declare function defineHooks(hooks: Hooks): void;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The game API: the upper layer.

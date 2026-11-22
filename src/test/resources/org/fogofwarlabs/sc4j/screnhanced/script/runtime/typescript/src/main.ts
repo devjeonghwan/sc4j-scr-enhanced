@@ -58,16 +58,18 @@ delayedSum(20, 22).then((total) => log.info('async=' + total));
 
 log.info(results.join(' | '));
 
-function onStart(): void {
-    log.info('started');
-}
+defineHooks({
+    onStart() {
+        log.info('started');
+    },
 
-function onFrame(frame: number): void {
-    if (frame === 1) {
-        log.info('frame ' + frame);
-    }
+    onFrame(frame) {
+        if (frame === 1) {
+            log.info('frame ' + frame);
+        }
 
-    if (frame === 2) {
-        throw new Error('stopped at frame ' + frame);
+        if (frame === 2) {
+            throw new Error('stopped at frame ' + frame);
+        }
     }
-}
+});

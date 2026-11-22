@@ -73,7 +73,7 @@ Only `manifest.json`, the `.js` files outside `resources/` and the files under `
 
 Open the folder in an editor with TypeScript-based JavaScript support, such as Visual Studio Code. `jsconfig.json` makes it complete and check the scripts against `scr-enhanced.d.ts` and `core.d.ts`, without browser or Node.js globals.
 
-Hooks are plain functions, so give their parameter a type with JSDoc:
+Give the parameter of a top-level function hook a type with JSDoc. The methods of `defineHooks` (section 3.1) get their types from the declarations without it.
 
 ```js
 /** @param {UnitDiedEvent} event */
@@ -146,7 +146,7 @@ Make `script/` with `init my-map/script`, set the name in its `manifest.json`, d
 
 - `files` names the declaration files, because tsc leaves the files of `outDir` out of `include`.
 - tsc writes `main.js` and the other modules next to `manifest.json` and copies no other file: `manifest.json` and `resources/` stay in `script/`.
-- Leave `noUnusedLocals` off: nothing in the scripts calls the hooks, so it reports them.
+- Define the hooks with `defineHooks` (section 3.1): tsc types their parameters, reports a misspelled hook name, and finds no unused hook with `noUnusedLocals`.
 - Import modules with relative paths (`./bonus`).
 
 ```powershell
@@ -161,9 +161,11 @@ SC4J.bat tool scr-enhanced script pack Map.scx --script my-map/script -o Out.scx
 // main.ts
 import { give } from './bonus';
 
-function onStart(): void {
-    game.players.getHumans().forEach((player) => give(player, 100));
-}
+defineHooks({
+    onStart() {
+        game.players.getHumans().forEach((player) => give(player, 100));
+    }
+});
 ```
 
 ```ts
@@ -173,7 +175,7 @@ export function give(player: Player, amount: number): void {
 }
 ```
 
-Hooks are top-level functions, as in JavaScript. Do not export them, and give helpers names that are not hook names: a top-level function, or a variable holding one, with a hook name is a hook of its module, exported or not. A helper `onLocalFrame` that another module calls every frame runs twice per frame. `check` warns of an exported hook name.
+Top-level function hooks work too, but tsc does not know that the runtime calls them: `noUnusedLocals` reports them, and a misspelled name stays unnoticed. Do not export hooks, and give helpers names that are not hook names: a top-level function, or a variable holding one, with a hook name is a hook of its module, exported or not. A helper `onLocalFrame` that another module calls every frame runs twice per frame. `check` warns of an exported hook name.
 
 What works with target ES5, which tsc writes as ES5 with its helpers in each file:
 
@@ -209,7 +211,34 @@ A member marked "Shared code only." or "Local code only." in the declarations th
 
 ### 3.1 Hooks
 
-Hooks are top-level functions with known names.
+A hook is a function with a known name: a method of an object given to `defineHooks`, or a top-level function.
+
+```js
+defineHooks({
+    onStart() {
+        game.print('Defend the base.');
+    },
+
+    onFrame(frame) {
+        if (frame === Time.fromMinutes(10)) {
+            game.print('You won.');
+        }
+    }
+});
+```
+
+```js
+function onStart() {
+    game.print('Defend the base.');
+}
+```
+
+Both kinds run the same way: in every module that has the hook, in load order, with the same budget and errors. Use `defineHooks` in TypeScript (section 2.6); in JavaScript it is an option that gives the editor the parameter types.
+
+- Call `defineHooks` while the module loads, at its top level. A call from a hook or a timer throws.
+- Every property of the object must be a function with a hook name; any other name throws a `TypeError` that names it, and `check` reports it.
+- A module may call `defineHooks` more than once with other hooks. A hook defined twice in a module, by two calls or by a call and a top-level function, throws, and the module does not load.
+- A method runs with `this` set to the object, a top-level function with `this` set to the module's top level.
 
 | Hook | When |
 |---|---|
@@ -238,13 +267,14 @@ const votes = sync.createChannel((player, value, units) => {
     game.print(player.getName() + ' votes ' + value);
 });
 
-/** @param {LocalChatEvent} event */
-function onLocalChat(event) {
-    if (event.getText() === '-easy' || event.getText() === '-hard') {
-        votes.send(event.getText().substring(1));
-        event.consume();
+defineHooks({
+    onLocalChat(event) {
+        if (event.getText() === '-easy' || event.getText() === '-hard') {
+            votes.send(event.getText().substring(1));
+            event.consume();
+        }
     }
-}
+});
 ```
 
 - Create channels in shared code, in the same order on every game: at the module top level or in `onStart`.
@@ -395,14 +425,15 @@ function onRender(screen) {
 ### 5.4 Reacting to a unit death
 
 ```js
-/** @param {UnitDiedEvent} event */
-function onUnitDied(event) {
-    const killer = event.getKillerPlayer();
+defineHooks({
+    onUnitDied(event) {
+        const killer = event.getKillerPlayer();
 
-    if (event.getUnitType() === UnitType.ZergZergling && killer !== null) {
-        killer.addMinerals(5);
+        if (event.getUnitType() === UnitType.ZergZergling && killer !== null) {
+            killer.addMinerals(5);
+        }
     }
-}
+});
 ```
 
 The event holds the values of the moment the unit died: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`. The unit may be gone already.
@@ -416,16 +447,17 @@ Local code reads where things are on the screen, in the units `screen` draws in,
 ```js
 const card = display.console.getControl(ConsoleControl.CommandCard);
 
-/** @param {LocalMouseButtonEvent} event */
-function onLocalMouseDown(event) {
-    const pointer = local.getPointerPosition();
-    const area = card.getRectangle();
+defineHooks({
+    onLocalMouseDown(event) {
+        const pointer = local.getPointerPosition();
+        const area = card.getRectangle();
 
-    if (pointer !== null && area !== null && pointer.x >= area.x && pointer.x < area.x + area.width &&
-        pointer.y >= area.y && pointer.y < area.y + area.height) {
-        log.info('on the command card');
+        if (pointer !== null && area !== null && pointer.x >= area.x && pointer.x < area.x + area.width &&
+            pointer.y >= area.y && pointer.y < area.y + area.height) {
+            log.info('on the command card');
+        }
     }
-}
+});
 ```
 
 - `local.getPointerPosition()` gives the pointer in interface units; `local.getInterfaceWidth()` and `local.getInterfaceHeight()` give the interface size outside `onRender` too.

@@ -18,12 +18,13 @@ import java.util.List;
  * Runs the checked-in output of a TypeScript project that tsc compiled with target ES5 and module commonjs (the test resource folder
  * {@code typescript}: the sources in {@code src}, the script folder in {@code script}): check finds nothing in it, and its classes with
  * inheritance, closures in loops, destructuring, spread, template strings, optional chaining, enums, namespaces, generators, for...of, async
- * functions and imports between modules run as the sources say, protected too; an error names the line of the compiled script.
+ * functions, imports between modules and the hooks of {@code defineHooks} run as the sources say, protected too; an error names the line of the
+ * compiled script.
  */
 final class TypeScriptOutputTest {
     private static final @NotNull String SCRIPT_FOLDER = "typescript/script";
     /**
-     * The frames run: the hook {@code onFrame} logs at frame 1 and throws at frame 2.
+     * The frames run: the hook {@code onFrame} of {@code defineHooks} logs at frame 1 and throws at frame 2.
      */
     private static final int FRAMES = 3;
     private static final @NotNull List<String> EXPECTED_LINES = List.of(
@@ -36,7 +37,7 @@ final class TypeScriptOutputTest {
     /**
      * The line of the compiled {@code main.js} that throws at frame 2.
      */
-    private static final @NotNull String THROWING_LINE = "(main.js:72)";
+    private static final @NotNull String THROWING_LINE = "(main.js:73)";
 
     private static @NotNull Path getScriptFolder() throws URISyntaxException {
         URL folder = TypeScriptOutputTest.class.getResource(SCRIPT_FOLDER);

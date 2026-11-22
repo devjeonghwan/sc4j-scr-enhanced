@@ -73,7 +73,7 @@ SC4J.bat tool scr-enhanced script init my-map
 
 Visual Studio Code처럼 TypeScript 기반 JavaScript 지원이 있는 편집기로 폴더를 엽니다. `jsconfig.json` 덕분에 브라우저나 Node.js 전역 없이 `scr-enhanced.d.ts`와 `core.d.ts` 기준으로 자동 완성과 검사가 됩니다.
 
-훅은 일반 함수이므로 매개변수 타입을 JSDoc으로 적습니다.
+최상위 함수 훅의 매개변수 타입은 JSDoc으로 적습니다. `defineHooks`(3.1절)의 메서드는 JSDoc 없이 선언에서 타입을 받습니다.
 
 ```js
 /** @param {UnitDiedEvent} event */
@@ -146,7 +146,7 @@ my-map/                 TypeScript 프로젝트
 
 - tsc는 `outDir`의 파일을 `include`에서 빼므로 선언 파일은 `files`에 적습니다.
 - tsc는 `main.js`와 다른 모듈을 `manifest.json` 옆에 쓰고 다른 파일은 복사하지 않습니다. `manifest.json`과 `resources/`는 `script/`에 그대로 둡니다.
-- `noUnusedLocals`는 끄세요. 스크립트 안에서는 아무도 훅을 부르지 않으므로 훅을 보고합니다.
+- 훅은 `defineHooks`(3.1절)로 정의하세요. tsc가 매개변수 타입을 정하고, 잘못 쓴 훅 이름을 알려 주며, `noUnusedLocals`에서도 쓰지 않는 훅으로 보고하지 않습니다.
 - 모듈은 상대 경로(`./bonus`)로 가져오세요.
 
 ```powershell
@@ -161,9 +161,11 @@ SC4J.bat tool scr-enhanced script pack Map.scx --script my-map/script -o Out.scx
 // main.ts
 import { give } from './bonus';
 
-function onStart(): void {
-    game.players.getHumans().forEach((player) => give(player, 100));
-}
+defineHooks({
+    onStart() {
+        game.players.getHumans().forEach((player) => give(player, 100));
+    }
+});
 ```
 
 ```ts
@@ -173,7 +175,7 @@ export function give(player: Player, amount: number): void {
 }
 ```
 
-훅은 JavaScript처럼 최상위 함수입니다. 훅은 내보내지 말고, 도우미 함수에는 훅 이름이 아닌 이름을 붙이세요. 훅 이름을 가진 최상위 함수나 함수를 담은 변수는 내보내든 아니든 그 모듈의 훅입니다. 다른 모듈이 매 프레임 부르는 도우미 `onLocalFrame`은 프레임마다 두 번 실행됩니다. `check`는 내보낸 훅 이름을 경고합니다.
+최상위 함수 훅도 동작하지만, tsc는 런타임이 그 함수를 부른다는 것을 모릅니다. `noUnusedLocals`가 훅을 보고하고, 훅 이름을 잘못 써도 알 수 없습니다. 훅은 내보내지 말고, 도우미 함수에는 훅 이름이 아닌 이름을 붙이세요. 훅 이름을 가진 최상위 함수나 함수를 담은 변수는 내보내든 아니든 그 모듈의 훅입니다. 다른 모듈이 매 프레임 부르는 도우미 `onLocalFrame`은 프레임마다 두 번 실행됩니다. `check`는 내보낸 훅 이름을 경고합니다.
 
 target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣어 ES5로 씁니다):
 
@@ -209,7 +211,34 @@ target ES5에서 되는 것(tsc가 각 파일에 도우미 함수를 넣어 ES5�
 
 ### 3.1 훅
 
-훅은 정해진 이름의 최상위 함수입니다.
+훅은 정해진 이름의 함수입니다. `defineHooks`에 넘긴 객체의 메서드나 최상위 함수로 정의합니다.
+
+```js
+defineHooks({
+    onStart() {
+        game.print('Defend the base.');
+    },
+
+    onFrame(frame) {
+        if (frame === Time.fromMinutes(10)) {
+            game.print('You won.');
+        }
+    }
+});
+```
+
+```js
+function onStart() {
+    game.print('Defend the base.');
+}
+```
+
+두 방식은 똑같이 실행됩니다. 그 훅이 있는 모든 모듈에서 불러온 순서대로, 같은 예산과 오류 처리로 실행됩니다. TypeScript에서는 `defineHooks`를 쓰세요(2.6절). JavaScript에서는 편집기가 매개변수 타입을 알게 해 주는 선택지입니다.
+
+- `defineHooks`는 모듈을 불러오는 동안, 모듈 최상위에서 부릅니다. 훅이나 타이머에서 부르면 오류를 던집니다.
+- 객체의 모든 속성은 훅 이름을 가진 함수여야 합니다. 다른 이름이 있으면 그 이름을 알려 주는 `TypeError`를 던지고, `check`도 알려 줍니다.
+- 한 모듈에서 `defineHooks`를 다른 훅으로 여러 번 부를 수 있습니다. 한 모듈에서 같은 훅을 두 번 정의하면(두 번의 호출, 또는 호출과 최상위 함수) 오류를 던지고 모듈을 불러오지 못합니다.
+- 메서드는 `this`가 그 객체인 채로, 최상위 함수는 `this`가 모듈 최상위인 채로 실행됩니다.
 
 | 훅 | 호출 시점 |
 |---|---|
@@ -238,13 +267,14 @@ const votes = sync.createChannel((player, value, units) => {
     game.print(player.getName() + ' votes ' + value);
 });
 
-/** @param {LocalChatEvent} event */
-function onLocalChat(event) {
-    if (event.getText() === '-easy' || event.getText() === '-hard') {
-        votes.send(event.getText().substring(1));
-        event.consume();
+defineHooks({
+    onLocalChat(event) {
+        if (event.getText() === '-easy' || event.getText() === '-hard') {
+            votes.send(event.getText().substring(1));
+            event.consume();
+        }
     }
-}
+});
 ```
 
 - 채널은 공유 코드에서 모든 게임이 같은 순서로 만듭니다. 모듈 최상위나 `onStart`에서 만드세요.
@@ -395,14 +425,15 @@ function onRender(screen) {
 ### 5.4 유닛 죽음에 반응하기
 
 ```js
-/** @param {UnitDiedEvent} event */
-function onUnitDied(event) {
-    const killer = event.getKillerPlayer();
+defineHooks({
+    onUnitDied(event) {
+        const killer = event.getKillerPlayer();
 
-    if (event.getUnitType() === UnitType.ZergZergling && killer !== null) {
-        killer.addMinerals(5);
+        if (event.getUnitType() === UnitType.ZergZergling && killer !== null) {
+            killer.addMinerals(5);
+        }
     }
-}
+});
 ```
 
 이벤트에는 유닛이 죽은 순간의 값이 있습니다: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`. 유닛은 이미 사라졌을 수 있습니다.
@@ -416,16 +447,17 @@ function onUnitDied(event) {
 ```js
 const card = display.console.getControl(ConsoleControl.CommandCard);
 
-/** @param {LocalMouseButtonEvent} event */
-function onLocalMouseDown(event) {
-    const pointer = local.getPointerPosition();
-    const area = card.getRectangle();
+defineHooks({
+    onLocalMouseDown(event) {
+        const pointer = local.getPointerPosition();
+        const area = card.getRectangle();
 
-    if (pointer !== null && area !== null && pointer.x >= area.x && pointer.x < area.x + area.width &&
-        pointer.y >= area.y && pointer.y < area.y + area.height) {
-        log.info('on the command card');
+        if (pointer !== null && area !== null && pointer.x >= area.x && pointer.x < area.x + area.width &&
+            pointer.y >= area.y && pointer.y < area.y + area.height) {
+            log.info('on the command card');
+        }
     }
-}
+});
 ```
 
 - `local.getPointerPosition()`은 포인터를 인터페이스 단위로 줍니다. `local.getInterfaceWidth()`와 `local.getInterfaceHeight()`는 `onRender` 밖에서도 인터페이스 크기를 줍니다.

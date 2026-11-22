@@ -15,13 +15,14 @@ import java.util.*;
  * Loads the scripts of a script runtime as CommonJS-style modules and keeps them in load order.
  * <p>
  * Each module runs once in its own top-level scope, whose prototype is the global scope, with {@code module} ({@code id} and
- * {@code exports}), {@code exports}, {@code require} and {@code log}. {@code require(id)} returns the {@code module.exports} of a script:
- * an id that starts with {@code ./} or {@code ../} names a script relative to the folder of the requiring script, any other id a script
- * relative to the package root, and {@value ScriptPackage#SCRIPT_EXTENSION} is added when the id does not end with it. A module loads at
- * its first {@code require}; later calls return the cached module, and a module that is still loading returns its current
- * {@code module.exports}, so cycles end. A module whose loading fails is forgotten. Local code ({@link #setLocal}) loads no new module, which
- * would run on one machine only. When a module has loaded, it joins the loaded modules that the prelude collects the hooks of
- * ({@link #getLoadedRecords}), and each top-level function with a hook name that no hook has logs one warning.
+ * {@code exports}), {@code exports}, {@code require}, {@code log} and {@code defineHooks} ({@link ScriptModule#defineHooks}).
+ * {@code require(id)} returns the {@code module.exports} of a script: an id that starts with {@code ./} or {@code ../} names a script relative
+ * to the folder of the requiring script, any other id a script relative to the package root, and {@value ScriptPackage#SCRIPT_EXTENSION} is
+ * added when the id does not end with it. A module loads at its first {@code require}; later calls return the cached module, and a module that
+ * is still loading returns its current {@code module.exports}, so cycles end. A module whose loading fails is forgotten. Local code
+ * ({@link #setLocal}) loads no new module, which would run on one machine only. A module whose hook of {@code defineHooks} is also a top-level
+ * function when it has run to its end fails to load. When a module has loaded, it joins the loaded modules that the prelude collects the hooks
+ * of ({@link #getLoadedRecords}), and each top-level function with a hook name that no hook has logs one warning.
  */
 final class ScriptModuleLoader {
     private static final char NAME_SEPARATOR = '/';
@@ -33,6 +34,7 @@ final class ScriptModuleLoader {
     private static final @NotNull String EXPORTS_PROPERTY = "exports";
     private static final @NotNull String REQUIRE_PROPERTY = "require";
     private static final @NotNull String LOG_PROPERTY = "log";
+    private static final @NotNull String DEFINE_HOOKS_PROPERTY = "defineHooks";
     private static final @NotNull String MESSAGE_SEPARATOR = " ";
 
     /**
@@ -249,6 +251,7 @@ final class ScriptModuleLoader {
             Script script = context.compileString(new String(source, StandardCharsets.UTF_8), name, 1, null);
 
             script.exec(context, module.getScope());
+            module.checkDefinedHooks();
         } catch (RuntimeException | Error exception) {
             this.modulesByName.remove(name);
             this.modules.remove(module);
@@ -286,6 +289,11 @@ final class ScriptModuleLoader {
         ScriptGlobalUtils.defineFunction(this.global, scope, REQUIRE_PROPERTY, 1,
                                          (callContext, callScope, thisObject, arguments) -> this.require(callContext, module, arguments));
         scope.defineProperty(LOG_PROPERTY, this.createLog(context, name), ScriptableObject.DONTENUM);
+        ScriptGlobalUtils.defineFunction(this.global, scope, DEFINE_HOOKS_PROPERTY, 1, (callContext, callScope, thisObject, arguments) -> {
+            module.defineHooks(callContext, this.global, arguments);
+
+            return Context.getUndefinedValue();
+        });
 
         return module;
     }

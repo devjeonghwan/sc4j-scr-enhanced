@@ -29,14 +29,15 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
  * frame hooks, the frame hook while the script pauses the game, live and in the replay, the event hooks with their captured values, the
  * decision hooks that change damage and reject orders, the read-only game in a decision with its refused trigger writes and its local display,
- * the channel messages of shared code and of the local hooks that the game's {@link ScriptInputPlugin} calls, live and in the replay, and a map
- * without a script package.
+ * the channel messages of shared code and of the local hooks that the game's {@link ScriptInputPlugin} calls, live and in the replay, the hooks
+ * of {@code defineHooks}, which play the game as top-level function hooks do, protected too, and a map without a script package.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -629,6 +630,82 @@ final class ScriptSimulationPluginTest {
 
         Assertions.assertEquals(64, view.getScreenX(), "a replay calls onLocalFrame without a local player or a local selection");
         Assertions.assertEquals(96, view.getScreenY());
+    }
+
+    @Test
+    void hooks_of_define_hooks_play_the_game_as_top_level_function_hooks(@NotNull InstallationTestResources resources,
+                                                                         @TempDir @NotNull Path folder) throws IOException {
+        String state = """
+                       var damaged = 0, drawn = 0;
+                       function report(frame) {
+                           game.print('ES report ' + frame + ' ' + damaged + ' ' + drawn + ' ' + [marine, zergling].map(function (unit) {
+                               return unit.exists() ? unit.getHp() : 'dead';
+                           }).join(' '));
+                       }
+                       """;
+        String functionHooks = """
+                               function onStart() {
+                                   game.every(16, function () { drawn += random.nextInt(100); });
+                               }
+                               function afterSpawn(frame) {
+                                   if ((frame - spawnFrame) % 50 === 0) {
+                                       report(frame);
+                                   }
+                               }
+                               function onBeforeDamage(damage) {
+                                   if (random.chance(0.5)) {
+                                       damage.setAmount(damage.getAmount() * 2);
+                                   }
+                               }
+                               function onUnitDamaged(event) {
+                                   damaged++;
+                               }
+                               function onUnitDied(event) {
+                                   game.print('ES died ' + event.getUnitType() + ' ' + event.getFrame());
+                               }
+                               """;
+        String definedHooks = """
+                              function afterSpawn(frame) {
+                                  if ((frame - spawnFrame) % 50 === 0) {
+                                      report(frame);
+                                  }
+                              }
+                              defineHooks({
+                                  onStart() {
+                                      game.every(16, function () { drawn += random.nextInt(100); });
+                                  },
+                                  onBeforeDamage(damage) {
+                                      if (random.chance(0.5)) {
+                                          damage.setAmount(damage.getAmount() * 2);
+                                      }
+                                  },
+                                  onUnitDamaged(event) {
+                                      damaged++;
+                                  },
+                                  onUnitDied(event) {
+                                      game.print('ES died ' + event.getUnitType() + ' ' + event.getFrame());
+                                  }
+                              });
+                              """;
+        List<ScriptMapGameScenario> scenarios = List.of(
+                ScriptMapGameScenario.startMelee(resources.getGameData(), folder.resolve("function"), SPAWN_SCRIPT + state + functionHooks),
+                ScriptMapGameScenario.startMelee(resources.getGameData(), folder.resolve("defined"), SPAWN_SCRIPT + state + definedHooks),
+                ScriptMapGameScenario.startMelee(resources.getGameData(), folder.resolve("protected"), SPAWN_SCRIPT + state + definedHooks, Map.of(),
+                                                 true)
+        );
+
+        for (ScriptMapGameScenario scenario : scenarios) {
+            scenario.stepFrames(FIGHT_FRAMES);
+        }
+
+        ScriptMapGameScenario expected = scenarios.getFirst();
+
+        Assertions.assertTrue(expected.getPrints().stream().anyMatch(text -> text.startsWith("died ")), expected.getPrints()::toString);
+
+        for (ScriptMapGameScenario scenario : scenarios.subList(1, scenarios.size())) {
+            Assertions.assertEquals(expected.getPrints(), scenario.getPrints());
+            Assertions.assertEquals(expected.getGame().computeStateHash(), scenario.getGame().computeStateHash());
+        }
     }
 
     @Test

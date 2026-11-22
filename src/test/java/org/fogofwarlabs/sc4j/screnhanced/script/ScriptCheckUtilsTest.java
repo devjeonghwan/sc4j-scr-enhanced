@@ -150,6 +150,35 @@ final class ScriptCheckUtilsTest {
     }
 
     @Test
+    void check_should_report_what_define_hooks_throws_for(@TempDir @NotNull Path folder) throws IOException {
+        Assertions.assertEquals(List.of("main.js:3: error: onUnitDie is not a known hook: defineHooks throws.",
+                                        "main.js:6: error: The hook onFrame is defined twice with defineHooks: defineHooks throws.",
+                                        "main.js:8: error: The hook onStart is both a top-level function and defined with defineHooks: the module " +
+                                        "fails to load.",
+                                        "main.js:10: error: local.getPlayer throws in onBeforeOrder, which is shared code: read it in a local hook " +
+                                        "(onLocal*, onRender).",
+                                        "main.js:13: warning: onUnitDance is not a known hook and is not called."),
+                                check(folder, withManifest("main.js", """
+                                                                      defineHooks({
+                                                                          onFrame(frame) {},
+                                                                          onUnitDie(event) {},
+                                                                          'onLocalFrame': function (frame) { log.info(local.getPlayer()); }
+                                                                      });
+                                                                      defineHooks({onFrame: function () {}});
+                                                                      defineHooks({
+                                                                          onStart() {},
+                                                                          onRender(screen) { log.info(local.getPlayer()); },
+                                                                          onBeforeOrder(decision) { log.info(local.getPlayer()); }
+                                                                      });
+                                                                      function onStart() {}
+                                                                      function onUnitDance() {}
+                                                                      """, "own.js", """
+                                                                                     function defineHooks(hooks) {}
+                                                                                     defineHooks({onTick() {}});
+                                                                                     """)));
+    }
+
+    @Test
     void check_should_report_globals_that_scripts_lack(@TempDir @NotNull Path folder) throws IOException {
         Assertions.assertEquals(List.of("main.js:2: error: eval is not available to scripts.",
                                         "main.js:3: error: Date is not available to scripts.",

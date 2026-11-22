@@ -61,14 +61,16 @@ for (var _i = 0, shapes_2 = shapes; _i < shapes_2.length; _i++) {
 record('generator', counted.join(','));
 (0, util_1.delayedSum)(20, 22).then(function (total) { return log.info('async=' + total); });
 log.info(results.join(' | '));
-function onStart() {
-    log.info('started');
-}
-function onFrame(frame) {
-    if (frame === 1) {
-        log.info('frame ' + frame);
+defineHooks({
+    onStart: function () {
+        log.info('started');
+    },
+    onFrame: function (frame) {
+        if (frame === 1) {
+            log.info('frame ' + frame);
+        }
+        if (frame === 2) {
+            throw new Error('stopped at frame ' + frame);
+        }
     }
-    if (frame === 2) {
-        throw new Error('stopped at frame ' + frame);
-    }
-}
+});
