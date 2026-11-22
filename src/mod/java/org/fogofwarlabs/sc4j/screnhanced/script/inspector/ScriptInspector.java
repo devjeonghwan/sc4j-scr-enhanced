@@ -15,11 +15,7 @@ import org.mozilla.javascript.RhinoException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -322,7 +318,7 @@ public final class ScriptInspector {
 
         current.setAnnounced();
         current.getGame().getInterfaceLink().getMessageLines().writeGameMessage(this.createAnnouncement(current).getBytes(StandardCharsets.UTF_8),
-                                                                                  ANNOUNCE_MILLISECONDS);
+                                                                                ANNOUNCE_MILLISECONDS);
     }
 
     private @NotNull String createAnnouncement(@NotNull InspectedGame game) {
@@ -353,7 +349,7 @@ public final class ScriptInspector {
             }
 
             this.nextContextId += attached.getContexts().size();
-            this.inspected      = attached;
+            this.inspected = attached;
 
             this.debugger.attach(attached);
 

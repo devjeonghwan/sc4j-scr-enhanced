@@ -310,8 +310,11 @@ final class InspectorSession {
                 this.runtimeEnabled = false;
                 this.reply(requestId, Map.of());
             }
-            case "Runtime.evaluate", "Runtime.callFunctionOn", "Runtime.getProperties", "Runtime.releaseObject", "Runtime.releaseObjectGroup" ->
-                    this.queueTask(requestId, method, parameters);
+            case "Runtime.evaluate",
+                 "Runtime.callFunctionOn",
+                 "Runtime.getProperties",
+                 "Runtime.releaseObject",
+                 "Runtime.releaseObjectGroup" -> this.queueTask(requestId, method, parameters);
             case "Runtime.compileScript" -> this.reply(requestId, this.compileScript(parameters));
             case "Runtime.globalLexicalScopeNames" -> this.reply(requestId, Map.of("names", List.of()));
             case "Runtime.getIsolateId" -> this.reply(requestId, Map.of("id", this.targetId));
@@ -343,10 +346,13 @@ final class InspectorSession {
                 this.inspector.getDebugger().requestPause();
                 this.reply(requestId, Map.of());
             }
-            case "Debugger.resume", "Debugger.stepOver", "Debugger.stepInto", "Debugger.stepOut", "Debugger.evaluateOnCallFrame" ->
-                    this.queueTask(requestId, method, parameters);
-            case "Debugger.setBreakpoint", "Debugger.setBreakpointOnFunctionCall" ->
-                    this.send(createResponse(requestId, "error", createError(NO_BREAKPOINTS_MESSAGE)));
+            case "Debugger.resume",
+                 "Debugger.stepOver",
+                 "Debugger.stepInto",
+                 "Debugger.stepOut",
+                 "Debugger.evaluateOnCallFrame" -> this.queueTask(requestId, method, parameters);
+            case "Debugger.setBreakpoint",
+                 "Debugger.setBreakpointOnFunctionCall" -> this.send(createResponse(requestId, "error", createError(NO_BREAKPOINTS_MESSAGE)));
             default -> this.reply(requestId, Map.of());
         }
     }
@@ -369,7 +375,9 @@ final class InspectorSession {
      */
     private void answerUnavailable(long requestId, @NotNull String method, @NotNull String message) {
         switch (method) {
-            case "Runtime.evaluate", "Runtime.callFunctionOn", "Debugger.evaluateOnCallFrame" -> this.reply(requestId, createRefusalResult("Error: " + message));
+            case "Runtime.evaluate",
+                 "Runtime.callFunctionOn",
+                 "Debugger.evaluateOnCallFrame" -> this.reply(requestId, createRefusalResult("Error: " + message));
             case "Runtime.releaseObject", "Runtime.releaseObjectGroup" -> this.reply(requestId, Map.of());
             default -> this.send(createResponse(requestId, "error", createError(message)));
         }
@@ -522,8 +530,8 @@ final class InspectorSession {
 
         for (Scriptable scope = activation; scope != null; scope = scope.getParentScope()) {
             String type = scope.getParentScope() == null ? "global"
-                        : scope instanceof NativeCall ? (scope == activation ? "local" : "closure")
-                        : "module";
+                                                         : scope instanceof NativeCall ? (scope == activation ? "local" : "closure")
+                                                                                       : "module";
 
             scopes.add(Map.of("type", type, "object", this.objects.createRemoteObject(context, scope, origin, false)));
         }
@@ -565,8 +573,8 @@ final class InspectorSession {
         ScriptConsole console = game.getConsole();
 
         return this.runConsole(console, origin, scriptContext -> this.createResult(scriptContext, console,
-                                                                                    debugger.evaluate(scriptContext, frame, expression), origin,
-                                                                                    parameters));
+                                                                                   debugger.evaluate(scriptContext, frame, expression), origin,
+                                                                                   parameters));
     }
 
     /**
@@ -699,7 +707,7 @@ final class InspectorSession {
             String type = arguments.isEmpty() ? "" : String.valueOf(findObject(arguments.getFirst()).get("value"));
 
             return console.run(true, scriptContext -> Map.of("result", Map.of("type", "object", "value",
-                                                                                this.objects.findCompletions(console.getScope(), thisObject, type))));
+                                                                              this.objects.findCompletions(console.getScope(), thisObject, type))));
         }
 
         return this.runConsole(console, origin, scriptContext -> {

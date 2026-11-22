@@ -473,7 +473,7 @@ final class InspectorObjects {
      * an array.
      */
     private @NotNull Map<String, Object> createPreview(@NotNull Context context, @NotNull Scriptable object, @Nullable String subtype,
-                                                      @NotNull String description) {
+                                                       @NotNull String description) {
         List<Object> properties = new ArrayList<>();
         Map<String, Function> gameValues = findGameValueMethods(object);
         boolean overflow = false;

@@ -262,7 +262,7 @@ final class ScriptInspectorTest {
                                                                                          "nonIndexedPropertiesOnly", true));
 
             Assertions.assertTrue(readPropertyNames(properties, "result").containsAll(List.of("$_", "modules", "counter", "helper", "require", "log",
-                                                                                             "game", "UnitType", "Math")),
+                                                                                              "game", "UnitType", "Math")),
                                   properties::toString);
         }
     }
@@ -451,7 +451,7 @@ final class ScriptInspectorTest {
             client.call("Debugger.enable", Map.of());
 
             Map<String, Object> breakpoint = client.call("Debugger.setBreakpointByUrl", Map.of("url", InspectedRuntimeScenario.MAIN_NAME,
-                                                                                                "lineNumber", 3));
+                                                                                               "lineNumber", 3));
             Thread gameThread = Thread.ofPlatform().start(() -> scenario.getRuntime().runFrame(1));
 
             Map<String, Object> paused = client.awaitEvent("Debugger.paused");

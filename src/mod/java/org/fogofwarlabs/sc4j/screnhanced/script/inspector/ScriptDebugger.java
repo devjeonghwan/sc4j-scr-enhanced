@@ -4,7 +4,10 @@ import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptConsole;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mozilla.javascript.*;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.JavaScriptException;
+import org.mozilla.javascript.RhinoException;
+import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.debug.DebugFrame;
 import org.mozilla.javascript.debug.DebuggableScript;
 import org.mozilla.javascript.debug.Debugger;
@@ -436,8 +439,8 @@ final class ScriptDebugger implements Debugger {
         this.lastException = exception;
 
         Object value = exception instanceof JavaScriptException thrown ? thrown.getValue()
-                     : exception instanceof RhinoException error ? error.details()
-                     : exception.toString();
+                                                                       : exception instanceof RhinoException error ? error.details()
+                                                                                                                   : exception.toString();
 
         this.hold(EXCEPTION_REASON, value, List.of());
     }

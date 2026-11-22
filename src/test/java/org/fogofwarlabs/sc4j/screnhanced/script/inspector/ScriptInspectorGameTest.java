@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +43,7 @@ final class ScriptInspectorGameTest {
     }
 
     private static @NotNull Map<String, Object> evaluateIn(@NotNull DevToolsClientScenario client, @NotNull Map<String, Object> context,
-                                                          @NotNull String expression) {
+                                                           @NotNull String expression) {
         return client.call("Runtime.evaluate", Map.of("expression", expression, "contextId", context.get("id"), "returnByValue", true));
     }
 
