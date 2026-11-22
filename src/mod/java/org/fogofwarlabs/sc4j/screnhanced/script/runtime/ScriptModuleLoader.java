@@ -134,6 +134,13 @@ final class ScriptModuleLoader {
     }
 
     /**
+     * @return the script contents by name, as in the script package
+     */
+    @NotNull Map<String, byte[]> getScripts() {
+        return this.scripts;
+    }
+
+    /**
      * Sets whether local code runs: {@code require} of a module that has not loaded then throws a {@code TypeError}.
      *
      * @param local {@code true} while local code runs

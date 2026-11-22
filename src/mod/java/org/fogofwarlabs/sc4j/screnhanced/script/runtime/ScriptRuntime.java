@@ -21,6 +21,8 @@ import org.jetbrains.annotations.Nullable;
 import org.mozilla.javascript.*;
 
 import java.io.Serial;
+import java.util.Collections;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -579,6 +581,13 @@ public final class ScriptRuntime {
     public void playLocalSounds() {
         this.checkNotDisposed();
         this.scriptGame.playLocalSounds();
+    }
+
+    /**
+     * @return the script contents by name, as in the script package
+     */
+    public @NotNull Map<String, byte[]> getScripts() {
+        return Collections.unmodifiableMap(this.moduleLoader.getScripts());
     }
 
     /**

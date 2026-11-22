@@ -317,6 +317,24 @@ public final class ScriptInspector {
     }
 
     /**
+     * Enables the {@code Debugger} events of a session and sends it the scripts of the attached game, together, so that no change of the game
+     * comes between them.
+     *
+     * @param session the session
+     */
+    void enableDebugger(@NotNull InspectorSession session) {
+        synchronized (this.lock) {
+            session.setDebuggerEnabled(true);
+
+            InspectedGame current = this.inspected;
+
+            if (current != null) {
+                session.sendScripts(current);
+            }
+        }
+    }
+
+    /**
      * Adds a request that runs on the game thread at the next frame start.
      *
      * @param task the request

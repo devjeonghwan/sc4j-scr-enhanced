@@ -411,6 +411,26 @@ final class ScriptInspectorTest {
     }
 
     @Test
+    void debugger_enable_lists_the_scripts_and_their_sources_without_breakpoints() throws Exception {
+        try (InspectedRuntimeScenario scenario = start();
+             DevToolsClientScenario client = scenario.connect()) {
+            client.call("Debugger.enable", Map.of());
+
+            Map<String, Object> main = client.awaitEvent("Debugger.scriptParsed");
+            Map<String, Object> util = client.awaitEvent("Debugger.scriptParsed");
+
+            Assertions.assertEquals(InspectedRuntimeScenario.MAIN_NAME, main.get("url"));
+            Assertions.assertEquals(UTIL_NAME, util.get("url"));
+            Assertions.assertEquals(4, ((Number) util.get("endLine")).intValue());
+            Assertions.assertEquals(UTIL_SCRIPT, client.call("Debugger.getScriptSource", Map.of("scriptId", util.get("scriptId"))).get(
+                    "scriptSource"));
+            Assertions.assertNotNull(client.send("Debugger.getScriptSource", Map.of("scriptId", "missing")).get("error"));
+            Assertions.assertNotNull(client.send("Debugger.setBreakpointByUrl", Map.of("url", UTIL_NAME, "lineNumber", 1)).get("error"));
+            Assertions.assertEquals(Map.of("locations", List.of()), client.call("Debugger.getPossibleBreakpoints", Map.of()));
+        }
+    }
+
+    @Test
     void requests_without_a_game_are_answered_at_once() throws Exception {
         ScriptInspector inspector = new ScriptInspector();
         int port = inspector.start(0);

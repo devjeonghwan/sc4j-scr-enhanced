@@ -25,7 +25,9 @@ import java.util.regex.Pattern;
  * The session answers the {@code Runtime} domain: {@code enable} and {@code disable}, {@code evaluate}, {@code callFunctionOn},
  * {@code getProperties}, {@code releaseObject} and {@code releaseObjectGroup}, which run on the game thread at the next frame start
  * ({@link #runTask}), and {@code compileScript}, {@code globalLexicalScopeNames}, {@code getIsolateId} and {@code getHeapUsage}, which it answers
- * at once. Any other method, of any domain, gets an empty result, so that DevTools works without a debugger, a profiler or pages.
+ * at once. Of the {@code Debugger} domain it answers {@code enable}, which sends a {@code Debugger.scriptParsed} event for each script of the
+ * script package, and {@code getScriptSource}, so that the Sources panel shows the scripts; breakpoints are refused, since the scripts run
+ * without a debugger. Any other method, of any domain, gets an empty result, so that DevTools works without a profiler or pages.
  * <p>
  * An evaluation with {@code throwOnSideEffect}, which DevTools sends while the console's text is typed, runs only a name or a chain of property
  * reads, as local code; any other text is refused. The {@code getCompletions} function of DevTools runs as Java code, since Rhino keeps the
@@ -51,6 +53,8 @@ final class InspectorSession {
     private static final @NotNull String NO_FRAME_MESSAGE = "The game ran no frame: it is paused or has ended.";
     private static final @NotNull String NO_OBJECT_MESSAGE = "Could not find object with given id";
     private static final @NotNull String NO_CONTEXT_MESSAGE = "Cannot find context with specified id";
+    private static final @NotNull String NO_SCRIPT_MESSAGE = "No script for id: {0}";
+    private static final @NotNull String NO_BREAKPOINTS_MESSAGE = "Breakpoints are not supported: the scripts run without a debugger.";
     /**
      * A name or a chain of property reads with names, numbers and string literals: the text that an evaluation with
      * {@code throwOnSideEffect} runs.
@@ -156,6 +160,7 @@ final class InspectorSession {
     private final @NotNull InspectorObjects objects;
 
     private volatile boolean runtimeEnabled;
+    private volatile boolean debuggerEnabled;
     private volatile boolean closed;
 
     /**
@@ -176,8 +181,9 @@ final class InspectorSession {
         this.pending  = new ConcurrentLinkedQueue<>();
         this.objects  = new InspectorObjects();
 
-        this.runtimeEnabled = false;
-        this.closed         = false;
+        this.runtimeEnabled  = false;
+        this.debuggerEnabled = false;
+        this.closed          = false;
     }
 
     /**
@@ -194,6 +200,15 @@ final class InspectorSession {
      */
     void setRuntimeEnabled(boolean runtimeEnabled) {
         this.runtimeEnabled = runtimeEnabled;
+    }
+
+    /**
+     * Sets whether the session receives the {@code Debugger} events.
+     *
+     * @param debuggerEnabled {@code true} after {@code Debugger.enable}
+     */
+    void setDebuggerEnabled(boolean debuggerEnabled) {
+        this.debuggerEnabled = debuggerEnabled;
     }
 
 
@@ -290,7 +305,18 @@ final class InspectorSession {
             case "Runtime.globalLexicalScopeNames" -> this.reply(requestId, Map.of("names", List.of()));
             case "Runtime.getIsolateId" -> this.reply(requestId, Map.of("id", this.targetId));
             case "Runtime.getHeapUsage" -> this.reply(requestId, Map.of("usedSize", 0, "totalSize", 0));
-            case "Debugger.enable" -> this.reply(requestId, Map.of("debuggerId", this.targetId));
+            case "Debugger.enable" -> {
+                this.reply(requestId, Map.of("debuggerId", this.targetId));
+                this.inspector.enableDebugger(this);
+            }
+            case "Debugger.disable" -> {
+                this.debuggerEnabled = false;
+                this.reply(requestId, Map.of());
+            }
+            case "Debugger.getScriptSource" -> this.reply(requestId, Map.of("scriptSource", this.findScriptSource(requireString(parameters, "scriptId"))));
+            case "Debugger.getPossibleBreakpoints" -> this.reply(requestId, Map.of("locations", List.of()));
+            case "Debugger.setBreakpoint", "Debugger.setBreakpointByUrl", "Debugger.setBreakpointOnFunctionCall" ->
+                    this.send(createResponse(requestId, "error", createError(NO_BREAKPOINTS_MESSAGE)));
             default -> this.reply(requestId, Map.of());
         }
     }
@@ -348,8 +374,22 @@ final class InspectorSession {
     }
 
     /**
+     * Finds the source of a script of the attached game.
+     */
+    private @NotNull String findScriptSource(@NotNull String scriptId) {
+        InspectedGame game = this.inspector.getInspected();
+        String source = game == null ? null : game.findScriptSource(scriptId);
+
+        if (source == null) {
+            throw Exceptions.newIllegalArgumentException(NO_SCRIPT_MESSAGE, scriptId);
+        }
+
+        return source;
+    }
+
+    /**
      * Called on the game thread when the inspector attached to another game: forgets the objects of the previous game and, with the
-     * {@code Runtime} events enabled, replaces the execution contexts.
+     * {@code Runtime} events enabled, replaces the execution contexts; with the {@code Debugger} events enabled, sends the scripts.
      *
      * @param game the attached game
      */
@@ -359,6 +399,21 @@ final class InspectorSession {
         if (this.runtimeEnabled) {
             this.send(Map.of("method", "Runtime.executionContextsCleared", "params", Map.of()));
             this.sendContexts(game);
+        }
+
+        if (this.debuggerEnabled) {
+            this.sendScripts(game);
+        }
+    }
+
+    /**
+     * Sends the {@code Debugger.scriptParsed} event of each script of a game.
+     *
+     * @param game the game
+     */
+    void sendScripts(@NotNull InspectedGame game) {
+        for (Map<String, Object> script : game.createScriptDescriptions()) {
+            this.send(Map.of("method", "Debugger.scriptParsed", "params", script));
         }
     }
 

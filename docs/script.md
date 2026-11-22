@@ -237,7 +237,7 @@ What the console has:
 
 What it does not have:
 
-- No debugger: no breakpoints, no stepping, no Sources panel, no profiler.
+- No debugger: the Sources panel shows the scripts of the map, read only; no breakpoints, no stepping, no profiler.
 - Code waits while the game runs no frame: while the game menu pauses a single-player game, or while a replay is paused. After 5 seconds DevTools shows an error.
 - While you type, DevTools previews names and property reads only; it calls no function.
 - In local code, changing an object of the script, such as `state.score = 1`, or calling a function that does is not refused. As in the local hooks, do not change what shared code reads (section 3.3).

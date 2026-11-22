@@ -6,9 +6,12 @@ import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Represents the game that the inspector is attached to: its script runtime, the console on it and the execution contexts that DevTools
@@ -17,6 +20,7 @@ import java.util.Map;
 final class InspectedGame {
     private static final @NotNull String SHARED_NAME = "Shared code";
     private static final @NotNull String LOCAL_NAME = "Local code";
+    private static final @NotNull String SCRIPT_ID_SEPARATOR = "/";
 
     /**
      * An execution context of DevTools: console code runs in it as shared or as local code.
@@ -154,6 +158,56 @@ final class InspectedGame {
      */
     void setAnnounced() {
         this.announced = true;
+    }
+
+    /**
+     * Creates the parameters of the {@code Debugger.scriptParsed} event of each script of the script package, in name order. A script's id is
+     * the unique id of the default context and the script name; its URL is the script name, as in the stack traces.
+     *
+     * @return the parameters
+     */
+    @NotNull List<Map<String, Object>> createScriptDescriptions() {
+        List<Map<String, Object>> descriptions = new ArrayList<>();
+        ExecutionContext defaultContext = this.contexts.getFirst();
+
+        for (Map.Entry<String, byte[]> script : new TreeMap<>(this.runtime.getScripts()).entrySet()) {
+            String source = new String(script.getValue(), StandardCharsets.UTF_8);
+            Map<String, Object> description = new LinkedHashMap<>();
+
+            description.put("scriptId", defaultContext.uniqueId + SCRIPT_ID_SEPARATOR + script.getKey());
+            description.put("url", script.getKey());
+            description.put("startLine", 0);
+            description.put("startColumn", 0);
+            description.put("endLine", (int) source.chars().filter(character -> character == '\n').count());
+            description.put("endColumn", source.length() - (source.lastIndexOf('\n') + 1));
+            description.put("executionContextId", defaultContext.id);
+            description.put("hash", Integer.toHexString(source.hashCode()));
+            description.put("isModule", false);
+            description.put("length", source.length());
+            description.put("scriptLanguage", "JavaScript");
+
+            descriptions.add(description);
+        }
+
+        return descriptions;
+    }
+
+    /**
+     * Finds the source of a script by the id of its {@code Debugger.scriptParsed} event.
+     *
+     * @param scriptId the script id
+     * @return the source, or {@code null} if the id names no script of the game
+     */
+    @Nullable String findScriptSource(@NotNull String scriptId) {
+        String prefix = this.contexts.getFirst().uniqueId + SCRIPT_ID_SEPARATOR;
+
+        if (!scriptId.startsWith(prefix)) {
+            return null;
+        }
+
+        byte[] source = this.runtime.getScripts().get(scriptId.substring(prefix.length()));
+
+        return source == null ? null : new String(source, StandardCharsets.UTF_8);
     }
 
     /**
