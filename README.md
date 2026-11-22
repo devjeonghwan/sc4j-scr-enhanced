@@ -54,6 +54,23 @@ HD draws the HD anim, else the HD2 anim; HD2 draws the HD2 anim, else the HD ani
 
 StarCraft: Remastered and the SC:R mod ignore these writes and show the original graphics.
 
+### 5. Enhanced Script
+
+A map can carry JavaScript that runs on every player's game in lockstep: hooks for frames, events and input, timers, screen drawing, command card buttons, and access to units, players and the game data.
+
+```js
+game.every(Time.fromSeconds(30), () => {
+    game.players.getHumans().forEach((player) => player.addMinerals(50));
+});
+
+/** @param {UnitDiedEvent} event */
+function onUnitDied(event) {
+    game.print(event.getUnitType().getName() + ' died.');
+}
+```
+
+The script tool makes a script folder, packs it into a map and protects it: `SC4J.bat tool scr-enhanced script init my-map`. Guide: [Enhanced Script](docs/script.md).
+
 ## Layout
 
 | Path | Contents |
