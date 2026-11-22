@@ -180,7 +180,7 @@ public final class ScriptRuntime {
         String sourceName = exception.sourceName();
 
         return sourceName != null && !ScriptPrelude.isPreludeSource(sourceName) ? Exceptions.format(" ({0}:{1})", sourceName, exception.lineNumber())
-                                                                                 : "";
+                                                                                : "";
     }
 
 

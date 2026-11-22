@@ -1,5 +1,5 @@
-import { Rectangle, Shape, Square } from './shapes';
-import { countTo, delayedSum, Flag, Mode, Scores, sum } from './util';
+import {Rectangle, Shape, Square} from './shapes';
+import {countTo, delayedSum, Flag, Mode, Scores, sum} from './util';
 import * as util from './util';
 
 interface Options {
@@ -29,8 +29,8 @@ for (let index = 0; index < 3; index++) {
 record('loops', callbacks.map((callback) => callback()).join(','));
 
 const [first, , third = 9, ...rest] = [1, 2, undefined, 4, 5];
-const { label = 'none', nested: { value = 0 } = {} }: Options = { nested: { value: 7 } };
-const merged = { ...{ a: 1 }, b: 2 };
+const {label = 'none', nested: {value = 0} = {}}: Options = {nested: {value: 7}};
+const merged = {...{a: 1}, b: 2};
 
 record('destructuring', `${first} ${third} ${rest.join('+')} ${label} ${value} ${merged.a}${merged.b}`);
 record('spread', sum(...[1, 2, 3], 4) + ' ' + [...rest, ...rest].length);
@@ -59,17 +59,17 @@ delayedSum(20, 22).then((total) => log.info('async=' + total));
 log.info(results.join(' | '));
 
 defineHooks({
-    onStart() {
-        log.info('started');
-    },
+                onStart() {
+                    log.info('started');
+                },
 
-    onFrame(frame) {
-        if (frame === 1) {
-            log.info('frame ' + frame);
-        }
+                onFrame(frame) {
+                    if (frame === 1) {
+                        log.info('frame ' + frame);
+                    }
 
-        if (frame === 2) {
-            throw new Error('stopped at frame ' + frame);
-        }
-    }
-});
+                    if (frame === 2) {
+                        throw new Error('stopped at frame ' + frame);
+                    }
+                }
+            });

@@ -259,7 +259,7 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void a_kill_with_a_source_names_the_killer_in_on_unit_died(@NotNull InstallationTestResources resources,
-                                                              @TempDir @NotNull Path folder) throws IOException {
+                                                               @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
                                                                                                                           var victim;
                                                                                                                           function afterSpawn(frame) {

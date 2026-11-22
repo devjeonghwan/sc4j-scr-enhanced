@@ -174,7 +174,7 @@ final class ScriptGraphicsCore {
             try {
                 byte[] content = this.resources.read(this.requireEntry(name));
                 CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                                                         .onUnmappableCharacter(CodingErrorAction.REPORT);
+                                                               .onUnmappableCharacter(CodingErrorAction.REPORT);
 
                 text = decoder.decode(ByteBuffer.wrap(content)).toString();
             } catch (CharacterCodingException exception) {

@@ -148,8 +148,7 @@ final class ScriptSpriteCoreTest {
     }
 
     @Test
-    void a_played_animation_runs_the_iscript_of_the_unit_and_a_held_frame_stays_through_it(@NotNull InstallationTestResources resources)
-            throws IOException {
+    void a_played_animation_runs_the_iscript_of_the_unit_and_a_held_frame_stays_through_it(@NotNull InstallationTestResources resources) throws IOException {
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(resources.getGameData(), """
                                                                                                      var marine;
                                                                                                      var main;

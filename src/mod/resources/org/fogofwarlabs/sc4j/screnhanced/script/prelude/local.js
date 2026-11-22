@@ -44,7 +44,10 @@
                                   },
                                   // The pointer in interface units {x, y}, the units of the screen drawing, at any interface size and zoom.
                                   getPointerPosition: function () {
-                                      return core.local.isPointerKnown() ? Object.freeze({x: core.local.getPointerX(), y: core.local.getPointerY()}) : null;
+                                      return core.local.isPointerKnown() ? Object.freeze({
+                                                                                             x: core.local.getPointerX(),
+                                                                                             y: core.local.getPointerY()
+                                                                                         }) : null;
                                   },
                                   // The size of the local interface in interface units: as wide as the interface, 480 high.
                                   getInterfaceWidth: function () {

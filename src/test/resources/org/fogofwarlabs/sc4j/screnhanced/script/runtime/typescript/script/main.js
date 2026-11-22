@@ -1,6 +1,6 @@
 "use strict";
 var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
+    __assign = Object.assign || function (t) {
         for (var s, i = 1, n = arguments.length; i < n; i++) {
             s = arguments[i];
             for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
@@ -20,29 +20,38 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 var _a, _b, _c;
-Object.defineProperty(exports, "__esModule", { value: true });
+Object.defineProperty(exports, "__esModule", {value: true});
 var shapes_1 = require("./shapes");
 var util_1 = require("./util");
 var util = require("./util");
 var results = [];
+
 function record(name, value) {
     results.push(name + '=' + value);
 }
+
 var shapes = [new shapes_1.Rectangle(2, 3), new shapes_1.Square(3)];
-record('classes', shapes.map(function (shape) { return shape.describe(); }).join(','));
+record('classes', shapes.map(function (shape) {
+    return shape.describe();
+}).join(','));
 record('instanceof', (shapes[1] instanceof shapes_1.Rectangle) + '/' + shapes_1.Square.count);
 var callbacks = [];
 var _loop_1 = function (index) {
     var doubled = index * 2;
-    callbacks.push(function () { return index + doubled; });
+    callbacks.push(function () {
+        return index + doubled;
+    });
 };
 for (var index = 0; index < 3; index++) {
     _loop_1(index);
 }
-record('loops', callbacks.map(function (callback) { return callback(); }).join(','));
+record('loops', callbacks.map(function (callback) {
+    return callback();
+}).join(','));
 var _d = [1, 2, undefined, 4, 5], first = _d[0], _e = _d[2], third = _e === void 0 ? 9 : _e, rest = _d.slice(3);
-var _f = { nested: { value: 7 } }, _g = _f.label, label = _g === void 0 ? 'none' : _g, _h = _f.nested, _j = _h === void 0 ? {} : _h, _k = _j.value, value = _k === void 0 ? 0 : _k;
-var merged = __assign({ a: 1 }, { b: 2 });
+var _f = {nested: {value: 7}}, _g = _f.label, label = _g === void 0 ? 'none' : _g, _h = _f.nested, _j = _h === void 0 ? {} : _h, _k = _j.value,
+    value = _k === void 0 ? 0 : _k;
+var merged = __assign({a: 1}, {b: 2});
 record('destructuring', "".concat(first, " ").concat(third, " ").concat(rest.join('+'), " ").concat(label, " ").concat(value, " ").concat(merged.a).concat(merged.b));
 record('spread', util_1.sum.apply(void 0, __spreadArray(__spreadArray([], [1, 2, 3], false), [4], false)) + ' ' + __spreadArray(__spreadArray([], rest, true), rest, true).length);
 var options = Math.max(1, 2) > 1 ? {} : undefined;
@@ -59,18 +68,20 @@ for (var _i = 0, shapes_2 = shapes; _i < shapes_2.length; _i++) {
     counted.push(shape.area());
 }
 record('generator', counted.join(','));
-(0, util_1.delayedSum)(20, 22).then(function (total) { return log.info('async=' + total); });
+(0, util_1.delayedSum)(20, 22).then(function (total) {
+    return log.info('async=' + total);
+});
 log.info(results.join(' | '));
 defineHooks({
-    onStart: function () {
-        log.info('started');
-    },
-    onFrame: function (frame) {
-        if (frame === 1) {
-            log.info('frame ' + frame);
-        }
-        if (frame === 2) {
-            throw new Error('stopped at frame ' + frame);
-        }
-    }
-});
+                onStart: function () {
+                    log.info('started');
+                },
+                onFrame: function (frame) {
+                    if (frame === 1) {
+                        log.info('frame ' + frame);
+                    }
+                    if (frame === 2) {
+                        throw new Error('stopped at frame ' + frame);
+                    }
+                }
+            });

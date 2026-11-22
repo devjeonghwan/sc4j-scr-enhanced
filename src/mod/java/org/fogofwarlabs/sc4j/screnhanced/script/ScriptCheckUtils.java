@@ -86,13 +86,13 @@ public final class ScriptCheckUtils {
     private static final @NotNull List<SyntaxNote> SYNTAX_NOTES = List.of(
             new SyntaxNote("\\bclass\\b", "Rhino 1.8.1 has no class syntax; use functions and prototypes, or compile TypeScript with target ES5"),
             new SyntaxNote("\\bsuper\\b", "Rhino 1.8.1 has no class syntax and takes super only in object literal methods; use functions and " +
-                                            "prototypes, or compile TypeScript with target ES5"),
+                                          "prototypes, or compile TypeScript with target ES5"),
             new SyntaxNote("\\basync\\b|\\bawait\\b", "Rhino 1.8.1 has no async and await; use promises, or compile TypeScript with target ES5"),
             new SyntaxNote("\\bfor\\s*\\(\\s*const\\b", "Rhino 1.8.1 has no for (const ...); use let, or compile TypeScript with target ES5"),
             new SyntaxNote("\\.\\.\\.", "Rhino 1.8.1 has no spread ... and no rest element in destructuring, only rest parameters; compile " +
                                         "TypeScript with target ES5"),
             new SyntaxNote("^\\s*(import|export)\\b", "Rhino 1.8.1 has no import and export; use require and module.exports, or compile " +
-                                                    "TypeScript with module commonjs")
+                                                      "TypeScript with module commonjs")
     );
 
     /**
