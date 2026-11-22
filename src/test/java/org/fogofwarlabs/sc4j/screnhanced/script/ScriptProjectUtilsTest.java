@@ -43,10 +43,9 @@ final class ScriptProjectUtilsTest {
      */
     private static final int MAXIMUM_PATH_DEPTH = 3;
     /**
-     * The runtime globals the declarations leave to TypeScript (the CommonJS names of a module) or leave out (the generator function
-     * replacement, which only throws).
+     * The runtime globals the declarations leave out: the generator function replacement, which only throws.
      */
-    private static final @NotNull Set<String> UNDECLARED_GLOBALS = Set.of("module", "exports", "require", "GeneratorFunction");
+    private static final @NotNull Set<String> UNDECLARED_GLOBALS = Set.of("GeneratorFunction");
     /**
      * The globals that Rhino's standard objects have and the runtime replaces.
      */
@@ -110,6 +109,7 @@ final class ScriptProjectUtilsTest {
             Map.entry("LocationFlag", "LocationFlag.LowGround"),
             Map.entry("DrawFunction", "DrawFunction.get(0)"),
             Map.entry("BulletState", "BulletState.get(0)"),
+            Map.entry("Animation", "Animation.get(0)"),
             Map.entry("Sprite", "game.createEffect(SpriteType.get(0), Position.of(1, 2))"),
             Map.entry("SpriteImage", "game.createEffect(SpriteType.get(0), Position.of(1, 2)).getMainImage()"),
             Map.entry("Bullet", "prelude.createEvent(record(EventKind.BulletCreated.id)).getBullet()"),
@@ -124,6 +124,7 @@ final class ScriptProjectUtilsTest {
             Map.entry("GraphicsKind", "Graphics.get(0)"),
             Map.entry("ConsoleControl", "ConsoleControl.get(0)"),
             Map.entry("ConsoleImage", "ConsoleImage.get(0)"),
+            Map.entry("ConsoleAnchor", "ConsoleAnchor.get(0)"),
             Map.entry("ConsoleControlHandle", "display.console.getControl(ConsoleControl.Minimap)"),
             Map.entry("ButtonCondition", "ButtonCondition.get(0)"),
             Map.entry("ButtonAction", "ButtonAction.get(0)"),

@@ -87,17 +87,29 @@ final class ScriptCheckUtilsTest {
 
     @Test
     void check_should_name_the_syntax_that_rhino_lacks(@TempDir @NotNull Path folder) throws IOException {
-        Assertions.assertEquals(List.of("async.js:2: error: missing ; before statement (Rhino 1.8.1 has no async and await)",
+        Assertions.assertEquals(List.of("async.js:2: error: missing ; before statement (Rhino 1.8.1 has no async and await; use promises, or " +
+                                        "compile TypeScript with target ES5)",
                                         "class.js:1: error: identifier is a reserved word: class (Rhino 1.8.1 has no class syntax; use functions " +
-                                        "and prototypes)",
-                                        "const.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let)",
+                                        "and prototypes, or compile TypeScript with target ES5)",
+                                        "const-count.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let, or compile TypeScript " +
+                                        "with target ES5)",
+                                        "const-in.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let, or compile TypeScript " +
+                                        "with target ES5)",
+                                        "const.js:1: error: syntax error (Rhino 1.8.1 has no for (const ...); use let, or compile TypeScript with " +
+                                        "target ES5)",
                                         "export.js:1: error: identifier is a reserved word: export (Rhino 1.8.1 has no import and export; use " +
-                                        "require and module.exports)",
-                                        "spread.js:1: error: syntax error (Rhino 1.8.1 has no spread ...; only rest parameters)"),
+                                        "require and module.exports, or compile TypeScript with module commonjs)",
+                                        "spread.js:1: error: syntax error (Rhino 1.8.1 has no spread ... and no rest element in destructuring, " +
+                                        "only rest parameters; compile TypeScript with target ES5)",
+                                        "super.js:2: error: super should be inside a shorthand function (Rhino 1.8.1 has no class syntax and takes " +
+                                        "super only in object literal methods; use functions and prototypes, or compile TypeScript with target ES5)"),
                                 check(folder, withManifest("class.js", "class Marine {}\n",
                                                            "async.js", "var x = 1;\nasync function load() {}\n",
                                                            "spread.js", "log.info(...[1, 2]);\n",
+                                                           "super.js", "function Marine() {\n    super(...arguments);\n}\n",
                                                            "const.js", "for (const unit of game.units.getAll()) {}\n",
+                                                           "const-in.js", "for (const key in game) {}\n",
+                                                           "const-count.js", "for (const index = 0; index < 1; ) {}\n",
                                                            "export.js", "export var size = 1;\n",
                                                            "rest.js", "function sum(...values) {\n    return values.length;\n}\n")));
     }
@@ -116,6 +128,54 @@ final class ScriptCheckUtilsTest {
                                                                       var onValue = 1;
                                                                       """)));
         Assertions.assertEquals(0, runCheckCommand(folder));
+    }
+
+    @Test
+    void check_should_warn_of_exported_hooks(@TempDir @NotNull Path folder) throws IOException {
+        Assertions.assertEquals(List.of("hud.js:4: warning: onLocalFrame is exported, but its name makes it a hook of this module: the runtime " +
+                                        "calls it besides any caller; give a helper another name.",
+                                        "hud.js:5: warning: onRender is exported, but its name makes it a hook of this module: the runtime calls " +
+                                        "it besides any caller; give a helper another name."),
+                                check(folder, withManifest("main.js", "var hud = require('./hud');\nfunction onLocalFrame(frame) {\n}\n",
+                                                           "hud.js", """
+                                                                     "use strict";
+                                                                     exports.onLocalFrame = exports.draw = void 0;
+                                                                     function onLocalFrame(frame) {}
+                                                                     exports.onLocalFrame = onLocalFrame;
+                                                                     module.exports.onRender = function (screen) {};
+                                                                     exports.onLocalFrame = onLocalFrame;
+                                                                     exports.draw = function () {};
+                                                                     """)));
+        Assertions.assertEquals(0, runCheckCommand(folder));
+    }
+
+    @Test
+    void check_should_report_what_define_hooks_throws_for(@TempDir @NotNull Path folder) throws IOException {
+        Assertions.assertEquals(List.of("main.js:3: error: onUnitDie is not a known hook: defineHooks throws.",
+                                        "main.js:6: error: The hook onFrame is defined twice with defineHooks: defineHooks throws.",
+                                        "main.js:8: error: The hook onStart is both a top-level function and defined with defineHooks: the module " +
+                                        "fails to load.",
+                                        "main.js:10: error: local.getPlayer throws in onBeforeOrder, which is shared code: read it in a local hook " +
+                                        "(onLocal*, onRender).",
+                                        "main.js:13: warning: onUnitDance is not a known hook and is not called."),
+                                check(folder, withManifest("main.js", """
+                                                                      defineHooks({
+                                                                          onFrame(frame) {},
+                                                                          onUnitDie(event) {},
+                                                                          'onLocalFrame': function (frame) { log.info(local.getPlayer()); }
+                                                                      });
+                                                                      defineHooks({onFrame: function () {}});
+                                                                      defineHooks({
+                                                                          onStart() {},
+                                                                          onRender(screen) { log.info(local.getPlayer()); },
+                                                                          onBeforeOrder(decision) { log.info(local.getPlayer()); }
+                                                                      });
+                                                                      function onStart() {}
+                                                                      function onUnitDance() {}
+                                                                      """, "own.js", """
+                                                                                     function defineHooks(hooks) {}
+                                                                                     defineHooks({onTick() {}});
+                                                                                     """)));
     }
 
     @Test
@@ -144,12 +204,12 @@ final class ScriptCheckUtilsTest {
     void check_should_report_names_that_core_dat_lacks(@TempDir @NotNull Path folder) throws IOException {
         Assertions.assertEquals(List.of("main.js:2: error: core.dat has no table unit.",
                                         "main.js:3: error: core.dat.units has no function getMineralCosts.",
-                                        "main.js:4: error: core.dat.sprites has no function setHealthBarWidth."),
+                                        "main.js:4: error: core.dat.images has no function setGraphicsFile."),
                                 check(folder, withManifest("main.js", """
                                                                       function onStart() {
                                                                           core.dat.unit.getMineralCost(0);
                                                                           core.dat.units.getMineralCosts(0);
-                                                                          core.dat.sprites.setHealthBarWidth(130, 1);
+                                                                          core.dat.images.setGraphicsFile(0, 1);
                                                                           core.dat.units.setMineralCost(0, core.dat.units.getMineralCost(0) + 1);
                                                                           core.dat.weapons.getTargetFlags(0);
                                                                       }

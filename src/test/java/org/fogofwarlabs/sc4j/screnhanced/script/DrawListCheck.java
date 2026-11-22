@@ -59,9 +59,14 @@ public final class DrawListCheck {
         }
 
         @Override
-        public void drawPicture(@NotNull Picture picture, float x, float y, float width, float height, float opacity) {
+        public void drawPicture(@NotNull Picture picture,
+                                float sourceX, float sourceY, float sourceWidth, float sourceHeight,
+                                float x, float y, float width, float height,
+                                float opacity) {
+            boolean whole = sourceX == 0 && sourceY == 0 && sourceWidth == picture.getWidth() && sourceHeight == picture.getHeight();
+
             this.commands.add("drawPicture " + picture.getWidth() + 'x' + picture.getHeight() + ' ' + x + ' ' + y + ' ' + width + ' ' + height + ' ' +
-                              opacity);
+                              opacity + (whole ? "" : " from " + sourceX + ' ' + sourceY + ' ' + sourceWidth + ' ' + sourceHeight));
         }
     }
 

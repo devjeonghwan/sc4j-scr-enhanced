@@ -254,6 +254,116 @@ final class ScriptRuntimeTest {
     }
 
     @Test
+    void define_hooks_run_as_top_level_function_hooks_per_module_in_load_order() throws IOException {
+        ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
+                ScriptRuntimeScenario.MAIN_NAME, """
+                                                 require('./first.js');
+                                                 require('./second.js');
+                                                 defineHooks({
+                                                     onStart() { log.info('start'); }
+                                                 });
+                                                 defineHooks({
+                                                     onFrame: function (frame) { log.info('frame', frame); }
+                                                 });
+                                                 """,
+                "first.js", """
+                            function onFrame(frame) { log.info('frame', frame); }
+                            """,
+                "second.js", """
+                             'use strict';
+                             var count = 0;
+                             var hooks = {
+                                 onStart() { log.info('start', this === hooks, typeof onStart); },
+                                 onFrame(frame) { count++; log.info('frame', frame, count, this === hooks); }
+                             };
+                             defineHooks(hooks);
+                             hooks.onFrame = function () { log.info('replaced'); };
+                             """
+        );
+
+        List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 2);
+
+        Assertions.assertEquals(List.of("INFO main.js: start", "INFO second.js: start true undefined",
+                                        "INFO main.js: frame 0", "INFO first.js: frame 0", "INFO second.js: frame 0 1 true",
+                                        "INFO main.js: frame 1", "INFO first.js: frame 1", "INFO second.js: frame 1 2 true"), lines);
+    }
+
+    @Test
+    void define_hooks_errors_name_the_line_of_the_script_and_the_budget_stops_the_script() throws IOException {
+        ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(ScriptRuntimeScenario.MAIN_NAME, """
+                                                                                                           defineHooks({
+                                                                                                               onStart() {
+                                                                                                                   null.x;
+                                                                                                               },
+                                                                                                               onFrame(frame) {
+                                                                                                                   log.info('frame', frame);
+                                                                                                                   if (frame === 1) {
+                                                                                                                       for (;;) {}
+                                                                                                                   }
+                                                                                                               }
+                                                                                                           });
+                                                                                                           """);
+        ScriptRuntimeScenario scenario = new ScriptRuntimeScenario(scriptPackage, ScriptRuntimeScenario.SEED, 100_000);
+
+        scenario.getRuntime().start();
+
+        for (int frame = 0; frame < 3; frame++) {
+            scenario.getRuntime().runFrame(frame);
+        }
+
+        Assertions.assertEquals(List.of("ERROR main.js: onStart failed: TypeError: Cannot read property \"x\" from null (main.js:3)",
+                                        "INFO main.js: frame 0", "INFO main.js: frame 1",
+                                        "ERROR main.js: onFrame ran more than the budget of instructions; the script stopped."),
+                                scenario.getLines());
+        Assertions.assertTrue(scenario.getRuntime().isStopped());
+    }
+
+    @Test
+    void define_hooks_should_throw_for_wrong_hooks_and_outside_the_loading() throws IOException {
+        ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
+                ScriptRuntimeScenario.MAIN_NAME, """
+                                                 function attempt(hooks) {
+                                                     try { defineHooks(hooks); log.info('defined'); } catch (e) { log.info(e.name, e.message); }
+                                                 }
+                                                 attempt(null);
+                                                 attempt(function () {});
+                                                 attempt({onFrame() {}, onUnitDie(event) {}});
+                                                 attempt({onFrame: 1});
+                                                 attempt({onStart() {}});
+                                                 attempt({onStart() { log.info('start'); }});
+                                                 attempt({onFrame() { attempt({onLocalFrame() {}}); }});
+                                                 function onRender(screen) {}
+                                                 attempt({onRender(screen) {}});
+                                                 for (let name of ['./late.js', './hoisted.js']) {
+                                                     try { require(name); } catch (e) { log.info(name, e.name, e.message); }
+                                                 }
+                                                 """,
+                "late.js", """
+                           defineHooks({onFrame(frame) {}});
+                           var onFrame = function (frame) {};
+                           """,
+                "hoisted.js", """
+                              defineHooks({onFrame(frame) {}});
+                              function onFrame(frame) {}
+                              """
+        );
+
+        List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 1);
+
+        Assertions.assertEquals(List.of("INFO main.js: TypeError defineHooks needs an object of hooks.",
+                                        "INFO main.js: TypeError defineHooks needs an object of hooks.",
+                                        "INFO main.js: TypeError onUnitDie is not a known hook.",
+                                        "INFO main.js: TypeError The hook onFrame is not a function.",
+                                        "INFO main.js: defined",
+                                        "INFO main.js: Error The hook onStart is defined twice with defineHooks.",
+                                        "INFO main.js: defined",
+                                        "INFO main.js: Error The hook onRender is both a top-level function and defined with defineHooks.",
+                                        "INFO main.js: ./late.js Error The hook onFrame is both a top-level function and defined with defineHooks.",
+                                        "INFO main.js: ./hoisted.js Error The hook onFrame is both a top-level function and defined with defineHooks.",
+                                        "INFO main.js: Error defineHooks works only while the module loads."), lines);
+    }
+
+    @Test
     void an_exceeded_budget_stops_the_script_for_the_rest_of_the_game() throws IOException {
         ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
                 ScriptRuntimeScenario.MAIN_NAME, """
@@ -345,6 +455,35 @@ final class ScriptRuntimeTest {
                                         "INFO main.js: main 0", "INFO other.js: other 0",
                                         "ERROR main.js: onFrame failed: TypeError: Cannot read property \"x\" from null (main.js:7)",
                                         "INFO other.js: other 1", "INFO main.js: main 2", "INFO other.js: other 2"), lines);
+    }
+
+    @Test
+    void an_error_of_the_api_is_logged_at_the_line_of_the_calling_script() throws IOException {
+        ScriptPackage scriptPackage = ScriptRuntimeScenario.createPackage(
+                ScriptRuntimeScenario.MAIN_NAME, """
+                                                 const helper = require('./helper.js');
+                                                 function onStart() {
+                                                     helper.readPlayer();
+                                                 }
+                                                 function onFrame(frame) {
+                                                     local.setScreenPosition(frame);
+                                                 }
+                                                 """,
+                "helper.js", """
+                             exports.readPlayer = function () {
+                                 return local.getPlayer();
+                             };
+                             """
+        );
+
+        List<String> lines = ScriptRuntimeScenario.run(scriptPackage, ScriptRuntimeScenario.SEED, 1);
+
+        Assertions.assertEquals(2, lines.size(), lines::toString);
+        Assertions.assertTrue(lines.get(0).startsWith("ERROR main.js: onStart failed: TypeError: "), lines::toString);
+        Assertions.assertTrue(lines.get(0).endsWith(" (helper.js:2)"), lines::toString);
+        Assertions.assertTrue(lines.get(1).startsWith("ERROR main.js: onFrame failed: TypeError: "), lines::toString);
+        Assertions.assertTrue(lines.get(1).endsWith(" (main.js:6)"), lines::toString);
+        Assertions.assertTrue(lines.stream().noneMatch(line -> line.contains("prelude/")), lines::toString);
     }
 
     @Test

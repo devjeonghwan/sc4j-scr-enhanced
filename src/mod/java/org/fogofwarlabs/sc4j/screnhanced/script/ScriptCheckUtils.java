@@ -26,16 +26,19 @@ import java.util.regex.Pattern;
  * The manifest: present and valid, the main script in the folder, the script API {@value ScriptProjectUtils#API_VERSION} (a warning
  * otherwise); the names of the scripts and resources (errors of the folder {@value #FOLDER_FILE}).
  * <p>
- * Each script, read as UTF-8 and compiled by Rhino with the settings of the runtime: the syntax errors, the first of each line, with a note
- * when the line holds syntax that Rhino 1.8.1 lacks ({@code class}, {@code async} and {@code await}, spread {@code ...},
- * {@code for (const ...)}, {@code import} and {@code export}); after a successful compile, references to the globals the runtime does not
- * have ({@code eval}, {@code Date}, {@code java}, {@code Packages} and the other Java and timer globals) and calls of the {@code Function}
- * constructor (errors) unless the script declares the name, top-level functions with the form of a hook name that no hook has (warnings, as
- * the runtime warns), a {@code const} in a loop, which keeps its first value in Rhino 1.8.1 (a warning), and functions in the body of a
- * {@code for (let ...)} loop that use its variables, which all iterations share in Rhino 1.8.1 (a warning), and names under {@code core.dat}
- * that the DAT tables do not have, a table or a function of a table (errors), unless the script declares {@code core}, and uses of
- * {@code local.*} at the top level of a module or directly in a shared hook, where they throw (errors), unless the script declares
- * {@code local}.
+ * Each script, read as UTF-8 and compiled by Rhino with the settings of the runtime: the syntax errors, the first of each line, with a note when the
+ * line holds syntax that Rhino 1.8.1 lacks ({@code class} and {@code super}, {@code async} and {@code await}, spread {@code ...},
+ * {@code for (const ...)}, {@code import} and {@code export}), which names the TypeScript target that avoids it; after a successful compile,
+ * references to the globals the runtime does not have ({@code eval}, {@code Date}, {@code java}, {@code Packages} and the other Java and timer
+ * globals) and calls of the {@code Function} constructor (errors) unless the script declares the name, top-level functions with the form of a hook
+ * name that no hook has (warnings, as the runtime warns), the properties of an object literal given to {@code defineHooks} whose name no hook
+ * has, and the hooks that two {@code defineHooks} calls or a call and a top-level function define (errors, as the runtime throws), unless the
+ * script declares {@code defineHooks}, a hook name assigned to {@code exports} or {@code module.exports}, whose function the runtime calls as a
+ * hook besides the modules that call it (a warning, once per name), a {@code const} in a loop, which keeps its first value in
+ * Rhino 1.8.1 (a warning), and functions in the body of a {@code for (let ...)} loop that use its variables, which all iterations share in Rhino
+ * 1.8.1 (a warning), and names under {@code core.dat} that the DAT tables do not have, a table or a function of a table (errors), unless the script
+ * declares {@code core}, and uses of {@code local.*} at the top level of a module or directly in a shared hook, a top-level function or a method
+ * of {@code defineHooks}, where they throw (errors), unless the script declares {@code local}.
  * <p>
  * Each resource named {@code *.grp}, {@code *.anim}, {@code *.png} or {@code *.dds}, read as the runtime reads a GRP, an anim or an image.
  * The size: the script trailer with every file stored as it is against the largest map file (a warning).
@@ -53,6 +56,7 @@ public final class ScriptCheckUtils {
     private static final @NotNull String DDS_EXTENSION = ".dds";
     private static final int FIRST_LINE = 1;
     private static final @NotNull String FUNCTION_CONSTRUCTOR_NAME = "Function";
+    private static final @NotNull String DEFINE_HOOKS_NAME = "defineHooks";
     /**
      * The namespace of the DAT tables under {@code core}.
      */
@@ -63,6 +67,11 @@ public final class ScriptCheckUtils {
     private static final @NotNull String LOCAL_NAME = "local";
     private static final @NotNull String GETTER_PREFIX = "get";
     private static final @NotNull String SETTER_PREFIX = "set";
+    /**
+     * The name of a module's exports and the property of {@code module} that holds them.
+     */
+    private static final @NotNull String EXPORTS_NAME = "exports";
+    private static final @NotNull String MODULE_NAME = "module";
     /**
      * The globals a script does not have: removed from Rhino's standard objects, or Java, XML and timer globals that the runtime never defines.
      */
@@ -75,11 +84,15 @@ public final class ScriptCheckUtils {
      * The notes of the syntax that Rhino 1.8.1 lacks, for a line with a syntax error that holds it.
      */
     private static final @NotNull List<SyntaxNote> SYNTAX_NOTES = List.of(
-            new SyntaxNote("\\bclass\\b", "Rhino 1.8.1 has no class syntax; use functions and prototypes"),
-            new SyntaxNote("\\basync\\b|\\bawait\\b", "Rhino 1.8.1 has no async and await"),
-            new SyntaxNote("\\bfor\\s*\\(\\s*const\\b", "Rhino 1.8.1 has no for (const ...); use let"),
-            new SyntaxNote("\\.\\.\\.", "Rhino 1.8.1 has no spread ...; only rest parameters"),
-            new SyntaxNote("^\\s*(import|export)\\b", "Rhino 1.8.1 has no import and export; use require and module.exports")
+            new SyntaxNote("\\bclass\\b", "Rhino 1.8.1 has no class syntax; use functions and prototypes, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\bsuper\\b", "Rhino 1.8.1 has no class syntax and takes super only in object literal methods; use functions and " +
+                                          "prototypes, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\basync\\b|\\bawait\\b", "Rhino 1.8.1 has no async and await; use promises, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\bfor\\s*\\(\\s*const\\b", "Rhino 1.8.1 has no for (const ...); use let, or compile TypeScript with target ES5"),
+            new SyntaxNote("\\.\\.\\.", "Rhino 1.8.1 has no spread ... and no rest element in destructuring, only rest parameters; compile " +
+                                        "TypeScript with target ES5"),
+            new SyntaxNote("^\\s*(import|export)\\b", "Rhino 1.8.1 has no import and export; use require and module.exports, or compile " +
+                                                      "TypeScript with module commonjs")
     );
 
     /**
@@ -307,6 +320,9 @@ public final class ScriptCheckUtils {
      */
     private static void checkTree(@NotNull String scriptName, @NotNull AstRoot root, @NotNull List<ScriptFinding> findings) {
         Set<String> declaredNames = collectDeclaredNames(root);
+        Set<String> exportedHooks = new HashSet<>();
+        Set<String> topLevelFunctions = new HashSet<>();
+        Map<String, ObjectProperty> definedHooks = new LinkedHashMap<>();
 
         root.visitAll(node -> {
             if (node instanceof Name name && UNAVAILABLE_GLOBALS.contains(name.getIdentifier()) && isReference(name) &&
@@ -317,12 +333,16 @@ public final class ScriptCheckUtils {
                        target.getIdentifier().equals(FUNCTION_CONSTRUCTOR_NAME) && !declaredNames.contains(FUNCTION_CONSTRUCTOR_NAME)) {
                 findings.add(new ScriptFinding(scriptName, call.getLineno(), Severity.ERROR,
                                                "The Function constructor throws: scripts cannot create functions from strings."));
+            } else if (node instanceof FunctionCall call && isDefineHooks(call) && !declaredNames.contains(DEFINE_HOOKS_NAME)) {
+                checkDefineHooks(scriptName, call, definedHooks, findings);
             } else if (node instanceof FunctionNode function) {
-                checkHookFunction(scriptName, function, findings);
+                checkHookFunction(scriptName, function, topLevelFunctions, findings);
             } else if (node instanceof VariableDeclaration declaration) {
-                checkDeclaration(scriptName, declaration, findings);
+                checkDeclaration(scriptName, declaration, topLevelFunctions, findings);
             } else if (node instanceof Loop loop) {
                 checkLetLoop(scriptName, loop, findings);
+            } else if (node instanceof Assignment assignment) {
+                checkExportedHook(scriptName, assignment, exportedHooks, findings);
             } else if (node instanceof PropertyGet get) {
                 if (!declaredNames.contains(ScriptGame.CORE_NAME)) {
                     checkDatName(scriptName, get, findings);
@@ -335,6 +355,61 @@ public final class ScriptCheckUtils {
 
             return true;
         });
+
+        for (Map.Entry<String, ObjectProperty> hook : definedHooks.entrySet()) {
+            if (topLevelFunctions.contains(hook.getKey())) {
+                findings.add(new ScriptFinding(scriptName, hook.getValue().getLineno(), Severity.ERROR,
+                                               Exceptions.format("The hook {0} is both a top-level function and defined with defineHooks: the " +
+                                                                 "module fails to load.", hook.getKey())));
+            }
+        }
+    }
+
+    /**
+     * @return {@code true} if the call is a call of {@code defineHooks}, {@code false} otherwise
+     */
+    private static boolean isDefineHooks(@NotNull FunctionCall call) {
+        return call.getTarget() instanceof Name target && target.getIdentifier().equals(DEFINE_HOOKS_NAME);
+    }
+
+    /**
+     * Finds the name of an object literal property that is an identifier or a string.
+     *
+     * @return the name, or {@code null} if the property has a computed or numeric name
+     */
+    private static @Nullable String findPropertyName(@NotNull ObjectProperty property) {
+        return switch (property.getLeft()) {
+            case Name name -> name.getIdentifier();
+            case StringLiteral literal -> literal.getValue();
+            default -> null;
+        };
+    }
+
+    /**
+     * Reports what the runtime throws for in a {@code defineHooks} call with an object literal: a property whose name no hook has and a hook
+     * that an earlier call defined. Collects the defined hooks by name.
+     */
+    private static void checkDefineHooks(@NotNull String scriptName, @NotNull FunctionCall call, @NotNull Map<String, ObjectProperty> definedHooks,
+                                         @NotNull List<ScriptFinding> findings) {
+        if (call.getArguments().isEmpty() || !(call.getArguments().getFirst() instanceof ObjectLiteral hooks)) {
+            return;
+        }
+
+        for (ObjectProperty property : hooks.getElements()) {
+            String hookName = findPropertyName(property);
+
+            if (hookName == null) {
+                continue;
+            }
+
+            if (ScriptHook.findByFunctionName(hookName) == null) {
+                findings.add(new ScriptFinding(scriptName, property.getLineno(), Severity.ERROR,
+                                               Exceptions.format("{0} is not a known hook: defineHooks throws.", hookName)));
+            } else if (definedHooks.putIfAbsent(hookName, property) != null) {
+                findings.add(new ScriptFinding(scriptName, property.getLineno(), Severity.ERROR,
+                                               Exceptions.format("The hook {0} is defined twice with defineHooks: defineHooks throws.", hookName)));
+            }
+        }
     }
 
     /**
@@ -373,7 +448,8 @@ public final class ScriptCheckUtils {
 
     /**
      * Reports a use of the local information ({@code local.*}) that always runs as shared code, where it throws: at the top level of a module or
-     * directly in a top-level hook function that is not a local hook. A use in a nested function is not reported.
+     * directly in a hook that is not a local hook, a top-level function or a method of an object literal given to {@code defineHooks} at the top
+     * level. A use in a nested function is not reported.
      */
     private static void checkLocalUse(@NotNull String scriptName, @NotNull PropertyGet get, @NotNull List<ScriptFinding> findings) {
         if (!(get.getTarget() instanceof Name target) || !target.getIdentifier().equals(LOCAL_NAME)) {
@@ -385,9 +461,17 @@ public final class ScriptCheckUtils {
 
         if (function != null) {
             Name functionName = function.getFunctionName();
-            ScriptHook hook = functionName != null && function.getEnclosingFunction() == null
-                              ? ScriptHook.findByFunctionName(functionName.getIdentifier())
-                              : null;
+            String hookName = null;
+
+            if (function.getEnclosingFunction() == null && function.getParent() instanceof ObjectProperty property &&
+                property.getRight() == function && property.getParent() instanceof ObjectLiteral literal &&
+                literal.getParent() instanceof FunctionCall call && isDefineHooks(call)) {
+                hookName = findPropertyName(property);
+            } else if (function.getEnclosingFunction() == null && functionName != null) {
+                hookName = functionName.getIdentifier();
+            }
+
+            ScriptHook hook = hookName != null ? ScriptHook.findByFunctionName(hookName) : null;
 
             if (hook == null || hook.isLocal()) {
                 return;
@@ -447,12 +531,15 @@ public final class ScriptCheckUtils {
     }
 
     /**
-     * Warns of a top-level function with the form of a hook name that no hook has, as the runtime warns when the script loads.
+     * Warns of a top-level function with the form of a hook name that no hook has, as the runtime warns when the script loads. Collects the names
+     * of the top-level functions.
      */
-    private static void checkHookFunction(@NotNull String scriptName, @NotNull FunctionNode function, @NotNull List<ScriptFinding> findings) {
+    private static void checkHookFunction(@NotNull String scriptName, @NotNull FunctionNode function, @NotNull Set<String> topLevelFunctions,
+                                          @NotNull List<ScriptFinding> findings) {
         Name functionName = function.getFunctionName();
 
         if (function.getFunctionType() == FunctionNode.FUNCTION_STATEMENT && functionName != null && function.getEnclosingFunction() == null) {
+            topLevelFunctions.add(functionName.getIdentifier());
             checkHookName(scriptName, functionName.getIdentifier(), function.getLineno(), findings);
         }
     }
@@ -465,14 +552,45 @@ public final class ScriptCheckUtils {
     }
 
     /**
-     * Checks a variable declaration: a top-level variable that holds a function with the form of a hook name that no hook has, and a
-     * {@code const} in a loop.
+     * Warns of a function with a hook name assigned to {@code exports.name} or {@code module.exports.name}, as TypeScript writes an exported
+     * function: the runtime calls it as a hook of the module, and a module that calls it runs it again. An assignment of {@code void 0}, also at
+     * the end of a chain {@code exports.a = exports.b = void 0}, which TypeScript writes before the exports, is not reported.
      */
-    private static void checkDeclaration(@NotNull String scriptName, @NotNull VariableDeclaration declaration, @NotNull List<ScriptFinding> findings) {
+    private static void checkExportedHook(@NotNull String scriptName, @NotNull Assignment assignment, @NotNull Set<String> exportedHooks,
+                                          @NotNull List<ScriptFinding> findings) {
+        AstNode value = assignment.getRight();
+
+        while (value instanceof Assignment chained) {
+            value = chained.getRight();
+        }
+
+        if (!(assignment.getLeft() instanceof PropertyGet target) || value instanceof UnaryExpression unary && unary.getType() == Token.VOID) {
+            return;
+        }
+
+        String name = target.getProperty().getIdentifier();
+        boolean exports = target.getTarget() instanceof Name object && object.getIdentifier().equals(EXPORTS_NAME) ||
+                          target.getTarget() instanceof PropertyGet moduleExports && moduleExports.getTarget() instanceof Name module &&
+                          module.getIdentifier().equals(MODULE_NAME) && moduleExports.getProperty().getIdentifier().equals(EXPORTS_NAME);
+
+        if (exports && ScriptHook.findByFunctionName(name) != null && exportedHooks.add(name)) {
+            findings.add(new ScriptFinding(scriptName, assignment.getLineno(), Severity.WARNING,
+                                           Exceptions.format("{0} is exported, but its name makes it a hook of this module: the runtime " +
+                                                             "calls it besides any caller; give a helper another name.", name)));
+        }
+    }
+
+    /**
+     * Checks a variable declaration: a top-level variable that holds a function with the form of a hook name that no hook has, and a
+     * {@code const} in a loop. Collects the names of the top-level variables that hold a function.
+     */
+    private static void checkDeclaration(@NotNull String scriptName, @NotNull VariableDeclaration declaration, @NotNull Set<String> topLevelFunctions,
+                                         @NotNull List<ScriptFinding> findings) {
         boolean topLevel = declaration.getEnclosingFunction() == null && (declaration.isVar() || declaration.getParent() instanceof AstRoot);
 
         for (VariableInitializer variable : declaration.getVariables()) {
             if (topLevel && variable.getTarget() instanceof Name name && variable.getInitializer() instanceof FunctionNode) {
+                topLevelFunctions.add(name.getIdentifier());
                 checkHookName(scriptName, name.getIdentifier(), variable.getLineno(), findings);
             }
         }

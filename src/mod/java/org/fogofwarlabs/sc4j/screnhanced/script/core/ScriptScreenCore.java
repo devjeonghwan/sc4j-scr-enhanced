@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalDisplay;
@@ -24,7 +25,9 @@ import java.io.IOException;
  * {@code fillRectangle(x, y, width, height, argb)}, {@code drawRectangle(x, y, width, height, argb, thickness)},
  * {@code fillCircle(x, y, radius, argb)}, {@code drawCircle(x, y, radius, argb, thickness)},
  * {@code drawLine(x1, y1, x2, y2, argb, thickness)}, {@code drawPoint(x, y, argb)}, {@code drawText(x, y, text, fontId, argb, alignId)},
- * {@code drawImage(imageId, x, y, width, height, opacity)} and {@code measureText(text, fontId)} (the width of the widest line in interface
+ * {@code drawImage(imageId, x, y, width, height, opacity)}, {@code drawImageRegion(imageId, sourceX, sourceY, sourceWidth, sourceHeight, x, y,
+ * width, height, opacity)} (a rectangle of the image in its pixels, inside the image, as a frame of a sprite sheet) and
+ * {@code measureText(text, fontId)} (the width of the widest line in interface
  * units in the client's fonts, {@code 0} before the client drew a frame). Coordinates are numbers with fractions; colours are packed
  * {@code 0xAARRGGBB}; the fonts are the four of {@link ScrDrawList.Font} in order, the alignments those of {@link ScrDrawList.Align}. The drawing
  * functions throw a {@code TypeError} outside {@code onRender}.
@@ -234,6 +237,28 @@ final class ScriptScreenCore {
 
             this.building.drawPicture(space, this.graphicsCore.readPicture(arguments, 0), ScriptCoreUtils.readNumber(arguments, 1),
                                       ScriptCoreUtils.readNumber(arguments, 2), readSize(arguments, 3), readSize(arguments, 4), opacity);
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "drawImageRegion", 10, (context, scope, thisObject, arguments) -> {
+            this.checkRendering();
+
+            Picture picture = this.graphicsCore.readPicture(arguments, 0);
+            float sourceX = ScriptCoreUtils.readNumber(arguments, 1);
+            float sourceY = ScriptCoreUtils.readNumber(arguments, 2);
+            float sourceWidth = readSize(arguments, 3);
+            float sourceHeight = readSize(arguments, 4);
+            float opacity = Math.clamp(ScriptCoreUtils.readNumber(arguments, 9), 0, 1);
+
+            if (sourceX < 0 || sourceY < 0 || sourceX + sourceWidth > picture.getWidth() || sourceY + sourceHeight > picture.getHeight()) {
+                String message = Exceptions.format("The source rectangle {0}, {1}, {2} by {3} is not inside the {4} by {5} image.", sourceX, sourceY,
+                                                   sourceWidth, sourceHeight, picture.getWidth(), picture.getHeight());
+
+                throw ScriptRuntime.rangeError(message);
+            }
+
+            this.building.drawPicture(space, picture, sourceX, sourceY, sourceWidth, sourceHeight, ScriptCoreUtils.readNumber(arguments, 5),
+                                      ScriptCoreUtils.readNumber(arguments, 6), readSize(arguments, 7), readSize(arguments, 8), opacity);
 
             return Context.getUndefinedValue();
         });

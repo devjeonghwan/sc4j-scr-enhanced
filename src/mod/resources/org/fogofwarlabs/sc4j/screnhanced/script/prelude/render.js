@@ -75,14 +75,25 @@
 
                 namespace.drawText(x, y, String(text), readFontOption(values.font), readColorOption(values.color), align);
             },
-            // Options {width, height, opacity}; the size is the image's pixel size in the space's units by default.
+            // Options {width, height, opacity, source}; source {x, y, width, height} draws a rectangle of the image in its pixels. The size is the
+            // pixel size of the source rectangle, else of the image, in the space's units by default.
             drawImage: function (image, x, y, options) {
                 var values = readOptions(options);
                 var id = requireObject(image, imagePrototype, 'An image').id;
-                var width = values.width === undefined ? image.getWidth() : values.width;
-                var height = values.height === undefined ? image.getHeight() : values.height;
+                var opacity = values.opacity === undefined ? DEFAULT_OPACITY : values.opacity;
 
-                namespace.drawImage(id, x, y, width, height, values.opacity === undefined ? DEFAULT_OPACITY : values.opacity);
+                if (values.source === undefined || values.source === null) {
+                    namespace.drawImage(id, x, y, values.width === undefined ? image.getWidth() : values.width,
+                                        values.height === undefined ? image.getHeight() : values.height, opacity);
+
+                    return;
+                }
+
+                var source = readOptions(values.source);
+
+                namespace.drawImageRegion(id, source.x, source.y, source.width, source.height, x, y,
+                                          values.width === undefined ? source.width : values.width,
+                                          values.height === undefined ? source.height : values.height, opacity);
             },
             // The width of the widest line in interface units, in the client's fonts. Local code only.
             measureText: function (text, font) {

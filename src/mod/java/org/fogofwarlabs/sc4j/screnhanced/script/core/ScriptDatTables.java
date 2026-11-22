@@ -28,10 +28,12 @@ import java.util.function.Function;
  * name without {@code Flags} followed by the bit's name ({@code GroupZerg}); bits named {@code FLAG_<bits>} have no established meaning and
  * no flag.
  * <p>
- * The values are the game's own DAT tables ({@link GameData}), which EUD writes change too. A column that the EUD emulation serves read-only or
- * not at all (the bar columns of sprites.dat, the GRP and overlay columns of images.dat) is not writable; a column that the EUD emulation
- * validates takes only the values the emulation stores (a flingy, an image, a drawing function, an iscript id). A column with fewer elements
- * than its table holds the entries from its first id on.
+ * The values are the game's own DAT tables ({@link GameData}), which EUD writes change too. A column that the EUD emulation serves not at all
+ * (the GRP and overlay columns of images.dat) is not writable; a column that the EUD emulation validates takes only the values the emulation
+ * stores (a flingy, an image, a drawing function, an iscript id). The bar columns of sprites.dat, which the EUD emulation keeps from EUD
+ * writes, are writable: the health bar width, the selection circle (one of the {@code 10} circle sizes) and its
+ * vertical offset; a selection circle takes them when it is shown, a health bar when it is drawn. A column with fewer elements than its table
+ * holds the entries from its first id on.
  */
 public final class ScriptDatTables {
     /**
@@ -51,6 +53,10 @@ public final class ScriptDatTables {
      */
     private static final @NotNull String FLAG_COLUMN_SUFFIX = "FLAGS";
     private static final @NotNull String CONSTANT_SEPARATOR = "_";
+    /**
+     * The selection circle sizes, the solid circle images from {@link ImageIds#SELECTION_CIRCLE_22PIXELS} on.
+     */
+    private static final int SELECTION_CIRCLE_SIZES = ImageIds.SELECTION_CIRCLE_DASHED_22PIXELS - ImageIds.SELECTION_CIRCLE_22PIXELS;
     /**
      * The tables in the order of {@code core.dat}.
      */
@@ -101,8 +107,8 @@ public final class ScriptDatTables {
                         Map.of(SpritesDat.HEALTH_BAR_WIDTH, ScrSpriteTypeView.FIRST_SELECTABLE_SPRITE,
                                SpritesDat.SELECTION_CIRCLE, ScrSpriteTypeView.FIRST_SELECTABLE_SPRITE,
                                SpritesDat.SELECTION_CIRCLE_OFFSET, ScrSpriteTypeView.FIRST_SELECTABLE_SPRITE),
-                        Map.of(SpritesDat.IMAGE, ImagesDat.IMAGE_COUNT),
-                        Set.of(SpritesDat.HEALTH_BAR_WIDTH, SpritesDat.SELECTION_CIRCLE, SpritesDat.SELECTION_CIRCLE_OFFSET)),
+                        Map.of(SpritesDat.IMAGE, ImagesDat.IMAGE_COUNT, SpritesDat.SELECTION_CIRCLE, SELECTION_CIRCLE_SIZES),
+                        Set.of()),
             createTable("images", "images.dat", "image type", Reference.IMAGE_TYPE, ImagesDat.IMAGE_COUNT, GameData::getImages,
                         ImagesDat.class, ImagesDat.createSchema(),
                         Map.of(),

@@ -1,6 +1,7 @@
 // The presentation of the upper layer: the globals display (display.console, display.strings, display.messages, display.sound, display.images
-// and display.commandCard of command-card.js), ConsoleControl and ConsoleImage, and the console control objects they return. Shared code changes
-// the presentation on every peer, local code only on the local machine.
+// and display.commandCard of command-card.js), ConsoleControl, ConsoleImage, ConsoleAnchor and ConsoleChild, and the console control objects
+// they return.
+// Shared code changes the presentation on every peer, local code only on the local machine.
 (function (core, prelude) {
     'use strict';
 
@@ -65,13 +66,46 @@
 
     var consoleControlPrototype = create(typePrototype);
     var consoleImagePrototype = create(typePrototype);
+    var consoleAnchorPrototype = create(typePrototype);
     var ConsoleControl = createConstantTable(consoleControlPrototype,
                                              ['CommandCard', 'Selection', 'Resources', 'Portrait', 'Minimap', 'Menu', 'TextBox'], 7, 'Control ');
     // The console art files of the shown race console: SD frame, HD/HD2 pieces, time and APM plates, portrait overlay.
     var ConsoleImage = createConstantTable(consoleImagePrototype,
                                            ['Console', 'ConsoleLeft', 'ConsoleCenter', 'ConsoleRight', 'ConsoleTime', 'ConsoleApm', 'Conover'], 7,
                                            'Image ');
+    // The interface edges the classic screen of a console control's positions stands at.
+    var ConsoleAnchor = createConstantTable(consoleAnchorPrototype, ['Left', 'Center', 'Right'], 3, 'Anchor ');
+    // The identifiers of the well-known controls of the console dialogs in their definitions, by dialog.
+    var consoleChildren = {
+        SelectionWireframe: 1,
+        SelectionName: -5,
+        SelectionHitPoints: -7,
+        SelectionEnergy: -8,
+        SelectionProgress: 7,
+        ResourcesCountdown: -10,
+        PortraitPicture: 1,
+        MenuButton: 1,
+        MinimapArea: 1,
+        MinimapTerrain: 2,
+        MinimapMessage: 3,
+        MinimapDiplomacy: 4,
+        TextBoxEdit: 7
+    };
+
+    // The numbered children: name prefix, first identifier, count.
+    [['CommandCardButton', 1, 9], ['SelectionQueue', 2, 5], ['SelectionGroup', 33, 12], ['ResourcesCounter', 1, 6]].forEach(function (series) {
+        for (var index = 0; index < series[2]; index++) {
+            consoleChildren[series[0] + (index + 1)] = series[1] + index;
+        }
+    });
+
+    var ConsoleChild = freeze(consoleChildren);
     var consoleControlObjects = [];
+
+    // The rectangle {x, y, width, height} of the lower layer's [x, y, width, height], null for none.
+    function toRectangle(values) {
+        return values === null ? null : freeze({x: values[0], y: values[1], width: values[2], height: values[3]});
+    }
 
     // A console control: one of the console dialogs, placed by its top left in the classic 640 by 480 screen.
     var consoleControlObjectPrototype = {
@@ -97,6 +131,17 @@
         },
         restoreChild: function (id) {
             core.console.restoreControl(this.control.id, id);
+        },
+        // The interface edge the classic screen of the dialog's positions, and those of its controls, stands at.
+        setAnchor: function (anchor) {
+            core.console.setDialogAnchor(this.control.id, requireObject(anchor, consoleAnchorPrototype, 'A console anchor').id);
+        },
+        // The rectangle the client last drew in interface units, null while hidden or not drawn. Local code only.
+        getRectangle: function () {
+            return toRectangle(core.console.getDialogRectangle(this.control.id));
+        },
+        getChildRectangle: function (id) {
+            return toRectangle(core.console.getControlRectangle(this.control.id, id));
         }
     };
 
@@ -143,6 +188,17 @@
                                      var id = requireObject(consoleImage, consoleImagePrototype, 'A console image').id;
 
                                      core.console.replaceImage(id, image === null || image === undefined ? NONE : requireObject(image, imagePrototype, 'An image').id);
+                                 },
+                                 // The side of the drawn minimap area in interface units, 128 installed.
+                                 setMinimapSize: function (size) {
+                                     core.console.setMinimapSize(size);
+                                 },
+                                 getMinimapSize: function () {
+                                     return core.console.getMinimapSize();
+                                 },
+                                 // The minimap area as the client last drew it, null while hidden or not drawn. Local code only.
+                                 getMinimapRectangle: function () {
+                                     return toRectangle(core.console.getMinimapRectangle());
                                  },
                                  // Draws an image for the icon of a resource type, null for the icon of EUD memory or the installed one.
                                  setResourceIcon: function (resourceType, image) {
@@ -202,12 +258,14 @@
                              commandCard: commandCard
                          });
 
-    [consoleControlPrototype, consoleImagePrototype, consoleControlObjectPrototype].forEach(freeze);
+    [consoleControlPrototype, consoleImagePrototype, consoleAnchorPrototype, consoleControlObjectPrototype].forEach(freeze);
 
     return {
         exports: {
             ConsoleControl: ConsoleControl,
             ConsoleImage: ConsoleImage,
+            ConsoleAnchor: ConsoleAnchor,
+            ConsoleChild: ConsoleChild,
             display: display
         },
         shared: {}

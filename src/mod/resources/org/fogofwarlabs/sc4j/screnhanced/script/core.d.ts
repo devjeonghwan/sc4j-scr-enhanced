@@ -728,8 +728,10 @@ interface CoreDatSprites {
 
     setImage(spriteType: number, value: number): void;
 
-    /** Health Bar (sprite types 130 to 516, read only) */
+    /** Health Bar (sprite types 130 to 516) */
     getHealthBarWidth(spriteType: number): number;
+
+    setHealthBarWidth(spriteType: number, value: number): void;
 
     /** Unused */
     getUnused(spriteType: number): number;
@@ -741,11 +743,15 @@ interface CoreDatSprites {
 
     setVisible(spriteType: number, value: number): void;
 
-    /** Selection Circle (sprite types 130 to 516, read only) */
+    /** Selection Circle (sprite types 130 to 516, below 10) */
     getSelectionCircle(spriteType: number): number;
 
-    /** Y Position (sprite types 130 to 516, read only) */
+    setSelectionCircle(spriteType: number, value: number): void;
+
+    /** Y Position (sprite types 130 to 516) */
     getSelectionCircleOffset(spriteType: number): number;
+
+    setSelectionCircleOffset(spriteType: number, value: number): void;
 }
 
 /**
@@ -2003,6 +2009,19 @@ interface CoreUnit {
     kill(unit: number): boolean;
 
     /**
+     * Deals damage as a hit does after armor and shields: the amount comes off the hit points, and a unit whose hit points run out dies. The
+     * death and the kill count for the source: the unit event names the source unit as the killer and the source player as the killer's
+     * player, the source unit's kill count grows against an enemy, and the source player's kill and score counters count the unit. A source
+     * unit is revealed to the damaged unit's owner as an attacker is. Shared code only.
+     *
+     * @param amount       the raw damage in 1/256 hit points, at least 0
+     * @param source       the attacking unit, or -1 for none
+     * @param sourcePlayer the attacking player slot, or -1 for none
+     * @returns {@code false} for a subunit, which stays with its unit
+     */
+    damage(unit: number, amount: number, source: number, sourcePlayer: number): boolean;
+
+    /**
      * Removes the unit without a death, as Remove Unit does. Shared code only.
      *
      * @returns {@code false} for a subunit, which stays with its unit
@@ -2041,6 +2060,15 @@ interface CoreUnit {
      * factor 2, none for a weapon without a flingy. Shared code only.
      */
     useWeapon(unit: number, weapon: number): void;
+
+    /**
+     * Plays an iscript animation on every image of the unit's sprite, as the orders request one: each image switches to the animation and runs
+     * it at once. An image whose request gate ignores the animation, and every image while the sprite runs a section that must not be broken,
+     * keeps its own. Shared code only.
+     *
+     * @param animation the animation of the iscript animation table, 2 (GndAttkInit) to 27 (Enable); another value throws a RangeError
+     */
+    playAnimation(unit: number, animation: number): void;
 
     /**
      * Returns the orders waiting behind the current one, first to last.
@@ -3197,6 +3225,13 @@ interface CoreResources {
     getImage(name: string): number;
 
     /**
+     * Reads a resource as UTF-8 text, a leading byte order mark left out; bytes that are no UTF-8 throw an Error. The text is decoded once.
+     *
+     * @returns the text
+     */
+    readText(name: string): string;
+
+    /**
      * @param image an image handle ({@link getImage}); another handle or -1 throws a RangeError
      * @returns the width in pixels
      */
@@ -3257,6 +3292,14 @@ interface CoreGraphics {
      * @param frame the frame, 0 to 65535, or -1 to draw the image's own frame again
      */
     setImageFrame(image: number, frame: number): void;
+
+    /**
+     * Holds a drawn frame of one image while its iscript steps its own frame, until -1 releases it, another frame is set or held, or the image
+     * is gone; it wins over an EUD write.
+     *
+     * @param frame the frame, 0 to 65535, or -1 to draw the image's own frame again
+     */
+    holdImageFrame(image: number, frame: number): void;
 
     /**
      * Draws one image with a draw function until the image's own draw function changes, as an EUD write of the draw function does; it wins
@@ -3357,6 +3400,27 @@ interface CoreLocal {
      * Returns the map y under the pointer, in map pixels. Local code only.
      */
     getMouseY(): number;
+
+    /**
+     * Local code only.
+     *
+     * @returns true once the client supplied the pointer in interface units
+     */
+    isPointerKnown(): boolean;
+
+    /**
+     * Local code only.
+     *
+     * @returns the pointer column in interface units from the interface's left edge, the units of {@link CoreScreen}; 0 while unknown
+     */
+    getPointerX(): number;
+
+    /**
+     * Local code only.
+     *
+     * @returns the pointer row in interface units from the game screen's top edge; 0 while unknown
+     */
+    getPointerY(): number;
 
     /**
      * Moves the local screen's top left to a map position at once, as the camera move of Center View does. Local code only.
@@ -3762,6 +3826,21 @@ interface CoreDrawing {
     drawImage(image: number, x: number, y: number, width: number, height: number, opacity: number): void;
 
     /**
+     * Draws a rectangle of an image, as a frame of a sprite sheet or a cropped image, scaled to a rectangle. Only in onRender.
+     *
+     * @param image        the image handle ({@link CoreResources.getImage}); -1 or a handle of no image throws a RangeError
+     * @param sourceX      the left of the drawn part in image pixels
+     * @param sourceY      the top of the drawn part in image pixels
+     * @param sourceWidth  the width of the drawn part in image pixels, at least 0
+     * @param sourceHeight the height of the drawn part in image pixels, at least 0; a part not inside the image throws a RangeError
+     * @param x            the left
+     * @param y            the top
+     * @param opacity      the opacity, 0 to 1; values outside are clamped
+     */
+    drawImageRegion(image: number, sourceX: number, sourceY: number, sourceWidth: number, sourceHeight: number, x: number, y: number,
+                    width: number, height: number, opacity: number): void;
+
+    /**
      * Measures a text in the client's fonts. Local code only.
      *
      * @param font the font id, 0 to 3
@@ -3891,6 +3970,52 @@ interface CoreConsole {
      * @param control the control's identifier in the dialog's definition, -32768 to 32767
      */
     restoreControl(dialog: number, control: number): void;
+
+    /**
+     * Sets the interface edge that the classic screen of a dialog's positions, and those of its controls, stands at.
+     *
+     * @param anchor 0 the left edge, 1 centered (the installed place), 2 the right edge; another value throws a RangeError
+     */
+    setDialogAnchor(dialog: number, anchor: number): void;
+
+    /**
+     * Sets the side of the drawn minimap area. The minimap dialog grows or shrinks with it by size - 128 in width and height, its controls kept at
+     * their offsets from its top left: a dialog placed by {@link CoreConsole.setDialogPosition} keeps its top left, an unplaced one its bottom
+     * left.
+     *
+     * @param size the side in interface units, 1 to 480 (128 installed); another value throws a RangeError
+     */
+    setMinimapSize(size: number): void;
+
+    /**
+     * @returns the side of the drawn minimap area in interface units
+     */
+    getMinimapSize(): number;
+
+    /**
+     * Local code only.
+     *
+     * @returns the dialog's rectangle as the client last drew it, [x, y, width, height] in interface units, or null while it is hidden or not
+     * drawn
+     */
+    getDialogRectangle(dialog: number): number[] | null;
+
+    /**
+     * Local code only.
+     *
+     * @param control the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
+     * @returns the control's rectangle as the client last drew it, [x, y, width, height] in interface units, or null while it or its dialog is
+     * hidden, the dialog has no such control or the console is not drawn
+     */
+    getControlRectangle(dialog: number, control: number): number[] | null;
+
+    /**
+     * Local code only.
+     *
+     * @returns the rectangle of the minimap area (control 1 of the minimap dialog) as the client last drew it, [x, y, width, height] in interface
+     * units, the minimap size wide and high, or null while it or the minimap dialog is hidden or the console is not drawn
+     */
+    getMinimapRectangle(): number[] | null;
 
     /**
      * Replaces a console art file with an image.

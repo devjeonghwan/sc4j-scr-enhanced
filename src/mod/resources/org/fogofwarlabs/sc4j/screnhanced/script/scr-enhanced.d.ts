@@ -2,8 +2,14 @@
 // The declarations stand alone: use them with "noLib": true, as the jsconfig.json of a new script project does, so that no browser or
 // Node.js global is offered.
 //
-// Scripts run in Rhino's interpreter: no class, async/await, spread (...) or for (const ... of ...); a const in a loop keeps its first value
-// and the closures of one for (let ...) loop share one binding. There is no eval, no Function from strings, and no Date, timer or Java access.
+// Scripts run in Rhino 1.8.1's interpreter: no class, async/await, spread (...), import/export, or for (const ...) in any form (of, in or a
+// counting loop): use let. A const declared in a loop body keeps its first value, and the functions created in the body of a for (let ...)
+// loop share one binding of its variables; a let declared in the loop body is new in every iteration. Promise jobs run when the call into the
+// script that queued them returns ({@link Promise}). There is no eval, no Function from strings, and no Date, timer or Java access.
+// TypeScript compiled by tsc with target ES5 and module commonjs runs with those forms, its helpers included (guide section 2.6).
+//
+// A hook is a method of the object given to defineHooks, or a top-level function, or variable holding one, with a hook name; the latter is a
+// hook of its module exported or not: give helpers other names.
 //
 // Shared code is the module top level, onStart, onFrame, the event and decision hooks, the timers of game.every and game.after, and the
 // channel handlers. It runs identically on every player's game and may change the game state. Local code is onLocalFrame, onRender and the
@@ -333,6 +339,8 @@ interface ReadonlyArray<T> {
 
     map<U>(callback: (value: T, index: number, array: readonly T[]) => U, thisArgument?: any): U[];
 
+    filter<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArgument?: any): S[];
+
     filter(predicate: (value: T, index: number, array: readonly T[]) => unknown, thisArgument?: any): T[];
 
     [Symbol.iterator](): IterableIterator<T>;
@@ -356,6 +364,8 @@ interface Array<T> {
     every(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): boolean;
 
     fill(value: T, start?: number, end?: number): this;
+
+    filter<S extends T>(predicate: (value: T, index: number, array: T[]) => value is S, thisArgument?: any): S[];
 
     filter(predicate: (value: T, index: number, array: T[]) => unknown, thisArgument?: any): T[];
 
@@ -475,21 +485,45 @@ interface SymbolConstructor {
 
 declare var Symbol: SymbolConstructor;
 
-interface IteratorResult<T> {
-    done?: boolean;
+interface IteratorYieldResult<T> {
+    done?: false;
     value: T;
 }
 
-interface Iterator<T> {
-    next(): IteratorResult<T>;
+interface IteratorReturnResult<TReturn> {
+    done: true;
+    value: TReturn;
 }
 
-interface Iterable<T> {
-    [Symbol.iterator](): Iterator<T>;
+type IteratorResult<T, TReturn = any> = IteratorYieldResult<T> | IteratorReturnResult<TReturn>;
+
+interface Iterator<T, TReturn = any, TNext = any> {
+    next(...[value]: [] | [TNext]): IteratorResult<T, TReturn>;
+
+    return?(value?: TReturn): IteratorResult<T, TReturn>;
+
+    throw?(error?: any): IteratorResult<T, TReturn>;
 }
 
-interface IterableIterator<T> extends Iterator<T> {
-    [Symbol.iterator](): IterableIterator<T>;
+interface Iterable<T, TReturn = any, TNext = any> {
+    [Symbol.iterator](): Iterator<T, TReturn, TNext>;
+}
+
+interface IterableIterator<T, TReturn = any, TNext = any> extends Iterator<T, TReturn, TNext> {
+    [Symbol.iterator](): IterableIterator<T, TReturn, TNext>;
+}
+
+/**
+ * The object a generator function returns.
+ */
+interface Generator<T = unknown, TReturn = any, TNext = any> extends IterableIterator<T, TReturn, TNext> {
+    next(...[value]: [] | [TNext]): IteratorResult<T, TReturn>;
+
+    return(value: TReturn): IteratorResult<T, TReturn>;
+
+    throw(error: any): IteratorResult<T, TReturn>;
+
+    [Symbol.iterator](): Generator<T, TReturn, TNext>;
 }
 
 interface Map<K, V> {
@@ -588,6 +622,77 @@ interface WeakSetConstructor {
 
 declare var WeakSet: WeakSetConstructor;
 
+/**
+ * A promise. Its jobs, the callbacks of then, catch and finally, run when the call into the script that queued them returns: the module
+ * loading, the hook, the timer or the channel handler, before the next one and within the same instruction budget. A promise that is still
+ * pending then settles only when a later call resolves or rejects it; promises do not wait for time, timers do ({@link Game.after}). A
+ * callback that throws rejects the promise that then, catch or finally returned; a rejection that no callback handles is not logged.
+ */
+interface Promise<T> {
+    then<R1 = T, R2 = never>(onFulfilled?: (value: T) => R1 | PromiseLike<R1>, onRejected?: (reason: any) => R2 | PromiseLike<R2>): Promise<R1 | R2>;
+
+    catch<R = never>(onRejected?: (reason: any) => R | PromiseLike<R>): Promise<T | R>;
+
+    finally(onFinally?: () => void): Promise<T>;
+}
+
+interface PromiseFulfilledResult<T> {
+    status: 'fulfilled';
+    value: T;
+}
+
+/**
+ * The result of a rejected promise in {@link PromiseConstructor.allSettled}: Rhino 1.8.1 writes its status with a leading space.
+ */
+interface PromiseRejectedResult {
+    status: ' rejected';
+    reason: any;
+}
+
+type PromiseSettledResult<T> = PromiseFulfilledResult<T> | PromiseRejectedResult;
+
+interface PromiseConstructor {
+    /**
+     * Creates a promise and calls the executor at once.
+     */
+    new<T>(executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
+
+    readonly prototype: Promise<any>;
+
+    resolve(): Promise<void>;
+
+    resolve<T>(value: T | PromiseLike<T>): Promise<T>;
+
+    reject<T = never>(reason?: any): Promise<T>;
+
+    all<T>(values: Iterable<T | Promise<T>>): Promise<T[]>;
+
+    allSettled<T>(values: Iterable<T | Promise<T>>): Promise<PromiseSettledResult<T>[]>;
+
+    /**
+     * @returns a promise of the first fulfilled value, rejected with an AggregateError when every promise rejects
+     */
+    any<T>(values: Iterable<T | Promise<T>>): Promise<T>;
+
+    race<T>(values: Iterable<T | Promise<T>>): Promise<T>;
+}
+
+declare var Promise: PromiseConstructor;
+
+/**
+ * An object with a then method, as await and a promise's resolve function take it.
+ */
+interface PromiseLike<T> {
+    then<R1 = T, R2 = never>(onFulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+                             onRejected?: ((reason: any) => R2 | PromiseLike<R2>) | null): PromiseLike<R1 | R2>;
+}
+
+/**
+ * The constructor that the code TypeScript writes for async functions below ES2017 calls.
+ */
+type PromiseConstructorLike = new<T>(executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void) =>
+    PromiseLike<T>;
+
 interface JSON {
     parse(text: string, reviver?: (key: string, value: any) => any): any;
 
@@ -616,6 +721,20 @@ declare var ReferenceError: ErrorConstructor;
 declare var SyntaxError: ErrorConstructor;
 declare var TypeError: ErrorConstructor;
 declare var URIError: ErrorConstructor;
+
+interface AggregateError extends Error {
+    errors: any[];
+}
+
+interface AggregateErrorConstructor {
+    new(errors: Iterable<any>, message?: string): AggregateError;
+
+    (errors: Iterable<any>, message?: string): AggregateError;
+
+    readonly prototype: Error;
+}
+
+declare var AggregateError: AggregateErrorConstructor;
 
 declare var NaN: number;
 declare var Infinity: number;
@@ -733,6 +852,48 @@ declare var Math: Math;
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
+ * The module object of a script. Each script of the package is a module: it runs once, in its own top-level scope, and shares its values
+ * through {@link Module.exports}.
+ */
+interface Module {
+    /**
+     * The script name: the path of the script in the package, with {@code .js}, such as {@code lib/util.js}.
+     */
+    readonly id: string;
+
+    /**
+     * The value {@link require} returns for this script: at first the object that {@link exports} names. Assign another value to export it
+     * instead.
+     */
+    exports: any;
+}
+
+/**
+ * The module object of the current script.
+ */
+declare var module: Module;
+
+/**
+ * The first value of {@link Module.exports}: properties added to it are exported. Assigning another value to {@code exports} exports nothing;
+ * assign {@link Module.exports} instead.
+ */
+declare var exports: any;
+
+/**
+ * Loads a script of the package as a module and returns its {@link Module.exports}. An id that starts with {@code ./} or {@code ../} names a
+ * script relative to the folder of the requiring script, any other id a script relative to the package root; {@code .js} is added when the id
+ * does not end with it. The script runs at its first require; later calls return its current {@link Module.exports}, also while it is still
+ * loading, so that cycles end. An error of the loading script passes to the caller, and the next require loads the script again. Local code
+ * may require a script that has loaded, but loads no new one.
+ *
+ * @param id the script id, such as {@code './bonus'} or {@code 'lib/util.js'}
+ * @returns the {@link Module.exports} of the script
+ * @throws TypeError if the id is not a string, or in local code if the script has not loaded
+ * @throws Error if the id is empty, starts with {@code /}, has an empty segment or leaves the package root, or if the package has no such script
+ */
+declare function require(id: string): any;
+
+/**
  * Writes lines to the SC:R Enhanced log, prefixed with the module name: the values are converted to strings and joined with spaces.
  */
 interface Log {
@@ -787,15 +948,17 @@ interface Random {
 declare const random: Random;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// The hooks: top-level functions of a script with these names. Every script (module) that has a hook gets the call, in load order.
+// The hooks: methods of the object given to defineHooks, or top-level functions of a script with these names. Every script (module) that has
+// a hook gets the call, in load order.
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * The hooks a script may define, as top-level functions: {@code function onUnitDied(event) { ... }}. The runtime collects them per module once
- * the module has loaded and calls them from the game. A frame calls onStart (the first frame only), the due timers, the channel handlers of
- * the frame's commands, the event hooks ({@code on*}) of the frame's events ({@link CoreEvents.getFrameEvents}) and onFrame, in this order, at
- * the frame start before the triggers. The decision hooks ({@code onBefore*}) run inside the game routine and may change only the decision.
- * Give the parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
+ * The hooks a script may define, as methods of the object given to {@link defineHooks}: {@code defineHooks({ onUnitDied(event) { ... } })},
+ * or as top-level functions: {@code function onUnitDied(event) { ... }}. The runtime collects them per module once the module has loaded and
+ * calls them from the game. A frame calls onStart (the first frame only), the due timers, the channel handlers of the frame's commands, the
+ * event hooks ({@code on*}) of the frame's events ({@link CoreEvents.getFrameEvents}) and onFrame, in this order, at the frame start before the
+ * triggers. The decision hooks ({@code onBefore*}) run inside the game routine and may change only the decision. A method of defineHooks gets
+ * the type of its parameter from here; give a top-level function's parameter its type with JSDoc: {@code /** @param {UnitDiedEvent} event *\/}.
  *
  * The local hooks ({@code onLocal*}, onRender) are local code and run on this player's machine only, at once. The input hooks do not run in
  * replays or for observers; onLocalFrame and onRender do. Local code may read the game and the local information ({@link local}), move the
@@ -968,6 +1131,21 @@ interface Hooks {
      */
     onBeforeTargetAcquired?(decision: TargetAcquisitionDecision): void;
 }
+
+/**
+ * Defines hooks of this module: each method of the object, named as a member of {@link Hooks}, becomes the module's hook, as a top-level
+ * function of that name would: the same calls, in the same order, with the same budget and errors. A method runs with {@code this} set to the
+ * object. The object's own enumerable properties are read once, at the call.
+ *
+ * Call it while the module loads, at its top level; a module may call it more than once with other hooks. A hook defined twice, by two calls
+ * or by a call and a top-level function, throws an Error; a top-level function assigned after the call makes the loading fail when the module
+ * has run to its end.
+ *
+ * @param hooks the hooks
+ * @throws TypeError if hooks is no object, a property name is no hook name or a property is no function
+ * @throws Error if the module has loaded or a hook is defined already
+ */
+declare function defineHooks(hooks: Hooks): void;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The game API: the upper layer.
@@ -1717,8 +1895,10 @@ interface SpriteTypeData {
 
     setImage(imageType: ImageType): void;
 
-    /** Health Bar (sprite types 130 to 516, read only) */
+    /** Health Bar (sprite types 130 to 516) */
     getHealthBarWidth(): number;
+
+    setHealthBarWidth(value: number): void;
 
     /** Unused */
     getUnused(): number;
@@ -1730,11 +1910,15 @@ interface SpriteTypeData {
 
     setVisible(value: number): void;
 
-    /** Selection Circle (sprite types 130 to 516, read only) */
+    /** Selection Circle (sprite types 130 to 516, below 10) */
     getSelectionCircle(): number;
 
-    /** Y Position (sprite types 130 to 516, read only) */
+    setSelectionCircle(value: number): void;
+
+    /** Y Position (sprite types 130 to 516) */
     getSelectionCircleOffset(): number;
+
+    setSelectionCircleOffset(value: number): void;
 }
 
 /**
@@ -2520,11 +2704,25 @@ interface Unit {
     addHangarCount(count: number): boolean;
 
     /**
-     * Kills the unit as Kill Unit does. Shared code only.
+     * Kills the unit. Without a source it dies as Kill Unit does, credited to nobody; with a source it dies through the damage routine (see
+     * {@link Unit.damage}), so that the death event names the killer and the kill counts for the source. Shared code only.
      *
-     * @returns false when the routine refuses
+     * @param source the killer: a unit (its owner is the killing player) or a player; null or left out for none
+     * @returns false when the routine refuses, as for a subunit
      */
-    kill(): boolean;
+    kill(source?: Unit | Player | null): boolean;
+
+    /**
+     * Takes hit points off the unit as a hit does after armor and shields; a unit whose hit points run out dies. With a source the death event
+     * names the killer ({@link UnitDiedEvent.getKiller}, {@link UnitDiedEvent.getKillerPlayer}), the source unit's kill count grows against an
+     * enemy, the source player's kill and score counters count the unit, and a source unit is revealed to this unit's owner as an attacker is.
+     * Shared code only.
+     *
+     * @param hp     the hit points to take off, at least 0
+     * @param source the attacker: a unit (its owner is the attacking player) or a player; null or left out for none
+     * @returns false for a subunit, which stays with its unit
+     */
+    damage(hp: number, source?: Unit | Player | null): boolean;
 
     /**
      * Removes the unit as Remove Unit does. Shared code only.
@@ -2844,6 +3042,16 @@ interface Unit {
      * factor 2, none for a weapon without a flingy. Shared code only.
      */
     useWeapon(weaponType: WeaponType): void;
+
+    /**
+     * Plays an iscript animation on the images of the unit's sprite, as an order does when its state changes: each image switches to the
+     * animation and runs it at once, with the opcodes the game runs (an attack animation attacks the unit's order target). An image whose
+     * iscript lacks the animation, and every image while the sprite runs a section that must not be broken, keeps its own. The unit's orders
+     * play their own animations again when their state changes. Shared code only.
+     *
+     * @param animation the animation, Animation.GroundAttackInit to Animation.Enable; Init and Death throw a RangeError
+     */
+    playAnimation(animation: Animation): void;
 }
 
 /**
@@ -3865,6 +4073,15 @@ interface SpriteImage {
     setFrame(frame: number | null): void;
 
     /**
+     * Holds a drawn frame: it stays while the image's iscript steps the image's own frame, until it is released with null, another frame is
+     * set or held, or the image is gone. It changes only what is drawn; the image's own frame and its iscript go on as before. The frame is the
+     * whole drawn frame, the direction included ({@link SpriteImage.getDirection}); the graphics of the image must have it.
+     *
+     * @param frame the frame, 0 to 65535, or null to draw the image's own frame again
+     */
+    holdFrame(frame: number | null): void;
+
+    /**
      * @returns the frame offset of the image's direction inside its frame group
      */
     getDirection(): number;
@@ -4441,7 +4658,7 @@ interface Image extends Resource {
 
 /**
  * The files of the map's resource folder ({@link GameMap.resources}). A file is read once; later calls with the same name return the same
- * object. A missing file or one that is not valid for the kind throws an Error.
+ * object. A missing file or one that is not valid for the kind throws an Error. Reading works in shared and local code.
  */
 interface Resources {
     /**
@@ -4473,6 +4690,23 @@ interface Resources {
      * @returns the picture
      */
     getImage(name: string): Image;
+
+    /**
+     * Reads a file as UTF-8 text; a leading byte order mark is left out. A file that is no UTF-8 throws an Error.
+     *
+     * @param name the path relative to resources/
+     * @returns the text
+     */
+    readText(name: string): string;
+
+    /**
+     * Reads a JSON file: the UTF-8 text of {@link Resources.readText}, parsed with JSON.parse. Each call returns a new value; a text that is no
+     * JSON throws a SyntaxError.
+     *
+     * @param name the path relative to resources/
+     * @returns the parsed value
+     */
+    readJson(name: string): any;
 }
 
 /**
@@ -4714,13 +4948,14 @@ interface PlayerValue<T> {
 interface Sync {
     /**
      * Creates a channel. The handler runs as shared code with the sending player, the value, and the live units the player had selected when
-     * the command ran. Shared code only.
+     * the command ran. Shared code only. The value comes from another player's game, which may send any channel value whatever T is, so the
+     * handler receives it as unknown: check its kind before using it.
      *
      * @param handler the function that receives the sent values
-     * @returns the channel
+     * @returns the channel, whose send takes T
      * @throws TypeError if the handler is no function
      */
-    createChannel<T>(handler: (player: Player, value: T, units: Unit[]) => void): Channel<T>;
+    createChannel<T = unknown>(handler: (player: Player, value: unknown, units: Unit[]) => void): Channel<T>;
 
     /**
      * Creates a value per player over a new channel. Shared code only.
@@ -4785,6 +5020,29 @@ interface Local {
     getMousePosition(): Position | null;
 
     /**
+     * Returns the pointer in interface units, the units {@link Screen} draws in, for hit tests of the script's own screen drawing: correct at any
+     * interface size, graphics and camera zoom, outside the interface too. It follows every pointer move, so the input hooks read the pointer of
+     * their input. Local code only.
+     *
+     * @returns the pointer from the interface's top left, or null while the client has not supplied it
+     */
+    getPointerPosition(): ScreenPoint | null;
+
+    /**
+     * Local code only.
+     *
+     * @returns the interface width in interface units (640, 853, ...), the width {@link Screen.getWidth} gives in onRender
+     */
+    getInterfaceWidth(): number;
+
+    /**
+     * Local code only.
+     *
+     * @returns the interface height in interface units, 480
+     */
+    getInterfaceHeight(): number;
+
+    /**
      * Returns the units of the local interface's selection, which may differ from the local player's {@link Player.getSelection} until the
      * selection command runs. Local code only.
      *
@@ -4841,6 +5099,20 @@ interface Local {
  * The local information of this player's machine.
  */
 declare const local: Local;
+
+/**
+ * A point in interface units ({@link Local.getPointerPosition}).
+ */
+interface ScreenPoint {
+    /**
+     * The column from the interface's left edge.
+     */
+    readonly x: number;
+    /**
+     * The row from the game screen's top edge.
+     */
+    readonly y: number;
+}
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Presentation: drawing in onRender, the console and the texts.
@@ -5019,21 +5291,48 @@ interface TextOptions {
 }
 
 /**
+ * A rectangle of an image in its pixels ({@link ImageOptions.source}).
+ */
+interface ImageRegion {
+    /**
+     * The left in image pixels.
+     */
+    x: number;
+    /**
+     * The top in image pixels.
+     */
+    y: number;
+    /**
+     * The width in image pixels, at least 0.
+     */
+    width: number;
+    /**
+     * The height in image pixels, at least 0.
+     */
+    height: number;
+}
+
+/**
  * The options of a drawn image.
  */
 interface ImageOptions {
     /**
-     * The drawn width in the drawing's units, the image's pixel width by default.
+     * The drawn width in the drawing's units; by default the pixel width of the source rectangle, else of the image.
      */
     width?: number;
     /**
-     * The drawn height in the drawing's units, the image's pixel height by default.
+     * The drawn height in the drawing's units; by default the pixel height of the source rectangle, else of the image.
      */
     height?: number;
     /**
      * The opacity from 0 to 1, 1 by default; values outside are clamped.
      */
     opacity?: number;
+    /**
+     * The rectangle of the image to draw, as a frame of a sprite sheet or a crop; the whole image by default. A rectangle not inside the image
+     * throws a RangeError.
+     */
+    source?: ImageRegion;
 }
 
 /**
@@ -5259,7 +5558,128 @@ interface ConsoleImageTable extends ConstantTable<ConsoleImage> {
 declare const ConsoleImage: ConsoleImageTable;
 
 /**
- * One console dialog ({@link Console.getControl}), placed by its top left in the classic 640 by 480 screen. A setting wins over EUD memory.
+ * The interface edge that the classic 640 by 480 screen of a console dialog's positions stands at ({@link ConsoleControlHandle.setAnchor}).
+ */
+interface ConsoleAnchor extends GameType {
+}
+
+/**
+ * The interface edges of the console dialogs.
+ */
+interface ConsoleAnchorTable extends ConstantTable<ConsoleAnchor> {
+    /** The classic screen stands at the interface's left edge. */
+    readonly Left: ConsoleAnchor;
+    /** The classic screen stands centered in the interface, the installed place. */
+    readonly Center: ConsoleAnchor;
+    /** The classic screen stands at the interface's right edge. */
+    readonly Right: ConsoleAnchor;
+}
+
+/**
+ * The interface edges of the console dialogs.
+ */
+declare const ConsoleAnchor: ConsoleAnchorTable;
+
+/**
+ * The identifiers of the well-known controls of the console dialogs in their definitions, for {@link ConsoleControlHandle.setChildVisible},
+ * {@link ConsoleControlHandle.setChildPosition}, {@link ConsoleControlHandle.restoreChild} and {@link ConsoleControlHandle.getChildRectangle} of
+ * the dialog the name starts with. A numbered series counts from 1.
+ */
+interface ConsoleChildTable {
+    /** 1 to 9: the command card buttons, row by row from the top left. */
+    readonly CommandCardButton1: number;
+    readonly CommandCardButton2: number;
+    readonly CommandCardButton3: number;
+    readonly CommandCardButton4: number;
+    readonly CommandCardButton5: number;
+    readonly CommandCardButton6: number;
+    readonly CommandCardButton7: number;
+    readonly CommandCardButton8: number;
+    readonly CommandCardButton9: number;
+    /** 1: the wireframe of a single selected unit. */
+    readonly SelectionWireframe: number;
+    /** -5: the unit name line. */
+    readonly SelectionName: number;
+    /** -7: the hit points line under the wireframe. */
+    readonly SelectionHitPoints: number;
+    /** -8: the energy or time line under the wireframe. */
+    readonly SelectionEnergy: number;
+    /** 2 to 6: the production queue, the current slot first, then the waiting slots from the left. */
+    readonly SelectionQueue1: number;
+    readonly SelectionQueue2: number;
+    readonly SelectionQueue3: number;
+    readonly SelectionQueue4: number;
+    readonly SelectionQueue5: number;
+    /** 7: the progress bar of the production queue. */
+    readonly SelectionProgress: number;
+    /** 33 to 44: the wireframes of a group selection, column by column from the top left. */
+    readonly SelectionGroup1: number;
+    readonly SelectionGroup2: number;
+    readonly SelectionGroup3: number;
+    readonly SelectionGroup4: number;
+    readonly SelectionGroup5: number;
+    readonly SelectionGroup6: number;
+    readonly SelectionGroup7: number;
+    readonly SelectionGroup8: number;
+    readonly SelectionGroup9: number;
+    readonly SelectionGroup10: number;
+    readonly SelectionGroup11: number;
+    readonly SelectionGroup12: number;
+    /** 1 to 6: the resource counters from the right: the supply of each race the player has supply of, then gas, then minerals. */
+    readonly ResourcesCounter1: number;
+    readonly ResourcesCounter2: number;
+    readonly ResourcesCounter3: number;
+    readonly ResourcesCounter4: number;
+    readonly ResourcesCounter5: number;
+    readonly ResourcesCounter6: number;
+    /** -10: the countdown timer. */
+    readonly ResourcesCountdown: number;
+    /** 1: the portrait. */
+    readonly PortraitPicture: number;
+    /** 1: the menu button. */
+    readonly MenuButton: number;
+    /** 1: the minimap area ({@link Console.getMinimapRectangle}). */
+    readonly MinimapArea: number;
+    /** 2: the terrain button. */
+    readonly MinimapTerrain: number;
+    /** 3: the message button of a multiplayer game. */
+    readonly MinimapMessage: number;
+    /** 4: the diplomacy button of a multiplayer game, at the place of the terrain button. */
+    readonly MinimapDiplomacy: number;
+    /** 7: the chat line of the text box. */
+    readonly TextBoxEdit: number;
+}
+
+/**
+ * The identifiers of the console dialogs' controls.
+ */
+declare const ConsoleChild: ConsoleChildTable;
+
+/**
+ * A rectangle in interface units ({@link ConsoleControlHandle.getRectangle}).
+ */
+interface ScreenRectangle {
+    /**
+     * The left from the interface's left edge.
+     */
+    readonly x: number;
+    /**
+     * The top from the game screen's top edge.
+     */
+    readonly y: number;
+    /**
+     * The width.
+     */
+    readonly width: number;
+    /**
+     * The height.
+     */
+    readonly height: number;
+}
+
+/**
+ * One console dialog ({@link Console.getControl}), placed by its top left in the classic 640 by 480 screen, which stands centered in a wider
+ * interface or at its anchor's edge. A setting wins over EUD memory.
  */
 interface ConsoleControlHandle {
     /**
@@ -5290,7 +5710,7 @@ interface ConsoleControlHandle {
     /**
      * Shows or hides a control of the dialog; it wins over EUD memory until {@link ConsoleControlHandle.restoreChild}.
      *
-     * @param id      the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id      the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      * @param visible true to show it
      */
     setChildVisible(id: number, visible: boolean): void;
@@ -5298,7 +5718,7 @@ interface ConsoleControlHandle {
     /**
      * Places a control of the dialog by its top left; it wins over EUD memory until {@link ConsoleControlHandle.restoreChild}.
      *
-     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      * @param x  the left in classic screen pixels, rounded
      * @param y  the top in classic screen pixels, rounded
      */
@@ -5307,9 +5727,36 @@ interface ConsoleControlHandle {
     /**
      * Forgets the visibility and the position set on a control of the dialog, so that EUD memory drives it again.
      *
-     * @param id the control's identifier in the dialog's definition, -32768 to 32767
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
      */
     restoreChild(id: number): void;
+
+    /**
+     * Sets the interface edge that the classic screen of the dialog's positions, and those of its controls, stands at: with Right, a position
+     * set for a 640 wide screen stays at the same distance from the right edge at any interface width. Positions EUD memory gives follow it too;
+     * the console art and its transparency stay centered.
+     *
+     * @param anchor the edge, ConsoleAnchor.Center by default
+     */
+    setAnchor(anchor: ConsoleAnchor): void;
+
+    /**
+     * Returns the rectangle of the dialog as the client last drew it, placed by the settings and EUD memory, for hit tests and layouts of the
+     * script's own drawing. The minimap dialog grows with the minimap size ({@link Console.setMinimapSize}). Local code only.
+     *
+     * @returns the rectangle in interface units, or null while the dialog is hidden or the console was not drawn
+     */
+    getRectangle(): ScreenRectangle | null;
+
+    /**
+     * Returns the rectangle of a control of the dialog as the client last drew it, such as a command card button or the minimap area (the
+     * minimap size of {@link Console.setMinimapSize}). Local code only.
+     *
+     * @param id the control's identifier in the dialog's definition, -32768 to 32767 ({@link ConsoleChild} names them)
+     * @returns the rectangle in interface units, or null while the control or its dialog is hidden, the dialog has no such control or the
+     * console was not drawn
+     */
+    getChildRectangle(id: number): ScreenRectangle | null;
 }
 
 /**
@@ -5343,6 +5790,28 @@ interface Console {
      * @param image        the image, or null for the installed file
      */
     replaceImage(consoleImage: ConsoleImage, image: Image | null): void;
+
+    /**
+     * Sets the side of the drawn minimap area: the minimap, its view frame and the drawing of {@link Screen.minimap} grow or shrink with it, and
+     * clicks hit the drawn minimap. The minimap dialog grows or shrinks with the area, 10 + size wide and 37 + size high, its controls kept at
+     * their offsets from its top left (the area at 6, 33): a dialog placed by {@link ConsoleControlHandle.setPosition} keeps its top left, an
+     * unplaced one its bottom left, so that the area keeps its bottom. Where EUD console transparency hides the console, it hides the minimap too.
+     *
+     * @param size the side in interface units, 1 to 480; 128 is the installed size; another value throws a RangeError
+     */
+    setMinimapSize(size: number): void;
+
+    /**
+     * @returns the side of the drawn minimap area in interface units
+     */
+    getMinimapSize(): number;
+
+    /**
+     * Returns the rectangle of the minimap area as the client last drew it, the minimap size wide and high. Local code only.
+     *
+     * @returns the rectangle in interface units, or null while the area or the minimap dialog is hidden or the console was not drawn
+     */
+    getMinimapRectangle(): ScreenRectangle | null;
 
     /**
      * Draws an image for the console icon of a resource, every race's icon, fitted into the icon's box.
@@ -5615,8 +6084,9 @@ interface ScriptButtonOptions {
     isEnabled?(unit: Unit): boolean | null;
 
     /**
-     * Called as local code on the pressing machine for the press, or for the target of a target button; consuming the event sends nothing,
-     * and keeps the targeting mode of a target button.
+     * Called as local code on the pressing machine for the press of the button and, for a target button, for its target too; the record kind
+     * tells them apart (InputKind.ButtonPressed, InputKind.ButtonTargeted). Consuming the press sends nothing, and a target button then does
+     * not start its targeting mode; consuming the target sends nothing and keeps the targeting mode.
      *
      * @param event the press, or the target of a target button
      */
@@ -7132,6 +7602,51 @@ interface BulletStateTable extends ConstantTable<BulletState> {
  * The order states of a bullet.
  */
 declare const BulletState: BulletStateTable;
+
+/**
+ * An iscript animation of an image ({@link Unit.playAnimation}).
+ */
+interface Animation extends GameType {
+}
+
+/**
+ * The iscript animations, in the order of an iscript entry's animation table.
+ */
+interface AnimationTable extends ConstantTable<Animation> {
+    readonly Init: Animation;
+    readonly Death: Animation;
+    readonly GroundAttackInit: Animation;
+    readonly AirAttackInit: Animation;
+    readonly Unused1: Animation;
+    readonly GroundAttackRepeat: Animation;
+    readonly AirAttackRepeat: Animation;
+    readonly CastSpell: Animation;
+    readonly GroundAttackToIdle: Animation;
+    readonly AirAttackToIdle: Animation;
+    readonly Unused2: Animation;
+    readonly Walking: Animation;
+    readonly WalkingToIdle: Animation;
+    readonly SpecialState1: Animation;
+    readonly SpecialState2: Animation;
+    readonly AlmostBuilt: Animation;
+    readonly Built: Animation;
+    readonly Landing: Animation;
+    readonly LiftOff: Animation;
+    readonly IsWorking: Animation;
+    readonly WorkingToIdle: Animation;
+    readonly WarpIn: Animation;
+    readonly Unused3: Animation;
+    readonly StarEditInit: Animation;
+    readonly Disable: Animation;
+    readonly Burrow: Animation;
+    readonly Unburrow: Animation;
+    readonly Enable: Animation;
+}
+
+/**
+ * The iscript animations.
+ */
+declare const Animation: AnimationTable;
 
 /**
  * The mouse buttons of a local mouse button input.

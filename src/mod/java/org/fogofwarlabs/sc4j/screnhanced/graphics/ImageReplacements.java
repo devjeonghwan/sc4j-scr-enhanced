@@ -26,7 +26,8 @@ import java.util.function.Supplier;
  * One image of the image pool takes graphics, a frame and a draw function of its own while its slot holds the same image (the slot keeps its
  * generation, {@link SpriteImagePool#getGeneration(int)}). Its graphics win over those of its unit and of its image type. Its frame and its
  * draw function last until the image's own drawn frame, or its own draw function, changes: the next change of the image's own state replaces
- * them, as for an EUD write of the image's entry ({@link ClassicImageGraphics}).
+ * them, as for an EUD write of the image's entry ({@link ClassicImageGraphics}). A held frame ({@link #holdImageFrame}) stays through those
+ * changes until it is released.
  * <p>
  * The GRPs and anims are read from byte ranges that are not copied ({@link #readGrp}, {@link #readAnim}); the parsed anims of the game are kept
  * within {@code 256} MiB, as those of the classic image graphics.
@@ -73,6 +74,10 @@ public final class ImageReplacements {
          */
         private int ownFrame;
         /**
+         * Whether the frame stays when the image's own drawn frame changes.
+         */
+        private boolean frameHeld;
+        /**
          * The draw function drawn with instead of the image's own, {@code -1} for none.
          */
         private int drawFunction;
@@ -88,6 +93,7 @@ public final class ImageReplacements {
             this.graphics        = null;
             this.frame           = NONE;
             this.ownFrame        = 0;
+            this.frameHeld       = false;
             this.drawFunction    = NONE;
             this.ownDrawFunction = 0;
         }
@@ -231,8 +237,8 @@ public final class ImageReplacements {
     }
 
     /**
-     * Finds the frame a sprite image draws instead of its own: the frame set for it ({@link #setImageFrame}) while its own drawn frame is the
-     * one it had then.
+     * Finds the frame a sprite image draws instead of its own: the frame held for it ({@link #holdImageFrame}), or the frame set for it
+     * ({@link #setImageFrame}) while its own drawn frame is the one it had then.
      *
      * @param image an image of a drawn sprite
      * @return the frame index, or {@code -1} for the image's own frame
@@ -240,7 +246,11 @@ public final class ImageReplacements {
     public int findImageFrame(@NotNull SpriteImage image) {
         ImageOverride override = this.findImageOverride(image);
 
-        return override == null || override.frame == NONE || override.ownFrame != image.getDrawnFrameIndex() ? NONE : override.frame;
+        if (override == null || override.frame == NONE) {
+            return NONE;
+        }
+
+        return override.frameHeld || override.ownFrame == image.getDrawnFrameIndex() ? override.frame : NONE;
     }
 
     /**
@@ -361,11 +371,27 @@ public final class ImageReplacements {
      * @param frame the frame index, or {@code -1} for the image's own frame
      */
     public void setImageFrame(@NotNull SpriteImage image, int frame) {
+        this.placeImageFrame(image, frame, false);
+    }
+
+    /**
+     * Holds the frame one image draws: it stays while the image's own drawn frame changes, as the image's iscript steps it, until another frame
+     * is set or held for the image or the image is gone.
+     *
+     * @param image an allocated image of the image pool
+     * @param frame the frame index, or {@code -1} for the image's own frame
+     */
+    public void holdImageFrame(@NotNull SpriteImage image, int frame) {
+        this.placeImageFrame(image, frame, true);
+    }
+
+    private void placeImageFrame(@NotNull SpriteImage image, int frame, boolean held) {
         if (frame < 0) {
             ImageOverride override = this.findImageOverride(image);
 
             if (override != null) {
-                override.frame = NONE;
+                override.frame     = NONE;
+                override.frameHeld = false;
                 this.removeIfEmpty(image, override);
             }
 
@@ -374,8 +400,9 @@ public final class ImageReplacements {
 
         ImageOverride override = this.requireImageOverride(image);
 
-        override.frame    = frame;
-        override.ownFrame = image.getDrawnFrameIndex();
+        override.frame     = frame;
+        override.ownFrame  = image.getDrawnFrameIndex();
+        override.frameHeld = held;
     }
 
     /**

@@ -194,8 +194,10 @@ final class ScriptDatCoreTest {
                                                                                              attempt(function () { units.setMineralCost(0, -1); }), attempt(function () { units.setMineralCost(0, 1.5); }),
                                                                                              attempt(function () { units.setInfestedType(0, 1); }), attempt(function () { units.getMineralCost(228); }),
                                                                                              attempt(function () { core.dat.images.setIscript(0, 411); }), attempt(function () { units.setHitPoints(0, 4294967295); }));
-                                                                                    log.info(typeof units.getInfestedType(0), units.getHitPoints(0) === 4294967295, core.dat.sprites.setHealthBarWidth === undefined,
-                                                                                             typeof core.dat.sprites.getHealthBarWidth(0));
+                                                                                    log.info(typeof units.getInfestedType(0), units.getHitPoints(0) === 4294967295, attempt(function () { core.dat.sprites.setSelectionCircle(130, 10); }),
+                                                                                             typeof core.dat.sprites.getHealthBarWidth(0),
+                                                                                             attempt(function () { core.dat.sprites.setHealthBarWidth(129, 1); }), attempt(function () { SpriteType.get(130).setSelectionCircleOffset(-8); }),
+                                                                                             core.dat.sprites.getSelectionCircleOffset(130));
                                                                                     var marine = UnitType.TerranMarine;
                                                                                     marine.setGroundWeapon(null);
                                                                                     log.info(units.getGroundWeapon(marine.getId()), marine.getGroundWeapon(), attempt(function () { marine.setFlingyType(null); }));
@@ -208,7 +210,7 @@ final class ScriptDatCoreTest {
         scenario.getRuntime().start();
 
         Assertions.assertEquals(List.of("RangeError RangeError RangeError TypeError RangeError RangeError RangeError written",
-                                        "number true true number",
+                                        "number true RangeError number RangeError written -8",
                                         "130 null TypeError",
                                         "true false true true true"), scenario.getInfoMessages(), scenario.getLines()::toString);
     }

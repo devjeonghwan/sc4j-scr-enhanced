@@ -118,6 +118,54 @@ final class ScriptPreludeTest {
     }
 
     @Test
+    void define_hooks_receive_the_events_decisions_and_local_calls_of_function_hooks() throws IOException {
+        Game game = ScriptRuntimeScenario.createGame();
+
+        game.getUnitSystem().initializeUnitPool(UNIT_CAPACITY);
+
+        ScriptRuntimeScenario scenario = start(game, ScriptRuntimeScenario.MAIN_NAME, """
+                                                                                      require('./second.js');
+                                                                                      defineHooks({
+                                                                                          onStart() { log.info('start'); },
+                                                                                          onPlayerLeft(event) { log.info('left ' + event.getPlayer().getId()); },
+                                                                                          onFrame(frame) { log.info('frame ' + frame); },
+                                                                                          onBeforeDamage(decision) {
+                                                                                              log.info('first', decision.getAmount(), game.isReadOnly());
+                                                                                              decision.setAmount(decision.getAmount() / 2);
+                                                                                          }
+                                                                                      });
+                                                                                      defineHooks({
+                                                                                          onLocalKeyDown(event) { event.consume(); },
+                                                                                          onLocalFrame(frame) { log.info('local frame ' + frame); },
+                                                                                          onRender(screen) { log.info('render ' + typeof screen.drawText); }
+                                                                                      });
+                                                                                      """,
+                                               "second.js", """
+                                                            function onPlayerLeft(event) { log.info('second left ' + event.getPlayer().getId()); }
+                                                            defineHooks({
+                                                                onBeforeDamage(decision) { log.info('second', decision.getAmount()); }
+                                                            });
+                                                            """);
+        UnitPool pool = game.getUnitSystem().requireUnitPool();
+        SimulationUnit target = new SimulationUnit(pool.getUnit(TARGET_SLOT), UnitHandle.encode(TARGET_SLOT, 0, pool.getCapacity()), MARINE, 0);
+        WeaponDamageDecision decision = new WeaponDamageDecision(0, null, 1, target, DAMAGE);
+
+        game.storeCurrentFrame(1);
+        scenario.getRuntime().queueEvent(new PlayerLeftEvent(2, 0), 1);
+        scenario.getRuntime().runFrame(1);
+        scenario.getRuntime().decide(decision);
+
+        Assertions.assertTrue(scenario.getRuntime().callLocalInput(ScriptLocalInput.ofKey(KEY_Q, true, 0, false, 0, 0)));
+
+        scenario.getRuntime().callLocalFrame(1);
+        scenario.getRuntime().callRender();
+
+        Assertions.assertEquals(List.of("start", "left 2", "second left 2", "frame 1", "first 10 true", "second 5", "local frame 1",
+                                        "render function"), scenario.getInfoMessages(), scenario.getLines()::toString);
+        Assertions.assertEquals(DAMAGE / 2, decision.getDamage());
+    }
+
+    @Test
     void local_input_returns_the_consumption_and_core_local_lists_the_inputs_of_the_frame() throws IOException {
         ScriptRuntimeScenario scenario = start(ScriptRuntimeScenario.createGame(), ScriptRuntimeScenario.MAIN_NAME, """
                                                                                                                     function onLocalKeyDown(event) {

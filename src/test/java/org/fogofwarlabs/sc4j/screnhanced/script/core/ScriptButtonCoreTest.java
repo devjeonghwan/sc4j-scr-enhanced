@@ -249,7 +249,9 @@ final class ScriptButtonCoreTest {
                             unitType: UnitType.TerranMarine, position: 7, icon: 236, text: 'Blink', hotkey: 'B', disabledText: 'Needs energy',
                             target: true,
                             onLocalPressed: function (event) {
-                                log.info('local ' + event.getAction().getName() + ' ' + event.getTargetPosition() + ' ' + event.getTarget());
+                                log.info('local ' + event.getAction().getName() + (event.getRecord().kind === InputKind.ButtonTargeted.id
+                                                                                   ? ' ' + event.getTargetPosition() + ' ' + event.getTarget()
+                                                                                   : ' press'));
                             },
                             onPressed: function (player, units, target) {
                                 log.info('pressed ' + game.getFrame() + ' ' + player.getId() + ' ' + units.length + ' ' + target.position + ' ' + target.unit);
@@ -305,7 +307,7 @@ final class ScriptButtonCoreTest {
         List<String> pressed = List.of("pressed 2 0 0 (" + TARGET_X + ", " + TARGET_Y + ") null", "plain 0 null");
 
         Assertions.assertEquals(List.of(created, "states 1 1 0", "local TypeError",
-                                        "hook pressed 0 " + index + " ScriptTarget 0 true false 5",
+                                        "hook pressed 0 " + index + " ScriptTarget 0 true false 5", "local ScriptTarget press",
                                         "local ScriptTarget (" + TARGET_X + ", " + TARGET_Y + ") null",
                                         "hook pressed 0 " + (index + 1) + " Script 1 true false 5",
                                         pressed.get(0), pressed.get(1)),
@@ -316,5 +318,30 @@ final class ScriptButtonCoreTest {
         remote.addAll(pressed);
 
         Assertions.assertEquals(remote, second.getMessages(), second.scenario.getLines()::toString);
+    }
+
+    @Test
+    void consuming_the_press_of_a_script_target_button_keeps_it_from_the_game() throws IOException {
+        Peer peer = new Peer(0, """
+                                display.commandCard.createButton({
+                                    unitType: UnitType.TerranMarine, position: 7, icon: 236, target: true,
+                                    onLocalPressed: function (event) {
+                                        log.info('local ' + event.getRecord().kind);
+                                        event.consume();
+                                    },
+                                    onPressed: function () {
+                                        log.info('pressed');
+                                    }
+                                });
+                                """);
+        int index = ButtonSetTable.getButtons(MARINE_SET).length;
+        ScrButtonInput press = createPress(index, 0, true);
+
+        peer.runFrame(1);
+
+        Assertions.assertTrue(peer.press(press), "onLocalPressed consumed the press");
+        Assertions.assertTrue(peer.press(press.createTargeted(TARGET_X, TARGET_Y, null, false)), "onLocalPressed consumed the target");
+        Assertions.assertTrue(peer.submitter.commands.isEmpty());
+        Assertions.assertEquals(List.of("local 5", "local 6"), peer.getMessages(), peer.scenario.getLines()::toString);
     }
 }

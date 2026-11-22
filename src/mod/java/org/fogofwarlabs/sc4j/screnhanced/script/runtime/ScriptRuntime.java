@@ -163,6 +163,26 @@ public final class ScriptRuntime {
         LOGGER.log(level, "{0}: {1}", moduleName, message);
     }
 
+    /**
+     * Formats the location of a script error for the log: the file and line of the innermost frame of a script module on the error's stack,
+     * where the module threw the error or called the prelude function that threw it; the prelude's own frames are left out.
+     *
+     * @param exception the script error
+     * @return {@code " (file:line)"}, or an empty string if no frame of a module is on the stack
+     */
+    private static @NotNull String formatScriptLocation(@NotNull RhinoException exception) {
+        for (ScriptStackElement element : exception.getScriptStack()) {
+            if (element.fileName != null && !ScriptPrelude.isPreludeSource(element.fileName)) {
+                return Exceptions.format(" ({0}:{1})", element.fileName, element.lineNumber);
+            }
+        }
+
+        String sourceName = exception.sourceName();
+
+        return sourceName != null && !ScriptPrelude.isPreludeSource(sourceName) ? Exceptions.format(" ({0}:{1})", sourceName, exception.lineNumber())
+                                                                                : "";
+    }
+
 
     private final @NotNull String mainName;
     private final @NotNull ScriptLogOutput logOutput;
@@ -687,9 +707,8 @@ public final class ScriptRuntime {
 
             this.stop(moduleName, Exceptions.format("{0} overflowed the stack; the script stopped.", callName));
         } catch (RhinoException exception) {
-            String location = exception.sourceName() != null ? Exceptions.format(" ({0}:{1})", exception.sourceName(), exception.lineNumber()) : "";
-
-            this.logOutput.write(LogLevel.ERROR, moduleName, Exceptions.format("{0} failed: {1}{2}", callName, exception.details(), location));
+            this.logOutput.write(LogLevel.ERROR, moduleName, Exceptions.format("{0} failed: {1}{2}", callName, exception.details(),
+                                                                               formatScriptLocation(exception)));
 
             return CallResult.FAILED;
         } catch (RuntimeException exception) {

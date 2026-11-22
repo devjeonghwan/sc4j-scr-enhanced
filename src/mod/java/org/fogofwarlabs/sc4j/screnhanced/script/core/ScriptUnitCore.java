@@ -16,6 +16,7 @@ import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
+import org.fogofwarlabs.sc4j.scr.game.sprite.script.IscriptExecutor;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerUnitActions;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
@@ -55,7 +56,10 @@ import java.util.function.ToIntFunction;
  * {@code disableDoodad} (Set Doodad State), {@code setResources} (Modify Unit Resource Amount, from {@code 0} to {@value #MAXIMUM_RESOURCES};
  * {@code false} for a unit that is no resource container), {@code addHangarCount(id, count)} (Modify Unit Hanger Count: up to {@code count}
  * Interceptors or Scarabs while the hangar takes another one; {@code false} for a unit without a hangar), {@code create(type, owner, x, y)}
- * (Create Unit; the new id or {@code -1}), {@code kill} and {@code remove} (Kill Unit and Remove Unit), {@code move(id, x, y)} (Move Unit),
+ * (Create Unit; the new id or {@code -1}), {@code kill} and {@code remove} (Kill Unit and Remove Unit), {@code damage(id, amount, source,
+ * sourcePlayer)} (the damage routine after armor and shields: the raw amount comes off the hit points and a unit whose hit points run out
+ * dies, its death and kill credited to the attacking unit {@code source} and player {@code sourcePlayer}, each {@code -1} for none; a source
+ * unit is revealed to the damaged unit's owner as an attacker's is; {@code false} for a subunit), {@code move(id, x, y)} (Move Unit),
  * {@code give(id, player)} (Give Units to Player) and {@code issueOrder(id, order, target, x, y, queued)} (with {@code target} {@code -1} and
  * not queued the Order action to the position; queued or with a target unit the order system after the order requirement test, which appends
  * a queued order behind the queue of an order that takes one). A write that the routine refuses returns {@code false}.
@@ -78,7 +82,10 @@ import java.util.function.ToIntFunction;
  * {@code false} for a subunit, a subunit type, or a type whose turret does not match the unit's.
  * <p>
  * Orders: {@code useWeapon(id, weapon)} (the use-weapon routine of the unit scripts: the bullets of the weapon toward the unit's order target,
- * two for a weapon of damage factor {@code 2}, none for a weapon without a flingy), {@code getOrderQueue(id)} (the orders waiting behind the
+ * two for a weapon of damage factor {@code 2}, none for a weapon without a flingy), {@code playAnimation(id, animation)} (the animation request
+ * the orders make: every image of the unit's sprite switches to the iscript animation, from {@code 2} (GndAttkInit) to {@code 27} (Enable),
+ * and runs it at once; an image whose request gate ignores the animation and a sprite inside a section that must not be broken keep theirs),
+ * {@code getOrderQueue(id)} (the orders waiting behind the
  * current one, first to last, as records {@code order}, {@code target} and {@code targetGeneration} ({@code -1} without a live target unit),
  * {@code x}, {@code y} and {@code unitType} ({@code -1} for none)),
  * {@code getSecondaryOrder}, {@code getSecondaryOrderState} and {@code setSecondaryOrder(id, order)} (the native routine: a changed order
@@ -377,6 +384,26 @@ final class ScriptUnitCore {
             this.scriptGame.checkWritable();
 
             return this.removeUnit(this.readUnit(arguments, 0), false);
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "damage", 4, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int amount = this.readAmount(arguments, 1);
+            Unit source = ScriptCoreUtils.readInteger(arguments, 2) == ScriptCoreUtils.NO_ID ? null : this.readUnit(arguments, 2);
+            int sourcePlayer = ScriptCoreUtils.readInteger(arguments, 3);
+
+            if (sourcePlayer != ScriptCoreUtils.NO_ID) {
+                ScriptCoreUtils.requireId("player", sourcePlayer, PlayerTable.PLAYER_SLOTS);
+            }
+
+            if ((this.getUnitTypes().getFlags(unit.getUnitId()) & UnitTypeFlags.SUBUNIT) != 0) {
+                return false;
+            }
+
+            this.getGame().getUnitDamage().dealUnitDamage(unit, amount, source, sourcePlayer, source != null, this.scriptGame.getInstructionLimit());
+
+            return true;
         });
         ScriptCoreUtils.defineFunction(global, namespace, "remove", 1, (context, scope, thisObject, arguments) -> {
             this.scriptGame.checkWritable();
@@ -905,6 +932,21 @@ final class ScriptUnitCore {
             int weapon = ScriptBulletCore.readWeapon(arguments, 1);
 
             this.getGame().getProjectilePhase().useWeapon(unit, weapon, this.scriptGame.getInstructionLimit());
+
+            return Context.getUndefinedValue();
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "playAnimation", 2, (context, scope, thisObject, arguments) -> {
+            this.scriptGame.checkWritable();
+
+            Unit unit = this.readUnit(arguments, 0);
+            int animation = ScriptCoreUtils.readInteger(arguments, 1);
+
+            if (animation <= IscriptExecutor.ANIMATION_DEATH || animation > IscriptExecutor.ANIMATION_ENABLE) {
+                throw ScriptRuntime.rangeError(Exceptions.format("The animation {0} is not from {1} to {2}.", animation,
+                                                                 IscriptExecutor.ANIMATION_DEATH + 1, IscriptExecutor.ANIMATION_ENABLE));
+            }
+
+            this.getGame().getIscriptExecutor().runSpriteAnimation(unit.requireSprite(), unit, animation, 0, this.scriptGame.getInstructionLimit());
 
             return Context.getUndefinedValue();
         });

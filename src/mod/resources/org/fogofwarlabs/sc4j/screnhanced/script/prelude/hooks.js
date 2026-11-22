@@ -1,7 +1,7 @@
 // The hooks of the upper layer and the entry points the runtime calls. The hooks are the top-level functions of the modules with a known
-// name, collected per module once it has loaded; a hook runs in every module that has it, in load order. The event objects wrap the records
-// of core.events.getFrameEvents, the decision objects the records of the decide entry point and the local input objects the records of the
-// localInput entry point; each object's getRecord() returns its record.
+// name and the hooks the modules defined with defineHooks, collected per module once it has loaded; a hook runs in every module that has it,
+// in load order. The event objects wrap the records of core.events.getFrameEvents, the decision objects the records of the decide entry point
+// and the local input objects the records of the localInput entry point; each object's getRecord() returns its record.
 //
 // The entry points: frame(frame) writes the cheat bits game.setCheatEnabled keeps, calls onStart at the first frame, then the due timers, the
 // channel handlers of the frame's commands, the event hooks of the frame's events and onFrame; decide(kind, record) calls the decision hooks;
@@ -524,12 +524,16 @@
         return createKindObject(decisionKinds[kind], record);
     }
 
-    // Collects the hooks of a module scope: its own top-level functions with a hook name.
-    function collectHooks(scope) {
+    // Collects the hooks of a module: those it defined with defineHooks and its own top-level functions with a hook name.
+    function collectHooks(module) {
         var hooks = {};
+        var scope = module.scope;
+        var defined = module.definedHooks;
 
         HOOK_NAMES.forEach(function (name) {
-            if (hasOwnProperty.call(scope, name) && typeof scope[name] === 'function') {
+            if (hasOwnProperty.call(defined, name)) {
+                hooks[name] = defined[name];
+            } else if (hasOwnProperty.call(scope, name) && typeof scope[name] === 'function') {
                 hooks[name] = scope[name];
             }
         });
@@ -571,7 +575,7 @@
                 var module = modules[index];
 
                 if (module.hooks === undefined) {
-                    module.hooks = collectHooks(module.scope);
+                    module.hooks = collectHooks(module);
                 }
 
                 for (var name in module.hooks) {

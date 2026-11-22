@@ -7,8 +7,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lists the hooks of the upper layer: top-level functions of a module with a known name, which the prelude collects per module and calls from
- * the runtime's entry points.
+ * Lists the hooks of the upper layer: top-level functions of a module with a known name, or the methods with a known name of the objects a
+ * module gives to {@code defineHooks} while it loads, which the prelude collects per module and calls from the runtime's entry points. A
+ * top-level function runs with {@code this} set to the module's top-level scope, a method of {@code defineHooks} with {@code this} set to its
+ * object. A module may define a hook once: {@code defineHooks} may be called more than once with other hooks.
  * <p>
  * A hook name is {@value #NAME_PREFIX} followed by an upper-case letter; the runtime warns of a top-level function with such a name that no
  * hook has. A hook runs in every module that has it, in load order.
