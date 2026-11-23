@@ -301,15 +301,15 @@ final class ScriptContentCoreTest {
         Assertions.assertNotNull(resources);
 
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(requireGameData(), """
-                                                                                                var sheet = game.map.resources.getSheet('art/tree.png', {frameWidth: 16, frameHeight: 32,
-                                                                                                                                                         anchorY: 28, shadow: 'art/tree-shadow.png'});
-                                                                                                var tree = ImageType.create({sheet: sheet, animation: {frameSets: [0, 1], frameTime: 4}});
-                                                                                                var treeSprite = SpriteType.create({image: tree});
-                                                                                                function onStart() {
-                                                                                                    var position = game.units.findOne({type: UnitType.TerranCommandCenter}).getPosition();
-                                                                                                    log.info(game.createEffect(treeSprite, Position.of(position.x + 96, position.y)).getId());
-                                                                                                }
-                                                                                                """, resources);
+                                                                                               var sheet = game.map.resources.getSheet('art/tree.png', {frameWidth: 16, frameHeight: 32,
+                                                                                                                                                        anchorY: 28, shadow: 'art/tree-shadow.png'});
+                                                                                               var tree = ImageType.create({sheet: sheet, animation: {frameSets: [0, 1], frameTime: 4}});
+                                                                                               var treeSprite = SpriteType.create({image: tree});
+                                                                                               function onStart() {
+                                                                                                   var position = game.units.findOne({type: UnitType.TerranCommandCenter}).getPosition();
+                                                                                                   log.info(game.createEffect(treeSprite, Position.of(position.x + 96, position.y)).getId());
+                                                                                               }
+                                                                                               """, resources);
 
         for (int frame = 0; frame < SHADOW_FRAMES; frame++) {
             scenario.stepFrame();
