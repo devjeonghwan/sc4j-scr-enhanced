@@ -330,7 +330,7 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void apply_damage_runs_on_before_damage_and_the_death_keeps_the_position(@NotNull InstallationTestResources resources,
-                                                                            @TempDir @NotNull Path folder) throws IOException {
+                                                                             @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
                                                                                                                           withoutZergling = true;
                                                                                                                           var target, deathX, deathY;

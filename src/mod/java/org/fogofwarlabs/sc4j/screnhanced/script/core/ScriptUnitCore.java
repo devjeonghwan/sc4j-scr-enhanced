@@ -1,11 +1,7 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
-import org.fogofwarlabs.sc4j.scr.content.ScrDamageKinds;
-import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
-import org.fogofwarlabs.sc4j.scr.content.ScrTechIds;
-import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
-import org.fogofwarlabs.sc4j.scr.content.ScrUpgradeIds;
+import org.fogofwarlabs.sc4j.scr.content.*;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
@@ -424,7 +420,7 @@ final class ScriptUnitCore {
             Unit source = ScriptCoreUtils.readInteger(arguments, 2) == ScriptCoreUtils.NO_ID ? null : this.readUnit(arguments, 2);
             int sourcePlayer = ScriptCoreUtils.requireId("player", ScriptCoreUtils.readInteger(arguments, 3), PlayerTable.PLAYER_SLOTS);
             int weapon = ScriptCoreUtils.readInteger(arguments, 4) == ScriptCoreUtils.NO_ID ? ScriptCoreUtils.NO_ID
-                                                                                           : ScriptBulletCore.readWeapon(arguments, 4);
+                                                                                            : ScriptBulletCore.readWeapon(arguments, 4);
             int damageType = ScriptCoreUtils.readInteger(arguments, 5);
 
             if (damageType == ScriptCoreUtils.NO_ID && weapon != ScriptCoreUtils.NO_ID) {
