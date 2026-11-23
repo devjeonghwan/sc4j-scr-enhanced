@@ -154,12 +154,12 @@ final class ScriptTerrainChanges {
      * Queues the changes that copy the tiles of a rectangle of the map, as {@link #getTile} reads them, onto the rectangle of the same size at
      * another place; the rectangles may overlap.
      *
-     * @param sourceLeft  the left column of the copied rectangle in tiles
-     * @param sourceTop   the top row of the copied rectangle in tiles
-     * @param width       the width in tiles
-     * @param height      the height in tiles
-     * @param targetLeft  the left column of the changed rectangle in tiles
-     * @param targetTop   the top row of the changed rectangle in tiles
+     * @param sourceLeft the left column of the copied rectangle in tiles
+     * @param sourceTop  the top row of the copied rectangle in tiles
+     * @param width      the width in tiles
+     * @param height     the height in tiles
+     * @param targetLeft the left column of the changed rectangle in tiles
+     * @param targetTop  the top row of the changed rectangle in tiles
      * @throws IndexOutOfBoundsException if a rectangle leaves the map
      * @throws IllegalStateException     if the map has no expanded terrain flags or overlays, or the tileset cannot be loaded
      */

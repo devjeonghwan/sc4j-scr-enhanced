@@ -177,10 +177,10 @@ public final class ScriptGame {
 
         this.imageReplacements   = new ImageReplacements(() -> game.getUnitSystem().getUnitPool(), () -> game.getSpriteSystem().getSpritePool(),
                                                          game::getCurrentFrame, countImageTypes(game), imageTypeId -> {
-                                                             GameData gameData = game.getGameData();
+            GameData gameData = game.getGameData();
 
-                                                             return gameData != null && gameData.getImageTypes().getGraphicTurns(imageTypeId) != 0;
-                                                         });
+            return gameData != null && gameData.getImageTypes().getGraphicTurns(imageTypeId) != 0;
+        });
         this.terrainReplacements = new TerrainReplacements();
         this.consoleSettings     = new ConsoleSettings();
         this.unitStats           = new ScriptUnitStats(() -> game.getUnitSystem().getUnitPool());

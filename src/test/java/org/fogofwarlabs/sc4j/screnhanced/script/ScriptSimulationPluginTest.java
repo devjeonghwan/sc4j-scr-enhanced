@@ -33,11 +33,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -437,7 +433,7 @@ final class ScriptSimulationPluginTest {
 
     @Test
     void every_player_runs_its_local_code_on_its_own_peer_and_the_shared_code_on_every_peer(@NotNull InstallationTestResources resources,
-                                                                                             @TempDir @NotNull Path folder) throws IOException {
+                                                                                            @TempDir @NotNull Path folder) throws IOException {
         Path map = ScriptMapGameScenario.packMap(folder, """
                                                          var channel = sync.createChannel(function (player, value) {
                                                              game.print('ES ' + player.getName() + ' ' + value);
