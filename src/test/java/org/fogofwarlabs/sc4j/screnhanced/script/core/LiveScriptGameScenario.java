@@ -18,7 +18,8 @@ import java.util.List;
 
 /**
  * Starts a live game on an installed map, runs it a few frames and runs a script with the game API on it: the script starts and runs its frames
- * inside a command dispatch of the game, after each game frame. A melee game has a human Terran and a computer Zerg with their start units;
+ * inside a command dispatch of the game, after each game frame, and the map tile changes it queued apply after each of its frames, as at the
+ * end of a frame start. A melee game has a human Terran and a computer Zerg with their start units;
  * a Use Map Settings game has the human alone and the map's locations.
  */
 final class LiveScriptGameScenario {
@@ -93,6 +94,7 @@ final class LiveScriptGameScenario {
         RunningGameScenario.runInCommandDispatch(this.gameRuntime, () -> {
             this.script.getRuntime().start();
             this.script.getRuntime().runFrame(frame);
+            this.script.getRuntime().applyTerrainChanges();
         });
     }
 
@@ -101,14 +103,17 @@ final class LiveScriptGameScenario {
     }
 
     /**
-     * Runs one game frame, then the script's frame.
+     * Runs one game frame, then the script's frame and the map tile changes it queued.
      */
     void stepFrame() {
         LiveMapGameScenario.stepFrame(this.gameRuntime, this.live);
 
         int frame = this.getGame().getCurrentFrame();
 
-        RunningGameScenario.runInCommandDispatch(this.gameRuntime, () -> this.script.getRuntime().runFrame(frame));
+        RunningGameScenario.runInCommandDispatch(this.gameRuntime, () -> {
+            this.script.getRuntime().runFrame(frame);
+            this.script.getRuntime().applyTerrainChanges();
+        });
     }
 
     /**

@@ -298,6 +298,16 @@ public final class ScriptRuntime {
         return this.scriptGame.findDrawList();
     }
 
+    /**
+     * Finds the sound file that a sound id of {@code core.sound.playResourceAt} plays.
+     *
+     * @param soundId the sound id of a played sound event
+     * @return the sound file, or {@code null} for a sound id that no sound file took
+     */
+    public byte @Nullable [] findSoundFile(int soundId) {
+        return this.scriptGame.findSoundFile(soundId);
+    }
+
 
     /**
      * Loads the main script within one instruction budget.
@@ -583,6 +593,17 @@ public final class ScriptRuntime {
     public void playLocalSounds() {
         this.checkNotDisposed();
         this.scriptGame.playLocalSounds();
+    }
+
+    /**
+     * Applies the map tile changes the script queued ({@code core.terrain}), as on a map that had the new tiles from the start.
+     *
+     * @throws IllegalStateException         if the runtime is disposed or the tileset cannot be loaded
+     * @throws UnsupportedOperationException if the contours of the changed map cannot be built
+     */
+    public void applyTerrainChanges() {
+        this.checkNotDisposed();
+        this.scriptGame.applyTerrainChanges();
     }
 
     /**

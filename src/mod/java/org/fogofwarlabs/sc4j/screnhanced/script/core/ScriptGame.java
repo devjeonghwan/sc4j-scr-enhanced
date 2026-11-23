@@ -145,6 +145,7 @@ public final class ScriptGame {
     private final @NotNull ScriptCommandCore commandCore;
     private final @NotNull ScriptLocalCore localCore;
     private final @NotNull ScriptSoundCore soundCore;
+    private final @NotNull ScriptTerrainChanges terrainChanges;
     private @Nullable ScriptScreenCore screenCore;
 
     private final @NotNull Map<String, Integer> registeredTexts;
@@ -170,6 +171,7 @@ public final class ScriptGame {
         this.commandCore       = new ScriptCommandCore(this);
         this.localCore         = new ScriptLocalCore(this);
         this.soundCore         = new ScriptSoundCore(this);
+        this.terrainChanges    = new ScriptTerrainChanges(game);
         this.screenCore        = null;
 
         this.registeredTexts = new HashMap<>();
@@ -183,6 +185,13 @@ public final class ScriptGame {
      */
     @NotNull Game getGame() {
         return this.game;
+    }
+
+    /**
+     * @return the map tile changes of {@code core.terrain}, the same instance for the whole game
+     */
+    @NotNull ScriptTerrainChanges getTerrainChanges() {
+        return this.terrainChanges;
     }
 
     /**
@@ -220,6 +229,16 @@ public final class ScriptGame {
      */
     public @Nullable ScrDrawList findDrawList() {
         return this.requireScreenCore().findDrawList();
+    }
+
+    /**
+     * Finds the sound file that a sound id of {@code core.sound.playResourceAt} plays.
+     *
+     * @param soundId the sound id of a played sound event
+     * @return the sound file, or {@code null} for a sound id that no sound file took
+     */
+    public byte @Nullable [] findSoundFile(int soundId) {
+        return this.soundCore.findSoundFile(soundId);
     }
 
     /**
@@ -418,6 +437,17 @@ public final class ScriptGame {
      */
     public void playLocalSounds() {
         this.soundCore.playLocalSounds();
+    }
+
+    /**
+     * Applies the map tile changes the script queued ({@code core.terrain}): the tiles, the contours and regions, the paths and the ground units
+     * on terrain that no longer carries them. Nothing happens without a queued change.
+     *
+     * @throws IllegalStateException         if the tileset cannot be loaded
+     * @throws UnsupportedOperationException if the contours of the changed map cannot be built
+     */
+    public void applyTerrainChanges() {
+        this.terrainChanges.applyChanges(this.getInstructionLimit());
     }
 
     /**
