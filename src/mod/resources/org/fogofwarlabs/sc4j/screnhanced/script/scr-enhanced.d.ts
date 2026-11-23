@@ -2561,9 +2561,17 @@ interface Unit {
     setHp(hp: number): void;
 
     /**
-     * @returns the shown maximum hit points of the unit's type in units.dat
+     * @returns the shown maximum hit points: the unit's own ({@link setMaxHp}), else those of its type in units.dat
      */
     getMaxHp(): number;
+
+    /**
+     * Sets the unit's own maximum hit points while it lives; the hit points then stay at most the maximum. Repair, healing, regeneration,
+     * completion, the percentages and the display use it. Shared code only.
+     *
+     * @param hp the shown maximum, rounded to 1/256 and at least 1/256, or null for that of the unit's type
+     */
+    setMaxHp(hp: number | null): void;
 
     /**
      * @returns the shields, 0 for a unit without shields
@@ -3035,6 +3043,36 @@ interface Unit {
      * @returns the top speed in 1/256 pixels per frame
      */
     getTopSpeed(): number;
+
+    /**
+     * @returns the percentage of the unit's movement speeds and acceleration, 100 for the native ones
+     */
+    getSpeedPercent(): number;
+
+    /**
+     * Sets the percentage of the unit's movement speeds and acceleration while it lives, applied after the speed upgrades, Stim Packs and
+     * Ensnare. Shared code only.
+     *
+     * @param percent the percentage, 0 to 10000
+     */
+    setSpeedPercent(percent: number): void;
+
+    /**
+     * @param weapon a weapon of the unit
+     * @returns the maximum range in pixels the game uses: the weapon's range, the Bunker, upgrade and hero bonuses and the unit's bonus
+     */
+    getWeaponRange(weapon: WeaponType): number;
+
+    /**
+     * @returns the range in pixels added to the maximum range of the unit's weapons, 0 without a bonus
+     */
+    getWeaponRangeBonus(): number;
+
+    /**
+     * Sets the range in pixels added to the maximum range of the unit's weapons and of its turret's while it lives; negative shortens the
+     * range. Shared code only.
+     */
+    setWeaponRangeBonus(pixels: number): void;
 
     /**
      * @returns the position the unit moves to
@@ -4604,7 +4642,8 @@ interface Units {
     findInRadius(position: Position, radius: number, filter?: UnitFilter): Unit[];
 
     /**
-     * Creates a unit as the Create Unit action does. Shared code only.
+     * Creates a unit as the Create Unit action does, without its "Unit unplaceable" message. A type without the units.dat flag Unit Listing (the
+     * traps, the doors and other doodads) is not created. Shared code only.
      *
      * @param type     the unit type
      * @param player   the owner
@@ -4612,6 +4651,16 @@ interface Units {
      * @returns the new unit, or null when it could not be placed
      */
     create(type: UnitType, player: Player, position: Position): Unit | null;
+
+    /**
+     * Finds the position where {@link create} would place a unit, without creating it. Shared code only.
+     *
+     * @param type     the unit type
+     * @param player   the owner
+     * @param position the requested position in map pixels
+     * @returns the position in map pixels, or null when {@link create} would create none there
+     */
+    findPlacement(type: UnitType, player: Player, position: Position): Position | null;
 }
 
 /**

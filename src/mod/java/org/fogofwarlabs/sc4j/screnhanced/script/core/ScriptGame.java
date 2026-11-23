@@ -144,6 +144,7 @@ public final class ScriptGame {
 
     private final @NotNull ImageReplacements imageReplacements;
     private final @NotNull ConsoleSettings consoleSettings;
+    private final @NotNull ScriptUnitStats unitStats;
     private final @NotNull ScriptEventCore eventCore;
     private final @NotNull ScriptCommandCore commandCore;
     private final @NotNull ScriptLocalCore localCore;
@@ -159,7 +160,8 @@ public final class ScriptGame {
     private boolean typeRegistration;
 
     /**
-     * Creates a {@link ScriptGame} instance without image replacements, events, commands and registered texts, neither read-only nor local.
+     * Creates a {@link ScriptGame} instance without image replacements, unit stats, events, commands and registered texts, neither read-only nor
+     * local.
      *
      * @param game   the game
      * @param global the global scope
@@ -177,6 +179,7 @@ public final class ScriptGame {
                                                            return gameData != null && gameData.getImageTypes().getGraphicTurns(imageTypeId) != 0;
                                                        });
         this.consoleSettings   = new ConsoleSettings();
+        this.unitStats         = new ScriptUnitStats(() -> game.getUnitSystem().getUnitPool());
         this.eventCore         = new ScriptEventCore(this);
         this.commandCore       = new ScriptCommandCore(this);
         this.localCore         = new ScriptLocalCore(this);
@@ -235,6 +238,13 @@ public final class ScriptGame {
      */
     public @NotNull ConsoleSettings getConsoleSettings() {
         return this.consoleSettings;
+    }
+
+    /**
+     * @return the stats the script gives single units ({@code core.unit}), the same instance for the whole game
+     */
+    public @NotNull ScriptUnitStats getUnitStats() {
+        return this.unitStats;
     }
 
     /**

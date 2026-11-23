@@ -36,8 +36,9 @@ import java.util.stream.Collectors;
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
  * frame hooks, the frame hook while the script pauses the game, live and in the replay, the map tile changes that move a unit at the frame
  * start, live and in the replay, the event hooks with their captured values and the position of a death, the decision hooks that change
- * damage, also of {@code applyDamage}, and reject orders, the requested position of an order and the ground queries, the read-only game in a
- * decision with its refused trigger writes and its local display, the channel messages of shared code and of the local hooks that the game's
+ * damage, also of {@code applyDamage}, and reject orders, the requested position of an order and the ground queries, the stats of single units
+ * that the simulation reads through the plugin, the read-only game in a decision with its refused trigger writes and its local display, the
+ * channel messages of shared code and of the local hooks that the game's
  * {@link ScriptInputPlugin} calls, live and in the replay, the hooks of {@code defineHooks}, which play the game as top-level function hooks
  * do, protected too, and a map without a script package.
  */
@@ -391,6 +392,41 @@ final class ScriptSimulationPluginTest {
         scenario.stepUntilPrinted("hit points", FIGHT_FRAMES);
 
         Assertions.assertEquals(List.of("hit points 40 35 true"), scenario.getPrints());
+    }
+
+    @Test
+    void a_unit_keeps_its_own_maximum_hit_points_weapon_range_and_speed(@NotNull InstallationTestResources resources,
+                                                                        @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
+                                                                                                                          withoutZergling = true;
+                                                                                                                          var other;
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame === spawnFrame) {
+                                                                                                                                  other = game.units.create(UnitType.TerranMarine, human, marine.getPosition());
+                                                                                                                                  var range = marine.getWeaponRange(WeaponType.GaussRifle);
+                                                                                                                                  var before = marine.getMaxHp() + ' ' + marine.getWeaponRangeBonus() + ' ' + marine.getSpeedPercent();
+                                                                                                                                  marine.setMaxHp(100);
+                                                                                                                                  marine.setHp(90);
+                                                                                                                                  marine.setWeaponRangeBonus(32);
+                                                                                                                                  marine.setSpeedPercent(200);
+                                                                                                                                  var stats = marine.getMaxHp() + ' ' + marine.getHp() + ' ' + other.getMaxHp() + ' ' +
+                                                                                                                                              (marine.getWeaponRange(WeaponType.GaussRifle) - range) + ' ' +
+                                                                                                                                              (other.getWeaponRange(WeaponType.GaussRifle) === range) + ' ' + marine.getSpeedPercent();
+                                                                                                                                  marine.setMaxHp(20);
+                                                                                                                                  var lowered = marine.getHp();
+                                                                                                                                  marine.setMaxHp(null);
+                                                                                                                                  game.print('ES stats ' + before + ' ' + stats + ' ' + lowered + ' ' + marine.getMaxHp());
+                                                                                                                                  marine.issueOrder(Order.Move, Position.of(marine.getX(), marine.getY() + 256));
+                                                                                                                                  other.issueOrder(Order.Move, Position.of(other.getX(), other.getY() + 256));
+                                                                                                                              } else if (frame === spawnFrame + 12) {
+                                                                                                                                  game.print('ES faster ' + (marine.getCurrentSpeed() > other.getCurrentSpeed()));
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
+
+        scenario.stepUntilPrinted("faster", FIGHT_FRAMES);
+
+        Assertions.assertEquals(List.of("stats 40 0 100 100 90 40 32 true 200 20 40", "faster true"), scenario.getPrints());
     }
 
     @Test

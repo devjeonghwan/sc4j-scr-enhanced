@@ -1856,6 +1856,51 @@ interface CoreUnit {
     getMaxEnergy(unit: number): number;
 
     /**
+     * Returns the maximum hit points in 1/256: the unit's own ({@link setMaxHp}), else those of its type in units.dat.
+     */
+    getMaxHp(unit: number): number;
+
+    /**
+     * Sets the unit's own maximum hit points while it lives; the hit points then stay at most the maximum. Repair, healing, regeneration,
+     * completion, the percentages and the display use it. Shared code only.
+     *
+     * @param hp the maximum in 1/256, at least 1, or -1 for that of the unit's type
+     * @throws RangeError if the maximum is below 1 and not -1
+     */
+    setMaxHp(unit: number, hp: number): void;
+
+    /**
+     * Returns the maximum range in pixels of a weapon of the unit, as the game uses it: the weapons.dat range, the Bunker, upgrade and hero
+     * bonuses and the unit's weapon range bonus.
+     */
+    getWeaponRange(unit: number, weapon: number): number;
+
+    /**
+     * Returns the range in pixels added to the maximum range of the unit's weapons, 0 without a bonus.
+     */
+    getWeaponRangeBonus(unit: number): number;
+
+    /**
+     * Sets the range in pixels added to the maximum range of the unit's weapons and of its turret's while it lives; negative shortens the
+     * range. Shared code only.
+     */
+    setWeaponRangeBonus(unit: number, pixels: number): void;
+
+    /**
+     * Returns the percentage of the unit's movement speeds and acceleration, 100 for the native ones.
+     */
+    getSpeedPercent(unit: number): number;
+
+    /**
+     * Sets the percentage of the unit's movement speeds and acceleration while it lives, applied after the speed upgrades, Stim Packs and
+     * Ensnare, and recalculates its speeds. Shared code only.
+     *
+     * @param percent the percentage, 0 to 10000
+     * @throws RangeError if the percentage is outside 0 to 10000
+     */
+    setSpeedPercent(unit: number, percent: number): void;
+
+    /**
      * Returns the unit's current order id.
      */
     getOrder(unit: number): number;
@@ -2004,13 +2049,23 @@ interface CoreUnit {
     addHangarCount(unit: number, count: number): boolean;
 
     /**
-     * Creates a unit at a position in pixels, as Create Unit does; a mineral field or a Vespene Geyser belongs to the neutral player. Shared
-     * code only.
+     * Creates a unit at a position in pixels, as Create Unit does, without the messages of a failed creation ("Unit unplaceable" and the
+     * owner's status line); a mineral field or a Vespene Geyser belongs to the neutral player. A type without the units.dat availability flag
+     * Unit Listing (the traps, the doors and other doodads) is not created. Shared code only.
      *
      * @param owner the player id, 0 to 11
      * @returns the new unit, -1 if none was created
      */
     create(unitType: number, owner: number, x: number, y: number): number;
+
+    /**
+     * Finds the position in pixels where {@link create} would place a unit, without creating it: the free position search around the requested
+     * position. Shared code only, as it uses the unit finder's working state.
+     *
+     * @param owner the player id, 0 to 11
+     * @returns [x, y], or null if {@link create} would create none there
+     */
+    findPlacement(unitType: number, owner: number, x: number, y: number): number[] | null;
 
     /**
      * Kills the unit, as Kill Unit does. Shared code only.
