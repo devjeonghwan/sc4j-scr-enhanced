@@ -401,9 +401,13 @@
         setHp: function (hp) {
             core.unit.setHp(requireUnitId(this), round(hp * RAW_SCALE));
         },
-        // The hit points of the unit's type in units.dat.
+        // The unit's own maximum hit points, else those of its type in units.dat.
         getMaxHp: function () {
-            return core.dat.units.getHitPoints(core.unit.getType(requireUnitId(this))) / RAW_SCALE;
+            return core.unit.getMaxHp(requireUnitId(this)) / RAW_SCALE;
+        },
+        // Null gives the unit the maximum of its type again.
+        setMaxHp: function (hp) {
+            core.unit.setMaxHp(requireUnitId(this), hp === null ? NONE : max(round(hp * RAW_SCALE), 1));
         },
         getShields: function () {
             var id = requireUnitId(this);
@@ -722,6 +726,21 @@
     };
     unitPrototype.getTopSpeed = function () {
         return core.unit.getTopSpeed(requireUnitId(this));
+    };
+    unitPrototype.getSpeedPercent = function () {
+        return core.unit.getSpeedPercent(requireUnitId(this));
+    };
+    unitPrototype.setSpeedPercent = function (percent) {
+        core.unit.setSpeedPercent(requireUnitId(this), percent);
+    };
+    unitPrototype.getWeaponRange = function (weapon) {
+        return core.unit.getWeaponRange(requireUnitId(this), requireObject(weapon, weaponTypePrototype, 'A weapon type').id);
+    };
+    unitPrototype.getWeaponRangeBonus = function () {
+        return core.unit.getWeaponRangeBonus(requireUnitId(this));
+    };
+    unitPrototype.setWeaponRangeBonus = function (pixels) {
+        core.unit.setWeaponRangeBonus(requireUnitId(this), pixels);
     };
 
     // Returns the location id of the location option, NONE without one.
@@ -1779,13 +1798,23 @@
                                    return dx * dx + dy * dy <= radius * radius && test(unit);
                                }, Infinity);
                            },
-                           // Creates a unit as Create Unit does; null when none was created. Shared code only.
+                           // Creates a unit as Create Unit does, without its failure messages; null when none was created. Shared code only.
                            create: function (type, player, position) {
                                requireObject(type, unitTypePrototype, 'A unit type');
                                requireObject(player, playerPrototype, 'A player');
                                requireObject(position, positionPrototype, 'A position');
 
                                return getUnit(core.unit.create(type.id, player.id, position.x, position.y));
+                           },
+                           // The position where create would place the unit; null when it would create none. Shared code only.
+                           findPlacement: function (type, player, position) {
+                               requireObject(type, unitTypePrototype, 'A unit type');
+                               requireObject(player, playerPrototype, 'A player');
+                               requireObject(position, positionPrototype, 'A position');
+
+                               var found = core.unit.findPlacement(type.id, player.id, position.x, position.y);
+
+                               return found === null ? null : createPosition(found[0], found[1]);
                            }
                        });
 

@@ -391,6 +391,12 @@ display.strings.setStatText(1, 'Marine');
 
 멤버가 타일을 명시하지 않으면 위치는 맵 픽셀입니다. 플레이어 슬롯과 타입 id는 0부터 셉니다. 유닛, 스프라이트, 이미지, 총알 객체는 그 대상이 사라지면 `Error`를 던집니다. 확실하지 않으면 먼저 `exists()`를 확인하세요.
 
+`game.units.create`는 Create Unit 액션처럼 유닛을 만들지만, 만들지 못하면 메시지 없이 `null`을 돌려줍니다. `game.units.findPlacement(type, player, position)`은 `create`가 유닛을 놓을 위치를, 없으면 `null`을 줍니다.
+
+트랩(Floor Gun Trap, Floor Missile Trap, 벽 트랩)은 장식물(doodad)입니다. 스타크래프트처럼 Create Unit은 트랩을 만들지 않습니다. 타입에 units.dat 플래그 Unit Listing이 없기 때문입니다. 트랩이 필요한 맵은 먼저 플래그를 켭니다: `UnitType.SpecialFloorGunTrap.setAvailabilityUnitListing(true)`. 트랩은 대상이 사거리에 들어올 때까지 클로킹 상태라서 주인과 디텍터가 있는 플레이어만 보고, 공격할 때 모습을 드러냅니다. 늘 보이는 포탑은 트랩이 아닌 유닛 타입으로 만드세요. 예를 들어 `setCanMove(false)`를 준 전투 유닛 타입입니다.
+
+유닛은 살아 있는 동안 자기만의 능력치를 가질 수 있습니다: `unit.setMaxHp(hp)`(`null`이면 타입의 최대값으로 돌아감), `unit.setWeaponRangeBonus(pixels)`, `unit.setSpeedPercent(percent)`. 게임은 그 값을 읽는 모든 곳에서 씁니다. 체력은 수리, 치료, 재생, 비율, 화면 표시에, 사거리는 공격과 대상 탐색에, 속도는 이동과 가속에 씁니다.
+
 ## 5. 예제
 
 ### 5.1 미네랄을 주는 타이머

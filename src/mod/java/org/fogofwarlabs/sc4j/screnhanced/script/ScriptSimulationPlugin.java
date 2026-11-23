@@ -8,6 +8,7 @@ import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
+import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettingsSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
@@ -33,7 +34,8 @@ import org.jetbrains.annotations.NotNull;
  * <p>
  * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
  * forgets the replacements of units whose slot was freed. The classic console of the game merges the console settings of the script
- * ({@link #getConsoleSettings()}). A game the plugin runs cannot be saved: a saved game would lose the script's state.
+ * ({@link #getConsoleSettings()}). The adjustments of the simulation answer with the stats the script gives single units
+ * ({@link ScriptRuntime#getUnitStats()}). A game the plugin runs cannot be saved: a saved game would lose the script's state.
  */
 public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageReplacementSource, ConsoleSettingsSource {
     private final @NotNull Game game;
@@ -142,6 +144,67 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     @Override
     public void decide(@NotNull SimulationDecision decision) {
         this.runtime.decide(decision);
+    }
+
+    /**
+     * Adjusts the maximum range of a unit's weapon after the native bonuses (the Bunker, the range upgrades and the heroes), wherever the
+     * simulation reads the range: the attack range tests, the target searches and the spell ranges of weapons.
+     * <p>
+     * The unit's weapon range bonus is added.
+     *
+     * @param unit   the attacking unit or turret
+     * @param weapon the weapons.dat entry
+     * @param range  the range in pixels
+     * @return the range in pixels, compared unsigned
+     */
+    @Override
+    public int adjustWeaponRange(@NotNull Unit unit, int weapon, int range) {
+        return this.runtime.getUnitStats().adjustWeaponRange(unit, range);
+    }
+
+    /**
+     * Adjusts a movement speed of a unit after its speed modifiers (the speed upgrades, Stim Packs and Ensnare): the {@code flingy.dat} top speed
+     * when the unit's movement fields are recalculated, and the speed each iscript {@code move} instruction gives a unit that its iscript moves,
+     * which also makes the top speed sampled from its Walking animation.
+     * <p>
+     * The unit's speed percentage applies.
+     *
+     * @param unit  the unit
+     * @param speed the speed in {@code 1/256} pixels per frame
+     * @return the speed in {@code 1/256} pixels per frame
+     */
+    @Override
+    public int adjustMovementSpeed(@NotNull Unit unit, int speed) {
+        return this.runtime.getUnitStats().adjustSpeed(unit, speed);
+    }
+
+    /**
+     * Adjusts the acceleration of a unit after its speed modifiers, when the unit's movement fields are recalculated.
+     * <p>
+     * The unit's speed percentage applies.
+     *
+     * @param unit         the unit
+     * @param acceleration the {@code flingy.dat} acceleration after the speed modifiers
+     * @return the acceleration, a WORD
+     */
+    @Override
+    public int adjustAcceleration(@NotNull Unit unit, int acceleration) {
+        return this.runtime.getUnitStats().adjustSpeed(unit, acceleration);
+    }
+
+    /**
+     * Adjusts the maximum hit points of a unit, wherever the game reads the maximum of a unit: the hit point limit, completion, repair,
+     * construction, the percentages of the triggers and the display.
+     * <p>
+     * The unit's own maximum hit points replace those of its type.
+     *
+     * @param unit             the unit
+     * @param maximumHitPoints the {@code units.dat} hit points of the unit's type in {@code 1/256} points
+     * @return the maximum hit points in {@code 1/256} points
+     */
+    @Override
+    public int adjustMaximumHitPoints(@NotNull Unit unit, int maximumHitPoints) {
+        return this.runtime.getUnitStats().adjustMaximumHitPoints(unit, maximumHitPoints);
     }
 
     /**

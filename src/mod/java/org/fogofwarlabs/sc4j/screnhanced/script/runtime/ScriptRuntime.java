@@ -14,6 +14,7 @@ import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.core.ScriptGame;
+import org.fogofwarlabs.sc4j.screnhanced.script.core.ScriptUnitStats;
 import org.fogofwarlabs.sc4j.screnhanced.script.input.ScriptLocalInput;
 import org.fogofwarlabs.sc4j.screnhanced.script.sync.ScriptCommandMessage;
 import org.jetbrains.annotations.NotNull;
@@ -287,6 +288,13 @@ public final class ScriptRuntime {
      */
     public @NotNull ConsoleSettings getConsoleSettings() {
         return this.scriptGame.getConsoleSettings();
+    }
+
+    /**
+     * @return the stats the script gives single units, the same instance for the whole game
+     */
+    public @NotNull ScriptUnitStats getUnitStats() {
+        return this.scriptGame.getUnitStats();
     }
 
     /**

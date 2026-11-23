@@ -391,6 +391,12 @@ display.strings.setStatText(1, 'Marine');
 
 Positions are map pixels unless a member names tiles; player slots and type ids start at 0. An object of a unit, sprite, image or bullet throws an `Error` once that thing is gone; check `exists()` first when unsure.
 
+`game.units.create` creates a unit as the Create Unit action does, but a failed creation shows no message and returns `null`. `game.units.findPlacement(type, player, position)` gives the position `create` would place the unit at, or `null`.
+
+Traps (Floor Gun Trap, Floor Missile Trap and the wall traps) are doodads. As in StarCraft, Create Unit does not create them, since their type lacks the units.dat flag Unit Listing; a map that wants them sets it first: `UnitType.SpecialFloorGunTrap.setAvailabilityUnitListing(true)`. A trap is cloaked until a target comes in range: only its owner and players with a detector see it, and it shows itself to attack. For a turret that is always visible, use a unit type that is not a trap, such as a combat unit type with `setCanMove(false)`.
+
+A unit can have stats of its own while it lives: `unit.setMaxHp(hp)` (`null` gives back the type's maximum), `unit.setWeaponRangeBonus(pixels)` and `unit.setSpeedPercent(percent)`. The game uses them wherever it reads the value: repair, healing, regeneration, percentages and the display for the hit points; attacks and target searches for the range; walking and acceleration for the speed.
+
 ## 5. Examples
 
 ### 5.1 A timer that gives minerals
