@@ -4930,6 +4930,11 @@ interface ImageGraphics {
      */
     sheet?: Sheet | null;
     /**
+     * With a sheet: for each frame set the image's iscript plays, the frame set of the sheet that draws it; the sheet's own order by default. A
+     * sheet with fewer frame sets can follow a native script this way.
+     */
+    frameSets?: number[] | null;
+    /**
      * The GRP of the SD graphics.
      */
     sd?: Grp | null;
@@ -5993,6 +5998,19 @@ interface Console {
     isVisible(): boolean;
 
     /**
+     * Shows only the minimap of the console: the console art is not drawn and the map shows through it, and every dialog but the minimap and
+     * the text box is hidden unless the script shows it ({@link ConsoleControlHandle.setVisible}).
+     *
+     * @param minimapOnly true to show only the minimap
+     */
+    setMinimapOnly(minimapOnly: boolean): void;
+
+    /**
+     * @returns true while the console shows only the minimap
+     */
+    isMinimapOnly(): boolean;
+
+    /**
      * @param control the dialog
      * @returns the object of the dialog, the same for the same dialog
      */
@@ -6105,36 +6123,64 @@ interface DisplaySound {
 }
 
 /**
+ * The graphics of the shadow and the remains of {@link DisplayImages.replace}: a given value replaces them, null draws nothing, a value left out
+ * keeps them.
+ */
+interface ImagePartOptions {
+    /**
+     * The graphics of the shadow: the images of a sprite drawn with the shadow draw function below another main image.
+     */
+    shadow?: ImageGraphics | null;
+    /**
+     * The graphics of the remains of a unit that dies: the images its sprite gets after the death, as those of its death animation, and the
+     * sprites those images create, as the remnant on the ground, and the sprites these create in turn. They last until those sprites are gone.
+     */
+    remains?: ImageGraphics | null;
+}
+
+/**
+ * The options of {@link DisplayImages.replaceUnit}.
+ */
+interface UnitImageOptions extends ImagePartOptions {
+    /**
+     * The image type of the replaced images, by default that of the unit's main image now.
+     */
+    imageType?: ImageType;
+}
+
+/**
  * The graphics of the game's images ({@link Display.images}). Shared code replaces them on every player's game, local code only on this
  * machine.
  */
 interface DisplayImages {
     /**
-     * Replaces the graphics of every image of an image type.
+     * Replaces the graphics of every image of an image type, and of the shadow and the remains of the sprites whose main image is of the type.
      *
      * @param imageType the image type
-     * @param images    the new graphics; a value that is no object throws a TypeError
+     * @param images    the new graphics, or null to keep them; a value that is no object throws a TypeError
+     * @param options   the graphics of the shadow and the remains
      */
-    replace(imageType: ImageType, images: ImageGraphics): void;
+    replace(imageType: ImageType, images: ImageGraphics | null, options?: ImagePartOptions): void;
 
     /**
-     * Restores the installed graphics of an image type.
+     * Restores the installed graphics of an image type, its shadow and its remains.
      *
      * @param imageType the image type
      */
     restore(imageType: ImageType): void;
 
     /**
-     * Replaces the graphics of a unit's images of an image type while the unit lives. A gone unit throws an Error.
+     * Replaces the graphics of a unit's images of an image type, and of its shadow and its remains, while the unit lives; they win over those of
+     * the image type. A gone unit throws an Error.
      *
-     * @param unit      the unit
-     * @param images    the new graphics
-     * @param imageType the image type, by default that of the unit's main image now
+     * @param unit    the unit
+     * @param images  the new graphics, or null to keep them
+     * @param options the image type and the graphics of the shadow and the remains
      */
-    replaceUnit(unit: Unit, images: ImageGraphics, imageType?: ImageType): void;
+    replaceUnit(unit: Unit, images: ImageGraphics | null, options?: UnitImageOptions): void;
 
     /**
-     * Restores the graphics of a unit's images of an image type. A gone unit throws an Error.
+     * Restores the graphics of a unit's images of an image type, its shadow and its remains. A gone unit throws an Error.
      *
      * @param unit      the unit
      * @param imageType the image type, by default that of the unit's main image now
@@ -8016,6 +8062,13 @@ interface ImageScriptTable extends ConstantTable<ImageScript> {
      * frame later.
      */
     readonly Projectile: ImageScript;
+    /**
+     * A unit that turns, without sounds. It needs 15 frame sets of 17 directions: it stands at frame set 0 and walks through the frame sets 1 to
+     * 8, one per frame; an attack aims at frame set 9 and fires the weapon the target needs at frame set 10, a spell the same way; Death shows
+     * the frame sets 11 to 14, two frames each, and ends. The image is clickable. It does not move the unit: give the unit a flingy type that
+     * moves by flingy.dat. With a sheet that has a shadow picture it also creates a shadow image below.
+     */
+    readonly Unit: ImageScript;
 }
 
 /**

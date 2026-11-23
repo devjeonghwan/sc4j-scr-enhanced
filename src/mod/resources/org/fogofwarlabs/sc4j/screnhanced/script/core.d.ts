@@ -3264,7 +3264,7 @@ interface CoreImageTypes extends CoreTypes {
      *
      * @param sheet              a sheet handle ({@link CoreResources.getSheet})
      * @param name               the name, or null for "Image" and the id
-     * @param script             the generic script, 0 (Still) or 1 (Projectile), or -1 with an image type to copy
+     * @param script             the generic script, 0 (Still), 1 (Projectile) or 2 (Unit), or -1 with an image type to copy
      * @param scriptImageType    the image type whose iscript, draw function, color shift, flags and overlay files the type copies, or -1
      * @param frameSets          the sheet's frame set for each frame set the script plays, or null for the sheet's own order
      * @param drawFunction       the draw function, 0 to 17, or -1 for that of the script
@@ -3361,6 +3361,16 @@ interface CoreResources {
              anchorY: number, teamColor: string | null, shadow: string | null, sd: number): number;
 
     /**
+     * Returns a handle of a sheet's graphics in the order of frame sets, which graphics arguments take in place of a sheet handle; the same sheet
+     * and frame sets return the same handle.
+     *
+     * @param sheet     a sheet handle ({@link getSheet}); another handle or -1 throws a RangeError
+     * @param frameSets the sheet's frame set for each frame set an iscript plays; none, or one outside the sheet, throws a RangeError
+     * @returns the resource handle
+     */
+    getSheetFrames(sheet: number, frameSets: number[]): number;
+
+    /**
      * @param sheet a sheet handle ({@link getSheet}); another handle or -1 throws a RangeError
      * @returns the number of frames
      */
@@ -3409,8 +3419,9 @@ interface CoreResources {
  * replaces on every player's game, local code on this machine only. The graphics are three handles of {@link CoreResources}, each -1 for none:
  * at least one is given, the HD anim has asset scale 4 and the HD2 anim 2, else a RangeError is thrown. The classic graphics draw the GRP, else
  * the installed GRP; HD draws the HD anim, else the HD2 anim; HD2 draws the HD2 anim, else the HD anim at half size; without an anim both draw
- * the GRP. A replacement wins over the GRP and anim pointers that EUD writes give the image. A sheet handle ({@link CoreResources.getSheet}) in
- * place of the GRP, with both anims -1, replaces with the sheet's GRP and its anim built when first drawn.
+ * the GRP. A replacement wins over the GRP and anim pointers that EUD writes give the image. A sheet handle ({@link CoreResources.getSheet}) or
+ * a handle of sheet frames ({@link CoreResources.getSheetFrames}) in place of the GRP, with both anims -1, replaces with the sheet's GRP and its
+ * anim built when first drawn.
  */
 interface CoreGraphics {
     /**
@@ -3436,6 +3447,50 @@ interface CoreGraphics {
      * Takes back the replacement of a live unit's images of the image type.
      */
     restoreUnitImage(unit: number, imageType: number): void;
+
+    /**
+     * Replaces the graphics of the shadow of the sprites whose main image is of the image type: their images drawn with the shadow draw
+     * function. All three handles -1 draw nothing.
+     */
+    replaceImageShadow(imageType: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
+    /**
+     * Takes back the shadow graphics of the image type.
+     */
+    restoreImageShadow(imageType: number): void;
+
+    /**
+     * Replaces the graphics of the remains of the units whose sprite's main image is of the image type when they die: the images their sprite
+     * gets after the death and the sprites those images create, and so on. All three handles -1 draw nothing.
+     */
+    replaceImageRemains(imageType: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
+    /**
+     * Takes back the remains graphics of the image type.
+     */
+    restoreImageRemains(imageType: number): void;
+
+    /**
+     * Replaces the graphics of a live unit's shadow while the unit lives; they win over those of the image type. All three handles -1 draw
+     * nothing.
+     */
+    replaceUnitShadow(unit: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
+    /**
+     * Takes back the shadow graphics of a live unit.
+     */
+    restoreUnitShadow(unit: number): void;
+
+    /**
+     * Replaces the graphics of the remains a live unit leaves when it dies; they win over those of the image type. All three handles -1 draw
+     * nothing.
+     */
+    replaceUnitRemains(unit: number, grp: number, hdAnim: number, hd2Anim: number): void;
+
+    /**
+     * Takes back the remains graphics of a live unit.
+     */
+    restoreUnitRemains(unit: number): void;
 
     /**
      * Replaces the graphics of one image ({@link CoreImage}) while its slot holds it; they win over those of its unit and image type.
@@ -4100,6 +4155,17 @@ interface CoreConsole {
      * Returns false when the script hid the console, true otherwise.
      */
     isVisible(): boolean;
+
+    /**
+     * Sets whether the console shows only the minimap: the console art is not drawn and the map shows through, and every dialog but the
+     * minimap and the text box is hidden unless the script shows it.
+     */
+    setMinimapOnly(minimapOnly: boolean): void;
+
+    /**
+     * Returns true while the console shows only the minimap.
+     */
+    isMinimapOnly(): boolean;
 
     /**
      * Shows or hides a console dialog.
