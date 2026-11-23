@@ -2652,6 +2652,54 @@ interface CoreTerrain {
     setTile(tileX: number, tileY: number, value: number): void;
 
     /**
+     * Queues a change of every tile of a rectangle of tiles to one MTXM value ({@link setTile}). Shared code only. Throws a RangeError when the
+     * rectangle leaves the map.
+     *
+     * @param left   the left tile column
+     * @param top    the top tile row
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @param value  the MTXM value
+     */
+    fillTiles(left: number, top: number, width: number, height: number, value: number): void;
+
+    /**
+     * Queues the changes that copy the tiles of a rectangle of tiles, as {@link getTile} reads them, onto the rectangle of the same size at
+     * another place; the rectangles may overlap. Shared code only. Throws a RangeError when a rectangle leaves the map.
+     *
+     * @param sourceLeft the left tile column of the copied rectangle
+     * @param sourceTop  the top tile row of the copied rectangle
+     * @param width      the width in tiles
+     * @param height     the height in tiles
+     * @param targetLeft the left tile column of the changed rectangle
+     * @param targetTop  the top tile row of the changed rectangle
+     */
+    copyTiles(sourceLeft: number, sourceTop: number, width: number, height: number, targetLeft: number, targetTop: number): void;
+
+    /**
+     * Queues a change of every tile of a rectangle of tiles ({@link setTile}) in one call. Shared code only. Throws a RangeError when the
+     * rectangle leaves the map, the number of values is not width times height or a value names no tile; then nothing is queued.
+     *
+     * @param left   the left tile column
+     * @param top    the top tile row
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @param values the MTXM values, or objects whose id is the MTXM value, row by row from the top left tile
+     */
+    setTiles(left: number, top: number, width: number, height: number, values: ReadonlyArray<number | { readonly id: number }>): void;
+
+    /**
+     * Replaces the picture of the megatile an MTXM value shows, for every tile that shows the megatile, as presentation: the HD and HD2 graphics
+     * draw the image stretched over the tile with its alpha over the installed tile, the classic graphics its pixels quantized to the tileset
+     * palette where they are opaque. Shared code only, at the module top level or in onStart. Throws a RangeError when a side of the image is
+     * not a multiple of 32 pixels.
+     *
+     * @param value   the MTXM value
+     * @param imageId an image handle ({@link CoreResources.getImage}), as wide and high as a multiple of 32 pixels (32, 64 or 128)
+     */
+    replaceTileImage(value: number, imageId: number): void;
+
+    /**
      * @returns the number of CV5 groups of the map's tileset
      */
     getTileGroupCount(): number;
@@ -2733,6 +2781,19 @@ interface CoreCreep {
      * @returns 1 when it added a tile, 2 when it added none and an occupied tile blocked it, else 0
      */
     spread(unitType: number, x: number, y: number): number;
+
+    /**
+     * Adds creep to every tile of a rectangle of tiles that can take it, as a finished building adds creep under its footprint: a tile that has
+     * creep, cannot have creep (unbuildable, partially walkable or above an unbuildable tile) or is occupied by a building stays. Shared code
+     * only. Throws a RangeError when the rectangle leaves the map.
+     *
+     * @param left   the left tile column
+     * @param top    the top tile row
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @returns the number of tiles that took creep
+     */
+    fillTiles(left: number, top: number, width: number, height: number): number;
 
     /**
      * Removes the creep of the tile at once and gives back the terrain below it. Shared code only.
@@ -4016,7 +4077,8 @@ interface CoreButtons {
 
 /**
  * The drawing of one space ({@link Drawing}) with numbers: {@code core.screen} draws in interface units over the console, {@code core.world} in
- * map pixels above the units and {@code core.minimap} in map pixels on the minimap. Coordinates and sizes may have fractions; a negative size or
+ * map pixels above the units, {@code core.ground} in map pixels above the terrain and below the units and {@code core.minimap} in map pixels on
+ * the minimap. Coordinates and sizes may have fractions; a negative size or
  * thickness throws a RangeError. Colors are packed 0xAARRGGBB, 0 to 0xFFFFFFFF: a negative color throws a RangeError, a larger one a
  * TypeError. Fonts are 0 Small, 1 Medium, 2 Large, 3 Huge; alignments 0 Left, 1 Center, 2 Right. What one onRender call draws stays on screen
  * until the next call completes.
@@ -4450,6 +4512,8 @@ interface Core {
     readonly screen: CoreScreen;
     /** The drawing in map pixels above the units. */
     readonly world: CoreDrawing;
+    /** The drawing in map pixels above the terrain and below the units. */
+    readonly ground: CoreDrawing;
     /** The drawing in map pixels on the minimap. */
     readonly minimap: CoreDrawing;
     /** The console. */

@@ -1531,6 +1531,18 @@
 
                                return core.creep.spread(requireObject(unitType, unitTypePrototype, 'A unit type').id, position.x, position.y) === 1;
                            },
+                           // Adds creep to every tile a location covers, clipped to the map, or every tile of a rectangle of tiles
+                           // (left, top, width, height), that can take it, as a finished building does under its footprint: the number of
+                           // tiles that took creep. Shared code only.
+                           fillTiles: function (locationOrLeft, top, width, height) {
+                               if (arguments.length < 4) {
+                                   var area = readLocationTiles(locationOrLeft);
+
+                                   return core.creep.fillTiles(area.left, area.top, area.right - area.left, area.bottom - area.top);
+                               }
+
+                               return core.creep.fillTiles(locationOrLeft, top, width, height);
+                           },
                            // Removes the creep of a tile at once. Shared code only.
                            remove: function (tileX, tileY) {
                                core.creep.removeTile(tileX, tileY);
@@ -1552,40 +1564,50 @@
                              setTile: function (tileX, tileY, tile) {
                                  core.terrain.setTile(tileX, tileY, requireObject(tile, tilePrototype, 'A tile').id);
                              },
-                             // Sets every tile a location covers.
-                             fillTiles: function (location, tile) {
-                                 var id = requireObject(tile, tilePrototype, 'A tile').id;
-                                 var area = readLocationTiles(location);
+                             // Sets every tile a location covers, clipped to the map, or every tile of a rectangle of tiles (left, top,
+                             // width, height).
+                             fillTiles: function (locationOrLeft, tileOrTop, width, height, tile) {
+                                 if (arguments.length < 5) {
+                                     var area = readLocationTiles(locationOrLeft);
 
-                                 for (var tileY = area.top; tileY < area.bottom; tileY++) {
-                                     for (var tileX = area.left; tileX < area.right; tileX++) {
-                                         core.terrain.setTile(tileX, tileY, id);
-                                     }
+                                     core.terrain.fillTiles(area.left, area.top, area.right - area.left, area.bottom - area.top,
+                                                            requireObject(tileOrTop, tilePrototype, 'A tile').id);
+                                 } else {
+                                     core.terrain.fillTiles(locationOrLeft, tileOrTop, width, height,
+                                                            requireObject(tile, tilePrototype, 'A tile').id);
                                  }
                              },
-                             // Copies the tiles one location covers onto the tiles another location of the same size in tiles covers.
-                             copyTiles: function (fromLocation, toLocation) {
-                                 var source = readLocationTiles(fromLocation);
-                                 var target = readLocationTiles(toLocation);
-                                 var width = source.right - source.left;
-                                 var height = source.bottom - source.top;
+                             // Copies the tiles one location covers onto the tiles another location of the same size in tiles covers, or the
+                             // tiles of a rectangle of tiles (left, top, width, height) onto the rectangle of the same size at (toLeft, toTop).
+                             copyTiles: function (fromLocationOrLeft, toLocationOrTop, width, height, toLeft, toTop) {
+                                 if (arguments.length >= 6) {
+                                     core.terrain.copyTiles(fromLocationOrLeft, toLocationOrTop, width, height, toLeft, toTop);
 
-                                 if (width !== target.right - target.left || height !== target.bottom - target.top) {
-                                     throw new RangeError('The locations cover ' + width + 'x' + height + ' and ' + (target.right - target.left) + 'x' +
-                                                          (target.bottom - target.top) + ' tiles, not the same size.');
+                                     return;
                                  }
 
-                                 var values = [];
+                                 var source = readLocationTiles(fromLocationOrLeft);
+                                 var target = readLocationTiles(toLocationOrTop);
+                                 var sourceWidth = source.right - source.left;
+                                 var sourceHeight = source.bottom - source.top;
 
-                                 for (var row = 0; row < height; row++) {
-                                     for (var column = 0; column < width; column++) {
-                                         values.push(core.terrain.getTile(source.left + column, source.top + row));
-                                     }
+                                 if (sourceWidth !== target.right - target.left || sourceHeight !== target.bottom - target.top) {
+                                     throw new RangeError('The locations cover ' + sourceWidth + 'x' + sourceHeight + ' and ' +
+                                                          (target.right - target.left) + 'x' + (target.bottom - target.top) +
+                                                          ' tiles, not the same size.');
                                  }
 
-                                 for (var index = 0; index < values.length; index++) {
-                                     core.terrain.setTile(target.left + index % width, target.top + floor(index / width), values[index]);
-                                 }
+                                 core.terrain.copyTiles(source.left, source.top, sourceWidth, sourceHeight, target.left, target.top);
+                             },
+                             // Sets every tile of a rectangle of tiles from an array of Tiles or tile ids, row by row from the top left tile.
+                             setTiles: function (left, top, width, height, tiles) {
+                                 core.terrain.setTiles(left, top, width, height, tiles);
+                             },
+                             // Replaces the picture of the tile's megatile with an Image, for every tile that shows the megatile, as
+                             // presentation. Shared code only, at the module top level or in onStart.
+                             replaceTileImage: function (tile, image) {
+                                 core.terrain.replaceTileImage(requireObject(tile, tilePrototype, 'A tile').id,
+                                                               requireObject(image, imagePrototype, 'An image').id);
                              }
                          });
 

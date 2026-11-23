@@ -484,7 +484,7 @@ function onRender(screen) {
 }
 ```
 
-`screen`은 인터페이스 단위(높이 480, 너비 `screen.getWidth()`)로, `screen.world`는 유닛 위에 맵 픽셀로, `screen.minimap`은 미니맵에 맵 픽셀로 그립니다. `drawImage`는 `resources/`의 그림을 그립니다: `game.map.resources.getImage('logo.png')`. `source: {x, y, width, height}`를 주면 스프라이트 시트의 한 프레임처럼 그림의 일부만 그립니다.
+`screen`은 인터페이스 단위(높이 480, 너비 `screen.getWidth()`)로, `screen.world`는 유닛 위에 맵 픽셀로, `screen.ground`는 지형 위와 유닛 아래에 맵 픽셀로, `screen.minimap`은 미니맵에 맵 픽셀로 그립니다. `drawImage`는 `resources/`의 그림을 그립니다: `game.map.resources.getImage('logo.png')`. `source: {x, y, width, height}`를 주면 스프라이트 시트의 한 프레임처럼 그림의 일부만 그립니다.
 
 ### 5.4 유닛 죽음에 반응하기
 
@@ -634,6 +634,38 @@ defineHooks({
 - `getSound`는 8비트, 16비트, 24비트 PCM의 모노나 스테레오 RIFF WAVE, 또는 Ogg Vorbis 파일을 읽습니다. 다른 파일은 `Error`를 던집니다.
 - 소리 파일은 Play WAV의 채널에서 재생됩니다. 화면 안에서는 최대 음량이고, 화면 밖으로 512픽셀 멀어지면 소리가 없어집니다. 플레이어가 그 위치를 보는지와 상관없습니다.
 - 공유 코드는 모든 플레이어의 게임에서 재생합니다. 로컬 코드는 이 컴퓨터에서만, 다음 프레임 시작의 소리와 함께 재생합니다.
+
+### 5.9 지형
+
+`game.map.terrain`은 공유 코드에서 맵의 타일을 바꿉니다. 바뀐 타일은 다음 트리거 단계에 함께 적용되고, 처음부터 그 타일이 있던 맵처럼 됩니다.
+
+```js
+const wall = game.map.tileset.getTile(12, 0);
+const tiles = [];
+
+for (let index = 0; index < 96 * 96; index++) {
+    tiles.push(wall);
+}
+
+game.map.terrain.setTiles(0, 0, 96, 96, tiles);
+game.map.terrain.fillTiles(10, 4, 3, 2, wall);
+game.map.terrain.copyTiles(0, 0, 8, 8, 40, 40);
+```
+
+- `setTile(tileX, tileY, tile)`은 타일 하나를 바꿉니다. `setTiles(left, top, width, height, tiles)`는 Tile이나 타일 id를 위 행부터 차례로 받아 사각형을 한 번의 호출로 바꿉니다. 96x96 사각형도 호출 한 번입니다.
+- `fillTiles`와 `copyTiles`는 로케이션이나 타일 사각형(`left, top, width, height`)을 받습니다. 맵을 벗어나는 사각형은 `RangeError`를 던지고 아무것도 바꾸지 않습니다.
+- 걸을 수 없게 된 타일 위의 지상 유닛은 가장 가까운 빈 걸을 수 있는 땅으로 옮겨지고 현재 명령을 다시 시작합니다. 이동하던 유닛은 목표로 계속 이동합니다. 건물은 그대로 있습니다.
+- `terrain.creep.fillTiles(left, top, width, height)`나 `fillTiles(location)`은 영역 안에서 크립을 받을 수 있는 모든 타일에, 완성된 건물이 자기 자리에 하듯 크립을 깔고 크립이 깔린 타일 수를 돌려줍니다.
+
+`replaceTileImage(tile, image)`는 타일의 메가타일에 `resources/`의 그림을 줍니다. 모듈 최상위나 `onStart`에서 부릅니다.
+
+```js
+game.map.terrain.replaceTileImage(game.map.tileset.getTile(12, 0), game.map.resources.getImage('tiles/wall.png'));
+```
+
+- 같은 메가타일을 보이는 모든 타일이 그 그림을 보입니다. 맵의 다른 곳에서 쓰지 않는 타일을 골라 `setTile`로 놓으세요.
+- 그림은 32, 64, 128픽셀 정사각형(32의 배수)입니다. HD와 HD2는 원래 타일 위에 그림을 알파와 함께 타일 크기로 늘려 그리고, SD는 불투명한 픽셀을 타일셋 팔레트로 그립니다.
+- 그림은 보이는 것만 바꿉니다. 걸을 수 있는지, 지을 수 있는지, 시야는 타일의 것 그대로입니다.
 
 ## 6. 맵 보호
 

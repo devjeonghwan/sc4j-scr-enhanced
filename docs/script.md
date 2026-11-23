@@ -484,7 +484,7 @@ function onRender(screen) {
 }
 ```
 
-`screen` draws in interface units (480 high, `screen.getWidth()` wide), `screen.world` in map pixels above the units, `screen.minimap` in map pixels on the minimap. `drawImage` draws a picture of `resources/`: `game.map.resources.getImage('logo.png')`; with `source: {x, y, width, height}` it draws a part of the picture, as a frame of a sprite sheet.
+`screen` draws in interface units (480 high, `screen.getWidth()` wide), `screen.world` in map pixels above the units, `screen.ground` in map pixels above the terrain and below the units, `screen.minimap` in map pixels on the minimap. `drawImage` draws a picture of `resources/`: `game.map.resources.getImage('logo.png')`; with `source: {x, y, width, height}` it draws a part of the picture, as a frame of a sprite sheet.
 
 ### 5.4 Reacting to a unit death
 
@@ -634,6 +634,38 @@ defineHooks({
 - `getSound` reads a RIFF WAVE of 8-bit, 16-bit or 24-bit PCM, mono or stereo, or an Ogg Vorbis file; another file throws an `Error`.
 - A sound file plays on the channels of Play WAV, at full volume on the screen and fading to silence 512 pixels outside it, whether the players see the position or not.
 - Shared code plays it on every player's game. Local code plays it on this machine only, with the sounds of the next frame start.
+
+### 5.9 Terrain
+
+`game.map.terrain` changes the tiles of the map in shared code. The changes apply together at the next trigger step, as on a map that had the tiles from the start:
+
+```js
+const wall = game.map.tileset.getTile(12, 0);
+const tiles = [];
+
+for (let index = 0; index < 96 * 96; index++) {
+    tiles.push(wall);
+}
+
+game.map.terrain.setTiles(0, 0, 96, 96, tiles);
+game.map.terrain.fillTiles(10, 4, 3, 2, wall);
+game.map.terrain.copyTiles(0, 0, 8, 8, 40, 40);
+```
+
+- `setTile(tileX, tileY, tile)` sets one tile. `setTiles(left, top, width, height, tiles)` sets a rectangle in one call, from Tiles or tile ids row by row; a 96 by 96 rectangle costs one call.
+- `fillTiles` and `copyTiles` take a location, or a rectangle of tiles (`left, top, width, height`). A rectangle that leaves the map throws a `RangeError` and changes nothing.
+- Ground units on tiles that became unwalkable move to the nearest free walkable ground and start their current order again, so a moving unit keeps moving to its target. Buildings stay.
+- `terrain.creep.fillTiles(left, top, width, height)` or `fillTiles(location)` adds creep to every tile of the area that can take it, as a finished building does under its footprint, and returns the number of tiles that took creep.
+
+`replaceTileImage(tile, image)` gives a tile's megatile a picture of `resources/`, at the module top level or in `onStart`:
+
+```js
+game.map.terrain.replaceTileImage(game.map.tileset.getTile(12, 0), game.map.resources.getImage('tiles/wall.png'));
+```
+
+- Every tile that shows the same megatile shows the picture; pick a tile the map does not use elsewhere, then place it with `setTile`.
+- The picture is 32, 64 or 128 pixels square (any multiple of 32). HD and HD2 draw it stretched over the tile with its alpha, over the installed tile; SD draws its opaque pixels in the tileset palette.
+- The picture changes only what is drawn: walkability, buildability and sight stay those of the tile.
 
 ## 6. Map protection
 

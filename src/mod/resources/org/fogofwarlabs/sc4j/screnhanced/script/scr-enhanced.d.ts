@@ -5092,7 +5092,8 @@ interface Tileset {
  * The tiles of the map by tile coordinates ({@link GameMap.terrain}); a coordinate outside the map throws a RangeError. The changes apply
  * together at the next trigger step, after the frame start hooks (onFrame, the events, the timers) and before the triggers, as on a map that
  * had the tiles from the start: walkability, pathing regions, buildability, sight and the minimap follow, and ground units on tiles that became
- * unwalkable move to walkable ground nearby. Reads see the changes made so far.
+ * unwalkable move to the nearest free walkable ground and start their current order again, so a moving unit keeps moving to its target. Reads
+ * see the changes made so far.
  */
 interface Terrain {
     /**
@@ -5120,12 +5121,61 @@ interface Terrain {
     fillTiles(location: Location, tile: Tile): void;
 
     /**
+     * Sets every tile of a rectangle of tiles; a rectangle that leaves the map throws a RangeError. Shared code only.
+     *
+     * @param left   the left tile column
+     * @param top    the top tile row
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @param tile   the new tile
+     */
+    fillTiles(left: number, top: number, width: number, height: number, tile: Tile): void;
+
+    /**
      * Copies the tiles one location covers onto the tiles another location covers. Shared code only.
      *
      * @param fromLocation the source area
      * @param toLocation   the target area; a RangeError when it does not cover as many tiles across and down as the source
      */
     copyTiles(fromLocation: Location, toLocation: Location): void;
+
+    /**
+     * Copies the tiles of a rectangle of tiles onto the rectangle of the same size at another place; the rectangles may overlap. A rectangle
+     * that leaves the map throws a RangeError. Shared code only.
+     *
+     * @param left   the left tile column of the copied rectangle
+     * @param top    the top tile row of the copied rectangle
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @param toLeft the left tile column of the target rectangle
+     * @param toTop  the top tile row of the target rectangle
+     */
+    copyTiles(left: number, top: number, width: number, height: number, toLeft: number, toTop: number): void;
+
+    /**
+     * Sets every tile of a rectangle of tiles in one call, for large areas: a 96 by 96 rectangle costs one call. A rectangle that leaves the
+     * map, a tile count other than width times height or a tile id the tileset does not have throws a RangeError, and then no tile changes.
+     * Shared code only.
+     *
+     * @param left   the left tile column
+     * @param top    the top tile row
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @param tiles  the new tiles, or their ids ({@link Tile.getId}), row by row from the top left tile
+     */
+    setTiles(left: number, top: number, width: number, height: number, tiles: ReadonlyArray<Tile | number>): void;
+
+    /**
+     * Replaces the picture of the tile's megatile with an image, for every tile that shows the same megatile (other tiles of the tileset may
+     * show it too), as presentation: the HD and HD2 graphics draw the image stretched over the tile with its alpha over the installed tile, the
+     * classic graphics its pixels quantized to the tileset palette where they are opaque. A later call for the same megatile replaces the
+     * earlier one. Shared code only, at the module top level or in onStart; a side of the image that is not a multiple of 32 pixels throws a
+     * RangeError.
+     *
+     * @param tile  the tile whose megatile is replaced
+     * @param image the picture, 32, 64 or 128 pixels square for SD, HD2 and HD detail
+     */
+    replaceTileImage(tile: Tile, image: Image): void;
 
     /**
      * The creep of the map.
@@ -5162,6 +5212,28 @@ interface Creep {
      * @returns true when it added a tile
      */
     spread(unitType: UnitType, position: Position): boolean;
+
+    /**
+     * Adds creep to every tile a location covers, clipped to the map, that can take it, as a finished building adds creep under its footprint:
+     * a tile that has creep, cannot have creep (unbuildable, partially walkable or above an unbuildable tile) or is occupied by a building
+     * stays. Shared code only.
+     *
+     * @param location the covered area
+     * @returns the number of tiles that took creep
+     */
+    fillTiles(location: Location): number;
+
+    /**
+     * Adds creep to every tile of a rectangle of tiles that can take it, as {@link fillTiles} does for a location; a rectangle that leaves the
+     * map throws a RangeError. Shared code only.
+     *
+     * @param left   the left tile column
+     * @param top    the top tile row
+     * @param width  the width in tiles
+     * @param height the height in tiles
+     * @returns the number of tiles that took creep
+     */
+    fillTiles(left: number, top: number, width: number, height: number): number;
 
     /**
      * Removes the creep of a tile at once and gives back the terrain below it. Shared code only.
@@ -5624,9 +5696,9 @@ interface ImageOptions {
 }
 
 /**
- * Draws in one space ({@link Screen}, {@link Screen.world}, {@link Screen.minimap}). The drawing functions work only in onRender and throw a
- * TypeError anywhere else. Coordinates are numbers with fractions, drawn at the real resolution; what a call draws is drawn in call order and
- * stays until the next onRender call. A negative size or thickness throws a RangeError; a color outside 0 to 0xFFFFFFFF throws.
+ * Draws in one space ({@link Screen}, {@link Screen.world}, {@link Screen.ground}, {@link Screen.minimap}). The drawing functions work only in
+ * onRender and throw a TypeError anywhere else. Coordinates are numbers with fractions, drawn at the real resolution; what a call draws is drawn in
+ * call order and stays until the next onRender call. A negative size or thickness throws a RangeError; a color outside 0 to 0xFFFFFFFF throws.
  */
 interface Drawing {
     /**
@@ -5724,8 +5796,10 @@ interface Drawing {
 /**
  * The game screen that onRender receives, in interface units: 480 high, as wide as the interface (640, 853, ...), drawn above the console and
  * below the game menus; sizes, line thicknesses and texts are in interface units. {@link Screen.world} draws in map pixels following the
- * camera, above the units and below the console (thicknesses and texts in map pixels, so they follow the zoom); {@link Screen.minimap} draws
- * in map pixels on the minimap (thicknesses, points and texts in interface units).
+ * camera, above the units and below the console (thicknesses and texts in map pixels, so they follow the zoom); {@link Screen.ground} draws
+ * the same way above the terrain and below the units, their shadows and the foliage, at the resolution of the world (the SD graphics draw it in
+ * their 480 lines), with the fog of war over it; {@link Screen.minimap} draws in map pixels on the minimap (thicknesses, points and texts in
+ * interface units).
  */
 interface Screen extends Drawing {
     /**
@@ -5768,6 +5842,10 @@ interface Screen extends Drawing {
      * The drawing in map pixels above the units, following the camera.
      */
     readonly world: Drawing;
+    /**
+     * The drawing in map pixels above the terrain and below the units, following the camera.
+     */
+    readonly ground: Drawing;
     /**
      * The drawing in map pixels on the minimap.
      */
