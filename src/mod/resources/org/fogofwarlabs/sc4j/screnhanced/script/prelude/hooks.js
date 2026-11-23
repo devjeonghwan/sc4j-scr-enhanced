@@ -140,12 +140,13 @@
         UnitCreated: {fields: UNIT_FIELDS, read: readUnitFields},
         UnitCompleted: {fields: UNIT_FIELDS, read: readUnitFields},
         UnitDied: {
-            fields: UNIT_FIELDS.concat(['killer', 'killerPlayer', 'weapon']),
+            fields: UNIT_FIELDS.concat(['killer', 'killerPlayer', 'weapon', 'position']),
             read: function (record) {
                 var fields = readUnitFieldsWith('killer')(record);
 
                 fields.killerPlayer = getPlayer(record.killerPlayer);
                 fields.weapon = WeaponType.get(record.weapon);
+                fields.position = createPosition(record.x, record.y);
 
                 return fields;
             }

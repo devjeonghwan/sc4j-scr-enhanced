@@ -64,7 +64,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `jsconfig.json` | 편집기 설정. 선언 파일만 쓰고, 스크립트를 검사하고, 파일마다 별도 모듈 |
 | `scr-enhanced.d.ts` | 상위 API, 런타임, 표준 객체의 선언 |
 | `core.d.ts` | 하위 API `core`의 선언 |
-| `resources/` | 스크립트가 읽는 파일: GRP, anim, PNG, DDS, 그리고 텍스트나 JSON으로 읽는 모든 파일 |
+| `resources/` | 스크립트가 읽는 파일: GRP, anim, PNG, DDS, WAV와 Ogg 소리, 그리고 텍스트나 JSON으로 읽는 모든 파일 |
 
 맵에는 `manifest.json`, `resources/` 밖의 `.js` 파일, `resources/` 아래 파일만 들어갑니다.
 
@@ -306,6 +306,8 @@ function onStart() {
 
 로컬 입력 훅은 `event.consume()`으로 키, 마우스 버튼, 채팅 줄, 버튼 누름을 게임이 처리하지 않게 막을 수 있습니다.
 
+`/`로 시작하는 채팅 줄은 그 이름의 명령이 없어도 클라이언트 명령으로 가고, `onLocalChat`에는 오지 않습니다.
+
 결정 훅은 결정 객체를 바꿉니다. 피해는 `setAmount`나 `cancel`, 명령은 `setOrder`, `setTarget`, `reject`, 대상은 `setTarget`입니다.
 
 ### 3.2 로컬 입력을 공유 코드로
@@ -432,6 +434,8 @@ display.commandCard.createButton({
 - `createButton`은 공유 코드입니다. 모듈 최상위나 `onStart`에서 부르세요.
 - `position`은 카드 칸 1~9, `icon`은 cmdicons 프레임입니다.
 - `isEnabled(unit)`은 `true`(활성), `false`(회색), `null`(숨김)을 돌려줍니다. 버튼이 눌리면 모든 게임이 다시 부르므로 `local`이 아닌 게임만 읽어야 합니다.
+- 카드는 각 칸을 숨기지 않은 첫 버튼으로 채웁니다. 회색 버튼도 칸을 차지하고, 같은 칸의 두 번째로 보이는 버튼은 다음 칸으로 밀립니다. 한 칸에 스크립트 버튼이 여러 개면 하나를 뺀 나머지는 `false`가 아닌 `null`을 돌려줘야 합니다.
+- 단축키는 카드 순서로 그 단축키를 가진 첫 활성 버튼을 누릅니다. 단축키가 M, S, A인 스크립트 버튼은 Move, Stop, Attack(1~3번 칸)이 활성인 동안 이들에게 밀립니다. 다른 글자를 쓰세요.
 - `onPressed(player, units, target)`은 공유 코드이고, `units`는 선택한 유닛 중 `isEnabled`가 `true`를 돌려준 유닛입니다.
 - `target: true`면 대상 버튼입니다. 플레이어가 유닛이나 지점을 고르고, `target`에 `position`과 `unit`이 들어옵니다.
 - `onLocalPressed(event)`는 누른 컴퓨터에서 먼저 실행됩니다. 누를 때 불리고, 대상 버튼은 대상을 고를 때도 불립니다. 둘은 `event.getRecord().kind`(`InputKind.ButtonPressed`, `InputKind.ButtonTargeted`)로 구분합니다. `event.consume()`하면 아무것도 보내지 않고, 대상 버튼의 누름을 소비하면 대상 지정이 시작되지 않습니다.
@@ -484,9 +488,24 @@ defineHooks({
 });
 ```
 
-이벤트에는 유닛이 죽은 순간의 값이 있습니다: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`. 유닛은 이미 사라졌을 수 있습니다.
+이벤트에는 유닛이 죽은 순간의 값이 있습니다: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`, `getPosition()`. 유닛은 이미 사라졌을 수 있습니다.
 
 스크립트가 준 피해에도 출처를 붙일 수 있습니다. `unit.damage(hp, source)`는 방어력과 실드를 거친 공격처럼 체력을 깎고, `unit.kill(source)`는 같은 루틴으로 유닛을 죽입니다. 출처는 유닛(그 주인이 죽인 플레이어)이나 플레이어입니다. 죽음 이벤트에 출처가 남고 처치 수도 출처에 올라갑니다. 출처 없는 `unit.kill()`은 Kill Unit처럼 아무에게도 처치를 주지 않습니다.
+
+`unit.damage`와 `unit.kill`은 준 체력만큼 정확히 깎습니다. 실드, 방어력, 피해 종류가 적용되지 않고 `onBeforeDamage`도 실행되지 않습니다. `unit.applyDamage(amount, source, options)`는 게임의 무기 피해 루틴으로 무기처럼 공격합니다. `onBeforeDamage`가 피해량을 정하고, 환영 배율, 산성 포자, 디펜시브 매트릭스, 실드, 방어력, 유닛 크기에 대한 피해 종류가 적용되며, 죽음과 처치 수는 출처에 올라갑니다.
+
+```js
+game.every(Time.fromSeconds(1), () => {
+    game.units.find({type: UnitType.ZergZergling}).forEach((zergling) => {
+        zergling.applyDamage(10, game.players.get(0), {damageType: DamageType.Explosive});
+    });
+});
+```
+
+- `source`는 유닛이나 플레이어이고 반드시 줘야 합니다. 무기 공격에는 항상 공격한 플레이어가 있습니다.
+- `weapon: WeaponType.GaussRifle`은 `onBeforeDamage`, `onUnitDamaged`, `onUnitDied`에 무기를 남기고 그 피해 종류를 줍니다. 피해량은 무기 업그레이드 없이 준 값 그대로입니다.
+- `damageType`은 `DamageType.Normal`, `Explosive`, `Concussive`, `IgnoreArmor`, `Independent`입니다. 기본값은 무기의 것이고, 무기가 없으면 `Normal`입니다.
+- 한 번의 공격은 최소 체력 0.5를 깎고, 무적 유닛은 피해를 받지 않습니다. 공유 코드 전용입니다.
 
 ### 5.5 나만의 콘솔
 
@@ -537,9 +556,28 @@ const heroes = game.map.resources.readJson('data/heroes.json');
 
 ### 5.7 유닛 그래픽
 
+- `game.createEffect(spriteType, position)`은 이미지 스크립트가 도는 동안 사는 스프라이트를 만듭니다. 반복하는 효과는 스스로 끝나지 않으므로 `sprite.remove()`로 효과의 스프라이트를 이미지부터 지웁니다. 유닛이나 총알의 스프라이트에는 `false`를 돌려줍니다. 공유 코드 전용입니다.
 - `image.setFrame(frame)`은 이미지 자신의 프레임이 바뀔 때까지 그 프레임을 그리고, `image.holdFrame(frame)`은 iscript가 계속 돌아도 `holdFrame(null)`까지 그 프레임을 유지합니다. 둘 다 그리는 것만 바꿉니다. 프레임에는 방향(`image.getDirection()`)이 포함되고, 이미지 그래픽에 그 프레임이 있어야 합니다.
 - `unit.playAnimation(Animation.CastSpell)`은 명령처럼 iscript 애니메이션을 그 안의 opcode와 함께 실행합니다. 공격 애니메이션은 유닛의 대상을 공격합니다. 끊으면 안 되는 구간을 실행 중인 스프라이트는 애니메이션을 유지하고, 유닛의 명령은 상태가 바뀌면 자기 애니메이션을 다시 실행합니다. `Init`과 `Death`는 거부됩니다. 공유 코드 전용입니다.
 - 스프라이트 타입의 선택 원, 그 세로 오프셋, 체력 바 너비를 바꿀 수 있습니다: `spriteType.setSelectionCircle(size)`(0~9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. 원은 보일 때, 바는 그릴 때 이 값을 씁니다. 공유 코드 전용입니다.
+
+### 5.8 소리
+
+`display.sound.playAt(sound, position)`은 `sfxdata.dat`의 소리를 id로, 또는 `resources/`의 소리 파일을 재생합니다.
+
+```js
+const alarm = game.map.resources.getSound('sounds/alarm.wav');
+
+defineHooks({
+    onUnitDied(event) {
+        display.sound.playAt(alarm, event.getPosition());
+    }
+});
+```
+
+- `getSound`는 8비트, 16비트, 24비트 PCM의 모노나 스테레오 RIFF WAVE, 또는 Ogg Vorbis 파일을 읽습니다. 다른 파일은 `Error`를 던집니다.
+- 소리 파일은 Play WAV의 채널에서 재생됩니다. 화면 안에서는 최대 음량이고, 화면 밖으로 512픽셀 멀어지면 소리가 없어집니다. 플레이어가 그 위치를 보는지와 상관없습니다.
+- 공유 코드는 모든 플레이어의 게임에서 재생합니다. 로컬 코드는 이 컴퓨터에서만, 다음 프레임 시작의 소리와 함께 재생합니다.
 
 ## 6. 맵 보호
 
