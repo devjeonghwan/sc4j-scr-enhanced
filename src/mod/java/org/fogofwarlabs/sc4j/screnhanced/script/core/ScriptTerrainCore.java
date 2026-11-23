@@ -1,10 +1,13 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
+import org.fogofwarlabs.sc4j.scr.game.movement.UnitGroupMovement;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.scr.game.terrain.MapTileFlags;
+import org.fogofwarlabs.sc4j.scr.game.terrain.TerrainContours;
 import org.jetbrains.annotations.NotNull;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EcmaError;
@@ -29,6 +32,13 @@ import java.io.IOException;
  * not all are), {@code isTileBuildable(value)}, {@code hasTileCreep(value)}, {@code getTileElevation(value)} ({@code 0} low, {@code 1}
  * middle and {@code 2} high ground) and {@code isTileBlockingSight(value)} (a tile that blocks the sight of ground units at every
  * elevation). A coordinate outside the map or a value that names no tile of the tileset throws a {@code RangeError}.
+ * <p>
+ * The ground of the pathing regions, in map pixels: {@code findWalkablePosition(x, y, fromX, fromY, unitType)} is the position a move command
+ * to {@code x, y} gives one ground unit of the type at {@code fromX, fromY}, as {@code [x, y]}: the position itself where the type stands, else
+ * walkable ground nearby on the unit's side ({@link UnitGroupMovement#calculateUnitPosition}); {@code isReachable(fromX, fromY, x, y)} tells
+ * whether both positions lie in one connected area of the ground, as the routines test it (an unwalkable position lies in an area of its own
+ * blocked region). Both read the regions the game has now and throw a {@code TypeError} when the game has none; a position outside the map
+ * throws a {@code RangeError}.
  */
 final class ScriptTerrainCore {
     /**
@@ -37,6 +47,12 @@ final class ScriptTerrainCore {
     private static final int LOW_GROUND = 0;
     private static final int MIDDLE_GROUND = TerrainTileset.MIDDLE_GROUND_HEIGHT;
     private static final int HIGH_GROUND = TerrainTileset.HIGH_GROUND_HEIGHT;
+
+    /**
+     * The mask of the horizontal WORD of a packed position, and the shift of its vertical WORD.
+     */
+    private static final int WORD_MASK = 0xFFFF;
+    private static final int VERTICAL_SHIFT = Short.SIZE;
 
     private final @NotNull ScriptGame scriptGame;
 
@@ -122,6 +138,28 @@ final class ScriptTerrainCore {
         });
         ScriptCoreUtils.defineFunction(global, namespace, "isTileBlockingSight", 1,
                                        (context, scope, thisObject, arguments) -> (this.readFlags(arguments) & MapTileFlags.VERY_HIGH) != 0);
+
+        ScriptCoreUtils.defineFunction(global, namespace, "findWalkablePosition", 5, (context, scope, thisObject, arguments) -> {
+            int x = this.readMapX(arguments, 0);
+            int y = this.readMapY(arguments, 1);
+            int fromX = this.readMapX(arguments, 2);
+            int fromY = this.readMapY(arguments, 3);
+            int unitType = ScriptCoreUtils.requireId("unit type", ScriptCoreUtils.readInteger(arguments, 4), ScrUnitIds.NONE);
+
+            this.requireContours();
+
+            int position = UnitGroupMovement.calculateUnitPosition(this.scriptGame.getGame(), unitType, fromX, fromY, x, y);
+
+            return context.newArray(global, new Object[]{(double) (position & WORD_MASK), (double) (position >>> VERTICAL_SHIFT)});
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "isReachable", 4, (context, scope, thisObject, arguments) -> {
+            int fromX = this.readMapX(arguments, 0);
+            int fromY = this.readMapY(arguments, 1);
+            int x = this.readMapX(arguments, 2);
+            int y = this.readMapY(arguments, 3);
+
+            return this.requireContours().getRegions().sharesComponent(fromX, fromY, x, y);
+        });
     }
 
     private @NotNull ScriptTerrainChanges getChanges() {
@@ -134,6 +172,32 @@ final class ScriptTerrainCore {
 
     private int readTileY(@NotNull Object @NotNull [] arguments, int index) {
         return ScriptCoreUtils.requireId("tile y", ScriptCoreUtils.readInteger(arguments, index), this.scriptGame.getGame().getMap().getHeight());
+    }
+
+    private int readMapX(@NotNull Object @NotNull [] arguments, int index) {
+        int width = this.scriptGame.getGame().getMap().getWidth() * TerrainTileset.TILE_SIZE;
+
+        return ScriptCoreUtils.requireId("x", ScriptCoreUtils.readInteger(arguments, index), width);
+    }
+
+    private int readMapY(@NotNull Object @NotNull [] arguments, int index) {
+        int height = this.scriptGame.getGame().getMap().getHeight() * TerrainTileset.TILE_SIZE;
+
+        return ScriptCoreUtils.requireId("y", ScriptCoreUtils.readInteger(arguments, index), height);
+    }
+
+    /**
+     * @return the terrain contours the game has now
+     * @throws EcmaError if the game has no pathing regions
+     */
+    private @NotNull TerrainContours requireContours() {
+        TerrainContours contours = this.scriptGame.getGame().getPathSystem().getTerrainContours();
+
+        if (contours == null) {
+            throw ScriptRuntime.typeError("The game has no pathing regions.");
+        }
+
+        return contours;
     }
 
     /**

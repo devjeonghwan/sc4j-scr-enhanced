@@ -1123,7 +1123,7 @@ interface Hooks {
     onBeforeDamage?(decision: DamageDecision): void;
 
     /**
-     * Decides an order issued to a unit; the game is read-only meanwhile.
+     * Decides an order a unit receives, issued or inserted into its queue by a game routine; the game is read-only meanwhile.
      */
     onBeforeOrder?(decision: OrderDecision): void;
 
@@ -2827,6 +2827,12 @@ interface Unit {
     isDetectedBy(player: Player): boolean;
 
     /**
+     * @returns true when the unit can reach the position: always for a unit that does not move on the ground, else when the position lies in
+     *          the unit's connected area of the ground ({@link GameMap.isReachable})
+     */
+    canReach(position: Position): boolean;
+
+    /**
      * @returns the players whose sight covers the unit
      */
     getVisibleTo(): Player[];
@@ -4469,6 +4475,24 @@ interface GameMap {
      * @returns the map height in tiles
      */
     getTileHeight(): number;
+
+    /**
+     * Finds the position a move command to a position gives one ground unit: the position itself where the unit type stands, else walkable
+     * ground nearby on the side the unit comes from, as a right click on blocked ground moves its target. Reads the pathing regions the game has
+     * now, also after tile changes.
+     *
+     * @param position the commanded position
+     * @param from     the unit, or the position the unit comes from
+     * @param unitType the unit type; the unit's type when it is left out for a unit, needed for a position
+     * @returns the position in map pixels
+     */
+    findWalkablePosition(position: Position, from: Unit | Position, unitType?: UnitType): Position;
+
+    /**
+     * @returns true when both positions lie in one connected area of the ground, so that a ground unit at one can walk to the other; an
+     *          unwalkable position is reachable from no walkable one
+     */
+    isReachable(from: Position, to: Position): boolean;
 
     /**
      * The tileset of the map and its tiles.
@@ -7120,7 +7144,13 @@ interface DamageDecision {
 }
 
 /**
- * An order issued to a unit ({@link Hooks.onBeforeOrder}). The changes go to the next hook and to the game when the hook returns.
+ * An order a unit receives ({@link Hooks.onBeforeOrder}). The changes go to the next hook and to the game when the hook returns.
+ * <p>
+ * An issued order comes from a command, a trigger, a script or a game routine and replaces the unit's orders or is queued after them. A
+ * command moves its target off ground the unit cannot stand on, and spreads a group around it; {@link OrderDecision.getRequestedPosition}
+ * keeps the position the command asked for. An inserted order ({@link OrderDecision.isInserted}) is put into the unit's queue by a game
+ * routine itself as a follow-up order, such as a computer unit's return to its guard post; a rejected inserted order is left out of the
+ * queue, as when the game has no free order, and reports no {@link Hooks.onOrderIssued}.
  */
 interface OrderDecision {
     /**
@@ -7152,6 +7182,17 @@ interface OrderDecision {
      * @returns true for an order queued with Shift
      */
     isQueued(): boolean;
+
+    /**
+     * @returns true for an order a game routine puts into the unit's queue itself, false for an issued order
+     */
+    isInserted(): boolean;
+
+    /**
+     * @returns the position in map pixels the order was asked for: where the player clicked for a command, else the target position the order
+     *          came with
+     */
+    getRequestedPosition(): Position;
 
     /**
      * @returns the order, as the hooks before changed it

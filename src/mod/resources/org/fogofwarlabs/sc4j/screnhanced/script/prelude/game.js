@@ -592,6 +592,14 @@
         isDetectedBy: function (player) {
             return core.unit.isDetectedBy(requireUnitId(this), requireObject(player, playerPrototype, 'A player').id);
         },
+        // Whether the unit can reach the position: a unit that does not move on the ground always can, a ground unit within its connected ground.
+        canReach: function (position) {
+            var id = requireUnitId(this);
+
+            requireObject(position, positionPrototype, 'A position');
+
+            return core.unit.canReach(id, position.x, position.y);
+        },
         // The players whose sight covers the unit.
         getVisibleTo: function () {
             return toPlayers(core.unit.getVisibilityFlags(requireUnitId(this)));
@@ -1703,6 +1711,39 @@
                              },
                              getTileHeight: function () {
                                  return core.game.getMapTileHeight();
+                             },
+                             // The position a move command to the position gives one ground unit that comes from a unit or a position: the
+                             // position itself where the unit type stands, else walkable ground nearby on the side it comes from.
+                             findWalkablePosition: function (position, from, unitType) {
+                                 var fromX, fromY, typeId;
+
+                                 requireObject(position, positionPrototype, 'A position');
+
+                                 if (isObjectOf(from, unitPrototype)) {
+                                     var id = requireUnitId(from);
+
+                                     fromX = core.unit.getX(id);
+                                     fromY = core.unit.getY(id);
+                                     typeId = unitType === undefined ? core.unit.getType(id)
+                                                                     : requireObject(unitType, unitTypePrototype, 'A unit type').id;
+                                 } else {
+                                     requireObject(from, positionPrototype, 'A unit or a position');
+
+                                     fromX = from.x;
+                                     fromY = from.y;
+                                     typeId = requireObject(unitType, unitTypePrototype, 'A unit type').id;
+                                 }
+
+                                 var found = core.terrain.findWalkablePosition(position.x, position.y, fromX, fromY, typeId);
+
+                                 return createPosition(found[0], found[1]);
+                             },
+                             // Whether both positions lie in one connected area of the ground.
+                             isReachable: function (from, to) {
+                                 requireObject(from, positionPrototype, 'A position');
+                                 requireObject(to, positionPrototype, 'A position');
+
+                                 return core.terrain.isReachable(from.x, from.y, to.x, to.y);
                              },
                              tileset: tileset,
                              terrain: terrain,

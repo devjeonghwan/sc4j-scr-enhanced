@@ -36,8 +36,8 @@ import java.util.stream.Collectors;
  * Tests the script of a map with a script package in a live melee game, run by the game's {@link ScriptSimulationPlugin}: the start and
  * frame hooks, the frame hook while the script pauses the game, live and in the replay, the map tile changes that move a unit at the frame
  * start, live and in the replay, the event hooks with their captured values and the position of a death, the decision hooks that change
- * damage, also of {@code applyDamage}, and reject orders, the read-only game in a decision
- * with its refused trigger writes and its local display, the channel messages of shared code and of the local hooks that the game's
+ * damage, also of {@code applyDamage}, and reject orders, the requested position of an order and the ground queries, the read-only game in a
+ * decision with its refused trigger writes and its local display, the channel messages of shared code and of the local hooks that the game's
  * {@link ScriptInputPlugin} calls, live and in the replay, the hooks of {@code defineHooks}, which play the game as top-level function hooks
  * do, protected too, and a map without a script package.
  */
@@ -461,6 +461,54 @@ final class ScriptSimulationPluginTest {
         scenario.stepUntilPrinted("issued", FIGHT_FRAMES);
 
         Assertions.assertEquals(List.of("order false", "issued false"), scenario.getPrints());
+    }
+
+    @Test
+    void on_before_order_reads_the_requested_position_and_the_ground_queries_follow_the_terrain(@NotNull InstallationTestResources resources,
+                                                                                                @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
+                                                                                                                          withoutZergling = true;
+                                                                                                                          var requested = null;
+                                                                                                                          function onBeforeOrder(order) {
+                                                                                                                              if (order.getUnit() === marine && order.getOrder() === Order.Move) {
+                                                                                                                                  requested = order.getRequestedPosition().getX() + ' ' + order.isInserted();
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          function findBlocked() {
+                                                                                                                              for (var tileY = 2; tileY < game.map.getTileHeight() - 2; tileY++) {
+                                                                                                                                  for (var tileX = 2; tileX < game.map.getTileWidth() - 2; tileX++) {
+                                                                                                                                      var tile = core.terrain.getTile(tileX, tileY);
+                                                                                                                                      var left = core.terrain.getTile(tileX - 1, tileY);
+                                                                                                                                      if (!core.terrain.isTileWalkable(tile) && !core.terrain.isTilePartiallyWalkable(tile) &&
+                                                                                                                                          core.terrain.isTileWalkable(left) && !core.terrain.isTilePartiallyWalkable(left)) {
+                                                                                                                                          return Position.of(tileX * 32 + 16, tileY * 32 + 16);
+                                                                                                                                      }
+                                                                                                                                  }
+                                                                                                                              }
+                                                                                                                              return null;
+                                                                                                                          }
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame !== spawnFrame) {
+                                                                                                                                  return;
+                                                                                                                              }
+                                                                                                                              var target = Position.of(marine.getX() + 64, marine.getY());
+                                                                                                                              marine.issueOrder(Order.Move, target);
+                                                                                                                              var issued = requested === target.getX() + ' false';
+                                                                                                                              var here = game.map.findWalkablePosition(marine.getPosition(), marine);
+                                                                                                                              var stays = here.getX() === marine.getX() && here.getY() === marine.getY();
+                                                                                                                              var blocked = findBlocked();
+                                                                                                                              var ground = Position.of(blocked.getX() - 32, blocked.getY());
+                                                                                                                              var found = game.map.findWalkablePosition(blocked, ground, UnitType.TerranMarine);
+                                                                                                                              game.print('ES checks ' + issued + ' ' + stays + ' ' + marine.canReach(marine.getPosition()) + ' ' +
+                                                                                                                                         (found.getX() !== blocked.getX() || found.getY() !== blocked.getY()) + ' ' +
+                                                                                                                                         game.map.isReachable(ground, found) + ' ' + game.map.isReachable(ground, blocked) + ' ' +
+                                                                                                                                         marine.canReach(blocked));
+                                                                                                                          }
+                                                                                                                          """);
+
+        scenario.stepUntilPrinted("checks", FIGHT_FRAMES);
+
+        Assertions.assertEquals(List.of("checks true true true true true false false"), scenario.getPrints());
     }
 
     @Test

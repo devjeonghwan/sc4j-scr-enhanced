@@ -310,6 +310,10 @@ function onStart() {
 
 결정 훅은 결정 객체를 바꿉니다. 피해는 `setAmount`나 `cancel`, 명령은 `setOrder`, `setTarget`, `reject`, 대상은 `setTarget`입니다.
 
+명령은 유닛이 설 수 없는 땅에 찍힌 목표를 `onBeforeOrder`에 오기 전에 옮깁니다. `getTargetPosition()`은 유닛이 가는 곳, `getRequestedPosition()`은 플레이어가 클릭한 곳입니다.
+
+`onBeforeOrder`는 게임 루틴이 유닛의 명령 큐에 직접 넣는 명령(`isInserted()`)도 받습니다. 컴퓨터 유닛이 경비 위치로 돌아가는 `ComputerReturn`이 그 예입니다. 거부한 삽입 명령은 큐에 들어가지 않고 `onOrderIssued`에도 오지 않습니다. 스크립트가 이끄는 컴퓨터 유닛이 되돌아가지 않게 하려면 `ComputerReturn`을 거부하세요.
+
 ### 3.2 로컬 입력을 공유 코드로
 
 로컬 코드는 게임을 바꿀 수 없습니다. 대신 채널로 값을 보내면, 게임이 그 명령을 실행하는 프레임에 채널 핸들러가 모든 플레이어의 게임에서 공유 코드로 실행됩니다. 리플레이에서도 실행됩니다.
@@ -390,6 +394,8 @@ display.strings.setStatText(1, 'Marine');
 ```
 
 멤버가 타일을 명시하지 않으면 위치는 맵 픽셀입니다. 플레이어 슬롯과 타입 id는 0부터 셉니다. 유닛, 스프라이트, 이미지, 총알 객체는 그 대상이 사라지면 `Error`를 던집니다. 확실하지 않으면 먼저 `exists()`를 확인하세요.
+
+`game.map.findWalkablePosition(position, unit)`은 `position`으로 이동 명령을 내렸을 때 유닛이 가는 위치입니다. 그 위치 자체이거나, 유닛 쪽에서 가까운 걸을 수 있는 땅입니다. `game.map.isReachable(from, to)`와 `unit.canReach(position)`는 지상 유닛이 그곳까지 걸어갈 수 있는지 알려 줍니다.
 
 ## 5. 예제
 

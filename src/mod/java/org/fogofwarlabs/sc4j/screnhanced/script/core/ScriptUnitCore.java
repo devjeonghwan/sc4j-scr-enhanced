@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.screnhanced.script.core;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.content.*;
+import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
@@ -103,6 +104,10 @@ import java.util.function.ToIntFunction;
  * players. The unit finder, in shared code only because its searches use the finder's working state: {@code findInRectangle(left, top,
  * right, bottom)} (the units whose bounds meet the rectangle) and {@code findAtPoint(x, y)} (the units whose bounds hold the point), the live
  * units in the finder's order.
+ * <p>
+ * Ground: {@code canReach(id, x, y)} (the ground reachability test of the routines: a unit that does not move on the ground reaches every
+ * position, a ground unit the positions of its connected area of the ground; a position outside the map throws a {@code RangeError}, and a
+ * game without pathing regions a {@code TypeError}).
  */
 final class ScriptUnitCore {
     /**
@@ -1054,6 +1059,19 @@ final class ScriptUnitCore {
             int y = ScriptCoreUtils.readInteger(arguments, 1);
 
             return this.createLiveIds(context, global, this.requireFinder().findAllAtPoint(x, y));
+        });
+        ScriptCoreUtils.defineFunction(global, namespace, "canReach", 3, (context, scope, thisObject, arguments) -> {
+            Unit unit = this.readUnit(arguments, 0);
+            int width = this.getGame().getMap().getWidth() * TerrainTileset.TILE_SIZE;
+            int height = this.getGame().getMap().getHeight() * TerrainTileset.TILE_SIZE;
+            int x = ScriptCoreUtils.requireId("x", ScriptCoreUtils.readInteger(arguments, 1), width);
+            int y = ScriptCoreUtils.requireId("y", ScriptCoreUtils.readInteger(arguments, 2), height);
+
+            if (this.getGame().getPathSystem().getTerrainContours() == null) {
+                throw ScriptRuntime.typeError("The game has no pathing regions.");
+            }
+
+            return this.getGame().getUnitPositioning().isGroundReachable(unit, x, y);
         });
     }
 

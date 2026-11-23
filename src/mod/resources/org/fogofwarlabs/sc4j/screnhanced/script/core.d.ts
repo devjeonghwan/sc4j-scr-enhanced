@@ -111,8 +111,9 @@ interface CoreEventRecord {
  * changes of a hook that returns go to the next hook and to the game.
  * <p>
  * Damage: unit, unitGeneration, unitType, owner, source, sourceGeneration, sourcePlayer, weapon; a hook may change amount and cancelled.
- * Order: unit, unitGeneration, unitType, owner, buildType, queued; a hook may change order, target, targetGeneration, targetX, targetY and
- * rejected. TargetAcquired: unit, unitGeneration, unitType, owner; a hook may change target and targetGeneration.
+ * Order: unit, unitGeneration, unitType, owner, requestedX, requestedY, buildType, queued, inserted; a hook may change order, target,
+ * targetGeneration, targetX, targetY and rejected. TargetAcquired: unit, unitGeneration, unitType, owner; a hook may change target and
+ * targetGeneration.
  */
 interface CoreDecisionRecord {
     /** The decision kind ({@link DecisionKind}). */
@@ -133,10 +134,16 @@ interface CoreDecisionRecord {
     readonly sourcePlayer?: number;
     /** The weapon type id. */
     readonly weapon?: number;
+    /** The x in map pixels the order was asked for: the position of a player command before it moved the target, else targetX. */
+    readonly requestedX?: number;
+    /** The y in map pixels the order was asked for. */
+    readonly requestedY?: number;
     /** The unit type the order builds or trains, -1 for none. */
     readonly buildType?: number;
     /** Whether the order is queued. */
     readonly queued?: boolean;
+    /** Whether a game routine puts the order into the unit's queue itself instead of issuing it. */
+    readonly inserted?: boolean;
     /** The damage in 1/256. */
     amount?: number;
     /** Whether the damage is cancelled. */
@@ -2189,6 +2196,13 @@ interface CoreUnit {
     findAtPoint(x: number, y: number): number[];
 
     /**
+     * Tests whether the unit can reach a map position: a unit that does not move on the ground always can, a ground unit when the position lies
+     * in its connected area of the ground ({@link CoreTerrain.isReachable}). Throws a TypeError when the game has no pathing regions; a position
+     * outside the map throws a RangeError.
+     */
+    canReach(unit: number, x: number, y: number): boolean;
+
+    /**
      * Returns the Stim Packs timer in status steps of 8 frames.
      */
     getStimTimer(unit: number): number;
@@ -2627,6 +2641,23 @@ interface CoreTerrain {
      * Throws a TypeError when the map has no tile flags.
      */
     hasCreep(tileX: number, tileY: number): boolean;
+
+    /**
+     * Returns the position a move command to the map position x, y gives one ground unit of the unit type at fromX, fromY: x, y itself where the
+     * type stands, else walkable ground nearby on the side of fromX, fromY. Reads the pathing regions the game has now and throws a TypeError
+     * when it has none; a map position outside the map throws a RangeError.
+     *
+     * @param unitType the unit type id, 0 to 227
+     * @returns the position as [x, y] in map pixels
+     */
+    findWalkablePosition(x: number, y: number, fromX: number, fromY: number, unitType: number): number[];
+
+    /**
+     * Tests whether two map positions lie in one connected area of the ground, as the routines test that a ground unit can reach a position; an
+     * unwalkable position lies in an area of its own. Reads the pathing regions the game has now and throws a TypeError when it has none; a map
+     * position outside the map throws a RangeError.
+     */
+    isReachable(fromX: number, fromY: number, x: number, y: number): boolean;
 }
 
 /**

@@ -310,6 +310,10 @@ A chat line that starts with `/` goes to the client's commands, also when no com
 
 A decision hook changes the decision object: `setAmount` or `cancel` for damage, `setOrder`, `setTarget` or `reject` for an order, `setTarget` for a target.
 
+A command moves its target off ground the unit cannot stand on before `onBeforeOrder` sees it: `getTargetPosition()` is where the unit goes, `getRequestedPosition()` where the player clicked.
+
+`onBeforeOrder` also gets the orders a game routine puts into a unit's queue itself (`isInserted()`), such as a computer unit's `ComputerReturn` to its guard post. A rejected inserted order stays out of the queue, and `onOrderIssued` does not report it. Rejecting `ComputerReturn` keeps computer units that a script leads from walking back.
+
 ### 3.2 From local input to shared code
 
 Local code cannot change the game. It sends a value over a channel, and the channel's handler runs as shared code on every player's game at the frame the game runs the command, in every replay too.
@@ -390,6 +394,8 @@ display.strings.setStatText(1, 'Marine');
 ```
 
 Positions are map pixels unless a member names tiles; player slots and type ids start at 0. An object of a unit, sprite, image or bullet throws an `Error` once that thing is gone; check `exists()` first when unsure.
+
+`game.map.findWalkablePosition(position, unit)` gives the position a move command to `position` sends the unit to: the position itself, or walkable ground near it on the unit's side. `game.map.isReachable(from, to)` and `unit.canReach(position)` tell whether a ground unit can walk there.
 
 ## 5. Examples
 
