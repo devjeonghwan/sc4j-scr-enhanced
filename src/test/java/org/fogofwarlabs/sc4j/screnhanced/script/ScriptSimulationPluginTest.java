@@ -241,38 +241,38 @@ final class ScriptSimulationPluginTest {
     void terrain_changes_apply_at_the_frame_start_live_and_in_the_replay(@NotNull InstallationTestResources resources,
                                                                          @TempDir @NotNull Path folder) throws IOException {
         ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
-                                                                                                                         withoutZergling = true;
-                                                                                                                         var blocked, changeFrame, tileX, tileY;
-                                                                                                                         function findBlocked() {
-                                                                                                                             for (var y = 0; y < game.map.getTileHeight(); y++) {
-                                                                                                                                 for (var x = 0; x < game.map.getTileWidth(); x++) {
-                                                                                                                                     var tile = game.map.terrain.getTile(x, y);
-                                                                                                                                     if (!tile.isWalkable() && !tile.isPartiallyWalkable() && !tile.hasCreep()) {
-                                                                                                                                         return tile;
-                                                                                                                                     }
-                                                                                                                                 }
-                                                                                                                             }
-                                                                                                                             return null;
-                                                                                                                         }
-                                                                                                                         function afterSpawn(frame) {
-                                                                                                                             if (changeFrame === undefined && frame >= spawnFrame + 4) {
-                                                                                                                                 changeFrame = frame;
-                                                                                                                                 blocked = findBlocked();
-                                                                                                                                 tileX = Math.floor(marine.getX() / 32);
-                                                                                                                                 tileY = Math.floor(marine.getY() / 32);
-                                                                                                                                 for (var dy = -1; dy <= 1; dy++) {
-                                                                                                                                     for (var dx = -1; dx <= 1; dx++) {
-                                                                                                                                         game.map.terrain.setTile(tileX + dx, tileY + dy, blocked);
-                                                                                                                                     }
-                                                                                                                                 }
-                                                                                                                             } else if (changeFrame !== undefined && frame === changeFrame + 1) {
-                                                                                                                                 var moved = Math.floor(marine.getX() / 32) !== tileX || Math.floor(marine.getY() / 32) !== tileY;
-                                                                                                                                 game.switches.set(3, moved && game.map.terrain.getTile(tileX, tileY) === blocked);
-                                                                                                                                 game.print('ES terrain ' + moved + ' ' + (game.map.terrain.getTile(tileX, tileY) === blocked) + ' ' +
-                                                                                                                                            core.terrain.isTileWalkable(core.terrain.getTile(tileX, tileY)));
-                                                                                                                             }
-                                                                                                                         }
-                                                                                                                         """);
+                                                                                                                          withoutZergling = true;
+                                                                                                                          var blocked, changeFrame, tileX, tileY;
+                                                                                                                          function findBlocked() {
+                                                                                                                              for (var y = 0; y < game.map.getTileHeight(); y++) {
+                                                                                                                                  for (var x = 0; x < game.map.getTileWidth(); x++) {
+                                                                                                                                      var tile = game.map.terrain.getTile(x, y);
+                                                                                                                                      if (!tile.isWalkable() && !tile.isPartiallyWalkable() && !tile.hasCreep()) {
+                                                                                                                                          return tile;
+                                                                                                                                      }
+                                                                                                                                  }
+                                                                                                                              }
+                                                                                                                              return null;
+                                                                                                                          }
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (changeFrame === undefined && frame >= spawnFrame + 4) {
+                                                                                                                                  changeFrame = frame;
+                                                                                                                                  blocked = findBlocked();
+                                                                                                                                  tileX = Math.floor(marine.getX() / 32);
+                                                                                                                                  tileY = Math.floor(marine.getY() / 32);
+                                                                                                                                  for (var dy = -1; dy <= 1; dy++) {
+                                                                                                                                      for (var dx = -1; dx <= 1; dx++) {
+                                                                                                                                          game.map.terrain.setTile(tileX + dx, tileY + dy, blocked);
+                                                                                                                                      }
+                                                                                                                                  }
+                                                                                                                              } else if (changeFrame !== undefined && frame === changeFrame + 1) {
+                                                                                                                                  var moved = Math.floor(marine.getX() / 32) !== tileX || Math.floor(marine.getY() / 32) !== tileY;
+                                                                                                                                  game.switches.set(3, moved && game.map.terrain.getTile(tileX, tileY) === blocked);
+                                                                                                                                  game.print('ES terrain ' + moved + ' ' + (game.map.terrain.getTile(tileX, tileY) === blocked) + ' ' +
+                                                                                                                                             core.terrain.isTileWalkable(core.terrain.getTile(tileX, tileY)));
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """);
 
         scenario.stepUntilPrinted("terrain", TERRAIN_FRAMES);
         scenario.stepFrames(TERRAIN_AFTER_FRAMES);
