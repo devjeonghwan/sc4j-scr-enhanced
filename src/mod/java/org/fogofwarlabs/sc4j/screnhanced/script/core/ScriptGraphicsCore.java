@@ -43,8 +43,9 @@ import java.util.*;
  * picture as a sheet of frames ({@link PictureSheet}, {@link SheetLayout}): {@code frameCount}, {@code anchorX} and {@code anchorY} are
  * {@code -1} for every whole frame and the frame center, {@code teamColor} and {@code shadow} the names of pictures of the same size or
  * {@code null}, {@code sd} a GRP handle of SD frames of the sheet's frame count and canvas or {@code -1}. It returns a sheet handle, the same for
- * the same name and arguments; a layout that does not fit throws a {@code RangeError}, and so do sheets whose anims together would exceed
- * {@value #ANIMATION_BUDGET_MEBIBYTES} MiB of block-compressed texels in a game. {@code getSheetFrameCount(id)}, {@code getSheetDirections(id)},
+ * the same name and arguments; a layout that does not fit throws a {@code RangeError}. Graphics made of a sheet take one byte per texel and
+ * layer of each distinct sheet frame they show, frames no graphics shows nothing; a call whose graphics would take the anims of a game past
+ * {@value #ANIMATION_BUDGET_MEBIBYTES} MiB throws a {@code RangeError}. {@code getSheetFrameCount(id)}, {@code getSheetDirections(id)},
  * {@code getSheetWidth(id)} and {@code getSheetHeight(id)} read a sheet handle: its frames, the frames of its frame sets and its canvas in map
  * pixels. {@code getSheetFrames(sheet, frameSets)} returns the handle of a sheet's graphics in the order of frame sets, the sheet's frame set for
  * each frame set an iscript plays (the same handle for the same sheet and frame sets), which every graphics argument takes in place of a sheet
@@ -103,7 +104,7 @@ final class ScriptGraphicsCore {
     /**
      * The block-compressed bytes of the sheet anims of a game, in mebibytes.
      */
-    private static final int ANIMATION_BUDGET_MEBIBYTES = 128;
+    private static final int ANIMATION_BUDGET_MEBIBYTES = 256;
     private static final int MEBIBYTE_SHIFT = 20;
     private static final long ANIMATION_BUDGET = (long) ANIMATION_BUDGET_MEBIBYTES << MEBIBYTE_SHIFT;
 
@@ -203,14 +204,18 @@ final class ScriptGraphicsCore {
      */
     private final @NotNull Map<PictureSheet, ImageGraphics> sheetGraphics;
     /**
-     * The sheets shared code read and the bytes their anims take, the same on every peer.
+     * The bytes the anims of each graphics of sheet frames take ({@link PictureSheetConverter#countAnimBytes}).
      */
-    private final @NotNull Set<PictureSheet> sharedSheets;
+    private final @NotNull Map<ImageGraphics, Long> sheetGraphicsBytes;
+    /**
+     * The graphics of sheet frames shared code was given and the bytes their anims take, the same on every peer.
+     */
+    private final @NotNull Set<ImageGraphics> sharedSheetGraphics;
     private long sharedSheetBytes;
     /**
-     * The sheets shared or local code read and the bytes their anims take.
+     * The graphics of sheet frames shared or local code was given and the bytes their anims take.
      */
-    private final @NotNull Set<PictureSheet> sheets;
+    private final @NotNull Set<ImageGraphics> countedSheetGraphics;
     private long sheetBytes;
     private @Nullable PictureSheetConverter converter;
 
@@ -238,12 +243,13 @@ final class ScriptGraphicsCore {
         this.sheetFrameIds = new HashMap<>();
         this.texts         = new HashMap<>();
 
-        this.sheetGraphics    = new HashMap<>();
-        this.sharedSheets     = new HashSet<>();
-        this.sharedSheetBytes = 0;
-        this.sheets           = new HashSet<>();
-        this.sheetBytes       = 0;
-        this.converter        = null;
+        this.sheetGraphics        = new HashMap<>();
+        this.sheetGraphicsBytes   = new HashMap<>();
+        this.sharedSheetGraphics  = new HashSet<>();
+        this.sharedSheetBytes     = 0;
+        this.countedSheetGraphics = new HashSet<>();
+        this.sheetBytes           = 0;
+        this.converter            = null;
     }
 
     /**
@@ -322,11 +328,7 @@ final class ScriptGraphicsCore {
             ImageGrp sd = this.readHandle(arguments, SHEET_SD_ARGUMENT, ImageGrp.class, "GRP");
             String key = name + '|' + Arrays.toString(layout) + '|' + teamColor + '|' + shadow + '|' + (sd == null ? null : sd.getName());
 
-            int id = this.findHandle(this.sheetIds, key, "sheet", () -> this.readSheet(name, layout, teamColor, shadow, sd));
-
-            this.countSheet((PictureSheet) this.handles.get(id));
-
-            return (double) id;
+            return (double) this.findHandle(this.sheetIds, key, "sheet", () -> this.readSheet(name, layout, teamColor, shadow, sd));
         });
         ScriptCoreUtils.defineFunction(global, namespace, "getSheetFrames", 2, (context, scope, thisObject, arguments) -> {
             int sheetId = ScriptCoreUtils.readInteger(arguments, 0);
@@ -339,6 +341,8 @@ final class ScriptGraphicsCore {
                 id = this.handles.size();
                 this.handles.add(this.createSheetGraphics(sheet, frames, this.createGrp(sheet, frames)));
                 this.sheetFrameIds.put(key, id);
+            } else {
+                this.countSheetGraphics(sheet, (ImageGraphics) this.handles.get(id));
             }
 
             return (double) id;
@@ -444,14 +448,22 @@ final class ScriptGraphicsCore {
      * @throws EcmaError if the GRP of the shadow picture cannot be made or a GRP cannot be read
      */
     @NotNull ImageGraphics createSheetGraphics(@NotNull PictureSheet sheet, int @NotNull [] frames, byte @NotNull [] grp) {
+        ImageGraphics graphics;
+
         try {
             byte[] shadowGrp = sheet.hasShadow() ? this.getConverter().createShadowGrp(sheet, frames) : null;
 
-            return this.getReplacements().createSheetGraphics(sheet, frames, grp, shadowGrp);
+            graphics = this.getReplacements().createSheetGraphics(sheet, frames, grp, shadowGrp);
         } catch (IOException | IllegalArgumentException exception) {
             throw ScriptRuntime.constructError(ERROR_NAME, Exceptions.format("The sheet {0} cannot be converted: {1}", sheet.getName(),
                                                                              exception.getMessage()));
         }
+
+        this.sheetGraphicsBytes.put(graphics, PictureSheetConverter.countAnimBytes(sheet.getLayout(), frames, sheet.hasTeamColor(),
+                                                                                   sheet.hasShadow()));
+        this.countSheetGraphics(sheet, graphics);
+
+        return graphics;
     }
 
     /**
@@ -709,32 +721,35 @@ final class ScriptGraphicsCore {
 
             graphics = this.createSheetGraphics(sheet, frames, this.createGrp(sheet, frames));
             this.sheetGraphics.put(sheet, graphics);
+        } else {
+            this.countSheetGraphics(sheet, graphics);
         }
 
         return graphics;
     }
 
     /**
-     * Counts the anim bytes of a sheet a call returns, once per sheet: shared code counts the sheets shared code read, so its budget check is the
-     * same on every peer; local code counts every sheet.
+     * Counts the anim bytes of graphics of sheet frames a call gives, once per graphics, by the distinct sheet frames they show, so the frames of a
+     * sheet no graphics shows take nothing: shared code counts the graphics shared code was given, so its budget check is the same on every
+     * peer; local code counts all graphics.
      *
      * @throws EcmaError if the anims would exceed the budget
      */
-    private void countSheet(@NotNull PictureSheet sheet) {
-        long bytes = PictureSheetConverter.countAnimBytes(sheet.getLayout(), sheet.hasTeamColor(), sheet.hasShadow());
+    private void countSheetGraphics(@NotNull PictureSheet sheet, @NotNull ImageGraphics graphics) {
+        long bytes = this.sheetGraphicsBytes.get(graphics);
         boolean local = this.scriptGame.isLocal();
 
-        if (local ? !this.sheets.contains(sheet) && this.sheetBytes + bytes > ANIMATION_BUDGET
-                  : !this.sharedSheets.contains(sheet) && this.sharedSheetBytes + bytes > ANIMATION_BUDGET) {
+        if (local ? !this.countedSheetGraphics.contains(graphics) && this.sheetBytes + bytes > ANIMATION_BUDGET
+                  : !this.sharedSheetGraphics.contains(graphics) && this.sharedSheetBytes + bytes > ANIMATION_BUDGET) {
             throw ScriptRuntime.rangeError(Exceptions.format("The sheet {0} would take the anims of the map past {1} MiB.", sheet.getName(),
                                                              ANIMATION_BUDGET_MEBIBYTES));
         }
 
-        if (!local && this.sharedSheets.add(sheet)) {
+        if (!local && this.sharedSheetGraphics.add(graphics)) {
             this.sharedSheetBytes += bytes;
         }
 
-        if (this.sheets.add(sheet)) {
+        if (this.countedSheetGraphics.add(graphics)) {
             this.sheetBytes += bytes;
         }
     }

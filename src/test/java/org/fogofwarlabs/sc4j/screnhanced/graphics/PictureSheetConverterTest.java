@@ -98,11 +98,13 @@ final class PictureSheetConverterTest {
     }
 
     @Test
-    void count_anim_bytes_should_count_one_byte_per_texel_and_layer() {
+    void count_anim_bytes_should_count_one_byte_per_texel_and_layer_of_each_distinct_frame() {
         SheetLayout layout = SheetLayout.create(64, 64, 32, 32, SheetLayout.ALL_FRAMES, 1, 2, SheetLayout.NO_ANCHOR, SheetLayout.NO_ANCHOR);
 
-        Assertions.assertEquals(4L * 32 * 32, PictureSheetConverter.countAnimBytes(layout, false, false));
-        Assertions.assertEquals(4L * 32 * 32 * 3, PictureSheetConverter.countAnimBytes(layout, true, true));
+        Assertions.assertEquals(4L * 32 * 32, PictureSheetConverter.countAnimBytes(layout, new int[]{0, 1, 2, 3}, false, false));
+        Assertions.assertEquals(4L * 32 * 32 * 3, PictureSheetConverter.countAnimBytes(layout, new int[]{0, 1, 2, 3}, true, true));
+        Assertions.assertEquals(2L * 32 * 32, PictureSheetConverter.countAnimBytes(layout, new int[]{0, 1, 1, 0, 1}, false, false),
+                                "repeated frames share their atlas cell");
     }
 
     @Test

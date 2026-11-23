@@ -3489,7 +3489,7 @@ interface CoreResources {
 
     /**
      * Reads a PNG or DDS picture as a sheet of frames of one size, cut row by row from the top left; the same name and arguments return the same
-     * handle. The anims of a game's sheets take at most 128 MiB together.
+     * handle. The graphics made of a game's sheets take at most 256 MiB together, one byte per texel and layer of each distinct frame they show.
      *
      * @param frameWidth  the frame width in picture pixels
      * @param frameHeight the frame height in picture pixels

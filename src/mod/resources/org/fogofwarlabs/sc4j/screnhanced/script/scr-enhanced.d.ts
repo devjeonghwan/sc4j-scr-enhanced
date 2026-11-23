@@ -4955,14 +4955,15 @@ interface Resources {
     getImage(name: string): Image;
 
     /**
-     * Reads a PNG or DDS picture as a sheet of frames. The same name and layout return the same object. The anims of a map's sheets take at
-     * most 128 MiB together, one byte per texel and layer.
+     * Reads a PNG or DDS picture as a sheet of frames. The same name and layout return the same object. The graphics made of a map's sheets
+     * take at most 256 MiB together, one byte per texel and layer of each distinct frame they show; frames no graphics shows take nothing. The
+     * call that makes graphics past the limit throws a RangeError.
      *
      * @param name   the path relative to resources/
      * @param layout the frame layout
      * @returns the sheet
      * @throws RangeError if the layout does not fit the picture, the canvas exceeds 255 by 255 map pixels, a picture exceeds 4096 by 4096
-     * pixels or the anims would exceed 128 MiB
+     * pixels
      */
     getSheet(name: string, layout: SheetLayout): Sheet;
 

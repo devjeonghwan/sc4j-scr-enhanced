@@ -7,10 +7,7 @@ import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Converts the frames of a {@link PictureSheet} into the formats the renderers and the simulation read: an SD GRP quantized to a tileset palette
@@ -91,20 +88,22 @@ public final class PictureSheetConverter {
     private static final @NotNull String TEAM_COLOR_LAYER = "teamcolor";
 
     /**
-     * Counts the bytes of the block-compressed layers of the anims of a sheet: one byte per texel and layer of the atlas of every frame, the
-     * shadow anim included.
+     * Counts the bytes of the block-compressed layers of the anims of frames of a sheet ({@link #createAnim}): one byte per texel and layer of
+     * the atlas cell of each distinct sheet frame, the shadow anim included.
      *
      * @param layout    the frame layout
+     * @param frames    the sheet frame of each anim frame
      * @param teamColor whether the sheet has a team color picture
      * @param shadow    whether the sheet has a shadow picture
      * @return the bytes
      */
-    public static long countAnimBytes(@NotNull SheetLayout layout, boolean teamColor, boolean shadow) {
+    public static long countAnimBytes(@NotNull SheetLayout layout, int @NotNull [] frames, boolean teamColor, boolean shadow) {
         int factor = getTexelFactor(layout.getScale());
         long cell = (long) roundToBlock(layout.getFrameWidth() * factor) * roundToBlock(layout.getFrameHeight() * factor);
         int layers = 1 + (teamColor ? 1 : 0) + (shadow ? 1 : 0);
+        long distinct = Arrays.stream(frames).distinct().count();
 
-        return cell * layout.getFrameCount() * layers;
+        return cell * distinct * layers;
     }
 
     /**
