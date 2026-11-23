@@ -1642,8 +1642,8 @@
         return resource === undefined || resource === null ? NONE : requireObject(resource, prototype, kind).id;
     }
 
-    // Returns the handle ids of the graphics {sd, hd, hd2}: a GRP, an HD anim and an HD2 anim, each optional; or {sheet} alone, whose handle
-    // takes the place of the GRP.
+    // Returns the handle ids of the graphics {sd, hd, hd2}: a GRP, an HD anim and an HD2 anim, each optional; or {sheet, frameSets} alone,
+    // whose handle takes the place of the GRP: the sheet's own frame order, or the sheet's frame set for each frame set the iscript plays.
     function readGraphicsIds(images) {
         if (images === null || typeof images !== 'object') {
             throw new TypeError('The graphics {sd, hd, hd2} or {sheet} are needed, not ' + images + '.');
@@ -1655,7 +1655,21 @@
                 throw new TypeError('A sheet is given without a GRP and anims.');
             }
 
-            return [requireObject(images.sheet, sheetPrototype, 'A sheet').id, NONE, NONE];
+            var sheetId = requireObject(images.sheet, sheetPrototype, 'A sheet').id;
+
+            if (images.frameSets === undefined || images.frameSets === null) {
+                return [sheetId, NONE, NONE];
+            }
+
+            if (!Array.isArray(images.frameSets)) {
+                throw new TypeError('The frame sets are an array, not ' + images.frameSets + '.');
+            }
+
+            return [core.resources.getSheetFrames(sheetId, images.frameSets), NONE, NONE];
+        }
+
+        if (images.frameSets !== undefined && images.frameSets !== null) {
+            throw new TypeError('Frame sets are given with a sheet only.');
         }
 
         return [readResourceId(images.sd, grpPrototype, 'A GRP'), readResourceId(images.hd, animPrototype, 'An anim'),

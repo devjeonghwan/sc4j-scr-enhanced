@@ -3,6 +3,8 @@ package org.fogofwarlabs.sc4j.screnhanced.script;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SpriteCreatedEvent;
+import org.fogofwarlabs.sc4j.scr.game.extension.simulation.UnitDiedEvent;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
@@ -135,12 +137,20 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     /**
      * Called when something happens in the simulation, from inside the routine where it happens.
      * <p>
-     * The event goes into the runtime's queue with the current frame.
+     * A unit's death and a sprite an iscript created go to the image replacements, which give the remains their graphics
+     * ({@link ImageReplacements#onUnitDied}, {@link ImageReplacements#onSpriteCreated}). The event goes into the runtime's queue with the current
+     * frame.
      *
      * @param event the event; its kind is its class
      */
     @Override
     public void onEvent(@NotNull SimulationEvent event) {
+        if (event instanceof UnitDiedEvent died) {
+            this.runtime.getImageReplacements().onUnitDied(died.getUnit().getUnit());
+        } else if (event instanceof SpriteCreatedEvent created) {
+            this.runtime.getImageReplacements().onSpriteCreated(created.getSprite(), created.getSourceSprite());
+        }
+
         this.runtime.queueEvent(event, this.game.getCurrentFrame());
     }
 

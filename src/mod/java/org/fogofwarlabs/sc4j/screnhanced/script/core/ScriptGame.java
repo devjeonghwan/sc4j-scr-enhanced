@@ -175,8 +175,8 @@ public final class ScriptGame {
         this.global = global;
         this.core   = core;
 
-        this.imageReplacements   = new ImageReplacements(() -> game.getUnitSystem().getUnitPool(), game::getCurrentFrame, countImageTypes(game),
-                                                         imageTypeId -> {
+        this.imageReplacements   = new ImageReplacements(() -> game.getUnitSystem().getUnitPool(), () -> game.getSpriteSystem().getSpritePool(),
+                                                         game::getCurrentFrame, countImageTypes(game), imageTypeId -> {
                                                              GameData gameData = game.getGameData();
 
                                                              return gameData != null && gameData.getImageTypes().getGraphicTurns(imageTypeId) != 0;

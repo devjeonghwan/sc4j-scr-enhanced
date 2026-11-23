@@ -10,14 +10,20 @@ import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpritePool;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
+import org.fogofwarlabs.sc4j.scr.game.test.LockstepMapGameScenario;
 import org.fogofwarlabs.sc4j.scr.game.test.RunningGameScenario;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageFileScenario;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGraphics;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -28,8 +34,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -37,8 +45,9 @@ import java.util.stream.Collectors;
  * frame hooks, the frame hook while the script pauses the game, live and in the replay, the map tile changes that move a unit at the frame
  * start, live and in the replay, the event hooks with their captured values and the position of a death, the decision hooks that change
  * damage, also of {@code applyDamage}, and reject orders, the requested position of an order and the ground queries, the stats of single units
- * that the simulation reads through the plugin, the read-only game in a decision with its refused trigger writes and its local display, the
- * channel messages of shared code and of the local hooks that the game's
+ * that the simulation reads through the plugin, a unit's replacement with frame sets, a hidden shadow and hidden remains, the local code of
+ * every player on its own peer of a game of two human peers, the read-only game in a decision with its refused trigger writes and its local
+ * display, the channel messages of shared code and of the local hooks that the game's
  * {@link ScriptInputPlugin} calls, live and in the replay, the hooks of {@code defineHooks}, which play the game as top-level function hooks
  * do, protected too, and a map without a script package.
  */
@@ -75,6 +84,17 @@ final class ScriptSimulationPluginTest {
                                                         }
                                                         """;
     private static final int FIGHT_FRAMES = 400;
+    /**
+     * The frame sets the replacement test gives a Marine, and the frames it plays after the Marine's death.
+     */
+    private static final int REPLACED_FRAME_SETS = 3;
+    private static final int REMAINS_FRAMES = 40;
+    /**
+     * The human peers, the seed and the frames of the game of several peers.
+     */
+    private static final int PEERS = 2;
+    private static final int LOCKSTEP_SEED = 0x2F6A11;
+    private static final int LOCKSTEP_FRAMES = 60;
     private static final int KEY_Q = 0x51;
     private static final int KEY_W = 0x57;
     /**
@@ -107,6 +127,28 @@ final class ScriptSimulationPluginTest {
      * The switch the terrain test script sets when the changed tiles moved the Marine.
      */
     private static final int TERRAIN_SWITCH = 3;
+
+    /**
+     * Counts the images of the game's sprites that draw nothing ({@link ImageGraphics#HIDDEN}).
+     */
+    private static int countHidden(@NotNull Game game, @NotNull ImageReplacements replacements) {
+        SpritePool sprites = game.getSpriteSystem().requireSpritePool();
+        int count = 0;
+
+        for (int slot = 0; slot < sprites.getCapacity(); slot++) {
+            if (!sprites.isAllocated(slot)) {
+                continue;
+            }
+
+            for (SpriteImage image : sprites.getSprite(slot).getImages()) {
+                if (replacements.findGraphics(image) == ImageGraphics.HIDDEN) {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
 
     private static @NotNull ScriptInputPlugin findInputPlugin(@NotNull Game game) {
         for (ScrGamePlugin plugin : game.getPlugins()) {
@@ -348,6 +390,86 @@ final class ScriptSimulationPluginTest {
         scenario.stepUntilPrinted("victim", FIGHT_FRAMES);
 
         Assertions.assertEquals(List.of("victim false true null", "zergling true true null"), scenario.getPrints());
+    }
+
+    @Test
+    void replace_unit_takes_frame_sets_and_hides_the_shadow_and_the_remains(@NotNull InstallationTestResources resources,
+                                                                            @TempDir @NotNull Path folder) throws IOException {
+        ScriptMapGameScenario scenario = ScriptMapGameScenario.startMelee(resources.getGameData(), folder, SPAWN_SCRIPT + """
+                                                                                                                          withoutZergling = true;
+                                                                                                                          var sheet = game.map.resources.getSheet('art/pixels.png', {frameWidth: 1, frameHeight: 1});
+                                                                                                                          function afterSpawn(frame) {
+                                                                                                                              if (frame === spawnFrame) {
+                                                                                                                                  display.images.replaceUnit(marine, {sheet: sheet, frameSets: [1, 0, 1]},
+                                                                                                                                                             {shadow: null, remains: null});
+                                                                                                                                  game.print('ES replaced ' + marine.getId() + ' ' +
+                                                                                                                                             marine.getSprite().getMainImage().getType().getId());
+                                                                                                                              } else if (frame === spawnFrame + 1) {
+                                                                                                                                  marine.kill();
+                                                                                                                                  game.print('ES killed');
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          """,
+                                                                          Map.of("art/pixels.png", ImageFileScenario.createPng()));
+
+        scenario.stepUntilPrinted("replaced", FIGHT_FRAMES);
+
+        String[] values = scenario.getPrints().getFirst().split(" ");
+        Game game = scenario.getGame();
+        Unit marine = game.getUnitSystem().requireUnitPool().getUnit(Integer.parseInt(values[1]));
+        ScriptSimulationPlugin plugin = ScriptMapGameScenario.findPlugin(game);
+
+        Assertions.assertNotNull(plugin);
+
+        ImageReplacements replacements = plugin.getImageReplacements();
+        ImageGraphics graphics = replacements.findUnitImageGraphics(marine, Integer.parseInt(values[2]));
+
+        Assertions.assertNotNull(graphics);
+        Assertions.assertNotNull(graphics.getGrp());
+        Assertions.assertEquals(REPLACED_FRAME_SETS, graphics.getGrp().getFrameCount(), "one frame of the sheet per given frame set");
+        Assertions.assertEquals(1, countHidden(game, replacements), "the shadow");
+
+        scenario.stepUntilPrinted("killed", FIGHT_FRAMES);
+        scenario.stepFrames(REMAINS_FRAMES);
+
+        Assertions.assertTrue(countHidden(game, replacements) > 0, "the remains of the dead Marine");
+    }
+
+    @Test
+    void every_player_runs_its_local_code_on_its_own_peer_and_the_shared_code_on_every_peer(@NotNull InstallationTestResources resources,
+                                                                                             @TempDir @NotNull Path folder) throws IOException {
+        Path map = ScriptMapGameScenario.packMap(folder, """
+                                                         var channel = sync.createChannel(function (player, value) {
+                                                             game.print('ES ' + player.getName() + ' ' + value);
+                                                         });
+                                                         var sent = false;
+                                                         function onLocalFrame(frame) {
+                                                             if (!sent && frame >= START_FRAMES) {
+                                                                 sent = true;
+                                                                 channel.send('from ' + local.getPlayer().getName());
+                                                             }
+                                                         }
+                                                         """.replace("START_FRAMES", String.valueOf(START_FRAMES)), Map.of(), false);
+        LockstepMapGameScenario scenario = LockstepMapGameScenario.startUseMapSettings(resources.getGameData(), map, PEERS, LOCKSTEP_SEED);
+        List<Set<String>> prints = new ArrayList<>();
+
+        for (int peer = 0; peer < PEERS; peer++) {
+            prints.add(new LinkedHashSet<>());
+        }
+
+        for (int frame = 0; frame < LOCKSTEP_FRAMES; frame++) {
+            scenario.stepFrame();
+
+            for (int peer = 0; peer < PEERS; peer++) {
+                ScriptMapGameScenario.collectPrints(scenario.getGame(peer), prints.get(peer));
+            }
+        }
+
+        Set<String> expected = Set.of("player1 from player1", "player2 from player2");
+
+        Assertions.assertEquals(expected, prints.get(0), "the shared handler of the first peer");
+        Assertions.assertEquals(expected, prints.get(1), "the shared handler of the second peer");
+        Assertions.assertEquals(0, scenario.getSyncMismatches());
     }
 
     @Test

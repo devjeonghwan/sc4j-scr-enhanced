@@ -314,6 +314,8 @@ function onStart() {
 
 `onBeforeOrder`는 게임 루틴이 유닛의 명령 큐에 직접 넣는 명령(`isInserted()`)도 받습니다. 컴퓨터 유닛이 경비 위치로 돌아가는 `ComputerReturn`이 그 예입니다. 거부한 삽입 명령은 큐에 들어가지 않고 `onOrderIssued`에도 오지 않습니다. 스크립트가 이끄는 컴퓨터 유닛이 되돌아가지 않게 하려면 `ComputerReturn`을 거부하세요.
 
+훅이 피해량을 줄여도(0으로 줄여도) 한 번의 공격은 최소 체력 0.5를 깎습니다. 스타크래프트의 모든 무기 공격이 그렇습니다. 유닛에 아무 피해도 주지 않으려면 `cancel`을 쓰세요.
+
 ### 3.2 로컬 입력을 공유 코드로
 
 로컬 코드는 게임을 바꿀 수 없습니다. 대신 채널로 값을 보내면, 게임이 그 명령을 실행하는 프레임에 채널 핸들러가 모든 플레이어의 게임에서 공유 코드로 실행됩니다. 리플레이에서도 실행됩니다.
@@ -543,6 +545,7 @@ defineHooks({
 - 콘솔 컨트롤의 `getRectangle()`과 그 안 컨트롤의 `getChildRectangle(id)`(명령 카드 버튼, 미니맵 영역)는 클라이언트가 마지막으로 그린 사각형을 줍니다. 숨겨져 있으면 `null`입니다. `display.console.getMinimapRectangle()`은 미니맵 영역을 줍니다.
 - `ConsoleChild`는 `setChildVisible`, `setChildPosition`, `restoreChild`, `getChildRectangle`에 쓰는 콘솔 대화 상자 컨트롤의 이름입니다: `ConsoleChild.MinimapArea`, `MinimapTerrain`, `CommandCardButton1`~`CommandCardButton9`, `SelectionWireframe`, `ResourcesCountdown`, `MenuButton` 등. 전체 목록은 선언 파일에 있습니다.
 - `setAnchor(ConsoleAnchor.Right)`를 쓰면 컨트롤의 위치가 인터페이스 오른쪽 가장자리를 기준으로 놓입니다. 640 단위에 맞춘 배치가 어떤 너비에서도 오른쪽 가장자리와 같은 거리에 있습니다. `Left`와 `Center`(기본값)도 같은 방식입니다.
+- `display.console.setMinimapOnly(true)`는 미니맵만 보입니다. 콘솔 그림을 그리지 않아 그 자리로 맵이 보이고, 다른 대화 상자는 스크립트가 `getControl(control).setVisible(true)`로 보이지 않는 한 모두 숨겨집니다. 채팅 입력 상자는 그대로입니다.
 - `display.console.setMinimapSize(size)`는 미니맵 영역을 128 대신 가로세로 `size` 단위로 그립니다. 클릭도 그 크기를 따릅니다. 미니맵 대화 상자도 함께 커져 가로 `10 + size`, 세로 `37 + size` 단위가 되고, 영역은 여전히 대화 상자 왼쪽 위에서 6, 33에 있습니다. 원래 자리에서는 대화 상자의 왼쪽 아래가 유지되어 영역이 화면 안에 남고, `setPosition`으로 놓은 대화 상자는 왼쪽 위가 유지됩니다.
 
 ```js
@@ -590,6 +593,23 @@ const palm = game.map.resources.getSheet('trees/palm.png', {frameWidth: 96, fram
 
 시트는 GRP와 anim이 쓰이는 곳에 쓸 수 있습니다: `display.images.replace(type, {sheet: palm})`, `replaceUnit`, `image.replaceGraphics`. SD는 맵 타일셋 팔레트로 프레임을 그리고, HD와 HD2는 시트를 처음 그릴 때 만든 anim을 그립니다.
 
+`frameSets`를 쓰면 시트가 자신보다 프레임 세트가 많은 스크립트를 따를 수 있습니다. 이미지의 iscript가 재생하는 프레임 세트마다 그것을 그릴 시트의 프레임 세트를 줍니다. 프레임 세트가 넷인 걷는 유닛 시트로 iscript가 열세 개를 재생하는 마린을 바꿀 수 있습니다:
+
+```js
+display.images.replaceUnit(marine, {sheet: soldier, frameSets: [0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3]});
+```
+
+`replace`와 `replaceUnit`은 그림자와 잔해의 옵션을 받습니다. `null`이면 아무것도 그리지 않습니다:
+
+```js
+display.images.replaceUnit(marine, {sheet: soldier}, {shadow: null, remains: null});
+display.images.replace(UnitType.TerranMarine.getFlingyType().getSprite().getImage(), null, {remains: null});
+```
+
+- `shadow`: 스프라이트에서 그림자 그리기 함수로 그리는 이미지. iscript가 유닛 아래에 만드는 그림자가 이것입니다. 그림자 그림이 있는 시트는 이미 그 자리에 자신의 그림자를 그립니다.
+- `remains`: 유닛이 죽으며 남기는 것. 죽은 뒤 스프라이트가 얻는 이미지(죽는 애니메이션)와 그 이미지가 만드는 스프라이트(바닥의 잔해)입니다. 그 스프라이트가 없어질 때까지 유지됩니다.
+- `images`가 `null`이면 유닛 자신의 그래픽은 그대로입니다. 유닛의 옵션이 이미지 타입의 옵션보다 우선하고, `restore`와 `restoreUnit`은 셋 모두 되돌립니다.
+
 `image.play({frameSets, frameTime, graphics, loop})`는 프레임 세트를 하나씩 `frameTime` 게임 프레임 동안 보여 준 뒤 이미지 자신의 프레임으로 돌아갑니다. 방향을 트는 이미지는 방향이 더해집니다. `image.stopPlaying()`으로 끝내고, `setFrame`과 `holdFrame`도 끝냅니다. 그리는 것만 바꾸며 공유 코드와 로컬 코드 모두에서 됩니다:
 
 ```js
@@ -609,12 +629,21 @@ function onStart() {
 }
 ```
 
-- `ImageType.create({sheet, name, script, frameSets, animation, drawFunction})`: `script`는 `ImageScript.Still`(Death까지 프레임 0), `ImageScript.Projectile`(총알), 또는 새 타입이 iscript, 그리기 함수, 오버레이, 플래그를 복사할 이미지 타입입니다. `frameSets`는 스크립트가 재생하는 프레임 세트마다 그것을 그릴 시트의 프레임 세트입니다. `animation: {frameSets, frameTime}`은 그 타입의 모든 이미지에 프레임 세트를 반복해 보여 줍니다(표시 전용).
+- `ImageType.create({sheet, name, script, frameSets, animation, drawFunction})`: `script`는 `ImageScript.Still`(Death까지 프레임 0), `ImageScript.Projectile`(총알), `ImageScript.Unit`(소리 없는 유닛, 아래 참고), 또는 새 타입이 iscript, 그리기 함수, 오버레이, 플래그를 복사할 이미지 타입입니다. 복사한 유닛 스크립트는 그 유닛의 소리도 냅니다. `frameSets`는 스크립트가 재생하는 프레임 세트마다 그것을 그릴 시트의 프레임 세트입니다. `animation: {frameSets, frameTime}`은 그 타입의 모든 이미지에 프레임 세트를 반복해 보여 줍니다(표시 전용).
 - `SpriteType.create({image, name, selectionCircle, selectionCircleOffset, healthBarWidth, visible})`.
 - `FlingyType.create({sprite, name, base, topSpeed, acceleration, haltDistance, turnRate, movementControl})`: `base`의 이동 값에 준 값을 덮어씁니다.
 - 게임은 등록한 이미지 타입의 프레임을 읽습니다. 그 타입의 스프라이트는 시트의 캔버스 크기를 가지며, 이것으로 보이는 곳과 클릭되는 곳이 정해집니다.
 - 등록한 스프라이트 타입의 효과는 마법 스프라이트와 같습니다. 유닛과 함께 정렬되고, 덮은 타일의 안개를 따르고, 시트에 그림자가 있으면 그림자를 보입니다. `sprite.playAnimation(Animation.Death)`는 `Still` 스프라이트를 한 프레임 뒤에 끝냅니다.
 - `UnitType.TerranMarine.setFlingyType(FlingyType.create({sprite, base: UnitType.TerranMarine.getFlingyType()}))`은 그 뒤에 만든 유닛에 새 모습을 줍니다. `script: ImageType.get(...)`이면 그 이미지처럼 걷고, 공격하고, 죽습니다. 초상화, 와이어프레임, 명령 아이콘은 유닛 타입의 것이 그대로입니다.
+- `ImageScript.Unit`은 소리 없는 유닛의 스크립트입니다. 17방향 시트가 필요하고 프레임 세트 15개를 재생합니다: 0 서 있기, 1~8 걷기(프레임마다 하나), 9 조준과 10 발사(공격은 대상에 맞는 무기를 쏘고, 마법도 같은 방식으로 씁니다), 11~14 죽음(각각 두 프레임, 그다음 유닛이 사라짐). 프레임 세트가 적은 시트는 `frameSets`로 연결하세요. 유닛을 움직이지는 않으니, SCV처럼 flingy.dat로 움직이는 플링기 타입을 유닛에 주세요.
+
+```js
+const driller = ImageType.create({sheet: drillerSheet, script: ImageScript.Unit, frameSets: [0, 1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 7, 7, 7]});
+const drillerSprite = SpriteType.create({image: driller, selectionCircle: 1, healthBarWidth: 24});
+
+UnitType.TerranSCV.setFlingyType(FlingyType.create({sprite: drillerSprite, base: UnitType.TerranSCV.getFlingyType()}));
+```
+
 - `game.createBullet(weapon, source, position, {target, flingy, direction})`은 직접 만든 플링기 타입으로 유닛이나 위치를 향해 총알을 쏩니다. `bullet.detonate()`는 총알이 대상에 닿았을 때처럼 끝내고, 그 Death가 무기를 적용합니다.
 
 ### 5.8 소리
@@ -697,7 +726,8 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - 언어: Rhino 1.8.1에는 `class`, `async`/`await`, 전개 구문(`...`), `import`/`export`, 그리고 어떤 형태(`of`, `in`, 카운트 반복문)의 `for (const ...)`도 없습니다. `let`을 쓰세요. 반복문 본문에서 선언한 `const`는 첫 값을 유지하므로 `let`을 쓰세요. `for (let ...)` 반복문 본문에서 만든 함수들은 그 변수의 바인딩 하나를 공유하므로, 본문 안의 `let`에 변수를 복사하세요. `check`가 이것들을 알려 줍니다. target ES5로 컴파일한 TypeScript에는 이 제한이 없습니다(2.6절).
 - Promise: `Promise`를 쓸 수 있습니다. 작업(`then`, `catch`, `finally`)은 그것을 대기열에 넣은 스크립트 호출(불러오기, 훅, 타이머, 채널 핸들러)이 끝날 때 같은 명령어 예산 안에서 실행됩니다. Promise는 시간을 기다리지 않으니 `game.after`를 쓰세요.
 - 전역: `eval`, 문자열로 만드는 `Function`, `Date`, `setTimeout` 같은 타이머, Java 접근이 없습니다. `Math`는 모든 플랫폼에서 같은 결과를 냅니다.
-- 명령어 예산: 스크립트 호출 하나(불러오기, 프레임, 결정, 로컬 입력, 로컬 프레임, 그리기)는 인터프리터 명령어 5,000,000개까지 실행할 수 있고, 함수 호출은 10,000단계까지 중첩됩니다. 긴 작업은 타이머로 여러 프레임에 나누세요.
+- 명령어 예산: 스크립트 호출 하나(불러오기, 프레임, 결정, 로컬 입력, 로컬 프레임, 그리기)는 인터프리터 명령어 5,000,000개까지 실행할 수 있고, 함수 호출은 10,000단계까지 중첩됩니다. 이는 짧은 반복문 약 200,000~600,000회, 또는 작은 함수 호출 약 40,000회입니다. 큰 맵의 모든 타일을 타일마다 함수를 호출하며 도는 작업은 한 프레임을 다 쓸 수 있습니다. 그런 작업에는 호출 대신 표를 쓰고, 긴 작업은 타이머로 여러 프레임에 나누세요.
+- 지형: 건물 아래 타일이 바뀌어도 건물은 그대로입니다. 스타크래프트에는 지형 변경이 없으므로, 건설할 수 없게 된 타일 위의 건물을 옮기거나 없애는 규칙이 없습니다.
 - 스크립트 버튼: 게임마다 최대 256개.
 - 직접 만드는 타입: 게임마다 이미지 타입 256개, 스프라이트 타입 256개, 플링기 타입 128개. 시트의 캔버스는 가로세로 최대 255 맵 픽셀, 그림은 가로세로 최대 4096 픽셀, 맵의 시트 anim은 합쳐서 최대 128 MiB입니다.
 - 효과는 마법과 먼지도 쓰는 스프라이트, 이미지, 효과 슬롯을 차지합니다. 가득 차면 `createEffect`는 `null`을 돌려줍니다.

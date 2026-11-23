@@ -314,6 +314,8 @@ A command moves its target off ground the unit cannot stand on before `onBeforeO
 
 `onBeforeOrder` also gets the orders a game routine puts into a unit's queue itself (`isInserted()`), such as a computer unit's `ComputerReturn` to its guard post. A rejected inserted order stays out of the queue, and `onOrderIssued` does not report it. Rejecting `ComputerReturn` keeps computer units that a script leads from walking back.
 
+A damage amount the hook lowers, to 0 too, still takes at least half a hit point per hit, as every weapon hit does in StarCraft; only `cancel` leaves the unit untouched.
+
 ### 3.2 From local input to shared code
 
 Local code cannot change the game. It sends a value over a channel, and the channel's handler runs as shared code on every player's game at the frame the game runs the command, in every replay too.
@@ -543,6 +545,7 @@ defineHooks({
 - `getRectangle()` of a console control and `getChildRectangle(id)` of one of its controls (a command card button, the minimap area) give what the client last drew, or `null` while hidden. `display.console.getMinimapRectangle()` gives the minimap area.
 - `ConsoleChild` names the controls of the console dialogs for `setChildVisible`, `setChildPosition`, `restoreChild` and `getChildRectangle`: `ConsoleChild.MinimapArea`, `MinimapTerrain`, `CommandCardButton1` to `CommandCardButton9`, `SelectionWireframe`, `ResourcesCountdown`, `MenuButton` and more. The declarations list them all.
 - `setAnchor(ConsoleAnchor.Right)` makes the positions of a control stand at the interface's right edge: a layout made for 640 units stays at the same distance from the right edge at any width. `Left` and `Center` (the default) work the same way.
+- `display.console.setMinimapOnly(true)` shows only the minimap: the console art is not drawn and the map shows through it, and every other dialog is hidden unless the script shows it with `getControl(control).setVisible(true)`. The chat text box stays.
 - `display.console.setMinimapSize(size)` draws the minimap area `size` units wide and high instead of 128; clicks follow it. The minimap dialog grows with it to `10 + size` by `37 + size` units, the area still at 6, 33 from its top left. At its installed place the dialog keeps its bottom left, so the area stays on the screen; a dialog placed with `setPosition` keeps its top left.
 
 ```js
@@ -590,6 +593,23 @@ const palm = game.map.resources.getSheet('trees/palm.png', {frameWidth: 96, fram
 
 A sheet works where a GRP and anims do: `display.images.replace(type, {sheet: palm})`, `replaceUnit`, `image.replaceGraphics`. SD draws the frames in the map's tileset palette; HD and HD2 draw an anim built when the sheet is first drawn.
 
+`frameSets` lets a sheet follow a script with more frame sets than it has: for each frame set the image's iscript plays, the frame set of the sheet that draws it. A sheet of a walking unit with four frame sets can replace the Marine, whose iscript plays thirteen:
+
+```js
+display.images.replaceUnit(marine, {sheet: soldier, frameSets: [0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3]});
+```
+
+`replace` and `replaceUnit` take options for the shadow and the remains, `null` to draw nothing:
+
+```js
+display.images.replaceUnit(marine, {sheet: soldier}, {shadow: null, remains: null});
+display.images.replace(UnitType.TerranMarine.getFlingyType().getSprite().getImage(), null, {remains: null});
+```
+
+- `shadow`: the images of the sprite drawn with the shadow draw function, as the shadow the iscript creates below the unit. A sheet with a shadow picture draws its own shadow there already.
+- `remains`: what the unit leaves when it dies: the images its sprite gets after the death, as the death animation, and the sprites those images create, as the remnant on the ground. They last until those sprites are gone.
+- `images` `null` keeps the unit's own graphics. A unit's options win over those of its image type; `restore` and `restoreUnit` take back all three.
+
 `image.play({frameSets, frameTime, graphics, loop})` shows frame sets one after another, each for `frameTime` game frames, then the image's own frame again. The direction of a turning image is added. `image.stopPlaying()` ends it; `setFrame` and `holdFrame` end it too. It changes only what is drawn and works in shared and local code:
 
 ```js
@@ -609,12 +629,21 @@ function onStart() {
 }
 ```
 
-- `ImageType.create({sheet, name, script, frameSets, animation, drawFunction})`: `script` is `ImageScript.Still` (frame 0 until Death), `ImageScript.Projectile` (a bullet) or an image type whose iscript, draw function, overlays and flags the new type copies. `frameSets` gives, for each frame set the script plays, the frame set of the sheet that draws it. `animation: {frameSets, frameTime}` loops frame sets for every image of the type, as presentation.
+- `ImageType.create({sheet, name, script, frameSets, animation, drawFunction})`: `script` is `ImageScript.Still` (frame 0 until Death), `ImageScript.Projectile` (a bullet), `ImageScript.Unit` (a unit without sounds, below) or an image type whose iscript, draw function, overlays and flags the new type copies; a copied unit script plays that unit's sounds too. `frameSets` gives, for each frame set the script plays, the frame set of the sheet that draws it. `animation: {frameSets, frameTime}` loops frame sets for every image of the type, as presentation.
 - `SpriteType.create({image, name, selectionCircle, selectionCircleOffset, healthBarWidth, visible})`.
 - `FlingyType.create({sprite, name, base, topSpeed, acceleration, haltDistance, turnRate, movementControl})`: the motion values of `base`, then those given.
 - The game reads the frames of a registered image type: a sprite of the type gets the canvas of the sheet, which decides where it is seen and clicked.
 - An effect of a registered sprite type is a sprite like a spell's: it sorts with units, takes the fog of the tiles it covers, and shows a shadow when the sheet has one. `sprite.playAnimation(Animation.Death)` ends a `Still` sprite a frame later.
 - `UnitType.TerranMarine.setFlingyType(FlingyType.create({sprite, base: UnitType.TerranMarine.getFlingyType()}))` gives the units created afterwards the new look; with `script: ImageType.get(...)` they walk, attack and die as that image does. The portrait, wireframe and command icon stay those of the unit type.
+- `ImageScript.Unit` is the script of a unit without sounds. It needs a sheet of 17 directions and plays 15 frame sets: 0 stand, 1 to 8 walk (one per frame), 9 aim and 10 fire (an attack fires the weapon the target needs, a spell casts the same way), 11 to 14 death (two frames each, then the unit is gone). A sheet with fewer frame sets maps them with `frameSets`. It does not move the unit: give the unit a flingy type that moves by flingy.dat, as the SCV's.
+
+```js
+const driller = ImageType.create({sheet: drillerSheet, script: ImageScript.Unit, frameSets: [0, 1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 7, 7, 7]});
+const drillerSprite = SpriteType.create({image: driller, selectionCircle: 1, healthBarWidth: 24});
+
+UnitType.TerranSCV.setFlingyType(FlingyType.create({sprite: drillerSprite, base: UnitType.TerranSCV.getFlingyType()}));
+```
+
 - `game.createBullet(weapon, source, position, {target, flingy, direction})` fires a bullet at a unit or a position with a flingy type of your own; `bullet.detonate()` ends it as it ends at its target, and its Death applies the weapon.
 
 ### 5.8 Sounds
@@ -697,7 +726,8 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - Language: Rhino 1.8.1 has no `class`, `async`/`await`, spread (`...`), `import`/`export` or `for (const ...)` in any form (`of`, `in` or a counting loop); use `let`. A `const` declared in a loop body keeps its first value; use `let`. The functions created in the body of a `for (let ...)` loop share one binding of its variables; copy the variable into a `let` inside the body. `check` reports these. TypeScript compiled with target ES5 has none of these limits (section 2.6).
 - Promises: `Promise` works. Its jobs (`then`, `catch`, `finally`) run when the call into the script that queued them returns (the loading, a hook, a timer or a channel handler), within the same instruction budget. Promises do not wait for time: use `game.after`.
 - Globals: no `eval`, no `Function` from strings, no `Date`, no `setTimeout` or other timers, no Java access. `Math` gives the same results on every platform.
-- Instruction budget: each call into the script (loading, a frame, a decision, a local input, a local frame, a render) may run 5,000,000 interpreter instructions; function calls may nest 10,000 deep. Spread long work over frames with timers.
+- Instruction budget: each call into the script (loading, a frame, a decision, a local input, a local frame, a render) may run 5,000,000 interpreter instructions; function calls may nest 10,000 deep. That is about 200,000 to 600,000 steps of a short loop, or about 40,000 calls of a small function: a pass over every tile of a large map with a call per tile can take a whole frame. Use lookup tables instead of calls in such passes, and spread long work over frames with timers.
+- Terrain: buildings stay when the tiles under them change; StarCraft has no terrain change, so nothing moves or removes a building that stands on tiles that became unbuildable.
 - Script buttons: at most 256 per game.
 - Types of your own: 256 image types, 256 sprite types and 128 flingy types per game. A sheet's canvas is at most 255 by 255 map pixels, a picture at most 4096 by 4096 pixels, and the anims of a map's sheets at most 128 MiB.
 - Effects take sprite, image and effect slots that spells and dust use too; `createEffect` returns `null` when they are full.
