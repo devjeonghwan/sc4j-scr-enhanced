@@ -8049,7 +8049,7 @@ interface ImageTypeOptions {
      * A loop of frame sets shown for every image of the type that shows its own frame, timed from game frame 0; none by default. It changes
      * only what is drawn.
      */
-    animation?: {frameSets: number[]; frameTime?: number};
+    animation?: { frameSets: number[]; frameTime?: number };
     /**
      * The draw function, that of the script by default, {@link DrawFunction.Normal} for a generic script.
      */

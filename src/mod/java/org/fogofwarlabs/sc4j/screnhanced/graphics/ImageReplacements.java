@@ -210,7 +210,6 @@ public final class ImageReplacements {
     }
 
 
-
     private final @NotNull Supplier<@Nullable UnitPool> units;
     private final @NotNull IntSupplier frames;
     private final @NotNull IntPredicate turning;
@@ -414,7 +413,7 @@ public final class ImageReplacements {
 
         ImageGraphics graphics = playback.graphics != null ? playback.graphics : this.findOwnGraphics(image);
         int directions = graphics != null && graphics.getDirections() != 0 ? graphics.getDirections()
-                                                                         : this.turning.test(image.getImageTypeId()) ? TURNING_DIRECTIONS : 1;
+                                                                           : this.turning.test(image.getImageTypeId()) ? TURNING_DIRECTIONS : 1;
 
         return directions == TURNING_DIRECTIONS ? frameSet * TURNING_DIRECTIONS + image.getFrameIndexOffset() : frameSet;
     }

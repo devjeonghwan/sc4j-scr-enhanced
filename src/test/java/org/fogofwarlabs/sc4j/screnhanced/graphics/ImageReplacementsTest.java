@@ -84,7 +84,7 @@ final class ImageReplacementsTest {
 
         Picture picture = new Picture(4, 4, PixelLayer.ofRgba(colors));
         PictureSheet sheet = PictureSheet.create("square.png", picture, SheetLayout.create(4, 4, 4, 4, 1, 1, 1, SheetLayout.NO_ANCHOR,
-                                                                                          SheetLayout.NO_ANCHOR), null, picture, null);
+                                                                                           SheetLayout.NO_ANCHOR), null, picture, null);
         PictureSheetConverter converter = new PictureSheetConverter(new byte[PALETTE_SIZE]);
         int[] frames = {0};
 

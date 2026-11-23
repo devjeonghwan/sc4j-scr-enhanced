@@ -317,10 +317,10 @@ public final class PictureSheetConverter {
                         int color = sheet.getColor(frame, x, y);
                         int pixelAlpha = color >>> ALPHA_SHIFT;
 
-                        alpha    += pixelAlpha;
-                        red      += (color >>> RED_SHIFT & BYTE_MASK) * pixelAlpha;
-                        green    += (color >>> GREEN_SHIFT & BYTE_MASK) * pixelAlpha;
-                        blue     += (color & BYTE_MASK) * pixelAlpha;
+                        alpha += pixelAlpha;
+                        red += (color >>> RED_SHIFT & BYTE_MASK) * pixelAlpha;
+                        green += (color >>> GREEN_SHIFT & BYTE_MASK) * pixelAlpha;
+                        blue += (color & BYTE_MASK) * pixelAlpha;
                         strength += sheet.getTeamStrength(frame, x, y);
                     }
                 }

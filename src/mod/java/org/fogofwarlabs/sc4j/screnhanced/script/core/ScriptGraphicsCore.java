@@ -24,13 +24,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Defines {@code core.resources} and {@code core.graphics}: the GRPs, anims, images and sounds of the map's resources, and the graphics they
@@ -193,12 +187,12 @@ final class ScriptGraphicsCore {
         this.sheetIds = new HashMap<>();
         this.texts    = new HashMap<>();
 
-        this.sheetGraphics = new HashMap<>();
+        this.sheetGraphics    = new HashMap<>();
         this.sharedSheets     = new HashSet<>();
         this.sharedSheetBytes = 0;
         this.sheets           = new HashSet<>();
         this.sheetBytes       = 0;
-        this.converter     = null;
+        this.converter        = null;
     }
 
     /**

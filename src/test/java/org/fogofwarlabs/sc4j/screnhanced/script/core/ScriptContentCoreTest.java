@@ -264,23 +264,24 @@ final class ScriptContentCoreTest {
 
         Assertions.assertEquals(first, second);
     }
+
     @Test
     void every_reserved_type_taken_makes_create_throw_a_range_error() throws IOException {
         Assertions.assertNotNull(resources);
 
         LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(requireGameData(), """
-                                                                                                var sheet = game.map.resources.getSheet('art/bolt.png', {frameWidth: 8, frameHeight: 8});
-                                                                                                var images = [];
-                                                                                                var error = 'none';
-                                                                                                try {
-                                                                                                    for (var index = 0; index <= 256; index++) {
-                                                                                                        images.push(ImageType.create({sheet: sheet}));
-                                                                                                    }
-                                                                                                } catch (e) {
-                                                                                                    error = e.name;
-                                                                                                }
-                                                                                                log.info(images.length, error, images[255].getName(), ImageType.getCount() === images[255].getId() + 1);
-                                                                                                """, resources);
+                                                                                               var sheet = game.map.resources.getSheet('art/bolt.png', {frameWidth: 8, frameHeight: 8});
+                                                                                               var images = [];
+                                                                                               var error = 'none';
+                                                                                               try {
+                                                                                                   for (var index = 0; index <= 256; index++) {
+                                                                                                       images.push(ImageType.create({sheet: sheet}));
+                                                                                                   }
+                                                                                               } catch (e) {
+                                                                                                   error = e.name;
+                                                                                               }
+                                                                                               log.info(images.length, error, images[255].getName(), ImageType.getCount() === images[255].getId() + 1);
+                                                                                               """, resources);
 
         Assertions.assertEquals(List.of("256 RangeError Image" + (ScrAddedGraphics.FIRST_IMAGE_ID + 255) + " true"), scenario.getInfoMessages(),
                                 scenario.getLines()::toString);
