@@ -64,7 +64,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `jsconfig.json` | editor settings: only the declaration files, scripts checked, every file its own module |
 | `scr-enhanced.d.ts` | declarations of the upper API, the runtime and the standard objects |
 | `core.d.ts` | declarations of the lower API `core` |
-| `resources/` | files the script reads: GRP, anim, PNG and DDS, and any file as text or JSON |
+| `resources/` | files the script reads: GRP, anim, PNG and DDS, WAV and Ogg sounds, and any file as text or JSON |
 
 Only `manifest.json`, the `.js` files outside `resources/` and the files under `resources/` go into the map.
 
@@ -306,6 +306,8 @@ A frame runs, at the frame start before the triggers: `onStart` (first frame onl
 
 A local input hook can call `event.consume()` to keep a key, mouse button, chat line or button press from the game.
 
+A chat line that starts with `/` goes to the client's commands, also when no command has that name, and never reaches `onLocalChat`.
+
 A decision hook changes the decision object: `setAmount` or `cancel` for damage, `setOrder`, `setTarget` or `reject` for an order, `setTarget` for a target.
 
 ### 3.2 From local input to shared code
@@ -432,6 +434,8 @@ display.commandCard.createButton({
 - `createButton` is shared code; call it at the module top level or in `onStart`.
 - `position` is the card slot 1 to 9; `icon` is a cmdicons frame.
 - `isEnabled(unit)` returns `true` (enabled), `false` (gray) or `null` (hidden). It must read only the game, never `local`: every game calls it again when the press runs.
+- The card fills each position with the first button that is not hidden; a gray button takes a position too, and a second shown button of the same position moves to the next one. Of several script buttons at one position, all but one must return `null`, not `false`.
+- A hotkey presses the first enabled button with that hotkey, in card order. A script button with the hotkey M, S or A loses to Move, Stop and Attack (positions 1 to 3) while they are enabled; give it another letter.
 - `onPressed(player, units, target)` is shared code; `units` are the selected units for which `isEnabled` returned `true`.
 - `target: true` makes a target button: the player picks a unit or a point, and `target` holds `position` and `unit`.
 - `onLocalPressed(event)` runs first, on the pressing machine, for the press and, for a target button, for the target too; `event.getRecord().kind` tells them apart (`InputKind.ButtonPressed`, `InputKind.ButtonTargeted`). `event.consume()` sends nothing; a consumed press of a target button starts no targeting.
@@ -484,9 +488,24 @@ defineHooks({
 });
 ```
 
-The event holds the values of the moment the unit died: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`. The unit may be gone already.
+The event holds the values of the moment the unit died: `getUnit()`, `getUnitType()`, `getOwner()`, `getKiller()`, `getKillerPlayer()`, `getWeapon()`, `getPosition()`. The unit may be gone already.
 
 Script damage names its source: `unit.damage(hp, source)` takes hit points off as a hit does after armor and shields, and `unit.kill(source)` kills through the same routine. The source is a unit (its owner is the killing player) or a player; the death event names it, and the kill counts for it. `unit.kill()` without a source kills as Kill Unit does, credited to nobody.
+
+`unit.damage` and `unit.kill` take exactly the given hit points: no shields, no armor, no damage type, and `onBeforeDamage` does not run. `unit.applyDamage(amount, source, options)` hits as a weapon does, through the game's weapon damage routine: `onBeforeDamage` decides the amount, then the hallucination factor, acid spores, the defensive matrix, shields, armor and the damage type against the unit's size apply, and the death and the kill count for the source.
+
+```js
+game.every(Time.fromSeconds(1), () => {
+    game.units.find({type: UnitType.ZergZergling}).forEach((zergling) => {
+        zergling.applyDamage(10, game.players.get(0), {damageType: DamageType.Explosive});
+    });
+});
+```
+
+- `source` is a unit or a player and is needed: a weapon hit always has an attacking player.
+- `weapon: WeaponType.GaussRifle` names the weapon in `onBeforeDamage`, `onUnitDamaged` and `onUnitDied` and gives its damage type; the amount stays the given one, without the weapon's upgrade.
+- `damageType` is `DamageType.Normal`, `Explosive`, `Concussive`, `IgnoreArmor` or `Independent`; by default the weapon's, without a weapon `Normal`.
+- A hit takes at least half a hit point, and an invincible unit takes nothing. Shared code only.
 
 ### 5.5 Your own console
 
@@ -537,9 +556,28 @@ Each `readJson` call returns a new value. Reading works in shared and local code
 
 ### 5.7 Unit graphics
 
+- `game.createEffect(spriteType, position)` creates a sprite that lives as long as its image scripts run; a looping effect never ends by itself. `sprite.remove()` removes the sprite of an effect, its images first, and returns `false` for the sprite of a unit or a bullet. Shared code only.
 - `image.setFrame(frame)` draws a frame until the image's own frame changes; `image.holdFrame(frame)` keeps it while the image's iscript runs on, until `holdFrame(null)`. Both change only what is drawn. The frame includes the direction (`image.getDirection()`), and the image's graphics must have it.
 - `unit.playAnimation(Animation.CastSpell)` plays an iscript animation as an order does, with the opcodes it has: an attack animation attacks the unit's target. A sprite in a section that must not be broken keeps its animation, and the unit's orders play their own animations again when their state changes. `Init` and `Death` are refused. Shared code only.
 - The selection circle, its vertical offset and the health bar width of a sprite type can be set: `spriteType.setSelectionCircle(size)` (0 to 9), `setSelectionCircleOffset(pixels)`, `setHealthBarWidth(pixels)`. A circle takes them when it is shown, a bar when it is drawn. Shared code only.
+
+### 5.8 Sounds
+
+`display.sound.playAt(sound, position)` plays a sound of `sfxdata.dat` by its id, or a sound file of `resources/`:
+
+```js
+const alarm = game.map.resources.getSound('sounds/alarm.wav');
+
+defineHooks({
+    onUnitDied(event) {
+        display.sound.playAt(alarm, event.getPosition());
+    }
+});
+```
+
+- `getSound` reads a RIFF WAVE of 8-bit, 16-bit or 24-bit PCM, mono or stereo, or an Ogg Vorbis file; another file throws an `Error`.
+- A sound file plays on the channels of Play WAV, at full volume on the screen and fading to silence 512 pixels outside it, whether the players see the position or not.
+- Shared code plays it on every player's game. Local code plays it on this machine only, with the sounds of the next frame start.
 
 ## 6. Map protection
 
