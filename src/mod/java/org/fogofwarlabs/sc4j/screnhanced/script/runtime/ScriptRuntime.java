@@ -310,7 +310,7 @@ public final class ScriptRuntime {
 
 
     /**
-     * Loads the main script within one instruction budget.
+     * Loads the main script within one instruction budget; the script may register types while it loads ({@link ScriptGame#isTypeRegistration()}).
      *
      * @throws IllegalStateException if the runtime has started already or is disposed
      */
@@ -326,9 +326,12 @@ public final class ScriptRuntime {
         try (Context context = this.contextFactory.enterOwnContext()) {
             this.enterCall();
 
+            this.scriptGame.setTypeRegistration(true);
+
             try {
                 this.runCall(context, this.mainName, LOAD_CALL_NAME, () -> this.moduleLoader.load(context, this.mainName));
             } finally {
+                this.scriptGame.setTypeRegistration(false);
                 this.exitCall();
             }
         }
@@ -756,7 +759,7 @@ public final class ScriptRuntime {
     /**
      * Runs one call of a hook, timer or channel handler for the prelude: the function with the arguments, in the scope of the module record
      * when one is given, otherwise in its own top-level scope, logged under that scope's module. A call that stops the script or exceeds the
-     * budget of a local call ends the running entry point.
+     * budget of a local call ends the running entry point. The script may register types during the call of {@code onStart} only.
      *
      * @return {@code true} if the call returned, {@code false} if it threw a script error
      * @throws CallAbortedError if the call stopped the script or exceeded the budget of a local call
@@ -779,7 +782,16 @@ public final class ScriptRuntime {
             moduleName = module == null ? this.mainName : module.getName();
         }
 
-        CallResult result = this.runCall(context, moduleName, callName, () -> function.call(context, scope, scope, functionArguments));
+        boolean registration = this.scriptGame.isTypeRegistration();
+        CallResult result;
+
+        this.scriptGame.setTypeRegistration(callName.equals(ScriptHook.START.getFunctionName()));
+
+        try {
+            result = this.runCall(context, moduleName, callName, () -> function.call(context, scope, scope, functionArguments));
+        } finally {
+            this.scriptGame.setTypeRegistration(registration);
+        }
 
         if (result == CallResult.STOPPED || this.local && this.overran) {
             throw new CallAbortedError();
