@@ -6,8 +6,13 @@ import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.core.test.ExternalInput;
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
 import org.fogofwarlabs.sc4j.scr.data.format.image.GrpFile;
+import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpritePool;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ClassicImageGraphics;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageGraphics;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptContentExtension;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptMapScenario;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
@@ -52,6 +57,10 @@ final class ScriptContentCoreTest {
      * The frames the scenario runs after its start.
      */
     private static final int RUN_FRAMES = 40;
+    /**
+     * The frames the shadow test runs after its start.
+     */
+    private static final int SHADOW_FRAMES = 6;
     private static final @NotNull String SCRIPT = """
                                                   var sheet = game.map.resources.getSheet('art/tree.png', {frameWidth: 16, frameHeight: 32, anchorY: 28,
                                                                                                            shadow: 'art/tree-shadow.png'});
@@ -285,5 +294,47 @@ final class ScriptContentCoreTest {
 
         Assertions.assertEquals(List.of("256 RangeError Image" + (ScrAddedGraphics.FIRST_IMAGE_ID + 255) + " true"), scenario.getInfoMessages(),
                                 scenario.getLines()::toString);
+    }
+
+    @Test
+    void an_effect_of_a_sheet_with_a_shadow_draws_the_shadow_below_its_main_image() throws IOException {
+        Assertions.assertNotNull(resources);
+
+        LiveScriptGameScenario scenario = LiveScriptGameScenario.startMelee(requireGameData(), """
+                                                                                                var sheet = game.map.resources.getSheet('art/tree.png', {frameWidth: 16, frameHeight: 32,
+                                                                                                                                                         anchorY: 28, shadow: 'art/tree-shadow.png'});
+                                                                                                var tree = ImageType.create({sheet: sheet, animation: {frameSets: [0, 1], frameTime: 4}});
+                                                                                                var treeSprite = SpriteType.create({image: tree});
+                                                                                                function onStart() {
+                                                                                                    var position = game.units.findOne({type: UnitType.TerranCommandCenter}).getPosition();
+                                                                                                    log.info(game.createEffect(treeSprite, Position.of(position.x + 96, position.y)).getId());
+                                                                                                }
+                                                                                                """, resources);
+
+        for (int frame = 0; frame < SHADOW_FRAMES; frame++) {
+            scenario.stepFrame();
+        }
+
+        Sprite sprite = scenario.getGame().getSpriteSystem().requireSpritePool().getSprite(Integer.parseInt(scenario.getInfoMessages().getFirst()));
+        ImageReplacements replacements = scenario.getRuntime().getImageReplacements();
+        ClassicImageGraphics graphics = new ClassicImageGraphics(scenario.getGame().getSpriteSystem()::getImagePool, () -> replacements);
+        SpriteImage main = sprite.getMainImage();
+
+        Assertions.assertNotNull(main);
+
+        List<SpriteImage> shadows = sprite.getImages().stream().filter(image -> image.getModifier() == SpriteImage.MODIFIER_SHADOW).toList();
+
+        Assertions.assertEquals(1, shadows.size());
+
+        SpriteImage shadow = shadows.getFirst();
+        ImageGraphics mainGraphics = replacements.findGraphics(main);
+
+        Assertions.assertNotNull(mainGraphics);
+        Assertions.assertNotNull(mainGraphics.getShadow());
+        Assertions.assertEquals(0, shadow.getFlags() & SpriteImage.FLAG_HIDDEN);
+        Assertions.assertSame(mainGraphics.getShadow(), replacements.findGraphics(shadow));
+        Assertions.assertSame(mainGraphics.getShadow().getGrp(), graphics.findImageSheet(shadow));
+        Assertions.assertEquals(graphics.findImageFrame(main), graphics.findImageFrame(shadow));
+        Assertions.assertTrue(sprite.getImages().indexOf(shadow) > sprite.getImages().indexOf(main), "the shadow is drawn below the main image");
     }
 }
