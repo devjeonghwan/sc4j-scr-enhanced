@@ -12,6 +12,8 @@ import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettingsSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacementSource;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.TerrainReplacementSource;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.TerrainReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.inspector.ScriptInspector;
 import org.fogofwarlabs.sc4j.screnhanced.script.runtime.ScriptRuntime;
 import org.jetbrains.annotations.NotNull;
@@ -31,11 +33,12 @@ import org.jetbrains.annotations.NotNull;
  * the script commands the script submitted go to the local player's outgoing turn ({@link ScriptRuntime#submitCommands}); the game's
  * {@link ScriptInputPlugin} sends those of the local code at once.
  * <p>
- * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}); every frame start first
- * forgets the replacements of units whose slot was freed. The classic console of the game merges the console settings of the script
- * ({@link #getConsoleSettings()}). A game the plugin runs cannot be saved: a saved game would lose the script's state.
+ * The classic image graphics of the game draw the image graphics the script replaces ({@link #getImageReplacements()}), and the classic terrain
+ * graphics the terrain pictures it replaces ({@link #getTerrainReplacements()}); every frame start first forgets the image replacements of units
+ * whose slot was freed. The classic console of the game merges the console settings of the script ({@link #getConsoleSettings()}). A game the
+ * plugin runs cannot be saved: a saved game would lose the script's state.
  */
-public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageReplacementSource, ConsoleSettingsSource {
+public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageReplacementSource, TerrainReplacementSource, ConsoleSettingsSource {
     private final @NotNull Game game;
     private final @NotNull ScriptRuntime runtime;
 
@@ -71,6 +74,14 @@ public final class ScriptSimulationPlugin implements ScrSimulationPlugin, ImageR
     @Override
     public @NotNull ImageReplacements getImageReplacements() {
         return this.runtime.getImageReplacements();
+    }
+
+    /**
+     * @return the terrain pictures the plugin replaces, the same instance for the whole game
+     */
+    @Override
+    public @NotNull TerrainReplacements getTerrainReplacements() {
+        return this.runtime.getTerrainReplacements();
     }
 
     /**

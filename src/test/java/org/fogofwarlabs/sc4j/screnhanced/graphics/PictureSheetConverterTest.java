@@ -12,10 +12,12 @@ import java.io.IOException;
 
 /**
  * Tests the conversion of a sheet's frames: the GRP's frame count and canvas, its transparent, color and team color indices, the anim's scale,
- * layers and frames, and the frame order a script gives.
+ * layers and frames, and the frame order a script gives; and the quantization of a terrain picture.
  */
 final class PictureSheetConverterTest {
     private static final int FRAME_SIZE = 4;
+    private static final int TILE_SIZE = 32;
+    private static final int BYTE_MASK = 0xFF;
     private static final int OPAQUE_RED = 0xFFFF0000;
     private static final int OPAQUE_WHITE = 0xFFFFFFFF;
     private static final int TEAM_STRENGTH = 0xFF000000;
@@ -101,6 +103,30 @@ final class PictureSheetConverterTest {
 
         Assertions.assertEquals(4L * 32 * 32, PictureSheetConverter.countAnimBytes(layout, false, false));
         Assertions.assertEquals(4L * 32 * 32 * 3, PictureSheetConverter.countAnimBytes(layout, true, true));
+    }
+
+    @Test
+    void quantize_tile_should_draw_the_opaque_blocks_in_the_nearest_palette_entry() {
+        PictureSheetConverter converter = new PictureSheetConverter(createPalette());
+        int side = TILE_SIZE * 2;
+        int[] colors = new int[side * side];
+
+        for (int y = 0; y < side; y++) {
+            for (int x = 0; x < side / 2; x++) {
+                colors[y * side + x] = OPAQUE_RED;
+            }
+        }
+
+        byte[] coverage = new byte[TILE_SIZE * TILE_SIZE];
+        byte[] pixels = converter.quantizeTile(new Picture(side, side, PixelLayer.ofRgba(colors)), coverage);
+
+        Assertions.assertEquals(PictureSheetConverter.LAST_COLOR_INDEX, pixels[0] & BYTE_MASK);
+        Assertions.assertEquals(1, coverage[TILE_SIZE / 2 - 1]);
+        Assertions.assertEquals(0, coverage[TILE_SIZE / 2]);
+        Assertions.assertEquals(0, pixels[TILE_SIZE - 1]);
+        Picture uneven = new Picture(TILE_SIZE + 1, TILE_SIZE, PixelLayer.ofRgba(new int[(TILE_SIZE + 1) * TILE_SIZE]));
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> converter.quantizeTile(uneven, new byte[TILE_SIZE * TILE_SIZE]));
     }
 
     @Test

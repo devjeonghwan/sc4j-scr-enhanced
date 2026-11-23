@@ -11,6 +11,7 @@ import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ConsoleSettings;
 import org.fogofwarlabs.sc4j.screnhanced.graphics.ImageReplacements;
+import org.fogofwarlabs.sc4j.screnhanced.graphics.TerrainReplacements;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
 import org.fogofwarlabs.sc4j.screnhanced.script.ScriptResources;
 import org.fogofwarlabs.sc4j.screnhanced.script.core.ScriptGame;
@@ -280,6 +281,13 @@ public final class ScriptRuntime {
      */
     public @NotNull ImageReplacements getImageReplacements() {
         return this.scriptGame.getImageReplacements();
+    }
+
+    /**
+     * @return the terrain pictures the script replaces, the same instance for the whole game
+     */
+    public @NotNull TerrainReplacements getTerrainReplacements() {
+        return this.scriptGame.getTerrainReplacements();
     }
 
     /**
