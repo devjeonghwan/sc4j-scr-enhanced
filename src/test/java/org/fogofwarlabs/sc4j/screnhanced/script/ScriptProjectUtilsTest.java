@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -42,6 +43,10 @@ final class ScriptProjectUtilsTest {
      * The deepest property path the declarations are followed to.
      */
     private static final int MAXIMUM_PATH_DEPTH = 3;
+    /**
+     * A plain type name, without type arguments, unions or array brackets.
+     */
+    private static final @NotNull Pattern TYPE_NAME = Pattern.compile("[A-Za-z_$][\\w$]*");
     /**
      * The runtime globals the declarations leave out: the generator function replacement, which only throws.
      */
@@ -233,16 +238,39 @@ final class ScriptProjectUtilsTest {
                                                          """;
 
     /**
-     * Reads the declarations of every declarations file as one text.
+     * Finds the plain type name of a property, or of the first parameter of a method.
+     *
+     * @return the type name, or an empty text when the type is not a plain name
      */
-    private static @NotNull ScriptDeclarationsCheck readDeclarations() throws IOException {
-        StringBuilder text = new StringBuilder();
+    private static @NotNull String findTypeName(@NotNull ScriptDeclarations.Member member) {
+        String type = member.isMethod() ? member.getParameterTypes().stream().findFirst().orElse("") : member.getType();
 
-        for (String fileName : ScriptProjectUtils.DECLARATION_FILE_NAMES) {
-            text.append(new String(ScriptProjectUtils.readDeclarations(fileName), StandardCharsets.UTF_8)).append('\n');
+        return TYPE_NAME.matcher(type).matches() ? type : "";
+    }
+
+    /**
+     * Finds the interfaces of a global's type: the type names joined by {@code &}, without type arguments.
+     *
+     * @return the interface names, empty if the global is a function or its type is not made of declared interfaces
+     */
+    private static @NotNull List<String> findInterfaces(@NotNull ScriptDeclarations declarations, @NotNull ScriptDeclarations.Member global) {
+        List<String> names = new ArrayList<>();
+
+        if (global.isMethod()) {
+            return names;
         }
 
-        return new ScriptDeclarationsCheck(text.toString());
+        for (String part : global.getType().split("&")) {
+            String name = part.contains("<") ? part.substring(0, part.indexOf('<')).trim() : part.trim();
+
+            if (!declarations.isInterface(name)) {
+                return List.of();
+            }
+
+            names.add(name);
+        }
+
+        return names;
     }
 
     private static @NotNull String readPreludeFile(@NotNull String fileName) throws IOException {
@@ -257,7 +285,7 @@ final class ScriptProjectUtilsTest {
      * Lists the property paths to read: each declared global with an interface type, and each property of an interface type below it other
      * than the instance interfaces, which {@link #readInstanceNames} reads.
      */
-    private static void collectPaths(@NotNull ScriptDeclarationsCheck declarations, @NotNull List<String> path, @NotNull List<String> interfaces,
+    private static void collectPaths(@NotNull ScriptDeclarations declarations, @NotNull List<String> path, @NotNull List<String> interfaces,
                                      @NotNull Map<List<String>, List<String>> paths) {
         paths.put(path, interfaces);
 
@@ -265,12 +293,14 @@ final class ScriptProjectUtilsTest {
             return;
         }
 
-        for (ScriptDeclarationsCheck.Member member : declarations.getMembers(interfaces).values()) {
-            if (!member.isMethod() && declarations.isInterface(member.getType()) && !INSTANCES.containsKey(member.getType())) {
+        for (Map.Entry<String, ScriptDeclarations.Member> member : declarations.collectMembers(interfaces).entrySet()) {
+            String type = findTypeName(member.getValue());
+
+            if (!member.getValue().isMethod() && declarations.isInterface(type) && !INSTANCES.containsKey(type)) {
                 List<String> childPath = new ArrayList<>(path);
 
-                childPath.add(member.getName());
-                collectPaths(declarations, childPath, List.of(member.getType()), paths);
+                childPath.add(member.getKey());
+                collectPaths(declarations, childPath, List.of(type), paths);
             }
         }
     }
@@ -564,11 +594,11 @@ final class ScriptProjectUtilsTest {
 
     @Test
     void declarations_name_every_global_and_member_of_the_runtime() throws IOException {
-        ScriptDeclarationsCheck declarations = readDeclarations();
+        ScriptDeclarations declarations = ScriptDeclarations.read();
         Map<List<String>, List<String>> paths = new LinkedHashMap<>();
 
-        for (Map.Entry<String, String> global : declarations.getGlobals().entrySet()) {
-            List<String> interfaces = declarations.getInterfaces(global.getValue());
+        for (Map.Entry<String, ScriptDeclarations.Member> global : declarations.getGlobals().entrySet()) {
+            List<String> interfaces = findInterfaces(declarations, global.getValue());
 
             if (!interfaces.isEmpty()) {
                 collectPaths(declarations, List.of(global.getKey()), interfaces, paths);
@@ -603,7 +633,7 @@ final class ScriptProjectUtilsTest {
 
             List<String> problemsBefore = new ArrayList<>(problems);
 
-            compareNames(key + " (" + path.getValue() + ")", declarations.getMembers(path.getValue()).keySet(), toNames(names), exact,
+            compareNames(key + " (" + path.getValue() + ")", declarations.collectMembers(path.getValue()).keySet(), toNames(names), exact,
                          declarations.isIndexed(path.getValue()), problems);
 
             if (!problems.equals(problemsBefore) && GENERATED_TABLES.contains(key)) {
@@ -616,8 +646,8 @@ final class ScriptProjectUtilsTest {
 
     @Test
     void declarations_name_every_hook_and_the_members_of_its_object() throws IOException {
-        ScriptDeclarationsCheck declarations = readDeclarations();
-        Map<String, ScriptDeclarationsCheck.Member> hooks = declarations.getMembers(List.of("Hooks"));
+        ScriptDeclarations declarations = ScriptDeclarations.read();
+        Map<String, ScriptDeclarations.Member> hooks = declarations.collectMembers(List.of("Hooks"));
         Set<String> hookNames = new TreeSet<>();
         Map<String, String> expressions = new LinkedHashMap<>();
         Map<String, String> interfaces = new LinkedHashMap<>();
@@ -628,11 +658,12 @@ final class ScriptProjectUtilsTest {
 
             hookNames.add(name);
 
-            ScriptDeclarationsCheck.Member member = hooks.get(name);
+            ScriptDeclarations.Member member = hooks.get(name);
+            String type = member == null ? "" : findTypeName(member);
 
-            if (member != null && declarations.isInterface(member.getType()) && hook != ScriptHook.RENDER) {
+            if (declarations.isInterface(type) && hook != ScriptHook.RENDER) {
                 expressions.put(name, createHookObjectExpression(name));
-                interfaces.put(name, member.getType());
+                interfaces.put(name, type);
             }
         }
 
@@ -650,7 +681,7 @@ final class ScriptProjectUtilsTest {
         for (Map.Entry<String, Set<String>> names : instanceNames.entrySet()) {
             String declared = interfaces.get(names.getKey());
 
-            compareNames(names.getKey() + " (" + declared + ")", declarations.getMembers(List.of(declared)).keySet(), names.getValue(), true,
+            compareNames(names.getKey() + " (" + declared + ")", declarations.collectMembers(List.of(declared)).keySet(), names.getValue(), true,
                          false, problems);
         }
 

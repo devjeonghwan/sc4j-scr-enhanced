@@ -11,6 +11,7 @@ How to write map scripts for SC:R Enhanced. The full API reference is the declar
 - [5. Examples](#5-examples)
 - [6. Map protection](#6-map-protection)
 - [7. Limits](#7-limits)
+- [8. Map compatibility](#8-map-compatibility)
 
 ## 1. What it is
 
@@ -40,6 +41,7 @@ Relative paths are relative to the current folder.
 | `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]] [--install <folder>]` | packs the folder into a copy of the map and starts SC:R Enhanced on it |
 | `pack <map> --script <folder> -o <output>` | writes the map with the script package to `<output>`; an old package is replaced |
 | `pack <map> --script <folder> -o <output> --protect` | the same, as a protected map (chapter 6) |
+| `pack <map> --script <folder> -o <output> --compatibility <mark>` | the same, with the compatibility mark `enhanced-only`, `compatible` or `auto` (chapter 8) |
 | `unpack <map> -o <folder>` | writes the script package of a map to a folder that is absent or empty |
 | `trace <source map> --at <script>:<line>` | prints the original line of a line of a protected script |
 | `trace <source map> --log <file>` | prints a file, such as a log, with the original lines |
@@ -60,7 +62,7 @@ SC4J.bat tool scr-enhanced script init my-map
 
 | File | Content |
 |---|---|
-| `manifest.json` | `{"name": "my-map", "main": "main.js", "api": "1"}`: the package name (the folder name), the script that runs first, the script API version |
+| `manifest.json` | `{"name": "my-map", "main": "main.js", "api": "1"}`: the package name (the folder name), the script that runs first, the script API version; optionally `"compatibility"` (chapter 8) |
 | `main.js` | the main script, an example with `onStart` and `onFrame` |
 | `jsconfig.json` | editor settings: only the declaration files, scripts checked, every file its own module |
 | `scr-enhanced.d.ts` | declarations of the upper API, the runtime and the standard objects |
@@ -746,3 +748,29 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - Effects take sprite, image and effect slots that spells and dust use too; `createEffect` returns `null` when they are full.
 - Saved games: a game with a script cannot be saved.
 - Start units: as in StarCraft, a Use Map Settings game gives every player whose race in the map is User Selectable a town hall and four workers, with or without triggers, and keeps only the neutral preplaced units of those players. Set fixed races in the map, or remove the units in `onStart`.
+
+## 8. Map compatibility
+
+A map is `enhanced-only` or `compatible`:
+
+- `enhanced-only`: the scripts change the game, so the map plays correctly only in SC:R Enhanced. `pack` writes it with the extension `.sce`, the same MPQ format as `.scm` and `.scx`; the scenario keeps its original or expansion version. Regular SC:R does not list `.sce` files.
+- `compatible`: the scripts only add graphics and conveniences, which regular SC:R does not run; the map plays the same there. It keeps `.scm` or `.scx`.
+
+The mark comes from `--compatibility`, else from `"compatibility"` in `manifest.json`, else it is `auto`: `pack` scans the scripts and picks one. `pack` prints the mark, its reasons and the file it wrote:
+
+```text
+Packed 1 scripts and 0 resources into Out.sce.
+The map is enhanced-only: the scripts change the game.
+  main.js:12: Player.setMinerals
+```
+
+The scan:
+
+- A gameplay member is a member of the declarations marked "Shared code only." that changes the game. A member marked "works while the game is read-only" does not: `print`, sounds, the view, timers, channels, script buttons and the unit finder searches. Neither does a member marked "Changes graphics only.", such as `replaceTileImage`.
+- A decision hook (`onBeforeDamage`, `onBeforeOrder`, `onBeforeTargetAcquired`) counts as a gameplay use.
+- The scan follows the type of a value from the globals, the hook parameters, `new Map()` and other declared objects, literals, members and method results, and from variables and properties that the scripts always assign the same type. `player.deaths.set(...)` counts, `new Map().set(...)` does not.
+- A name that only gameplay members have counts on any value, such as `unit.kill()` in a helper function. A name that your own objects also have (an object literal property or `value.name = ...`) counts only on a value of a followed type.
+- The scan cannot judge, warns, and picks `enhanced-only` for: a name that a declaration also has without changing the game (such as `set`) on a value of an unknown type, a computed member `value[key]` of an object with gameplay members, a computed member called on a value of an unknown type, `with`, and a script that does not parse.
+- If the scan is wrong, set the mark by hand. A map marked `compatible` whose scripts seem to change the game gets a warning.
+
+The output file takes the extension of the mark: an `enhanced-only` map replaces `.scm`, `.scx` or `.sce` at the end of `-o` with `.sce`, or adds `.sce` to a name without one; a `compatible` map keeps the `.scm` or `.scx` of `-o`, else takes the one of the input map, else the one its scenario version gives. Not covered: a regular SC:R client that joins a LAN game of a `.sce` map, a renamed file, and replays, which keep no mark.
