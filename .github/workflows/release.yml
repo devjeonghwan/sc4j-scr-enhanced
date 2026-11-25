@@ -79,8 +79,6 @@ jobs:
             runner: ubuntu-24.04-arm
           - platform: macos-arm64
             runner: macos-latest
-          - platform: macos-x64
-            runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     defaults:
@@ -150,8 +148,8 @@ jobs:
         run: |
           hashes=$(sha256sum jars/jar-*/"$MOD_ID.jar" | cut -d ' ' -f 1 | sort -u)
           count=$(ls jars/jar-*/"$MOD_ID.jar" | wc -l)
-          if [ "$count" -ne 5 ] || [ "$(echo "$hashes" | wc -l)" -ne 1 ]; then
-            echo "::error::Expected 5 equal $MOD_ID.jar files, found $count with these hashes: $hashes"
+          if [ "$count" -ne 4 ] || [ "$(echo "$hashes" | wc -l)" -ne 1 ]; then
+            echo "::error::Expected 4 equal $MOD_ID.jar files, found $count with these hashes: $hashes"
             exit 1
           fi
           mkdir -p release
