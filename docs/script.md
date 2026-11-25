@@ -35,6 +35,7 @@ Relative paths are relative to the current folder.
 | Command | What it does |
 |---|---|
 | `init <folder>` | writes a new script folder; the folder must be absent or empty |
+| `init <folder> --ts` | writes a new TypeScript project (section 2.6); the folder must be absent or empty |
 | `check <folder>` | prints the errors and warnings of a script folder |
 | `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]] [--install <folder>]` | packs the folder into a copy of the map and starts SC:R Enhanced on it |
 | `pack <map> --script <folder> -o <output>` | writes the map with the script package to `<output>`; an old package is replaced |
@@ -66,7 +67,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `core.d.ts` | declarations of the lower API `core` |
 | `resources/` | files the script reads: GRP, anim, PNG and DDS, WAV and Ogg sounds, and any file as text or JSON |
 
-Only `manifest.json`, the `.js` files outside `resources/` and the files under `resources/` go into the map.
+Only `manifest.json`, the `.js` files outside `resources/` and the files under `resources/` go into the map. A `.js` file that names a source map file, as tsc writes it, takes the source map with it (section 2.6).
 
 ### 2.3 Editor completion
 
@@ -105,25 +106,28 @@ Every module can define hooks (section 3.1). Call `require` in shared code (chap
 
 ### 2.5 Logs
 
-`log.info`, `log.warn` and `log.error` write to the SC:R Enhanced log `<install>/userdata/logs/scr-enhanced/sc4j.log`, prefixed with the module name. Script errors go there too, with the script file and line that threw them (`main.js:12`); for an error of an API call, the line of the call.
+`log.info`, `log.warn` and `log.error` write to the SC:R Enhanced log `<install>/userdata/logs/scr-enhanced/sc4j.log`, prefixed with the module name. Script errors go there too, with the script file and line that threw them (`main.js:12`); for an error of an API call, the line of the call. For TypeScript, the error names the TypeScript file and line (`src/main.ts:12`, section 2.6).
 
 ### 2.6 TypeScript
 
 Scripts can be written in TypeScript and compiled with `tsc` (checked with TypeScript 5.9). The map holds only the compiled JavaScript.
 
+```powershell
+SC4J.bat tool scr-enhanced script init my-map --ts
+```
+
 ```text
 my-map/                 the TypeScript project
-  tsconfig.json
-  src/main.ts           the sources
-  src/bonus.ts
-  script/               the script folder that is packed: made by init, filled by tsc
+  tsconfig.json         the tsc settings
+  scr-enhanced.d.ts     declarations of the upper API, the runtime and the standard objects
+  core.d.ts             declarations of the lower API core
+  src/main.ts           the main source, an example with defineHooks
+  script/               the script folder that is packed, filled by tsc
     manifest.json       {"name": "my-map", "main": "main.js", "api": "1"}
-    scr-enhanced.d.ts
-    core.d.ts
     resources/
 ```
 
-Make `script/` with `init my-map/script`, set the name in its `manifest.json`, delete its `main.js` and `jsconfig.json`, and add `my-map/tsconfig.json`:
+`tsconfig.json`:
 
 ```json
 {
@@ -135,16 +139,17 @@ Make `script/` with `init my-map/script`, set the name in its `manifest.json`, d
         "types": [],
         "strict": true,
         "noImplicitReturns": true,
+        "sourceMap": true,
         "rootDir": "src",
         "outDir": "script"
     },
-    "files": ["script/scr-enhanced.d.ts", "script/core.d.ts"],
+    "files": ["scr-enhanced.d.ts", "core.d.ts"],
     "include": ["src/**/*.ts"]
 }
 ```
 
-- `files` names the declaration files, because tsc leaves the files of `outDir` out of `include`.
-- tsc writes `main.js` and the other modules next to `manifest.json` and copies no other file: `manifest.json` and `resources/` stay in `script/`.
+- tsc writes `main.js` and its source map `main.js.map` next to `manifest.json`, and the same for each other source. It copies no other file: `manifest.json` and `resources/` stay in `script/`.
+- `pack` and `run` read `script/` only. The `.ts` sources and the declaration files lie outside it and stay out of the map. A `.js.map` file is not packed itself: its `.js` file takes it inside the map.
 - Define the hooks with `defineHooks` (section 3.1): tsc types their parameters and reports a misspelled hook name. tsc does not know that the runtime calls top-level function hooks: `noUnusedLocals` reports them, and a misspelled name goes unnoticed.
 - Import modules with relative paths (`./bonus`).
 
@@ -193,7 +198,12 @@ What does not:
 - Targets ES2015 and later keep forms Rhino lacks: `class`, spread, rest elements in destructuring and `for (const ...)` from ES2015, `async` functions from ES2017, object spread from ES2018. `let` and `const` in loops then follow Rhino's loop rules (chapter 7). `check` reports these.
 - `noEmitHelpers` leaves the helpers out, and the scripts fail with a `ReferenceError`. `importHelpers` loads them from a module `tslib`: copy `tslib.js` of the npm package `tslib` into the script folder.
 - `module` other than `commonjs`, `import()`, and the libraries of browsers and Node.js.
-- Errors and logs name the line of the compiled JavaScript (`main.js:72`), not of the TypeScript source.
+
+Errors in the log name the TypeScript file and line, relative to the project, such as `onFrame failed: Error: x (src/main.ts:12)`. This needs `"sourceMap": true` or `"inlineSourceMap": true`; without a source map an error names the compiled line (`main.js:72`). A line that tsc adds on its own, such as a helper, has no TypeScript line: its error names the compiled line too. `check` reports a source map file that a `.js` file names but that is missing or broken, and `pack` refuses it.
+
+`pack` keeps only the lines of each source map: one entry per line, no names, no columns, no source contents, so the map and its replays stay small. `run` keeps the whole source map for DevTools. A protected map holds none: its errors name the protected lines, and `trace` gives their TypeScript lines (chapter 6).
+
+`mapRoot` is not supported: keep each `.js.map` file next to its `.js` file.
 
 ### 2.7 DevTools
 
@@ -233,7 +243,7 @@ What the console has:
 
 The debugger:
 
-- The Sources panel lists the scripts of the map by file name, read only. With TypeScript it shows the compiled `.js` files.
+- The Sources panel lists the scripts of the map by file name, read only. With TypeScript it shows the compiled `.js` files, and DevTools gets the source map of each one (section 2.6). With `"inlineSources": true` in `tsconfig.json` the source maps of `run` also hold the TypeScript sources; `pack` leaves them out.
 - Breakpoints on a line, also with a condition; `debugger` statements; Pause on exceptions, which also pauses at an error that the script catches.
 - At a pause: the call stack, the variables of each frame and the functions around it, the module and the globals; Step over, into and out, Resume; console code runs in the selected frame.
 - A pause holds the game thread: the game and its window stop until Resume, and in a multiplayer game every player waits or drops.
@@ -708,6 +718,7 @@ What `--protect` does:
 - Every line of the protected script comes from one original line, so error lines can be traced back.
 - The map is marked protected, and the replays of its games keep the mark. `unpack` refuses a protected map.
 - The source map `Protected.scx.sourcemap.json` is written next to the output. The map does not hold it; keep it to yourself.
+- For TypeScript the scripts lose their tsc source maps too. The source map next to the output holds their TypeScript lines instead.
 
 What it does not do:
 
@@ -720,6 +731,8 @@ To read an error of a protected map, trace its location with the source map:
 SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --at main.js:3
 SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.log
 ```
+
+`trace` prints the original location, such as `main.js:5`. For TypeScript it prints the TypeScript file and line, such as `src/main.ts:12`, or the compiled line for a line that tsc added on its own.
 
 ## 7. Limits
 

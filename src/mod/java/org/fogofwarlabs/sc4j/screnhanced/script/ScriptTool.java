@@ -18,14 +18,17 @@ import java.util.concurrent.TimeUnit;
 /**
  * The command line tool of SC:R Enhanced Script.
  * <p>
- * Commands: {@code init <folder>} writes a new script folder ({@link ScriptProjectUtils}); {@code check <folder>} prints one line per
- * finding of a script folder ({@link ScriptCheckUtils}); {@code pack <map> --script <folder> -o <output> [--protect]} writes the map with the
- * package of the script folder to the output file, the bytes of the map followed by the script trailer ({@link ScriptStorageUtils}), which
- * replaces an old one; with {@code --protect} the map is protected: its scripts are packed in protected form ({@link ScriptProtector}) and the
- * source map is written next to the output file ({@link ScriptSourceMap#resolveFile}), not into the map. {@code unpack <map> -o <folder>}
- * writes the package of the map to the folder, which must be absent or empty, and refuses a protected map; {@code trace <source map> --at
- * <script>:<line>} prints the original location of a location of a protected script, and {@code trace <source map> --log <file>} prints the
- * file, such as a player's log, with the original locations; {@code run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]
+ * Commands: {@code init <folder> [--ts]} writes a new script folder, with {@code --ts} a TypeScript project ({@link ScriptProjectUtils});
+ * {@code check <folder>} prints one line per finding of a script folder ({@link ScriptCheckUtils}); {@code pack <map> --script <folder> -o
+ * <output> [--protect]} writes the map with the package of the script folder to the output file, the bytes of the map followed by the script
+ * trailer ({@link ScriptStorageUtils}), which replaces an old one; a script keeps the source map file that tsc wrote for it inside
+ * ({@link ScriptPackage#readFolder}), shrunk to its lines ({@link ScriptCompiledMapUtils#shrinkMap}), while {@code run} keeps the whole map.
+ * With {@code --protect} the map is protected: its scripts are packed in protected form without their source maps ({@link ScriptProtector})
+ * and the source map of the protected scripts and their sources is written next to the output file ({@link ScriptSourceMap#resolveFile}), not
+ * into the map. {@code unpack <map> -o <folder>} writes the package of the map to the folder, which
+ * must be absent or empty, and refuses a protected map; {@code trace <source map> --at <script>:<line>} prints the original location of a
+ * location of a protected script, and {@code trace <source map> --log <file>} prints the file, such as a player's log, with the original
+ * locations; {@code run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]
  * [--install <folder>]} packs the script folder into a copy of the map and runs SC:R Enhanced of an SC4J install on it until the game ends
  * ({@link ScriptRunner}), as a melee game with {@code --melee}, else as a Use Map Settings game, packing again on every change of the folder
  * with {@code --watch}, with the DevTools console on the port, by default {@value ScriptInspector#DEFAULT_PORT}, with {@code --inspect}. The
@@ -56,6 +59,10 @@ public final class ScriptTool {
      * The command that runs SC:R Enhanced on a map with a script folder.
      */
     public static final @NotNull String RUN_COMMAND = "run";
+    /**
+     * The option of {@value #INIT_COMMAND} that writes a TypeScript project.
+     */
+    public static final @NotNull String TYPESCRIPT_OPTION = "--ts";
     /**
      * The option that names the script folder of {@value #PACK_COMMAND} and {@value #RUN_COMMAND}.
      */
@@ -96,10 +103,10 @@ public final class ScriptTool {
     /**
      * The usage line.
      */
-    public static final @NotNull String USAGE = "Usage: init <folder> | check <folder> | pack <map> --script <folder> -o <output> [--protect] | " +
-                                                "unpack <map> -o <folder> | trace <source map> --at <script>:<line> | " +
-                                                "trace <source map> --log <file> | run <map> --script <folder> [--melee] [--watch] " +
-                                                "[--inspect[=<port>]] [--install <folder>]";
+    public static final @NotNull String USAGE = "Usage: init <folder> [--ts] | check <folder> | " +
+                                                "pack <map> --script <folder> -o <output> [--protect] | unpack <map> -o <folder> | " +
+                                                "trace <source map> --at <script>:<line> | trace <source map> --log <file> | " +
+                                                "run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]] [--install <folder>]";
 
     private static final int COMMAND_ARGUMENT = 0;
     private static final int PATH_ARGUMENT = 1;
@@ -189,8 +196,18 @@ public final class ScriptTool {
         return map;
     }
 
+    /**
+     * Writes a new script folder, or with {@value #TYPESCRIPT_OPTION} a TypeScript project.
+     */
     private static int runInit(@NotNull String @NotNull [] arguments, @NotNull Path folder, @NotNull PrintStream output) throws IOException {
-        readOptions(arguments, List.of(), List.of(), List.of());
+        if (readOptions(arguments, List.of(), List.of(TYPESCRIPT_OPTION), List.of()).containsKey(TYPESCRIPT_OPTION)) {
+            ScriptProjectUtils.writeTypeScriptProject(folder);
+            output.println(Exceptions.format("Wrote the TypeScript project {0}; its script folder is {1}.", folder,
+                                             folder.resolve(ScriptProjectUtils.SCRIPT_FOLDER)));
+
+            return SUCCESS_EXIT;
+        }
+
         ScriptProjectUtils.writeProject(folder);
         output.println(Exceptions.format("Wrote the script folder {0}.", folder));
 
@@ -214,14 +231,14 @@ public final class ScriptTool {
     }
 
     /**
-     * Packs the script folder into the map; with {@value #PROTECT_OPTION} it protects the scripts and writes the source map next to the output
-     * file.
+     * Packs the script folder into the map, with the source maps of the scripts shrunk to their lines; with {@value #PROTECT_OPTION} it
+     * protects the scripts and writes the source map of the protected scripts and of their compiled sources next to the output file.
      */
     private static int runPack(@NotNull String @NotNull [] arguments, @NotNull Path map, @NotNull PrintStream output) throws IOException {
         List<String> options = List.of(SCRIPT_OPTION, OUTPUT_OPTION);
         Map<String, String> values = readOptions(arguments, options, List.of(PROTECT_OPTION), options);
         Path outputFile = Path.of(values.get(OUTPUT_OPTION));
-        ScriptPackage scriptPackage = ScriptPackage.readFolder(Path.of(values.get(SCRIPT_OPTION)));
+        ScriptPackage scriptPackage = ScriptCompiledMapUtils.shrinkMaps(ScriptPackage.readFolder(Path.of(values.get(SCRIPT_OPTION))));
 
         if (!values.containsKey(PROTECT_OPTION)) {
             Files.write(outputFile, ScriptStorageUtils.writePackage(Files.readAllBytes(map), map.toString(), scriptPackage));
@@ -230,7 +247,7 @@ public final class ScriptTool {
             return SUCCESS_EXIT;
         }
 
-        ScriptSourceMap sourceMap = new ScriptSourceMap();
+        ScriptSourceMap sourceMap = ScriptSourceMap.readCompiled(scriptPackage.getScripts());
         ScriptPackage protectedPackage = ScriptProtector.protectPackage(scriptPackage, sourceMap);
         Path sourceMapFile = ScriptSourceMap.resolveFile(outputFile);
 
@@ -297,13 +314,13 @@ public final class ScriptTool {
             throw Exceptions.newIllegalArgumentException("The location {0} is not <script>:<line>.", location);
         }
 
-        int originalLine = sourceMap.findOriginalLine(scriptName, line);
+        String originalLocation = sourceMap.findOriginalLocation(scriptName, line);
 
-        if (originalLine == ScriptSourceMap.NO_LINE) {
+        if (originalLocation == null) {
             throw Exceptions.newIOException("The source map {0} has no line {1} of {2}.", sourceMapFile, line, scriptName);
         }
 
-        output.println(scriptName + LOCATION_SEPARATOR + originalLine);
+        output.println(originalLocation);
 
         return SUCCESS_EXIT;
     }

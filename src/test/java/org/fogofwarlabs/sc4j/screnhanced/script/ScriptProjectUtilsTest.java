@@ -24,9 +24,9 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * Tests the new script folder of {@link ScriptProjectUtils} and that its declarations name exactly what a script sees: every global, every
- * member of the game API objects, the hooks and their event and decision objects, and the type constants; declared standard objects exist.
- * The prelude's hooks are those the runtime knows ({@link ScriptHook}).
+ * Tests the new script folder and TypeScript project of {@link ScriptProjectUtils} and that its declarations name exactly what a script sees:
+ * every global, every member of the game API objects, the hooks and their event and decision objects, and the type constants; declared standard
+ * objects exist. The prelude's hooks are those the runtime knows ({@link ScriptHook}).
  */
 final class ScriptProjectUtilsTest {
     private static final @NotNull String PRELUDE_FOLDER = "/org/fogofwarlabs/sc4j/screnhanced/script/prelude/";
@@ -496,6 +496,70 @@ final class ScriptProjectUtilsTest {
 
         Assertions.assertThrows(IOException.class, () -> ScriptProjectUtils.writeProject(folder));
         Assertions.assertFalse(Files.exists(folder.resolve(ScriptManifest.FILE_NAME)));
+    }
+
+    @Test
+    void write_type_script_project_should_write_a_project_whose_output_packs_with_source_lines(@TempDir @NotNull Path folder) throws IOException {
+        Path project = folder.resolve("Star Map");
+        Path scriptFolder = project.resolve(ScriptProjectUtils.SCRIPT_FOLDER);
+
+        ScriptProjectUtils.writeTypeScriptProject(project);
+
+        Map<?, ?> tsconfig = (Map<?, ?>) JsonReader.parse(Files.readAllBytes(project.resolve(ScriptProjectUtils.TSCONFIG_FILE_NAME)));
+        Map<?, ?> options = (Map<?, ?>) tsconfig.get("compilerOptions");
+        String mainSource = Files.readString(project.resolve(ScriptProjectUtils.SOURCE_FOLDER).resolve(ScriptProjectUtils.MAIN_SOURCE_FILE_NAME));
+
+        Assertions.assertEquals("ES5", options.get("target"));
+        Assertions.assertEquals("commonjs", options.get("module"));
+        Assertions.assertEquals("force", options.get("moduleDetection"));
+        Assertions.assertEquals(true, options.get("noLib"));
+        Assertions.assertEquals(true, options.get("sourceMap"));
+        Assertions.assertEquals(ScriptProjectUtils.SOURCE_FOLDER, options.get("rootDir"));
+        Assertions.assertEquals(ScriptProjectUtils.SCRIPT_FOLDER, options.get("outDir"));
+        Assertions.assertEquals(List.of(ScriptProjectUtils.SOURCE_FOLDER + "/**/*.ts"), tsconfig.get("include"));
+        Assertions.assertEquals(Set.copyOf(ScriptProjectUtils.DECLARATION_FILE_NAMES), Set.copyOf((List<?>) tsconfig.get("files")));
+        Assertions.assertTrue(mainSource.contains("defineHooks({"), mainSource);
+
+        for (String fileName : ScriptProjectUtils.DECLARATION_FILE_NAMES) {
+            Assertions.assertArrayEquals(ScriptProjectUtils.readDeclarations(fileName), Files.readAllBytes(project.resolve(fileName)));
+        }
+
+        try (Stream<Path> files = Files.list(scriptFolder)) {
+            Assertions.assertEquals(Set.of(ScriptManifest.FILE_NAME, ScriptPackage.RESOURCE_FOLDER),
+                                    new HashSet<>(files.map(file -> file.getFileName().toString()).toList()));
+        }
+
+        // The output of tsc for the main source: the script and its source map, whose source is relative to the map file.
+        Files.writeString(scriptFolder.resolve(ScriptProjectUtils.MAIN_FILE_NAME), "defineHooks({});\n//# sourceMappingURL=main.js.map");
+        Files.writeString(scriptFolder.resolve("main.js.map"), "{\"version\":3,\"file\":\"main.js\",\"sourceRoot\":\"\"," +
+                                                               "\"sources\":[\"../src/main.ts\"],\"names\":[],\"mappings\":\"AAAA\"}");
+
+        ScriptPackage scriptPackage = ScriptPackage.readFolder(scriptFolder);
+        ScriptSourceMap sourceMap = ScriptSourceMap.readCompiled(scriptPackage.getScripts());
+
+        Assertions.assertEquals("Star Map", scriptPackage.getManifest().getName());
+        Assertions.assertEquals(ScriptProjectUtils.MAIN_FILE_NAME, scriptPackage.getManifest().getMain());
+        Assertions.assertEquals(Set.of(ScriptProjectUtils.MAIN_FILE_NAME), scriptPackage.getScripts().keySet());
+        Assertions.assertEquals(ScriptProjectUtils.SOURCE_FOLDER + "/" + ScriptProjectUtils.MAIN_SOURCE_FILE_NAME + ":1",
+                                sourceMap.findOriginalLocation(ScriptProjectUtils.MAIN_FILE_NAME, 1));
+    }
+
+    @Test
+    void check_notes_name_the_type_script_settings_of_a_new_project(@TempDir @NotNull Path folder) throws IOException {
+        Path project = folder.resolve("project");
+        Path scriptFolder = folder.resolve("script");
+
+        ScriptProjectUtils.writeTypeScriptProject(project);
+        ScriptMapScenario.writeFolder(scriptFolder, Map.of(ScriptManifest.FILE_NAME, "{\"name\": \"A\", \"main\": \"main.js\", \"api\": \"1\"}",
+                                                           "main.js", "class Unit {}\n", "lib.js", "export const value = 1;\n"));
+
+        Map<?, ?> options = (Map<?, ?>) ((Map<?, ?>) JsonReader.parse(Files.readAllBytes(project.resolve(ScriptProjectUtils.TSCONFIG_FILE_NAME))))
+                .get("compilerOptions");
+        List<String> messages = ScriptCheckUtils.check(scriptFolder).stream().map(ScriptFinding::getMessage).toList();
+
+        Assertions.assertEquals(2, messages.size(), messages::toString);
+        Assertions.assertTrue(messages.get(0).contains("compile TypeScript with module " + options.get("module")), messages::toString);
+        Assertions.assertTrue(messages.get(1).contains("compile TypeScript with target " + options.get("target")), messages::toString);
     }
 
     @Test

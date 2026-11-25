@@ -13,7 +13,8 @@ import java.util.stream.Stream;
  * Represents a script package: the manifest, the scripts and the resources of a map.
  * <p>
  * In a script folder the manifest is {@value ScriptManifest#FILE_NAME}, the scripts are the {@value #SCRIPT_EXTENSION} files outside
- * {@value #RESOURCE_FOLDER} and the resources are every file under {@value #RESOURCE_FOLDER}; other files are not part of the package.
+ * {@value #RESOURCE_FOLDER} and the resources are every file under {@value #RESOURCE_FOLDER}; other files, such as TypeScript sources and
+ * source map files, are not part of the package.
  * Script names are relative to the folder and resource names relative to {@value #RESOURCE_FOLDER}, both with {@code /} separators.
  * A name has nonempty segments other than {@code .} and {@code ..} and no backslash, colon or control character; names are unique
  * ignoring letter case, and no name is the folder of another, so that every name is one file of a folder on every platform.
@@ -58,7 +59,9 @@ public final class ScriptPackage {
     }
 
     /**
-     * Reads a script package from a script folder; scripts and resources are ordered by name.
+     * Reads a script package from a script folder; scripts and resources are ordered by name. A script that names a source map file, as tsc
+     * writes it, holds the map as a {@code data:} URL in the package ({@link ScriptCompiledMapUtils#inlineMap}), which fails if the file is
+     * not a source map.
      *
      * @param folder the script folder
      * @return the read script package
@@ -76,6 +79,10 @@ public final class ScriptPackage {
         Map<String, byte[]> resources = new TreeMap<>();
 
         readFolderFiles(folder, scripts, resources);
+
+        for (Map.Entry<String, byte[]> script : scripts.entrySet()) {
+            script.setValue(ScriptCompiledMapUtils.inlineMap(folder, script.getKey(), script.getValue()));
+        }
 
         return create(manifest, scripts, resources);
     }

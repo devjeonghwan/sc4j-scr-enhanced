@@ -227,7 +227,7 @@ public final class ScriptRunner {
     }
 
     /**
-     * Reads the state of the files the package holds: the size and modification time by file name.
+     * Reads the state of the files the package holds, with the source map files of the scripts: the size and modification time by file name.
      */
     private @NotNull Map<String, String> readPackedFiles() throws IOException {
         Map<String, String> files = new TreeMap<>();
@@ -236,7 +236,8 @@ public final class ScriptRunner {
             for (Path file : paths.filter(Files::isRegularFile).toList()) {
                 String name = this.scriptFolder.relativize(file).toString().replace(file.getFileSystem().getSeparator(), "/");
 
-                if (name.equals(ScriptManifest.FILE_NAME) || name.startsWith(RESOURCE_PREFIX) || name.endsWith(ScriptPackage.SCRIPT_EXTENSION)) {
+                if (name.equals(ScriptManifest.FILE_NAME) || name.startsWith(RESOURCE_PREFIX) || name.endsWith(ScriptPackage.SCRIPT_EXTENSION) ||
+                    name.endsWith(ScriptPackage.SCRIPT_EXTENSION + ScriptCompiledMapUtils.SOURCE_MAP_EXTENSION)) {
                     files.put(name, Files.size(file) + "@" + Files.getLastModifiedTime(file).toMillis());
                 }
             }
