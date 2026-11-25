@@ -125,7 +125,7 @@ public final class ScriptProjectUtils {
     /**
      * Writes a new script folder.
      *
-     * @param folder the script folder, absent or empty; its name becomes the package name
+     * @param folder the script folder, absent or holding only hidden entries; its name becomes the package name
      * @throws IOException if the folder holds files, has no name or a file cannot be written
      */
     public static void writeProject(@NotNull Path folder) throws IOException {
@@ -146,7 +146,7 @@ public final class ScriptProjectUtils {
      * Writes a new TypeScript project: the tsc settings, the declarations, the main source and the script folder {@value #SCRIPT_FOLDER} with
      * the manifest and the resource folder.
      *
-     * @param folder the project folder, absent or empty; its name becomes the package name
+     * @param folder the project folder, absent or holding only hidden entries; its name becomes the package name
      * @throws IOException if the folder holds files, has no name or a file cannot be written
      */
     public static void writeTypeScriptProject(@NotNull Path folder) throws IOException {
@@ -183,7 +183,7 @@ public final class ScriptProjectUtils {
     }
 
     /**
-     * Checks that a folder to write is absent or empty and has a name.
+     * Checks that a folder to write is absent or holds only hidden entries, whose names start with {@code .}, and has a name.
      *
      * @return the absolute folder
      */
@@ -200,7 +200,7 @@ public final class ScriptProjectUtils {
             }
 
             try (Stream<Path> entries = Files.list(absoluteFolder)) {
-                if (entries.findAny().isPresent()) {
+                if (entries.anyMatch(entry -> !ScriptPackage.isHidden(absoluteFolder.relativize(entry)))) {
                     throw Exceptions.newIOException("The script folder is not empty: {0}", folder);
                 }
             }

@@ -225,6 +225,9 @@ final class ScriptRunnerTest {
         Files.writeString(scriptFolder.resolve("jsconfig.json"), "{\"changed\": true}");
         Assertions.assertFalse(runner.repackIfChanged());
 
+        Files.writeString(scriptFolder.resolve("._main.js"), "-");
+        Assertions.assertFalse(runner.repackIfChanged());
+
         Files.writeString(main, "function onStart() {\n    game.print('second');\n}\n");
         Files.setLastModifiedTime(main, FileTime.fromMillis(MODIFIED_TIME + 1));
         Assertions.assertTrue(runner.repackIfChanged());
