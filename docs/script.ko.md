@@ -11,6 +11,7 @@ SC:R Enhanced의 맵 스크립트를 쓰는 방법입니다. 전체 API 레퍼�
 - [5. 예제](#5-예제)
 - [6. 맵 보호](#6-맵-보호)
 - [7. 제한](#7-제한)
+- [8. 맵 호환성](#8-맵-호환성)
 
 ## 1. 개요
 
@@ -39,6 +40,7 @@ SC4J.bat tool scr-enhanced script <command> [arguments]
 | `run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]] [--install <folder>]` | 폴더를 맵 복사본에 넣고 그 맵으로 SC:R Enhanced를 시작 |
 | `pack <map> --script <folder> -o <output>` | 스크립트 패키지를 넣은 맵을 `<output>`에 씀. 이전 패키지는 교체 |
 | `pack <map> --script <folder> -o <output> --protect` | 같은 일을 보호된 맵으로(6장) |
+| `pack <map> --script <folder> -o <output> --compatibility <mark>` | 같은 일을 호환성 표시 `enhanced-only`, `compatible`, `auto` 중 하나로(8장) |
 | `unpack <map> -o <folder>` | 맵의 스크립트 패키지를 없거나 빈 폴더에 씀 |
 | `trace <source map> --at <script>:<line>` | 보호된 스크립트의 줄에 해당하는 원래 줄을 출력 |
 | `trace <source map> --log <file>` | 로그 같은 파일을 원래 줄로 바꿔 출력 |
@@ -59,7 +61,7 @@ SC4J.bat tool scr-enhanced script init my-map
 
 | 파일 | 내용 |
 |---|---|
-| `manifest.json` | `{"name": "my-map", "main": "main.js", "api": "1"}`: 패키지 이름(폴더 이름), 먼저 실행할 스크립트, 스크립트 API 버전 |
+| `manifest.json` | `{"name": "my-map", "main": "main.js", "api": "1"}`: 패키지 이름(폴더 이름), 먼저 실행할 스크립트, 스크립트 API 버전. 선택으로 `"compatibility"`(8장) |
 | `main.js` | 메인 스크립트. `onStart`와 `onFrame` 예제 |
 | `jsconfig.json` | 편집기 설정. 선언 파일만 쓰고, 스크립트를 검사하고, 파일마다 별도 모듈 |
 | `scr-enhanced.d.ts` | 상위 API, 런타임, 표준 객체의 선언 |
@@ -733,3 +735,29 @@ SC4J.bat tool scr-enhanced script trace Protected.scx.sourcemap.json --log sc4j.
 - 효과는 마법과 먼지도 쓰는 스프라이트, 이미지, 효과 슬롯을 차지합니다. 가득 차면 `createEffect`는 `null`을 돌려줍니다.
 - 저장 게임: 스크립트가 있는 게임은 저장할 수 없습니다.
 - 시작 유닛: 스타크래프트와 같이, 맵 설정 사용(Use Map Settings) 게임은 트리거가 있든 없든 맵에서 종족이 User Selectable인 플레이어에게 본진 건물과 일꾼 넷을 주고, 그 플레이어의 미리 놓인 유닛은 중립 유닛만 남깁니다. 맵에서 종족을 정해 두거나 `onStart`에서 유닛을 지우세요.
+
+## 8. 맵 호환성
+
+맵은 `enhanced-only` 또는 `compatible`입니다.
+
+- `enhanced-only`: 스크립트가 게임을 바꾸므로 SC:R Enhanced에서만 맵이 제대로 플레이됩니다. `pack`은 이 맵을 확장자 `.sce`로 씁니다. `.scm`, `.scx`와 같은 MPQ 형식이고, 시나리오는 오리지널 또는 확장팩 버전을 그대로 유지합니다. 일반 SC:R은 `.sce` 파일을 목록에 보여 주지 않습니다.
+- `compatible`: 스크립트가 일반 SC:R이 실행하지 않는 그래픽과 편의 기능만 더하므로 맵이 그곳에서도 똑같이 플레이됩니다. `.scm` 또는 `.scx`를 유지합니다.
+
+표시는 `--compatibility`, 없으면 `manifest.json`의 `"compatibility"`에서 오고, 둘 다 없으면 `auto`입니다. `auto`이면 `pack`이 스크립트를 검사해 하나를 고릅니다. `pack`은 표시와 그 이유, 쓴 파일을 출력합니다.
+
+```text
+Packed 1 scripts and 0 resources into Out.sce.
+The map is enhanced-only: the scripts change the game.
+  main.js:12: Player.setMinerals
+```
+
+검사 규칙:
+
+- 게임플레이 멤버는 선언에서 "Shared code only."로 표시되어 있고 게임을 바꾸는 멤버입니다. "works while the game is read-only"로 표시된 멤버는 게임을 바꾸지 않습니다. `print`, 소리, 화면 위치, 타이머, 채널, 스크립트 버튼, 유닛 찾기 검색이 그렇습니다. "Changes graphics only."로 표시된 멤버(`replaceTileImage` 등)도 게임을 바꾸지 않습니다.
+- 결정 훅(`onBeforeDamage`, `onBeforeOrder`, `onBeforeTargetAcquired`)도 게임플레이 사용입니다.
+- 검사는 전역, 훅 매개변수, `new Map()` 같은 선언된 객체, 리터럴, 멤버와 메서드 결과, 그리고 스크립트가 항상 같은 타입을 대입하는 변수와 속성으로 값의 타입을 따라갑니다. `player.deaths.set(...)`은 사용이고 `new Map().set(...)`은 아닙니다.
+- 게임플레이 멤버만 가진 이름은 어떤 값에서든 사용으로 셉니다. 도우미 함수 안의 `unit.kill()`이 그렇습니다. 직접 만든 객체도 가진 이름(객체 리터럴 속성이나 `value.name = ...`)은 타입을 따라간 값에서만 셉니다.
+- 다음은 판단할 수 없으므로 경고하고 `enhanced-only`를 고릅니다. 게임을 바꾸지 않는 선언에도 있는 이름(`set` 등)을 타입을 모르는 값에서 쓸 때, 게임플레이 멤버가 있는 객체의 계산된 멤버 `value[key]`, 타입을 모르는 값의 계산된 멤버 호출, `with`, 파싱되지 않는 스크립트.
+- 검사가 틀리면 표시를 직접 정하세요. 스크립트가 게임을 바꾸는 것으로 보이는데 `compatible`로 표시한 맵에는 경고가 나옵니다.
+
+출력 파일은 표시의 확장자를 받습니다. `enhanced-only` 맵은 `-o` 끝의 `.scm`, `.scx`, `.sce`를 `.sce`로 바꾸고, 확장자가 없는 이름에는 `.sce`를 붙입니다. `compatible` 맵은 `-o`의 `.scm` 또는 `.scx`를 유지하고, 없으면 입력 맵의 것을, 그것도 없으면 시나리오 버전에 맞는 것을 씁니다. 다루지 않는 경우: `.sce` 맵의 LAN 게임에 참가하는 일반 SC:R 클라이언트, 이름을 바꾼 파일, 표시를 남기지 않는 리플레이.
