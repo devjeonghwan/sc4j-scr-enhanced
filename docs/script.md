@@ -25,13 +25,17 @@ A map script is JavaScript stored inside the map file. SC:R Enhanced runs it wit
 
 ### 2.1 The script tool
 
-The script tool is the tool `script` of the mod `scr-enhanced`. Run it with the SC4J install's `SC4J.bat` (Linux `SC4J`, Windows console `SC4J-cli.exe`):
+The script tool is the tool `script` of the mod `scr-enhanced`. Run it with the start file of the SC4J install: `SC4J.bat` or the console program `SC4J-cli.exe` on Windows, `SC4J` on Linux and macOS.
 
 ```powershell
 SC4J.bat tool scr-enhanced script <command> [arguments]
 ```
 
-Relative paths are relative to the current folder.
+```sh
+./SC4J tool scr-enhanced script <command> [arguments]
+```
+
+The examples below use `SC4J.bat` and `.\gradlew.bat`; on Linux and macOS write `./SC4J` (or the path of the install's `SC4J`) and `./gradlew`. Relative paths are relative to the current folder.
 
 | Command | What it does |
 |---|---|
@@ -54,6 +58,10 @@ In a clone of this repository the same commands run with Gradle, paths relative 
 .\gradlew.bat runScriptTool --args="init my-map"
 ```
 
+```sh
+./gradlew runScriptTool --args="init my-map"
+```
+
 ### 2.2 A script folder
 
 ```powershell
@@ -69,7 +77,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `core.d.ts` | declarations of the lower API `core` |
 | `resources/` | files the script reads: GRP, anim, PNG and DDS, WAV and Ogg sounds, and any file as text or JSON |
 
-Only `manifest.json`, the `.js` files outside `resources/` and the files under `resources/` go into the map. A `.js` file that names a source map file, as tsc writes it, takes the source map with it (section 2.6).
+Only `manifest.json`, the `.js` files outside `resources/` and the files under `resources/` go into the map. Hidden files and folders, whose names start with `.` (such as `.DS_Store` and `.git`), stay out of the map and do not count when `init` and `unpack` need an empty folder. A `.js` file that names a source map file, as tsc writes it, takes the source map with it (section 2.6).
 
 ### 2.3 Editor completion
 

@@ -234,7 +234,13 @@ public final class ScriptRunner {
 
         try (Stream<Path> paths = Files.walk(this.scriptFolder)) {
             for (Path file : paths.filter(Files::isRegularFile).toList()) {
-                String name = this.scriptFolder.relativize(file).toString().replace(file.getFileSystem().getSeparator(), "/");
+                Path relativePath = this.scriptFolder.relativize(file);
+
+                if (ScriptPackage.isHidden(relativePath)) {
+                    continue;
+                }
+
+                String name = relativePath.toString().replace(file.getFileSystem().getSeparator(), "/");
 
                 if (name.equals(ScriptManifest.FILE_NAME) || name.startsWith(RESOURCE_PREFIX) || name.endsWith(ScriptPackage.SCRIPT_EXTENSION) ||
                     name.endsWith(ScriptPackage.SCRIPT_EXTENSION + ScriptCompiledMapUtils.SOURCE_MAP_EXTENSION)) {

@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  * With {@code --protect} the map is protected: its scripts are packed in protected form without their source maps ({@link ScriptProtector})
  * and the source map of the protected scripts and their sources is written next to the output file ({@link ScriptSourceMap#resolveFile}), not
  * into the map. {@code unpack <map> -o <folder>} writes the package of the map to the folder, which
- * must be absent or empty, and refuses a protected map; {@code trace <source map> --at <script>:<line>} prints the original location of a
+ * must be absent or hold only hidden entries, and refuses a protected map; {@code trace <source map> --at <script>:<line>} prints the original location of a
  * location of a protected script, and {@code trace <source map> --log <file>} prints the file, such as a player's log, with the original
  * locations; {@code run <map> --script <folder> [--melee] [--watch] [--inspect[=<port>]]
  * [--install <folder>]} packs the script folder into a copy of the map and runs SC:R Enhanced of an SC4J install on it until the game ends

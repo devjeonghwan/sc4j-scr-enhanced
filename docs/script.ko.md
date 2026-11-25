@@ -25,13 +25,17 @@ SC:R Enhanced의 맵 스크립트를 쓰는 방법입니다. 전체 API 레퍼�
 
 ### 2.1 스크립트 도구
 
-스크립트 도구는 모드 `scr-enhanced`의 도구 `script`입니다. SC4J 설치본의 `SC4J.bat`(Linux `SC4J`, Windows 콘솔 `SC4J-cli.exe`)으로 실행합니다.
+스크립트 도구는 모드 `scr-enhanced`의 도구 `script`입니다. SC4J 설치본의 시작 파일로 실행합니다. Windows에서는 `SC4J.bat`이나 콘솔 프로그램 `SC4J-cli.exe`, Linux와 macOS에서는 `SC4J`입니다.
 
 ```powershell
 SC4J.bat tool scr-enhanced script <command> [arguments]
 ```
 
-상대 경로는 현재 폴더 기준입니다.
+```sh
+./SC4J tool scr-enhanced script <command> [arguments]
+```
+
+아래 예제는 `SC4J.bat`과 `.\gradlew.bat`을 씁니다. Linux와 macOS에서는 `./SC4J`(또는 설치본의 `SC4J` 경로)와 `./gradlew`로 바꿔 씁니다. 상대 경로는 현재 폴더 기준입니다.
 
 | 명령 | 하는 일 |
 |---|---|
@@ -54,6 +58,10 @@ SC4J.bat tool scr-enhanced script <command> [arguments]
 .\gradlew.bat runScriptTool --args="init my-map"
 ```
 
+```sh
+./gradlew runScriptTool --args="init my-map"
+```
+
 ### 2.2 스크립트 폴더
 
 ```powershell
@@ -69,7 +77,7 @@ SC4J.bat tool scr-enhanced script init my-map
 | `core.d.ts` | 하위 API `core`의 선언 |
 | `resources/` | 스크립트가 읽는 파일: GRP, anim, PNG, DDS, WAV와 Ogg 소리, 그리고 텍스트나 JSON으로 읽는 모든 파일 |
 
-맵에는 `manifest.json`, `resources/` 밖의 `.js` 파일, `resources/` 아래 파일만 들어갑니다. tsc가 쓴 것처럼 소스 맵 파일을 가리키는 `.js` 파일은 그 소스 맵을 함께 가져갑니다(2.6절).
+맵에는 `manifest.json`, `resources/` 밖의 `.js` 파일, `resources/` 아래 파일만 들어갑니다. 이름이 `.`으로 시작하는 숨김 파일과 폴더(`.DS_Store`, `.git` 등)는 맵에 들어가지 않고, `init`과 `unpack`이 빈 폴더를 요구할 때도 세지 않습니다. tsc가 쓴 것처럼 소스 맵 파일을 가리키는 `.js` 파일은 그 소스 맵을 함께 가져갑니다(2.6절).
 
 ### 2.3 편집기 자동 완성
 

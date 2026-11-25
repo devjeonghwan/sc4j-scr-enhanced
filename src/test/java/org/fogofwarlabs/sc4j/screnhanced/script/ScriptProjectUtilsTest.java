@@ -529,6 +529,18 @@ final class ScriptProjectUtilsTest {
     }
 
     @Test
+    void write_project_should_write_into_a_folder_that_holds_only_hidden_entries(@TempDir @NotNull Path folder) throws IOException {
+        Path project = folder.resolve("project");
+
+        Files.createDirectories(project.resolve(".git"));
+        Files.writeString(project.resolve(".DS_Store"), "-");
+
+        ScriptProjectUtils.writeProject(project);
+
+        Assertions.assertEquals(ScriptProjectUtils.MAIN_FILE_NAME, ScriptPackage.readFolder(project).getManifest().getMain());
+    }
+
+    @Test
     void write_type_script_project_should_write_a_project_whose_output_packs_with_source_lines(@TempDir @NotNull Path folder) throws IOException {
         Path project = folder.resolve("Star Map");
         Path scriptFolder = project.resolve(ScriptProjectUtils.SCRIPT_FOLDER);
