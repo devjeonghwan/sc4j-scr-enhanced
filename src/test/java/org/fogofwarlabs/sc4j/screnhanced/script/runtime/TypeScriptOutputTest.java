@@ -1,10 +1,6 @@
 package org.fogofwarlabs.sc4j.screnhanced.script.runtime;
 
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptCheckUtils;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptCompiledMapUtils;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptPackage;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptProtector;
-import org.fogofwarlabs.sc4j.screnhanced.script.ScriptSourceMap;
+import org.fogofwarlabs.sc4j.screnhanced.script.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

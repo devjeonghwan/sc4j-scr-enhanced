@@ -281,8 +281,7 @@ public final class ScriptCompatibilityScan {
     }
 
     /**
-     * @return {@link ScriptCompatibility#ENHANCED_ONLY} if the scripts use a gameplay member or cannot be judged, {@link ScriptCompatibility#COMPATIBLE}
-     *         otherwise
+     * @return {@link ScriptCompatibility#ENHANCED_ONLY} if the scripts use a gameplay member or cannot be judged, {@link ScriptCompatibility#COMPATIBLE} otherwise
      */
     public @NotNull ScriptCompatibility getCompatibility() {
         return this.uses.isEmpty() && this.warnings.isEmpty() ? ScriptCompatibility.COMPATIBLE : ScriptCompatibility.ENHANCED_ONLY;
@@ -361,8 +360,9 @@ public final class ScriptCompatibilityScan {
                 this.propertyWrites.computeIfAbsent(get.getProperty().getIdentifier(), key -> new ArrayList<>()).add(value);
                 this.collectHook(scriptName, get.getProperty().getIdentifier(), assignment.getRight());
             }
-            case ElementGet get when get.getElement() instanceof StringLiteral literal ->
-                    this.propertyWrites.computeIfAbsent(literal.getValue(), key -> new ArrayList<>()).add(value);
+            case ElementGet get when get.getElement() instanceof StringLiteral literal -> {
+                this.propertyWrites.computeIfAbsent(literal.getValue(), key -> new ArrayList<>()).add(value);
+            }
             default -> this.addUnknownWrites(left);
         }
     }
@@ -419,13 +419,21 @@ public final class ScriptCompatibilityScan {
     private void checkUses(@NotNull String scriptName, @NotNull AstRoot root) {
         root.visitAll(node -> {
             switch (node) {
-                case PropertyGet get when !isAssigned(get) -> this.checkMember(scriptName, get.getTarget(), get.getProperty().getIdentifier(), get);
-                case ElementGet get when get.getElement() instanceof StringLiteral literal && !isAssigned(get) ->
-                        this.checkMember(scriptName, get.getTarget(), literal.getValue(), get);
-                case ElementGet get when !(get.getElement() instanceof StringLiteral) && !(get.getElement() instanceof NumberLiteral) ->
-                        this.checkComputedMember(scriptName, get);
-                case ObjectLiteral literal when literal.isDestructuring() -> this.checkDestructuring(scriptName, literal);
-                case WithStatement statement -> this.addWarning(scriptName, findLine(statement), "with cannot be checked");
+                case PropertyGet get when !isAssigned(get) -> {
+                    this.checkMember(scriptName, get.getTarget(), get.getProperty().getIdentifier(), get);
+                }
+                case ElementGet get when get.getElement() instanceof StringLiteral literal && !isAssigned(get) -> {
+                    this.checkMember(scriptName, get.getTarget(), literal.getValue(), get);
+                }
+                case ElementGet get when !(get.getElement() instanceof StringLiteral) && !(get.getElement() instanceof NumberLiteral) -> {
+                    this.checkComputedMember(scriptName, get);
+                }
+                case ObjectLiteral literal when literal.isDestructuring() -> {
+                    this.checkDestructuring(scriptName, literal);
+                }
+                case WithStatement statement -> {
+                    this.addWarning(scriptName, findLine(statement), "with cannot be checked");
+                }
                 default -> {
                 }
             }
@@ -512,8 +520,7 @@ public final class ScriptCompatibilityScan {
             case FunctionCall call -> this.inferCall(call);
             case Assignment assignment when assignment.getType() == Token.ASSIGN -> this.inferType(assignment.getRight());
             case ConditionalExpression expression -> this.inferSame(expression.getTrueExpression(), expression.getFalseExpression());
-            case InfixExpression expression when expression.getType() == Token.OR || expression.getType() == Token.AND ->
-                    this.inferSame(expression.getLeft(), expression.getRight());
+            case InfixExpression expression when expression.getType() == Token.OR || expression.getType() == Token.AND -> this.inferSame(expression.getLeft(), expression.getRight());
             case ObjectLiteral ignored -> this.createType(OBJECT_TYPE);
             case ArrayLiteral ignored -> this.createType(ARRAY_TYPE);
             case StringLiteral ignored -> this.createType(STRING_TYPE);

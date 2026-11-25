@@ -14,12 +14,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -265,7 +260,7 @@ public final class ScriptTool {
         ScriptPackage scriptPackage = ScriptCompiledMapUtils.shrinkMaps(ScriptPackage.readFolder(Path.of(values.get(SCRIPT_OPTION))));
         byte[] mapFile = Files.readAllBytes(map);
         ScriptCompatibility mark = values.containsKey(COMPATIBILITY_OPTION) ? readCompatibility(values.get(COMPATIBILITY_OPTION))
-                                                                           : scriptPackage.getManifest().getCompatibility();
+                                                                            : scriptPackage.getManifest().getCompatibility();
         ScriptCompatibilityScan scan = mark == ScriptCompatibility.ENHANCED_ONLY ? null : ScriptCompatibilityScan.scan(scriptPackage);
         ScriptCompatibility compatibility = mark == ScriptCompatibility.AUTO && scan != null ? scan.getCompatibility() : mark;
         Path outputFile = resolveOutputFile(Path.of(values.get(OUTPUT_OPTION)), map, mapFile, compatibility);
@@ -340,8 +335,7 @@ public final class ScriptTool {
     }
 
     /**
-     * @return the map extension at the end of a file name ({@code .scm}, {@code .scx} or {@value ScriptCompatibility#ENHANCED_MAP_EXTENSION},
-     *         in any case) as the name has it, or {@code null} if it ends with none
+     * @return the map extension at the end of a file name ({@code .scm}, {@code .scx} or {@value ScriptCompatibility#ENHANCED_MAP_EXTENSION}, in any case) as the name has it, or {@code null} if it ends with none
      */
     private static @Nullable String findMapExtension(@NotNull String fileName) {
         for (String extension : List.of(FileBrowserScreen.ORIGINAL_MAP_EXTENSION, FileBrowserScreen.EXPANSION_MAP_EXTENSION,

@@ -77,14 +77,14 @@ public final class ScriptProjectUtils {
                                                        // scr-enhanced.d.ts and core.d.ts declare the script API, and jsconfig.json makes the editor check the scripts against them.
                                                        // Hooks are top-level functions with known names. Type the event of a hook with JSDoc, such as
                                                        // /** @param {UnitDiedEvent} event */ before function onUnitDied(event).
-
+                                                       
                                                        /**
                                                         * Called once at the first frame, before the other hooks of the frame.
                                                         */
                                                        function onStart() {
                                                            game.print('The script runs.');
                                                        }
-
+                                                       
                                                        /**
                                                         * Called every game frame, before the triggers.
                                                         *
@@ -100,7 +100,7 @@ public final class ScriptProjectUtils {
                                                        // The main source of the map: tsc compiles it into script/main.js, which SC:R Enhanced runs when the map starts.
                                                        // scr-enhanced.d.ts and core.d.ts declare the script API; import { give } from './bonus' loads the module src/bonus.ts.
                                                        // defineHooks defines the hooks and gives their parameters types.
-
+                                                       
                                                        defineHooks({
                                                            /**
                                                             * Called once at the first frame, before the other hooks of the frame.
@@ -108,7 +108,7 @@ public final class ScriptProjectUtils {
                                                            onStart() {
                                                                game.print('The script runs.');
                                                            },
-
+                                                       
                                                            /**
                                                             * Called every game frame, before the triggers.
                                                             *
