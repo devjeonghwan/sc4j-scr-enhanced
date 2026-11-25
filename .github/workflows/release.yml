@@ -17,7 +17,7 @@ env:
 jobs:
   release:
     name: release
-    # The client module ships FFmpeg natives for windows-x86_64 only.
+    # scr-enhanced.jar holds classes and resources only, so one jar serves every platform.
     runs-on: windows-latest
     timeout-minutes: 120
     defaults:
