@@ -30,8 +30,8 @@ final class SlangGlossaryTest {
     @Test
     void create_entries_should_leave_out_the_terms_of_the_target_language() throws IOException {
         SlangGlossary slang = SlangGlossary.parse("""
-                {"ko": {"렉": {"en": "lag", "zh": "卡顿"}}, "en": {"lag": {"ko": "렉"}}}
-                """.getBytes(StandardCharsets.UTF_8));
+                                                  {"ko": {"렉": {"en": "lag", "zh": "卡顿"}}, "en": {"lag": {"ko": "렉"}}}
+                                                  """.getBytes(StandardCharsets.UTF_8));
 
         Assertions.assertEquals(List.of(new GlossaryEntry("렉", Locale.ENGLISH, "lag")), slang.createEntries(Locale.ENGLISH));
         Assertions.assertEquals(List.of(new GlossaryEntry("lag", Locale.KOREAN, "렉")), slang.createEntries(Locale.KOREAN));

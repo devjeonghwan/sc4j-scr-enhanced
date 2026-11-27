@@ -27,8 +27,8 @@ final class TranslationContextsTest {
 
     private static @NotNull SlangGlossary createSlang() throws IOException {
         return SlangGlossary.parse("""
-                {"ko": {"가스": {"en": "gas"}, "렉": {"en": "lag"}}}
-                """.getBytes(StandardCharsets.UTF_8));
+                                   {"ko": {"가스": {"en": "gas"}, "렉": {"en": "lag"}}}
+                                   """.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
