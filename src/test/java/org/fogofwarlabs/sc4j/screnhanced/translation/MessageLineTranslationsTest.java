@@ -423,8 +423,8 @@ final class MessageLineTranslationsTest {
         translator.answer(0, "Hold on");
 
         ScrMessageSubstitute substitute = translations.findSubstitute(MessageLines.SYSTEM_LINE,
-                                                                                    lines.getLine(MessageLines.SYSTEM_LINE),
-                                                                                    settled);
+                                                                      lines.getLine(MessageLines.SYSTEM_LINE),
+                                                                      settled);
 
         Assertions.assertNotNull(substitute);
         Assertions.assertEquals("Hold on", substitute.getText());
@@ -490,8 +490,8 @@ final class MessageLineTranslationsTest {
         writeMemory(lines, MessageLines.SYSTEM_LINE, "Tenez bon\0");
 
         ScrMessageSubstitute substitute = translations.findSubstitute(MessageLines.SYSTEM_LINE,
-                                                                                    lines.getLine(MessageLines.SYSTEM_LINE),
-                                                                                    settled);
+                                                                      lines.getLine(MessageLines.SYSTEM_LINE),
+                                                                      settled);
 
         Assertions.assertNotNull(substitute);
         Assertions.assertEquals("Hold on", substitute.getText());
@@ -518,8 +518,8 @@ final class MessageLineTranslationsTest {
         translator.answer(1, "Guard the base");
 
         ScrMessageSubstitute status = translations.findSubstitute(MessageLines.SYSTEM_LINE,
-                                                                                lines.getLine(MessageLines.SYSTEM_LINE),
-                                                                                settled);
+                                                                  lines.getLine(MessageLines.SYSTEM_LINE),
+                                                                  settled);
         ScrMessageSubstitute message = translations.findSubstitute(FIRST_LINE, lines.getLine(FIRST_LINE), settled);
 
         Assertions.assertNotNull(status);

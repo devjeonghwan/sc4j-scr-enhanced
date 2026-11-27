@@ -125,8 +125,7 @@ public final class TextTranslation implements ScrTextPresenter {
         }
 
         /**
-         * @return the translated text once the translation came and the text was translated, or {@code null} otherwise
-         *         ({@link #findTranslatedText})
+         * @return the translated text once the translation came and the text was translated, or {@code null} otherwise ({@link #findTranslatedText})
          */
         @Override
         public @Nullable String findShownText() {
