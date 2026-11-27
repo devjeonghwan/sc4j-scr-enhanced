@@ -1,0 +1,64 @@
+{
+  "ko": {
+    "멀티": {"en": "expansion", "zh": "分矿"},
+    "앞마당": {"en": "natural"},
+    "본진": {"en": "main base", "zh": "主基地"},
+    "렉": {"en": "lag", "zh": "卡顿"},
+    "플토": {"en": "Protoss", "zh": "神族"},
+    "ㅎㅇ": {"en": "hi"},
+    "ㅈㅈ": {"en": "gg"},
+    "ㄱㄱ": {"en": "let's go"},
+    "ㄳ": {"en": "thanks"},
+    "ㅈㅅ": {"en": "sorry"},
+    "디텍": {"en": "detection"},
+    "일꾼": {"en": "workers"},
+    "미네랄": {"en": "minerals"},
+    "가스": {"en": "gas"},
+    "인구수": {"en": "supply"},
+    "업글": {"en": "upgrade"},
+    "견제": {"en": "harass"},
+    "시즈": {"en": "siege mode"},
+    "뮤탈": {"en": "Mutalisk"},
+    "히드라": {"en": "Hydralisk"},
+    "울트라": {"en": "Ultralisk"},
+    "하템": {"en": "High Templar"},
+    "다템": {"en": "Dark Templar"},
+    "다크템플러": {"en": "Dark Templar"},
+    "베슬": {"en": "Science Vessel"},
+    "배슬": {"en": "Science Vessel"}
+  },
+  "en": {
+    "natural": {"ko": "앞마당"},
+    "expansion": {"ko": "멀티", "zh": "分矿"},
+    "expand": {"ko": "멀티"},
+    "main base": {"ko": "본진", "zh": "主基地"},
+    "lag": {"ko": "렉", "zh": "卡顿"},
+    "harass": {"ko": "견제"},
+    "detection": {"ko": "디텍"},
+    "minerals": {"ko": "미네랄"},
+    "gas": {"ko": "가스"},
+    "rush": {"ko": "러시"},
+    "storm": {"ko": "스톰"},
+    "muta": {"ko": "뮤탈"},
+    "hydra": {"ko": "히드라"},
+    "brb": {"ko": "잠깐만"}
+  },
+  "zh": {
+    "偷矿": {"ko": "몰래 멀티", "en": "hidden expansion"},
+    "分矿": {"ko": "멀티", "en": "expansion"},
+    "卡顿": {"ko": "렉", "en": "lag"},
+    "人族": {"ko": "테란", "en": "Terran"},
+    "虫族": {"ko": "저그", "en": "Zerg"},
+    "神族": {"ko": "프로토스", "en": "Protoss"}
+  },
+  "ja": {
+    "ラグい": {"ko": "렉", "en": "laggy"},
+    "ラグ": {"ko": "렉", "en": "lag"}
+  },
+  "ru": {
+    "лаги": {"ko": "렉", "en": "lag"},
+    "терран": {"ko": "테란", "en": "Terran"},
+    "зерг": {"ko": "저그", "en": "Zerg"},
+    "протосс": {"ko": "프로토스", "en": "Protoss"}
+  }
+}
